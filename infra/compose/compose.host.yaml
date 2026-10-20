@@ -1,0 +1,6 @@
+# Local development override only. Never use on a publicly bound production host.
+services:
+  postgres:
+    ports: ['127.0.0.1:${POSTGRES_HOST_PORT:?Run pnpm env:init}:5432']
+  redis:
+    ports: ['127.0.0.1:${REDIS_HOST_PORT:?Run pnpm env:init}:6379']

@@ -1,0 +1,56 @@
+name: R1 foundation
+
+on:
+  push:
+    branches: [main, feat/r1-001-foundation]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-and-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: 0.13.3
+          python-version: '3.14.3'
+          enable-cache: true
+          cache-dependency-glob: services/ingestion/uv.lock
+      - name: Independent ephemeral local configuration
+        run: pnpm env:init
+      - name: Locked installs
+        run: |
+          pnpm install --frozen-lockfile
+          uv sync --project services/ingestion --locked
+      - run: pnpm toolchain:check
+      - run: pnpm db:validate
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Five-service integration and dependency failures
+        run: pnpm smoke
+      - name: Stop full Compose before host mode
+        run: pnpm compose:stop
+      - name: Host development mode smoke
+        run: pnpm smoke:host
+      - name: Restore project to stopped state without deleting volumes
+        if: always()
+        run: pnpm compose:stop

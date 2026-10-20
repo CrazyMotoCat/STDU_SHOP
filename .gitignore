@@ -1,0 +1,17 @@
+node_modules/
+.next/
+dist/
+coverage/
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.pyc
+.env
+.env.*
+!.env.example
+.local/
+*.tsbuildinfo
+apps/api/src/generated/
+apps/web/next-env.d.ts

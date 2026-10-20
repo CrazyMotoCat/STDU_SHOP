@@ -10,6 +10,8 @@ Next.js web, NestJS API, internal FastAPI ingestion, PostgreSQL and Redis only. 
 
 All three apps expose `GET /health/live` and `GET /health/ready`.
 
+The NestJS surface is captured in [foundation.openapi.json](foundation.openapi.json). Web/ingestion expose the smaller status-only proxy responses described below. No business OpenAPI or handwritten business DTOs are introduced.
+
 - Live: HTTP 200, JSON `{"status":"ok"}` when the process can serve requests. No dependency checks.
 - Nest readiness: run bounded real `SELECT 1` and Redis `PING` probes on every request. HTTP 200 with `{"status":"ready","checks":{"postgres":"up","redis":"up"}}` only if both pass. Otherwise HTTP 503, status `not_ready`, each check `up` or `down`.
 - Web and ingestion readiness: call the Nest readiness endpoint with a bounded timeout and no response caching. HTTP 200, `{"status":"ready"}`, only if Nest is ready. On connection error, timeout or non-200, HTTP 503, `{"status":"not_ready"}`.
@@ -19,7 +21,7 @@ All three apps expose `GET /health/live` and `GET /health/ready`.
 
 Root `.env.local` is explicitly loaded; `.env.example` documents keys without secrets. Local setup generates independent random database/Redis credentials. Containers override host connection URLs with service DNS names. Credentials never enter web client bundles.
 
-Full Compose binds web `127.0.0.1:3000` and API `127.0.0.1:3001`. Ingestion, PostgreSQL and Redis have no published ports. Host development publishes PostgreSQL/Redis only at `127.0.0.1:5432/6379`; apps bind `127.0.0.1:3000/3001/8000`. Modes share the local project volumes but cannot run application processes concurrently on the same ports. Startup checks refuse port conflicts.
+Full Compose binds web `127.0.0.1:3000` and API `127.0.0.1:3001`. Ingestion, PostgreSQL and Redis have no published ports. Host development publishes PostgreSQL/Redis only at `127.0.0.1:15432/16379` (explicit local configuration); apps bind `127.0.0.1:3000/3001/8000`. Modes share the local project volumes but cannot run application processes concurrently on the same ports. Startup checks refuse port conflicts. Standard host DB ports were already occupied on the owner's computer; the task's generated local configuration uses the explicit alternate ports without stopping unrelated services.
 
 On a VDS put HTTPS reverse proxy in front of loopback web/API. The Compose file is a foundation, not evidence of production TLS, backups, complete auth or legal readiness.
 

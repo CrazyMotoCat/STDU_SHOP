@@ -1,0 +1,17 @@
+pnpm-lock.yaml
+services/ingestion/uv.lock
+docs/spec/
+skills/
+docs/agent-workflow/
+README_START_HERE.md
+AGENTS.md
+.agent/
+.local/
+**/node_modules/
+**/.next/
+**/next-env.d.ts
+**/dist/
+**/.venv/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/

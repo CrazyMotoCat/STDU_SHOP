@@ -3,10 +3,10 @@
 TASK: R1-001
 STATUS: IN_PROGRESS
 CHECKPOINT_STATUS: UNSAFE
-PHASE: contract freeze
+PHASE: implementation and runtime verification
 UPDATED_AT: 2026-10-21
 BRANCH: feat/r1-001-foundation
-LAST_SAFE_COMMIT: be7079b
+LAST_SAFE_COMMIT: 43cbd3b
 
 ## COMPLETED
 
@@ -14,17 +14,27 @@ LAST_SAFE_COMMIT: be7079b
 - Verified a clean baseline at d77b25d; fetched the owner-mentioned workflow update be7079b.
 - Created the requested feature branch from origin/main at be7079b; local main remains d77b25d.
 - Recorded four accepted ADRs and the foundation health/environment contract before code changes.
+- Created app/tooling/Compose/CI sources and next-task template; independent QA found and lead fixed Compose build contexts and pnpm build approvals.
 
 ## VERIFIED
 
 - git status --porcelain=v2 --branch; PASS, clean before task edits.
 - git worktree list --porcelain; PASS, one known checkout.
 - docker version / docker context show; PASS, Docker Desktop Linux engine available.
-- Application checks: NOT RUN, implementation has not started.
+- pnpm install --frozen-lockfile; PASS on Windows after explicit pnpm 11 build approvals.
+- pnpm exec eslint . --max-warnings 0; PASS.
+- pnpm -r typecheck; PASS (web now also runs Next typegen for clean checkouts).
+- pnpm exec vitest run; PASS, 8 tests.
+- pnpm -r build; PASS, Next.js and NestJS.
+- pnpm db:validate; PASS, datasource-only schema, no models/migrations.
+- pnpm infra:up; PASS on explicit host ports 15432/16379 after standard 5432 was found occupied.
+- Built API GET /health/live and /health/ready; PASS, 200 and actual postgres/redis up. Temporary API process stopped.
+- Python/combined root quality, full Compose, host smoke, hosted CI: NOT RUN yet; downloads in progress.
 
 ## UNCOMMITTED
 
-- docs/adr/, docs/contracts/R1-001-foundation.md, this checkpoint: lead integrator.
+- All uncommitted task files in apps/, services/, infra/, scripts/, root manifests/config, CI, README and docs/plans/contracts/spec notes: lead integrator.
+- Ignored .env.local/.local and dependencies/build output are task-generated; do not stage.
 
 ## DECISIONS
 
@@ -43,7 +53,7 @@ LAST_SAFE_COMMIT: be7079b
 
 ## NEXT_ACTION
 
-Commit the accepted ADRs and foundation contract, then create the application skeletons.
+Finish uv sync and container image downloads, then run the combined quality gate and both smoke modes.
 
 ## DO_NOT_REPEAT
 
