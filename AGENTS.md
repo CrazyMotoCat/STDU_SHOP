@@ -28,3 +28,18 @@ Next.js / NestJS / Python FastAPI ingestion / PostgreSQL / Redis; Docker on one 
 ## Source of truth for each task
 
 Use `docs/spec/09_ROADMAP_BACKLOG.md`, `docs/spec/08_TESTS_AND_ACCEPTANCE.md`, and `docs/spec/TASK_TEMPLATE.md`. Read only relevant subdomains plus cross-cutting invariants; avoid unnecessary full-context dumps.
+
+## Codex workflow skills (adapted from AC_Expluatation)
+
+Repository skills are in `skills/README.md`; do **not** load every skill for every task. Pick the minimal set:
+- For non-trivial or budget-sensitive work: `skills/efficient-orchestrator/SKILL.md`.
+- Before risky/parallel work: `skills/repository-state-guard/SKILL.md`.
+- When splitting independent workstreams: `skills/task-decomposer/SKILL.md`.
+- Before pause/handoff: `skills/task-checkpoint/SKILL.md`.
+- After interruption: `skills/task-resume/SKILL.md`.
+- After parallel or high-risk edits: `skills/multi-agent-review/SKILL.md`.
+- Before completing significant business features: `skills/traceability-checker/SKILL.md` and `skills/docs-impact/SKILL.md`.
+
+A lead agent owns frozen contracts, migration ordering, merge/review and final correctness. Default BALANCED mode uses 0–2 parallel implementation writers only when file ownership is disjoint. Keep `.agent/tasks/R1-###/state.md` checkpoints consistent with Git and real test results. No automatic destructive reset/cleanup. The owner approves changed scope and strategic architecture; skills cannot supersede decisions #1–108.
+
+See `docs/agent-workflow/README.md` for onboarding.
