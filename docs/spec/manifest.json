@@ -1,0 +1,25 @@
+{
+  "project": "B2B Graphite & Petrol",
+  "approved_decisions": 108,
+  "release": "R1",
+  "entrypoint": "README_START_HERE.md",
+  "files": [
+    "00_README.md",
+    "01_DECISION_REGISTER.md",
+    "02_RELEASE_SCOPE.md",
+    "03_MASTER_TZ_R1.md",
+    "04_ARCHITECTURE.md",
+    "05_DOMAIN_MODEL.md",
+    "06_API_CONTRACTS.md",
+    "07_SECURITY_OPERATIONS.md",
+    "08_TESTS_AND_ACCEPTANCE.md",
+    "09_ROADMAP_BACKLOG.md",
+    "10_CODEX_ORCHESTRATION.md",
+    "11_DECISIONS_PENDING.md",
+    "INITIAL_CODEX_PROMPT.md",
+    "MASTER_TZ_R1_FULL.md",
+    "TASK_TEMPLATE.md",
+    "decision_registry.csv"
+  ],
+  "note": "GitHub import inventory, no content hashes; authoritative files are the Markdown documents."
+}
