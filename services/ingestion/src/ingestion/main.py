@@ -27,7 +27,7 @@ def create_app(
                 response = await client.get(f"{base.rstrip('/')}/health/ready")
             if response.status_code == 200:
                 return JSONResponse({"status": "ready"})
-        except (httpx.HTTPError, ValueError):
+        except httpx.HTTPError, ValueError:
             pass
         return JSONResponse({"status": "not_ready"}, status_code=503)
 
