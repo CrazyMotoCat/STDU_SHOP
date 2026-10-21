@@ -1,0 +1,4 @@
+// R1-001 infrastructure only. R1-002 must freeze its schema before adding models.
+datasource db {
+  provider = "postgresql"
+}

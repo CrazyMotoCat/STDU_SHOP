@@ -1,0 +1,44 @@
+{
+  "name": "stdu-shop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": "24.19.0",
+    "pnpm": "11.25.0"
+  },
+  "scripts": {
+    "env:init": "node scripts/env-init.mjs",
+    "toolchain:check": "node scripts/tasks.mjs toolchain",
+    "infra:up": "node scripts/ops.mjs infra-up",
+    "infra:stop": "node scripts/ops.mjs infra-stop",
+    "dev": "node scripts/ops.mjs dev",
+    "compose:up": "node scripts/ops.mjs compose-up",
+    "compose:stop": "node scripts/ops.mjs compose-stop",
+    "compose:status": "node scripts/ops.mjs status",
+    "lint": "node scripts/tasks.mjs lint",
+    "format:check": "node scripts/tasks.mjs format-check",
+    "format": "node scripts/tasks.mjs format",
+    "typecheck": "node scripts/tasks.mjs typecheck",
+    "test": "node scripts/tasks.mjs test",
+    "build": "node scripts/tasks.mjs build",
+    "smoke": "node scripts/smoke.mjs compose",
+    "smoke:host": "node scripts/smoke.mjs host",
+    "db:validate": "pnpm --filter @stdu/api db:validate",
+    "db:migrate:dev": "pnpm --filter @stdu/api db:migrate:dev",
+    "db:migrate:deploy": "pnpm --filter @stdu/api db:migrate:deploy"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.10.1",
+    "concurrently": "10.0.6",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.0",
+    "vitest": "5.0.5"
+  }
+}

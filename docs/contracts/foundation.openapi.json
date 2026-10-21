@@ -1,0 +1,89 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "STDU NestJS foundation", "version": "0.1.0" },
+  "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "processLiveness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The process can serve HTTP; no dependency checks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["status"],
+                  "additionalProperties": false,
+                  "properties": { "status": { "const": "ok" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "dependencyReadiness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "SELECT 1 and PING succeeded.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Ready" }
+              }
+            }
+          },
+          "503": {
+            "description": "At least one dependency failed. No exception/configuration is returned.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NotReady" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Ready": {
+        "type": "object",
+        "required": ["status", "checks"],
+        "additionalProperties": false,
+        "properties": {
+          "status": { "const": "ready" },
+          "checks": {
+            "type": "object",
+            "required": ["postgres", "redis"],
+            "additionalProperties": false,
+            "properties": {
+              "postgres": { "const": "up" },
+              "redis": { "const": "up" }
+            }
+          }
+        }
+      },
+      "NotReady": {
+        "type": "object",
+        "required": ["status", "checks"],
+        "additionalProperties": false,
+        "properties": {
+          "status": { "const": "not_ready" },
+          "checks": {
+            "type": "object",
+            "required": ["postgres", "redis"],
+            "additionalProperties": false,
+            "properties": {
+              "postgres": { "enum": ["up", "down"] },
+              "redis": { "enum": ["up", "down"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

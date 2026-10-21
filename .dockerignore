@@ -1,0 +1,14 @@
+.git
+.agent
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+.env*
+.local
+coverage
