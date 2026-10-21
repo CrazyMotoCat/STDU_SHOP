@@ -1,6 +1,6 @@
 # Codex skills — STDU_SHOP R1
 
-Adapted selectively from [AC_Expluatation](https://github.com/CrazyMotoCat/AC_Expluatation/tree/main/skills). These are repository-local workflows, not additional business requirements. They do not authorize a new feature, third-party service, destructive action or a merge.
+Adapted selectively from [AC_Expluatation](https://github.com/CrazyMotoCat/AC_Expluatation/tree/main/skills). These are repository-local workflows, not additional business requirements. Skills do not themselves authorize features, services, destructive actions or merges; standing Git delivery authorization comes from the owner-approved [Git Delivery Policy](../AGENTS.md#git-delivery-policy).
 
 ## Dispatch, only as needed
 
@@ -18,7 +18,7 @@ Keep tiny changes simple. Never invoke all skills merely because they exist. Ski
 
 ## Safe sequence for R1 high-risk work
 
-repository-state-guard -> efficient-orchestrator -> freeze contract -> (task-decomposer if useful) -> implementation in isolated ownership -> targeted checks -> independent multi-agent-review if needed -> traceability-checker -> docs-impact -> task-checkpoint -> PR.
+repository-state-guard -> efficient-orchestrator + delivery mode -> freeze contract -> (task-decomposer if useful) -> implementation in isolated ownership -> targeted checks -> independent multi-agent-review if needed -> traceability-checker -> docs-impact -> delivery under Git Delivery Policy + checkpoint/status. High-risk changes use AUTO_MERGE when the approved contract and review/checks permit it, otherwise REVIEW_REQUIRED.
 
 ## Sources of truth
 

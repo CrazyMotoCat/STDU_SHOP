@@ -1,6 +1,8 @@
 # Codex Task Template — paste into a new scoped assignment
 
 **ID:** R1-___  
+**Delivery Mode (optional):** DIRECT_MAIN / AUTO_MERGE / REVIEW_REQUIRED. If omitted, the lead selects by risk under [Git Delivery Policy](../../AGENTS.md#git-delivery-policy); an explicit mode applies within safety and GitHub rules.
+
 **Goal (visible to user):** ...  
 **Scope / allowed modules and files:** ...  
 **Source requirements:** CAT-__/SRC-__/REQ-__/SPEC-__/CALC-__/QUOTE-__/ADM-__; decision numbers ...  
@@ -30,4 +32,5 @@
 2. Changed files and contracts/migrations.
 3. Commands **actually run** and test results.
 4. Screenshots or demonstration path when UI involved.
-5. Open issues, assumptions, next bounded action.
+5. Delivery mode, CI, PR link if created, integration status PUSHED/MERGED/BLOCKED and final main SHA if delivered.
+6. Open issues, assumptions, next bounded action. State unavailable CI or a blocked owner decision explicitly; do not claim full delivery from a local implementation alone.
