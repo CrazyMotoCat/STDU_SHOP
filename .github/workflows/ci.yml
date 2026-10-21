@@ -49,8 +49,12 @@ jobs:
         run: pnpm smoke
       - name: Stop full Compose before host mode
         run: pnpm compose:stop
-      - name: Host development mode smoke
-        run: pnpm smoke:host
+      - name: Host lifecycle smoke (3 consecutive runs)
+        run: |
+          for attempt in 1 2 3; do
+            echo "Host lifecycle regression run $attempt/3"
+            pnpm smoke:host
+          done
       - name: Restore project to stopped state without deleting volumes
         if: always()
         run: pnpm compose:stop
