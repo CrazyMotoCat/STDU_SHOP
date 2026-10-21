@@ -69,7 +69,16 @@ export function run(
     });
     let stdout = '';
     let stderr = '';
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      if (error) reject(error);
+      else accept(stdout.trim());
+    };
     if (capture) {
+      child.stdout.setEncoding('utf8');
+      child.stderr.setEncoding('utf8');
       child.stdout.on('data', (chunk) => {
         stdout += chunk;
       });
@@ -77,11 +86,11 @@ export function run(
         stderr += chunk;
       });
     }
-    child.on('error', reject);
-    child.on('exit', (code) => {
-      if (code === 0) accept(stdout.trim());
+    child.once('error', finish);
+    child.once('close', (code) => {
+      if (code === 0) finish();
       else
-        reject(
+        finish(
           new Error(
             `${command} failed (exit ${code}).${capture ? ' Check the service or tool logs.' : ''}`,
           ),

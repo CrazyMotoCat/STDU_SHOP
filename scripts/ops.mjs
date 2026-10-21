@@ -29,7 +29,6 @@ export async function composeUp() {
   const running = await runningServices();
   if (!running.includes('web')) await requireFreePort(3000);
   if (!running.includes('api')) await requireFreePort(3001);
-  await requireFreePort(8000);
   await compose(['up', '-d', '--build', '--wait', '--wait-timeout', '180']);
 }
 
