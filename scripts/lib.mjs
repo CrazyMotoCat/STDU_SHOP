@@ -157,5 +157,5 @@ export async function runningServices() {
 
 export function reportFailure(error) {
   console.error(error instanceof Error ? error.message : 'Command failed.');
-  process.exitCode = 1;
+  process.exitCode = Number.isInteger(error?.exitCode) ? error.exitCode : 1;
 }

@@ -10,7 +10,7 @@ vi.mock('./lib.mjs', () => ({
   runningServices: vi.fn(),
   reportFailure: vi.fn(),
 }));
-vi.mock('./host-apps.mjs', () => ({ startHostApps: vi.fn() }));
+vi.mock('./host-apps.mjs', () => ({ withHostApps: vi.fn() }));
 
 beforeEach(() => vi.resetAllMocks());
 

@@ -7,7 +7,7 @@ import {
   runningServices,
   reportFailure,
 } from './lib.mjs';
-import { startHostApps } from './host-apps.mjs';
+import { withHostApps } from './host-apps.mjs';
 
 export async function infraUp() {
   const running = await runningServices();
@@ -57,7 +57,7 @@ async function main() {
       console.log(
         'Starting host apps. Ctrl+C stops apps; pnpm infra:stop stops the dependencies.',
       );
-      await startHostApps().result;
+      await withHostApps(() => new Promise(() => {}));
       break;
     }
     default:

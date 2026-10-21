@@ -25,7 +25,13 @@ async function main() {
     }
     case 'lint':
       await run('pnpm', ['exec', 'eslint', '.', '--max-warnings', '0']);
-      await run('uv', [...py, 'ruff', 'check', 'services/ingestion']);
+      await run('uv', [
+        ...py,
+        'ruff',
+        'check',
+        'services/ingestion',
+        'scripts/windows_job.py',
+      ]);
       break;
     case 'format-check':
     case 'format':
@@ -41,6 +47,7 @@ async function main() {
         'format',
         ...(action === 'format' ? [] : ['--check']),
         'services/ingestion',
+        'scripts/windows_job.py',
       ]);
       break;
     case 'typecheck':
@@ -52,6 +59,14 @@ async function main() {
         'services/ingestion/pyproject.toml',
         'services/ingestion/src',
         'services/ingestion/tests',
+      ]);
+      await run('uv', [
+        ...py,
+        'mypy',
+        '--platform',
+        'win32',
+        '--check-untyped-defs',
+        'scripts/windows_job.py',
       ]);
       break;
     case 'test':
