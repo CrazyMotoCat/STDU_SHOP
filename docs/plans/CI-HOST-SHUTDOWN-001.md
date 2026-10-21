@@ -42,11 +42,21 @@ Installed concurrently 10.0.6 runs commands through a shell. The recipes add pnp
 
 ### Regression coverage
 
-Controlled Node fixtures and short test deadlines cover normal tree shutdown/restart; exception; immediate stop; partial launch failure; SIGINT/SIGTERM and handler removal; synchronous exception plus signal during cleanup; combined operation/shutdown errors; early parent exit with inherited pipes; stubborn child force escalation; foreign sentinel survival; bounded failed cleanup; CLI nonzero/no final PASS with captured pipes; Windows actual-helper crash; direct smoke recipes/no reload; retained dev watchers/reload. Each applicable process test checks recorded owned PIDs and free ports. The helper-crash test is Windows-only and explicitly skipped on Ubuntu.
+Controlled Node fixtures and short test deadlines cover normal tree shutdown/restart; exception; immediate stop; partial launch failure; SIGINT/SIGTERM and handler removal; synchronous exception plus signal during cleanup; combined operation/shutdown errors; early parent exit with inherited pipes; stubborn child force escalation; foreign sentinel survival; bounded failed cleanup; CLI nonzero/no final PASS with captured pipes; Windows actual-helper crash; direct smoke recipes/no reload; retained dev watchers/reload. Assertions check owned PIDs, free ports and survival of the separate foreign sentinel. The helper-crash test is Windows-only and explicitly skipped on Ubuntu.
 
 ### Hosted delivery
 
-Ubuntu runtime evidence and final main SHA are pending publication at this checkpoint. CI executes the full gate, Compose smoke and **three consecutive host smoke**; no retry-only acceptance. Record exact checked PR candidate/main SHA and run URL after observing actual results.
+Implementation delivered through [merged PR #3](https://github.com/CrazyMotoCat/STDU_SHOP/pull/3), AUTO_MERGE after all gates; no required approvals/protection or unresolved/blocking reviews were bypassed. Independent read-only QA passed. Local main updated by fast-forward, no reset/rewrite.
+
+| Evidence              | Exact SHA                                  | Result                                                                                                   |
+| --------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Implementation HEAD   | `75616148c48306719c440f914e62096293195566` | Windows local gate above                                                                                 |
+| Actual PR CI checkout | `0afcde103400a37403de8c5109372a87a4db814e` | [Run 39616862891](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39616862891), attempt 1 SUCCESS |
+| Integrated main       | `759ceffea9c0c5d974e6855ef2fb292bd0a8a004` | [Run 39617956282](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39617956282), attempt 1 SUCCESS |
+
+All three commits have identical Git tree `88e920719de52cc6d7f3937f7e125ef94cf6f8fe`. Logs confirm exact checkout, full quality gate, 29 Vitest PASS + 1 deliberate Windows-only skip, 5 pytest PASS, full Compose smoke and **three consecutive host smoke** in each Ubuntu run. All six host shutdowns are `forced=false`; final PASS follows shutdown, next launch has no port conflict. Runner cleanup reports no surviving owned uv/uvicorn/python processes. No CI retry was needed for this task.
+
+The subsequent delivery-record commit changes only this report and the task checkpoint. Its full SHA and successful main push CI are reported in the final delivery message/PR description after verification. The immutable source-code acceptance SHA is the integrated main SHA above; this avoids a self-referential commit hash inside its own report.
 
 ### Remaining limits
 
