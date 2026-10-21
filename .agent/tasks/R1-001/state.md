@@ -1,12 +1,12 @@
 # R1-001 task state
 
 TASK: R1-001
-STATUS: IMPLEMENTED_AWAITING_OWNER_ACCEPTANCE
+STATUS: TECHNICAL_REVIEW_CORRECTIONS_COMPLETE
 CHECKPOINT_STATUS: SAFE
-PHASE: Implementation complete; owner review
+PHASE: Regression complete; final submission CI evidence in PR
 UPDATED_AT: 2026-10-21
 BRANCH: feat/r1-001-foundation
-LAST_SAFE_COMMIT: d008f0a8d1eafc6800ee4ea55c414cf38a0b3462
+LAST_SAFE_COMMIT: ad43185a7852c5407a5f92ba738303694e9ee4e5
 
 ## COMPLETED
 
@@ -17,6 +17,7 @@ LAST_SAFE_COMMIT: d008f0a8d1eafc6800ee4ea55c414cf38a0b3462
 - Created app/tooling/Compose/CI sources and next-task template; independent QA found and lead fixed Compose build contexts and pnpm build approvals.
 - Completed Windows quality checks, both failure smoke modes, the 12-criterion evidence report and bounded R1-002 template.
 - Disabled Next.js automatic nested AGENTS.md generation; root AGENTS.md preserved. Repeated web typecheck/lint and both smoke modes successfully.
+- Owner technical review accepted baseline bff6043 subject to two bounded corrections: Compose port 8000 and child-process close completion. Both implemented in ad43185, with six regression tests; three future backlog notes recorded. No R1-002 or merge.
 
 ## VERIFIED
 
@@ -37,10 +38,12 @@ LAST_SAFE_COMMIT: d008f0a8d1eafc6800ee4ea55c414cf38a0b3462
 - Windows uv sync --locked and root toolchain:check/lint/format:check/typecheck/test/build/db:validate: PASS, 8 Vitest and 5 pytest cases; evidence .local/evidence/quality-windows.log.
 - pnpm smoke and pnpm smoke:host: PASS Windows, real SELECT 1/PING, readiness 503 and liveness 200 during each dependency outage, restoration, no secret leakage. Temporary host processes terminated and ports released.
 - Private files volume: API nonroot user write/read PASS; no public file route/mount. PowerShell env initialization preserves existing env. Approved decision register unchanged.
+- Review correction regression on Windows: toolchain/lint/format:check/typecheck/test/build/db:validate PASS; 14 Vitest + 5 pytest. Focused scripts tests 6/6 PASS. Both failure smoke modes PASS with exit 0. Full Compose passed while task-owned host listener occupied 8000; listener released. Host 8000 guard remains. Logs: .local/evidence/review-quality-windows.log, review-compose-smoke.log, review-host-smoke.log.
+- Baseline hosted CI bff6043 run 39449637262 independently verified by owner. Final documentation HEAD/checkout SHA/run results are recorded in PR #2, separately from baseline and code-only ad43185.
 
 ## UNCOMMITTED
 
-- Completion checkpoint/report and Next agentRules=false: final integrator-owned atomic change, included together in the completion commit following LAST_SAFE_COMMIT. Resolve its SHA with git log; do not duplicate if already committed.
+- Lead-owned report/checkpoint completion commit follows ad43185. Resolve its exact final SHA with git log and PR #2; no source changes after the verified correction commit.
 - Ignored .env.local/.local and dependencies/build output are task-generated; do not stage.
 
 ## DECISIONS
@@ -52,7 +55,7 @@ LAST_SAFE_COMMIT: d008f0a8d1eafc6800ee4ea55c414cf38a0b3462
 
 ## PENDING
 
-- Owner acceptance of R1-001 and subsequent authorization of R1-002; final submission CI evidence is linked on PR #2.
+- Owner merges PR #2 after successful final submission CI; no automatic merge and no R1-002. The owner's conditional technical acceptance applies when these corrections and final checks are complete.
 - Production VDS/TLS/external backup/restore remain documented deployment work, not demonstrated by local R1-001.
 
 ## BLOCKERS
@@ -61,13 +64,12 @@ LAST_SAFE_COMMIT: d008f0a8d1eafc6800ee4ea55c414cf38a0b3462
 
 ## NEXT_ACTION
 
-Owner reviews PR #2 and the 12-criterion verification report before accepting R1-001.
+Verify final submission CI on PR #2 and hand off the exact SHA/run to the owner for manual merge.
 
 ## RESUME_NOTES
 
 - PR #2: https://github.com/CrazyMotoCat/STDU_SHOP/pull/2 (attached).
-- Local quality, locked installs, both smoke modes complete; no task-owned shell sessions remain.
-- Full Compose currently serves 127.0.0.1:3000/3001; host mode needs it stopped first. DB host override uses 15432/16379.
+- Local quality and both smoke modes complete; task-owned host processes and listener stopped. Restore full Compose with pnpm compose:up if needed. DB host override uses 15432/16379.
 - .local/evidence/quality-windows.log, compose-smoke.log, host-smoke.log contain actual local evidence; do not stage .local or .env.local.
 
 ## DO_NOT_REPEAT
