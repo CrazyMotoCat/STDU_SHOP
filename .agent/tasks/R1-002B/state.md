@@ -1,13 +1,13 @@
 # R1-002B
 
 TASK: R1-002B
-STATUS: READY_TO_START
+STATUS: IN_PROGRESS
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE
-PHASE: Start prepared after A merge and exact-main CI; implementation not started
+PHASE: B1 — Prisma schema and first isolated PostgreSQL migration slice
 UPDATED_AT: 2026-10-22
-BRANCH: main (preparation only; implementation requires feature branch)
-LAST_SAFE_COMMIT: 3075337058fb63262b59d64a725fbaa30def6b93
+BRANCH: codex/r1-002b-staff-identity
+LAST_SAFE_COMMIT: 9dad7297603460b835a76a2147d1fcf9bac96d03
 OWNER_APPROVED_SOURCE_SHA: 867184f60d5306b58dd66ac6607a6ec0487761d3
 FROZEN_CONTRACT_COMMIT: bf0b66d06cca7a061c35d3f9e7af9a99f5f5ea57
 CONTRACT_VERSION: 1.0.0
@@ -19,8 +19,10 @@ CONTRACT_VERSION: 1.0.0
 
 ## VERIFIED
 
-- A PR4 merged main3075337058fb63262b59d64a725fbaa30def6b93; post-integration CI39779081785 SUCCESS attempt1 with full foundation gate/smokes and frozen checker30/30.
-- No B implementation/schema/migration applied. B auth/RBAC/SQL/runtime tests NOT IMPLEMENTED / NOT RUN.
+- A PR4 merged; current fetched baseline main/origin/main is 9dad7297603460b835a76a2147d1fcf9bac96d03.
+- Frozen checker `node docs/contracts/check-R1-002.mjs` PASS at task start.
+- Feature branch `codex/r1-002b-staff-identity` created from synchronized, clean baseline.
+- Docker Engine is available. Existing Docker containers belong to another project and are left untouched; B will use an isolated test database/container.
 
 ## OWNERSHIP / LIMITS
 
@@ -28,7 +30,7 @@ One lead writer for DB/schema/migrations/OpenAPI/permissions. Contract changes r
 
 ## UNCOMMITTED
 
-Only preparation docs in A completion commit until published; no B implementation work.
+No implementation changes yet. Registry compatibility was checked for Prisma 7.10.1, Prisma PG adapter 7.10.1, and argon2 0.45.1 / Node >=16.17.
 
 ## BLOCKERS
 
@@ -36,7 +38,7 @@ None for approved B start. Live B security/DB correctness remains unverified unt
 
 ## NEXT_ACTION
 
-Fresh fetch/main guard -> short-lived codex feature branch -> first reviewed11-model migration slice on isolated ephemeral test DB, per docs/plans/R1-002B-start.md.
+Implement the frozen 11-model schema and first migration, then apply and test it against an isolated ephemeral PostgreSQL instance without touching existing containers, volumes, or databases.
 
 ## DO_NOT_REPEAT
 
