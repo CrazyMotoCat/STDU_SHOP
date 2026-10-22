@@ -81,6 +81,78 @@ for (const [role, permissions] of Object.entries(rbac.roleTemplates)) {
 }
 for (const permission of rbac.controlAdminRequiredPermissions)
   assert(rbac.permissions[permission], permission);
+// Deliberately fixed R1-002 set. Registering a future action must not extend it.
+const protectedPermissions = [
+  'staff.users.read',
+  'staff.users.create',
+  'staff.users.status.write',
+  'staff.sessions.revoke',
+  'staff.roles.read',
+  'staff.roles.write',
+  'staff.roles.permissions.write',
+  'staff.roles.assign',
+  'sellers.read',
+  'sellers.write',
+  'audit.read',
+  'files.metadata.read',
+];
+assert.deepEqual(
+  rbac.controlAdminRequiredPermissions,
+  protectedPermissions.slice(0, 8),
+);
+assert.deepEqual(rbac.fullAdminProtectedPermissions, protectedPermissions);
+assert.deepEqual(rbac.roleTemplates['bootstrap-admin'], protectedPermissions);
+assert.deepEqual(
+  rbac.roleTemplates['access-admin'],
+  protectedPermissions.slice(0, 8),
+);
+assert.equal(rbac.roleTemplates['access-operator'], undefined);
+const preservation = {
+  controlRequiredSet: 'controlAdminRequiredPermissions',
+  fullRequiredSet: 'fullAdminProtectedPermissions',
+  minimumControlAdmins: 1,
+  minimumFullAdmins: 1,
+  qualification: {
+    userState: 'ACTIVE',
+    passwordChangeRequired: false,
+    credential: 'valid policy-compliant Argon2id passwordHash',
+    permissions: 'effective union of ACTIVE assigned roles for the same user',
+    requiresLiveSession: false,
+    roleNameAuthority: false,
+  },
+  lock: 'pg_advisory_xact_lock(1398031445, 2)',
+  transaction:
+    'READ COMMITTED; acquire advisory lock before reading authorization/invariant state; recompute both administrator sets from resulting persisted state before commit',
+  writers: [
+    'user.state',
+    'user.credentials',
+    'user.passwordChangeRequired',
+    'user.roles',
+    'role.permissions',
+    'role.state',
+    'permission.registry',
+  ],
+  failureCode: 'LAST_ADMIN_REQUIRED',
+  failure:
+    'rollback business rows, versions and session changes; no SUCCESS audit; separate mandatory DENIED audit with LAST_ADMIN_REQUIRED; audit failure returns 503',
+  futurePermissions:
+    'explicit versioned owner-approved contract update only; no automatic inclusion',
+  privilegedBypass: false,
+};
+assert.deepEqual(rbac.adminPreservation, preservation);
+assert.deepEqual(api['x-admin-preservation'], {
+  ...preservation,
+  controlAdminRequiredPermissions: protectedPermissions.slice(0, 8),
+  fullAdminProtectedPermissions: protectedPermissions,
+});
+const invariantOperations = new Set([
+  'changeMyPassword',
+  'setStaffUserState',
+  'assignStaffRole',
+  'removeStaffRole',
+  'changeRole',
+  'replaceRolePermissions',
+]);
 const methods = new Set(['get', 'post', 'put', 'patch', 'delete']);
 const operations = [];
 for (const [path, item] of Object.entries(api.paths)) {
@@ -105,6 +177,20 @@ for (const [path, item] of Object.entries(api.paths)) {
             );
     }
     assert(Array.isArray(operation['x-invariants']), path);
+    if (invariantOperations.has(operation.operationId)) {
+      assert(
+        operation['x-invariants'].some((rule) =>
+          rule.startsWith('Apply x-admin-preservation:'),
+        ),
+        `Missing full administrator invariant: ${operation.operationId}`,
+      );
+      assert(
+        operation.responses[409]?.['x-error-codes'].includes(
+          'LAST_ADMIN_REQUIRED',
+        ),
+        `Missing preservation rejection: ${operation.operationId}`,
+      );
+    }
     assert(
       operation.responses[400] &&
         operation.responses[500] &&
@@ -241,11 +327,11 @@ const testMatrix = readFileSync(
   resolve(directory, 'R1-002-test-matrix.md'),
   'utf8',
 );
-for (let n = 1; n <= 34; n++)
+for (let n = 1; n <= 40; n++)
   assert(
     testMatrix.includes(`| T-${String(n).padStart(2, '0')} |`),
     `Missing test T-${n}`,
   );
 console.log(
-  'PASS PROPOSED R1-002: 11 entities, 12 permissions, 23 operations, 34 planned tests; references/DTO/CSRF/permission consistency. No runtime or SQL verification claimed.',
+  'PASS PROPOSED R1-002: 11 entities, 12 permissions, 23 operations, 40 planned tests; full-admin preservation/references/DTO/CSRF/permission consistency. No runtime or SQL verification claimed.',
 );

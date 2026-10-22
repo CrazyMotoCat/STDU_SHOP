@@ -64,7 +64,7 @@ pnpm smoke:host
 
 ## Приёмка B
 
-Все T-01…T-34 из [матрицы](../contracts/R1-002-test-matrix.md) PASS с фактическими результатами, без незаявленных skips. На Windows и Ubuntu применимая runtime/session/migration проверка; current PR head и actual candidate/tree известны; нет HIGH/BLOCKER/MEDIUM открытых дефектов. Review backend/security/DB независим от writer. AUTO_MERGE разрешён только в одобренных границах и по GitHub rules; итоговый main SHA/CI подтверждены. Human approval каталога/engineering/КП не выводится из CI и вообще не реализуется этим B.
+Все T-01…T-40 из [матрицы](../contracts/R1-002-test-matrix.md) PASS с фактическими результатами, без незаявленных skips. На Windows и Ubuntu применимая runtime/session/migration проверка; current PR head и actual candidate/tree известны; нет HIGH/BLOCKER/MEDIUM открытых дефектов. Review backend/security/DB независим от writer. AUTO_MERGE разрешён только в одобренных границах и по GitHub rules; итоговый main SHA/CI подтверждены. Human approval каталога/engineering/КП не выводится из CI и вообще не реализуется этим B.
 
 ## Источники инструментов
 

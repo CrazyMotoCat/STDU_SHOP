@@ -4,12 +4,15 @@ TASK: R1-002A
 STATUS: AWAITING_OWNER_APPROVAL
 DELIVERY_MODE: REVIEW_REQUIRED
 CHECKPOINT_STATUS: SAFE
-PHASE: Draft approval PR pushed; proposal reviewed and CI verified
+PHASE: OD-002A-02 full-admin preservation revision; local checks and independent reviews PASS, final push/CI evidence recorded in PR
 UPDATED_AT: 2026-10-22
 BRANCH: codex/r1-002a-contract-freeze
-LAST_SAFE_COMMIT: d525d3f311c22d32d31c2fc5556d838a296adcc4
+LAST_SAFE_COMMIT: e7807f60741785c1bc4b1c695d6542eb44c230e8
 
 ## COMPLETED
+
+- Additional owner-requested OD-002A-02 revision: fixed12 full-admin preservation alongside control8, same-user ACTIVE-role union/usable credentials, shared serialized transaction, no bypass/future auto-expansion; access-admin renamed ordinary template; bootstrap/recovery aligned.
+- Added T35..40 future B scenarios and13 documentation-checker regressions;26 total checker tests PASS. OpenAPI409/audit reasons consistent after independent affected re-review.
 
 - Read assignment, relevant specs and ADR-001/003/004; verified clean synchronized baseline.
 - Single lead authored proposed11-entity model,12-permission RBAC,23-operation OpenAPI, auth/audit/bootstrap,34-row planned test matrix, B plan and consolidated OD-002A-01..08 package.
@@ -17,6 +20,9 @@ LAST_SAFE_COMMIT: d525d3f311c22d32d31c2fc5556d838a296adcc4
 - Draft PR4 open and attached; proposal PROPOSED0.1.0; main unchanged ec109be.
 
 ## VERIFIED
+
+- Current revision: checker26/26 PASS; OpenAPI validator/generated TS probe/typecheck/reproducible generation PASS; full local Windows gate30 Vitest+5 pytest PASS. Independent backend/security re-review READ_ONLY PASS, no open findings.
+- Latest actual HEAD/CI run/candidate recorded in PR4 description and final delivery message after push; historical runs below do not verify this revision. No merge/B authorization.
 
 - Git preflight PASS.
 - node docs/contracts/check-R1-002.mjs PASS structural consistency; no runtime B claim.
@@ -27,7 +33,7 @@ LAST_SAFE_COMMIT: d525d3f311c22d32d31c2fc5556d838a296adcc4
 
 ## UNCOMMITTED
 
-- NONE after evidence commit. Only this checkpoint/report change in that follow-up; ignored local tooling/evidence separate.
+- Lead-owned OD-002A-02 contracts/checker/test matrix/plan/report/checkpoint revision until committed. No unrelated dirty paths; ignored local tooling/evidence separate. Commit SHA and completed CI recorded externally in PR4.
 
 ## DECISIONS
 
@@ -40,7 +46,7 @@ LAST_SAFE_COMMIT: d525d3f311c22d32d31c2fc5556d838a296adcc4
 
 ## NEXT_ACTION
 
-Present the consolidated OD-002A-01..08 approval package for exact final PR4 HEAD; no merge or implementation until owner approval.
+Push reviewed OD-002A-02 revision and verify final exact-HEAD/actual-candidate full CI, then present updated consolidated OD-002A-01..08 package; no merge or implementation until owner approval of updated HEAD.
 
 ## DO_NOT_REPEAT
 

@@ -28,6 +28,12 @@ const changeRegistry = (directory, mutate) => {
   mutate(value);
   writeFileSync(path, JSON.stringify(value));
 };
+const changeRbac = (directory, mutate) => {
+  const path = join(directory, names[1]);
+  const value = JSON.parse(readFileSync(path, 'utf8'));
+  mutate(value);
+  writeFileSync(path, JSON.stringify(value));
+};
 const cases = [
   ['baseline', () => {}, 0],
   ['missing 401', (a) => delete a.paths['/v1/staff/users'].get.responses[401]],
@@ -104,6 +110,94 @@ const cases = [
           'staff.password.changed'
         ].outcomes.DENIED.filter((code) => code !== 'VALIDATION_ERROR');
       }),
+  ],
+  [
+    'missing full-admin protected set',
+    (_, d) => changeRbac(d, (r) => delete r.fullAdminProtectedPermissions),
+  ],
+  [
+    'control-only protected set',
+    (_, d) =>
+      changeRbac(d, (r) => {
+        r.fullAdminProtectedPermissions = r.controlAdminRequiredPermissions;
+      }),
+  ],
+  [
+    'duplicate protected permission',
+    (_, d) =>
+      changeRbac(d, (r) => {
+        r.fullAdminProtectedPermissions[11] = 'audit.read';
+      }),
+  ],
+  [
+    'bootstrap loses critical permission',
+    (_, d) =>
+      changeRbac(d, (r) => {
+        r.roleTemplates['bootstrap-admin'].pop();
+      }),
+  ],
+  [
+    'role-name admin bypass',
+    (_, d) =>
+      changeRbac(d, (r) => {
+        r.adminPreservation.qualification.roleNameAuthority = true;
+      }),
+  ],
+  [
+    'cross-user permission union',
+    (_, d) =>
+      changeRbac(d, (r) => {
+        r.adminPreservation.qualification.permissions =
+          'union across all users';
+      }),
+  ],
+  [
+    'privileged invariant bypass',
+    (_, d) =>
+      changeRbac(d, (r) => {
+        r.adminPreservation.privilegedBypass = true;
+      }),
+  ],
+  [
+    'missing shared invariant lock',
+    (_, d) =>
+      changeRbac(d, (r) => {
+        r.adminPreservation.lock = null;
+      }),
+  ],
+  [
+    'automatic future protected actions',
+    (_, d) =>
+      changeRbac(d, (r) => {
+        r.adminPreservation.futurePermissions =
+          'all registered actions automatically';
+      }),
+  ],
+  [
+    'OpenAPI admin policy drift',
+    (a) => {
+      a['x-admin-preservation'].minimumFullAdmins = 0;
+    },
+  ],
+  [
+    'missing mutation invariant',
+    (a) => {
+      a.paths['/v1/staff/roles/{roleId}'].patch['x-invariants'] = [];
+    },
+  ],
+  [
+    'missing preservation rejection',
+    (a) => delete a.paths['/v1/staff/auth/me/password'].put.responses[409],
+  ],
+  [
+    'missing full-admin regression',
+    (_, d) => {
+      const path = join(d, names[3]);
+      writeFileSync(
+        path,
+        readFileSync(path, 'utf8').replace('| T-39 |', '| REMOVED |'),
+      );
+    },
   ],
 ];
 for (const [label, mutate, expected = 1] of cases) {

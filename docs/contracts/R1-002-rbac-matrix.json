@@ -40,7 +40,9 @@
       "audit.read",
       "files.metadata.read"
     ],
-    "access-operator": [
+    "seller-maintainer": ["sellers.read", "sellers.write"],
+    "audit-reader": ["audit.read"],
+    "access-admin": [
       "staff.users.read",
       "staff.users.create",
       "staff.users.status.write",
@@ -49,19 +51,60 @@
       "staff.roles.write",
       "staff.roles.permissions.write",
       "staff.roles.assign"
-    ],
-    "seller-maintainer": ["sellers.read", "sellers.write"],
-    "audit-reader": ["audit.read"]
+    ]
   },
   "rules": [
     "Templates are mutable ordinary role records, not special names, enums or wildcard bypasses. Only bootstrap-admin instantiated initially; others optional explicit admin actions.",
     "Effective permissions = distinct union of registered codes in ACTIVE roles assigned to ACTIVE user. Blocked/expired/revoked/stale-version sessions grant none.",
     "No self assignment/removal or self block/unblock; no permission-set edits of any role assigned to caller.",
     "Grant ceiling: added permissions and every permission of newly assigned role must be subset of current actor effective permissions; staff.roles.assign distinct from staff.roles.permissions.write.",
-    "Last control administrator = ACTIVE user with passwordChangeRequired=false whose ACTIVE role union contains all controlAdminRequiredPermissions. At least one must remain after every relevant transaction.",
+    "Preserve at least one usable ACTIVE control administrator with all controlAdminRequiredPermissions AND at least one usable ACTIVE full administrator with all fullAdminProtectedPermissions. Count each by its own ACTIVE-role union, never by role name or by combining different users; one full administrator satisfies both. Usable credentials require valid policy-compliant Argon2id hash and passwordChangeRequired=false, not a live session. Check resulting state in the same serialized transaction for every relevant writer; no bypass.",
     "All access is GLOBAL to one internal seller business in B; future customer memberships and seller scopes must be introduced explicitly. No trust in caller-supplied seller ownership.",
     "File metadata: files.metadata.read AND (owner is caller OR (visibility=INTERNAL AND a typed seller link exists AND caller has sellers.read)); PRIVATE always owner-only. Unknown/forbidden object returns 404 after action permission passes.",
     "No engineering/quote/price/catalog permissions registered or inherited here.",
     "Auth/me/logout/CSRF and forced own password change require session policy, not an administrator permission."
-  ]
+  ],
+  "fullAdminProtectedPermissions": [
+    "staff.users.read",
+    "staff.users.create",
+    "staff.users.status.write",
+    "staff.sessions.revoke",
+    "staff.roles.read",
+    "staff.roles.write",
+    "staff.roles.permissions.write",
+    "staff.roles.assign",
+    "sellers.read",
+    "sellers.write",
+    "audit.read",
+    "files.metadata.read"
+  ],
+  "adminPreservation": {
+    "controlRequiredSet": "controlAdminRequiredPermissions",
+    "fullRequiredSet": "fullAdminProtectedPermissions",
+    "minimumControlAdmins": 1,
+    "minimumFullAdmins": 1,
+    "qualification": {
+      "userState": "ACTIVE",
+      "passwordChangeRequired": false,
+      "credential": "valid policy-compliant Argon2id passwordHash",
+      "permissions": "effective union of ACTIVE assigned roles for the same user",
+      "requiresLiveSession": false,
+      "roleNameAuthority": false
+    },
+    "lock": "pg_advisory_xact_lock(1398031445, 2)",
+    "transaction": "READ COMMITTED; acquire advisory lock before reading authorization/invariant state; recompute both administrator sets from resulting persisted state before commit",
+    "writers": [
+      "user.state",
+      "user.credentials",
+      "user.passwordChangeRequired",
+      "user.roles",
+      "role.permissions",
+      "role.state",
+      "permission.registry"
+    ],
+    "failureCode": "LAST_ADMIN_REQUIRED",
+    "failure": "rollback business rows, versions and session changes; no SUCCESS audit; separate mandatory DENIED audit with LAST_ADMIN_REQUIRED; audit failure returns 503",
+    "futurePermissions": "explicit versioned owner-approved contract update only; no automatic inclusion",
+    "privilegedBypass": false
+  }
 }

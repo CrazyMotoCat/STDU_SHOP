@@ -145,7 +145,8 @@
           "ORIGIN_FORBIDDEN",
           "AUTH_REQUIRED",
           "VALIDATION_ERROR",
-          "UNSUPPORTED_MEDIA_TYPE"
+          "UNSUPPORTED_MEDIA_TYPE",
+          "LAST_ADMIN_REQUIRED"
         ],
         "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
       },

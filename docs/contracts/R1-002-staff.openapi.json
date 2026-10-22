@@ -1228,7 +1228,8 @@
         "x-invariants": [
           "Allowed with forced-change flag. Require currentPassword. New password differs from current; invalid/reused new password400.",
           "One transaction: new hash/flag/version/authVersion, revoke old sessions, create new current session and audit. Set-Cookie after commit; fetch new CSRF.",
-          "Before Argon:10 attempts/15min/user,20/15min/source,5 failures/15min/user; bounded backoff. Redis unavailable503; exceed429 with Retry-After, no mutation."
+          "Before Argon:10 attempts/15min/user,20/15min/source,5 failures/15min/user; bounded backoff. Redis unavailable503; exceed429 with Retry-After, no mutation.",
+          "Apply x-admin-preservation: preserve a usable ACTIVE employee whose own effective ACTIVE-role union contains all 12 fullAdminProtectedPermissions, as well as the control-admin invariant, under the shared advisory lock in the same transaction. Relevant state changes, credential readiness and multi-role reductions cannot bypass this check. No role-name or privileged bypass. LAST_ADMIN_REQUIRED rolls back rows/versions/sessions; separate DENIED audit, never SUCCESS."
         ],
         "x-errors-before-object-lookup": [
           "AUTH_REQUIRED",
@@ -1348,6 +1349,32 @@
               "CSRF_INVALID",
               "ORIGIN_FORBIDDEN"
             ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "LAST_ADMIN_REQUIRED. Stable safe code/message, no credential/PII echo.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; never trusted caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "x-error-codes": ["LAST_ADMIN_REQUIRED"],
             "content": {
               "application/json": {
                 "schema": {
@@ -2016,8 +2043,9 @@
         "x-csrf": "STAFF_BOUND",
         "x-audit": "staff.user.state.changed; staff.sessions.revoked",
         "x-invariants": [
-          "Never own status mutation. Advisory lock, actor revalidation, last-control-admin invariant. authVersion++ and revoke all affected sessions on real change.",
-          "Mutation response only data{id,version}+meta. Full staff/role/seller read DTO requires its separate read permission (self Me exception only); mutation permission alone never discloses read-protected fields."
+          "Never own status mutation. Advisory lock, actor revalidation, control-admin and full-admin preservation invariant. authVersion++ and revoke all affected sessions on real change.",
+          "Mutation response only data{id,version}+meta. Full staff/role/seller read DTO requires its separate read permission (self Me exception only); mutation permission alone never discloses read-protected fields.",
+          "Apply x-admin-preservation: preserve a usable ACTIVE employee whose own effective ACTIVE-role union contains all 12 fullAdminProtectedPermissions, as well as the control-admin invariant, under the shared advisory lock in the same transaction. Relevant state changes, credential readiness and multi-role reductions cannot bypass this check. No role-name or privileged bypass. LAST_ADMIN_REQUIRED rolls back rows/versions/sessions; separate DENIED audit, never SUCCESS."
         ],
         "x-errors-before-object-lookup": [
           "AUTH_REQUIRED",
@@ -2659,7 +2687,8 @@
         "x-invariants": [
           "expectedVersion is target StaffUser.version. No self assignment/removal. New assignment only ACTIVE role and ACTIVE target; grant ceiling checks entire role.",
           "Remove allowed for BLOCKED target to clean assignments. Existing assignment put/missing assignment delete = no-op200 only after auth/version/policy checks; no duplicate audit or revoke.",
-          "Mutation response only data{id,version}+meta. Full staff/role/seller read DTO requires its separate read permission (self Me exception only); mutation permission alone never discloses read-protected fields."
+          "Mutation response only data{id,version}+meta. Full staff/role/seller read DTO requires its separate read permission (self Me exception only); mutation permission alone never discloses read-protected fields.",
+          "Apply x-admin-preservation: preserve a usable ACTIVE employee whose own effective ACTIVE-role union contains all 12 fullAdminProtectedPermissions, as well as the control-admin invariant, under the shared advisory lock in the same transaction. Relevant state changes, credential readiness and multi-role reductions cannot bypass this check. No role-name or privileged bypass. LAST_ADMIN_REQUIRED rolls back rows/versions/sessions; separate DENIED audit, never SUCCESS."
         ],
         "x-errors-before-object-lookup": [
           "AUTH_REQUIRED",
@@ -2999,7 +3028,8 @@
         "x-invariants": [
           "expectedVersion is target StaffUser.version. No self assignment/removal. New assignment only ACTIVE role and ACTIVE target; grant ceiling checks entire role.",
           "Remove allowed for BLOCKED target to clean assignments. Existing assignment put/missing assignment delete = no-op200 only after auth/version/policy checks; no duplicate audit or revoke.",
-          "Mutation response only data{id,version}+meta. Full staff/role/seller read DTO requires its separate read permission (self Me exception only); mutation permission alone never discloses read-protected fields."
+          "Mutation response only data{id,version}+meta. Full staff/role/seller read DTO requires its separate read permission (self Me exception only); mutation permission alone never discloses read-protected fields.",
+          "Apply x-admin-preservation: preserve a usable ACTIVE employee whose own effective ACTIVE-role union contains all 12 fullAdminProtectedPermissions, as well as the control-admin invariant, under the shared advisory lock in the same transaction. Relevant state changes, credential readiness and multi-role reductions cannot bypass this check. No role-name or privileged bypass. LAST_ADMIN_REQUIRED rolls back rows/versions/sessions; separate DENIED audit, never SUCCESS."
         ],
         "x-errors-before-object-lookup": [
           "AUTH_REQUIRED",
@@ -3800,7 +3830,8 @@
         "x-invariants": [
           "At least name or state required beyond expectedVersion. Code immutable. ARCHIVED terminal, rename allowed ACTIVE only.",
           "Archive requires zero UserRole, protected by same advisory lock; no mass assignment removal. Permission edits excluded from this DTO.",
-          "Mutation response only data{id,version}+meta. Full staff/role/seller read DTO requires its separate read permission (self Me exception only); mutation permission alone never discloses read-protected fields."
+          "Mutation response only data{id,version}+meta. Full staff/role/seller read DTO requires its separate read permission (self Me exception only); mutation permission alone never discloses read-protected fields.",
+          "Apply x-admin-preservation: preserve a usable ACTIVE employee whose own effective ACTIVE-role union contains all 12 fullAdminProtectedPermissions, as well as the control-admin invariant, under the shared advisory lock in the same transaction. Relevant state changes, credential readiness and multi-role reductions cannot bypass this check. No role-name or privileged bypass. LAST_ADMIN_REQUIRED rolls back rows/versions/sessions; separate DENIED audit, never SUCCESS."
         ],
         "x-errors-before-object-lookup": [
           "AUTH_REQUIRED",
@@ -3950,7 +3981,7 @@
             }
           },
           "409": {
-            "description": "VERSION_CONFLICT, ROLE_IN_USE, INVALID_STATE_TRANSITION. Stable safe code/message, no credential/PII echo.",
+            "description": "VERSION_CONFLICT, ROLE_IN_USE, INVALID_STATE_TRANSITION, LAST_ADMIN_REQUIRED. Stable safe code/message, no credential/PII echo.",
             "headers": {
               "X-Request-Id": {
                 "description": "Generated server request UUID; never trusted caller identity.",
@@ -3969,7 +4000,8 @@
             "x-error-codes": [
               "VERSION_CONFLICT",
               "ROLE_IN_USE",
-              "INVALID_STATE_TRANSITION"
+              "INVALID_STATE_TRANSITION",
+              "LAST_ADMIN_REQUIRED"
             ],
             "content": {
               "application/json": {
@@ -4119,8 +4151,9 @@
         "x-audit": "staff.role.permissions.changed; staff.sessions.revoked",
         "x-invariants": [
           "Only ACTIVE role. Reject if caller assigned target role; additions subset actor current permissions.",
-          "Advisory lock + version CAS + last-admin union check. Invalidate/revoke all assigned users and audit same transaction. No-op200 only after policy/version checks.",
-          "Mutation response only data{id,version}+meta. Full staff/role/seller read DTO requires its separate read permission (self Me exception only); mutation permission alone never discloses read-protected fields."
+          "Advisory lock + version CAS + control-admin and full-admin union check. Invalidate/revoke all assigned users and audit same transaction. No-op200 only after policy/version checks.",
+          "Mutation response only data{id,version}+meta. Full staff/role/seller read DTO requires its separate read permission (self Me exception only); mutation permission alone never discloses read-protected fields.",
+          "Apply x-admin-preservation: preserve a usable ACTIVE employee whose own effective ACTIVE-role union contains all 12 fullAdminProtectedPermissions, as well as the control-admin invariant, under the shared advisory lock in the same transaction. Relevant state changes, credential readiness and multi-role reductions cannot bypass this check. No role-name or privileged bypass. LAST_ADMIN_REQUIRED rolls back rows/versions/sessions; separate DENIED audit, never SUCCESS."
         ],
         "x-errors-before-object-lookup": [
           "AUTH_REQUIRED",
@@ -7353,5 +7386,58 @@
       }
     }
   },
-  "x-auth-decision-clock": "PostgreSQL clock_timestamp() after row-lock waits, never transaction-start timestamp"
+  "x-auth-decision-clock": "PostgreSQL clock_timestamp() after row-lock waits, never transaction-start timestamp",
+  "x-admin-preservation": {
+    "controlRequiredSet": "controlAdminRequiredPermissions",
+    "fullRequiredSet": "fullAdminProtectedPermissions",
+    "minimumControlAdmins": 1,
+    "minimumFullAdmins": 1,
+    "qualification": {
+      "userState": "ACTIVE",
+      "passwordChangeRequired": false,
+      "credential": "valid policy-compliant Argon2id passwordHash",
+      "permissions": "effective union of ACTIVE assigned roles for the same user",
+      "requiresLiveSession": false,
+      "roleNameAuthority": false
+    },
+    "lock": "pg_advisory_xact_lock(1398031445, 2)",
+    "transaction": "READ COMMITTED; acquire advisory lock before reading authorization/invariant state; recompute both administrator sets from resulting persisted state before commit",
+    "writers": [
+      "user.state",
+      "user.credentials",
+      "user.passwordChangeRequired",
+      "user.roles",
+      "role.permissions",
+      "role.state",
+      "permission.registry"
+    ],
+    "failureCode": "LAST_ADMIN_REQUIRED",
+    "failure": "rollback business rows, versions and session changes; no SUCCESS audit; separate mandatory DENIED audit with LAST_ADMIN_REQUIRED; audit failure returns 503",
+    "futurePermissions": "explicit versioned owner-approved contract update only; no automatic inclusion",
+    "privilegedBypass": false,
+    "controlAdminRequiredPermissions": [
+      "staff.users.read",
+      "staff.users.create",
+      "staff.users.status.write",
+      "staff.sessions.revoke",
+      "staff.roles.read",
+      "staff.roles.write",
+      "staff.roles.permissions.write",
+      "staff.roles.assign"
+    ],
+    "fullAdminProtectedPermissions": [
+      "staff.users.read",
+      "staff.users.create",
+      "staff.users.status.write",
+      "staff.sessions.revoke",
+      "staff.roles.read",
+      "staff.roles.write",
+      "staff.roles.permissions.write",
+      "staff.roles.assign",
+      "sellers.read",
+      "sellers.write",
+      "audit.read",
+      "files.metadata.read"
+    ]
+  }
 }

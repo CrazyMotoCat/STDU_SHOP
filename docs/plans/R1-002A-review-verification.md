@@ -4,7 +4,29 @@
 
 Baseline `ec109beacd8fa687b2c127f160fb961d540a4f3b`; ветка `codex/r1-002a-contract-freeze`. Только документация, machine-readable proposed contracts, documentation consistency checker и его CI step. Рабочая Prisma schema, migrations, auth/business code, ADR, registry№1–108 и production не меняются. Один ведущий владелец контрактов; reviewers READ_ONLY.
 
-## Проверки A
+## Дополнительное ревью OD-002A-02 — актуальная ревизия
+
+Исходный HEAD `e7807f60741785c1bc4b1c695d6542eb44c230e8`. Владелец запросил устранить потерю критических полномочий; пакет остаётся PROPOSED, REVIEW_REQUIRED. Прежняя защита только восьми control permissions позволяла access-operator уменьшить чужую роль с уникальным sellers.write/audit.read/files.metadata.read, после чего grant ceiling мог исключить восстановление через API.
+
+Исправление: `fullAdminProtectedPermissions` явно содержит все 12 первоначальных действий. После каждого влияющего изменения сохраняется хотя бы один ACTIVE сотрудник с пригодными credentials и собственным union ACTIVE ролей, содержащим весь набор; одновременно сохраняется прежний control-admin инвариант. Один full-admin удовлетворяет обоим. Имена ролей, сессия и объединение прав разных сотрудников не определяют пригодность. Обычный шаблон access-operator переименован в access-admin: все восемь действий управления доступом, без подразумеваемых остальных четырёх.
+
+Все writers состояния/назначений/permissions/credentials/readiness и будущего registry используют существующий advisory lock до чтения состояния в READ COMMITTED, проверяют результирующий union перед commit. Отказ LAST_ADMIN_REQUIRED откатывает строки/версии/сессии, исключает SUCCESS audit; обязательный DENIED audit отдельно, его сбой503. Bootstrap создаёт полного администратора, owner-recovery сохраняет readiness без выдачи прав или bypass. Будущие catalog/engineering/quote права не включаются автоматически. OD-002A-01 и 03…08 по существу не менялись; recovery синхронизирован с OD-002A-02.
+
+| Проверка актуальной ревизии                        | Фактический результат                                                                                                                                                                     |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Documentation checker                              | PASS: 11 entities,12 permissions,23 operations,40 planned B tests; explicit full12 policy/lock/qualification/OpenAPI409 consistency                                                       |
+| `node --test docs/contracts/check-R1-002.test.mjs` | 26/26 PASS;13 новых регрессий checker, включая full set/union/bypass/lock/future extension/bootstrap/OpenAPI error/test-row drift                                                         |
+| External OpenAPI validation / TS probe             | PASS swagger-parser13.1.0; openapi-typescript7.13.0, declaration typecheck, repeated generation SHA256 identical                                                                          |
+| Local Windows quality gate                         | PASS `pnpm toolchain:check`, `db:validate`, `lint`, `format:check`, `typecheck`, `test`, `build`;30 baseline Vitest +5 pytest. Active schema по-прежнему пустая, не проверка будущего SQL |
+| Independent senior backend architect               | READ_ONLY PASS после повторной проверки; checker26/26, diff check. MEDIUM error/audit mismatch и LOW rename wording закрыты                                                               |
+| Independent application security                   | READ_ONLY PASS после повторной проверки; checker26/26, diff check. Открытых замечаний нет                                                                                                 |
+| Future runtime regressions T-35…T-40               | NOT IMPLEMENTED / NOT RUN: unique critical permission, block/readiness, multi-role union, two full-admins, concurrent loss, DB/session/audit atomicity                                    |
+
+Дополнительные замечания reviewers исправлены: password/role операции объявляют409 LAST_ADMIN_REQUIRED, password DENIED audit registry содержит причину, checker требует ответ для всех затронутых операций; T-37 разрешает безопасное переименование без возможности обойти последующую проверку union. Изменения схемы/миграций/бизнес-кода/инфраструктуры отсутствуют. Новые пути — только contracts, связанный B plan, этот отчёт и checkpoint. Локальные logs: `.local/evidence/od02-*.log`.
+
+Окончательные SHA/actual CI checkout/run этой ревизии публикуются в описании существующего [Draft PR #4](https://github.com/CrazyMotoCat/STDU_SHOP/pull/4) и итоговом сообщении после push и наблюдения завершённого CI; этот файл не подставляет собственный ещё не созданный SHA. Успех старых CI ниже не является проверкой обновлённого контракта. Merge запрещён до утверждения владельцем обновлённого HEAD; B не начиналась.
+
+## Исторические проверки A до дополнительного ревью OD-002A-02
 
 | Проверка                                 | Фактический результат                                                                                                                                                                                                  |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
