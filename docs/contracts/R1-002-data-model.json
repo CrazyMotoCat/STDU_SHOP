@@ -1,0 +1,706 @@
+{
+  "status": "PROPOSED",
+  "version": "0.1.0-proposed",
+  "baseline": "ec109beacd8fa687b2c127f160fb961d540a4f3b",
+  "rules": {
+    "naming": "Prisma PascalCase entity/camelCase field -> explicitly mapped snake_case tables/columns; no pluralization guessing",
+    "ids": "UUIDv4; join composite keys; no opaque ID as authority",
+    "utc": "timestamptz(6); UTC API RFC3339 with Z",
+    "delete": "All FKs RESTRICT; no entity hard-delete API; append-only triggers described per table",
+    "checks": "values arrays mean PostgreSQL CHECK field IN (...), not job-title enums. check expressions here are normative semantics; reviewed SQL written only in B.",
+    "optimistic": "version positive integer; every mutating DTO expectedVersion; assignments use StaffUser.version, role-permission set uses Role.version; mismatch 409 VERSION_CONFLICT",
+    "authDecisionClock": "clock_timestamp() sampled after row-lock waits for expiry/activity checks; transaction_timestamp() only historical timestamps"
+  },
+  "tables": {
+    "StaffUser": {
+      "purpose": "Internal employee only; not a customer identity.",
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "application UUIDv4 from CSPRNG"
+        },
+        "email": {
+          "type": "varchar(254)",
+          "nullable": false
+        },
+        "emailNormalized": {
+          "type": "varchar(254)",
+          "nullable": false
+        },
+        "displayName": {
+          "type": "varchar(120)",
+          "nullable": false
+        },
+        "passwordHash": {
+          "type": "text",
+          "nullable": false
+        },
+        "passwordChangeRequired": {
+          "type": "boolean",
+          "nullable": false,
+          "default": false
+        },
+        "state": {
+          "type": "text",
+          "nullable": false,
+          "values": ["ACTIVE", "BLOCKED"]
+        },
+        "authVersion": {
+          "type": "integer",
+          "nullable": false,
+          "default": 1
+        },
+        "blockedAt": {
+          "type": "timestamptz(6)",
+          "nullable": true
+        },
+        "version": {
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "check": "version > 0"
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp()"
+        },
+        "updatedAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp(); explicitly set on update"
+        }
+      },
+      "primaryKey": ["id"],
+      "unique": [["emailNormalized COLLATE C"]],
+      "indexes": [["state", "id"]],
+      "checks": [
+        "email = btrim(email); ASCII email syntax defined in auth contract",
+        "emailNormalized = lower(email COLLATE C)",
+        "passwordHash LIKE $argon2id$%; API/operator enforce PHC parameters and password policy",
+        "authVersion > 0",
+        "(state = BLOCKED) = (blockedAt IS NOT NULL)",
+        "displayName trimmed, length 1..120"
+      ],
+      "lifecycle": "ACTIVE <-> BLOCKED; no hard-delete/email-reuse or email editing in B. Password change flag limits use; history retained.",
+      "actions": [
+        "bootstrap/recover CLI",
+        "staff.users.create",
+        "staff.users.status.write",
+        "self password change"
+      ],
+      "sensitive": [
+        "passwordHash NEVER DTO/log",
+        "email/displayName staff.users.read or self only"
+      ],
+      "future": "Future modules reference stable id via FK; no departments/customer memberships now."
+    },
+    "Role": {
+      "purpose": "Editable permission bundle; name never authorizes.",
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "application UUIDv4 from CSPRNG"
+        },
+        "code": {
+          "type": "varchar(64)",
+          "nullable": false
+        },
+        "name": {
+          "type": "varchar(120)",
+          "nullable": false
+        },
+        "state": {
+          "type": "text",
+          "nullable": false,
+          "values": ["ACTIVE", "ARCHIVED"]
+        },
+        "version": {
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "check": "version > 0"
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp()"
+        },
+        "updatedAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp(); explicitly set on update"
+        }
+      },
+      "primaryKey": ["id"],
+      "unique": [["code"]],
+      "indexes": [["state", "id"]],
+      "checks": [
+        "code matches ^[a-z][a-z0-9.-]{1,63}$",
+        "name trimmed, length 1..120"
+      ],
+      "lifecycle": "Archive only when no UserRole references remain; no delete. No automatic permissions for future modules.",
+      "actions": ["staff.roles.write", "staff.roles.permissions.write"],
+      "sensitive": ["Bundle definitions require staff.roles.read"],
+      "future": "Add registered action codes in later contracts; no wildcard/role-name bypass."
+    },
+    "Permission": {
+      "purpose": "Registered named action, not a job title.",
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "application UUIDv4 from CSPRNG"
+        },
+        "code": {
+          "type": "varchar(80)",
+          "nullable": false
+        },
+        "description": {
+          "type": "varchar(240)",
+          "nullable": false
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp()"
+        }
+      },
+      "primaryKey": ["id"],
+      "unique": [["code"]],
+      "indexes": [],
+      "checks": ["code matches ^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)+$"],
+      "lifecycle": "Insert by reviewed registry migration only; no public CRUD/update/delete.",
+      "actions": ["reviewed migration seed"],
+      "sensitive": [],
+      "future": "New action has default deny; never auto-grant through existing role name."
+    },
+    "UserRole": {
+      "purpose": "One current assignment of a bundle to an employee.",
+      "fields": {
+        "staffUserId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "StaffUser.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "roleId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "Role.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "assignedByUserId": {
+          "type": "uuid",
+          "nullable": true,
+          "references": "StaffUser.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp()"
+        }
+      },
+      "primaryKey": ["staffUserId", "roleId"],
+      "unique": [],
+      "indexes": [["roleId", "staffUserId"]],
+      "checks": [],
+      "lifecycle": "Insert/remove through guarded transaction; removal retained in audit. Referenced user/role not deleted.",
+      "actions": ["staff.roles.assign"],
+      "sensitive": [
+        "Assignment read requires staff.users.read; role definitions staff.roles.read"
+      ],
+      "future": "No seller scope implied. Future scoped assignment must be a new explicit contract."
+    },
+    "RolePermission": {
+      "purpose": "One action included in one bundle.",
+      "fields": {
+        "roleId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "Role.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "permissionId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "Permission.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp()"
+        }
+      },
+      "primaryKey": ["roleId", "permissionId"],
+      "unique": [],
+      "indexes": [["permissionId", "roleId"]],
+      "checks": [],
+      "lifecycle": "Replace exact set with optimistic version and audit; row removal allowed, history in audit.",
+      "actions": ["staff.roles.permissions.write"],
+      "sensitive": ["staff.roles.read"],
+      "future": "Only registered permissions; absent codes never authorize."
+    },
+    "StaffSession": {
+      "purpose": "Opaque employee browser session, PostgreSQL authority.",
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "application UUIDv4 from CSPRNG"
+        },
+        "staffUserId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "StaffUser.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "tokenHash": {
+          "type": "bytea",
+          "nullable": false,
+          "bytes": 32
+        },
+        "authVersion": {
+          "type": "integer",
+          "nullable": false
+        },
+        "absoluteExpiresAt": {
+          "type": "timestamptz(6)",
+          "nullable": false
+        },
+        "idleTimeoutSeconds": {
+          "type": "integer",
+          "nullable": false,
+          "default": 1800
+        },
+        "lastSeenAt": {
+          "type": "timestamptz(6)",
+          "nullable": false
+        },
+        "revokedAt": {
+          "type": "timestamptz(6)",
+          "nullable": true
+        },
+        "revocationReason": {
+          "type": "varchar(64)",
+          "nullable": true
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp()"
+        }
+      },
+      "primaryKey": ["id"],
+      "unique": [["tokenHash"]],
+      "indexes": [["staffUserId", "revokedAt"], ["absoluteExpiresAt"]],
+      "checks": [
+        "octet_length(tokenHash) = 32",
+        "authVersion > 0",
+        "idleTimeoutSeconds BETWEEN 60 AND 43200",
+        "createdAt <= lastSeenAt AND lastSeenAt < absoluteExpiresAt",
+        "absoluteExpiresAt > createdAt",
+        "(revokedAt IS NULL) = (revocationReason IS NULL)",
+        "revokedAt IS NULL OR revokedAt >= createdAt",
+        "revocationReason null or member of sessionRevocationReasons in R1-002-audit-registry.json"
+      ],
+      "lifecycle": "Create at login/own password rotation. Revoke only, no restore. No physical cleanup before separately approved retention policy.",
+      "actions": [
+        "auth login/logout",
+        "staff.sessions.revoke",
+        "security mutation invalidation"
+      ],
+      "sensitive": [
+        "tokenHash, session id and timestamps not exposed as credentials",
+        "no raw token/IP/user-agent persisted"
+      ],
+      "future": "No customer quote capabilities or JWT in this table."
+    },
+    "SellerLegalEntity": {
+      "purpose": "Our own selling OOO/IP, never a buyer.",
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "application UUIDv4 from CSPRNG"
+        },
+        "displayName": {
+          "type": "varchar(160)",
+          "nullable": false
+        },
+        "legalName": {
+          "type": "varchar(500)",
+          "nullable": true
+        },
+        "kind": {
+          "type": "text",
+          "nullable": false,
+          "values": ["OOO", "IP"]
+        },
+        "inn": {
+          "type": "varchar(12)",
+          "nullable": true
+        },
+        "kpp": {
+          "type": "varchar(9)",
+          "nullable": true
+        },
+        "ogrn": {
+          "type": "varchar(15)",
+          "nullable": true
+        },
+        "legalAddress": {
+          "type": "varchar(1000)",
+          "nullable": true
+        },
+        "state": {
+          "type": "text",
+          "nullable": false,
+          "values": ["DRAFT", "ACTIVE", "ARCHIVED"]
+        },
+        "archivedAt": {
+          "type": "timestamptz(6)",
+          "nullable": true
+        },
+        "version": {
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "check": "version > 0"
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp()"
+        },
+        "updatedAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp(); explicitly set on update"
+        }
+      },
+      "primaryKey": ["id"],
+      "unique": [["inn WHERE inn IS NOT NULL"]],
+      "indexes": [["state", "id"]],
+      "checks": [
+        "INN null or 10 ASCII digits for OOO / 12 for IP",
+        "KPP null or 9 ASCII digits for OOO; must be null for IP",
+        "OGRN null or 13 ASCII digits for OOO / 15 for IP",
+        "ACTIVE requires nonblank legalName and INN",
+        "(state = ARCHIVED) = (archivedAt IS NOT NULL)",
+        "displayName trimmed length 1..160"
+      ],
+      "lifecycle": "DRAFT -> ACTIVE -> ARCHIVED; ACTIVE -> DRAFT allowed only before future domain references exist. B has no such modules. ARCHIVED is terminal; no delete.",
+      "actions": ["sellers.write"],
+      "sensitive": ["Only sellers.read/write; no public legal-data endpoint"],
+      "future": "No invented tax/bank defaults. Structured tax/bank configuration and quote snapshots belong to later approved costing/quote contracts; ACTIVE here is not quote-ready."
+    },
+    "AuditEvent": {
+      "purpose": "Append-only minimal security/admin history.",
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "application UUIDv4 from CSPRNG"
+        },
+        "occurredAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp()"
+        },
+        "actorKind": {
+          "type": "text",
+          "nullable": false,
+          "values": ["STAFF", "ANONYMOUS", "OPERATOR"]
+        },
+        "actorUserId": {
+          "type": "uuid",
+          "nullable": true,
+          "references": "StaffUser.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "operatorLabel": {
+          "type": "varchar(80)",
+          "nullable": true
+        },
+        "action": {
+          "type": "varchar(80)",
+          "nullable": false
+        },
+        "entityType": {
+          "type": "text",
+          "nullable": true,
+          "values": [
+            "StaffUser",
+            "Role",
+            "StaffSession",
+            "SellerLegalEntity",
+            "FileObject",
+            "FileVersion",
+            "FileLink"
+          ]
+        },
+        "entityId": {
+          "type": "uuid",
+          "nullable": true
+        },
+        "outcome": {
+          "type": "text",
+          "nullable": false,
+          "values": ["SUCCESS", "DENIED", "FAILURE"]
+        },
+        "reasonCode": {
+          "type": "varchar(64)",
+          "nullable": true
+        },
+        "requestId": {
+          "type": "uuid",
+          "nullable": false
+        },
+        "sourceHash": {
+          "type": "bytea",
+          "nullable": true,
+          "bytes": 32
+        },
+        "changes": {
+          "type": "jsonb",
+          "nullable": false,
+          "default": "{}"
+        }
+      },
+      "primaryKey": ["id"],
+      "unique": [],
+      "indexes": [
+        ["occurredAt DESC", "id DESC"],
+        ["actorUserId", "occurredAt DESC"],
+        ["entityType", "entityId", "occurredAt DESC"],
+        ["requestId"]
+      ],
+      "checks": [
+        "actorKind = STAFF iff actorUserId IS NOT NULL",
+        "operatorLabel IS NOT NULL iff actorKind = OPERATOR",
+        "(entityType IS NULL) = (entityId IS NULL)",
+        "sourceHash null or 32 bytes",
+        "jsonb_typeof(changes) = object AND octet_length(changes::text) <= 4096",
+        "audit_event_valid(action,outcome,reasonCode,changes): immutable pure CASE validation against R1-002-audit-registry.json; no cross-table reads"
+      ],
+      "lifecycle": "No API update/delete. Runtime DB role INSERT/SELECT only; PostgreSQL trigger rejects UPDATE/DELETE/TRUNCATE for ordinary runtime role. FK RESTRICT preserves employee attribution.",
+      "actions": ["security/admin transaction insert", "audit.read"],
+      "sensitive": [
+        "No password/credential token/PHC/credential hashes/cookies/raw IP/full request/requisites snapshots; only allowlisted deltas and keyed account/source fingerprints"
+      ],
+      "future": "entityType/id are historical labels, not a dereference/ACL capability; future modules register types/actions explicitly."
+    },
+    "FileObject": {
+      "purpose": "Stable logical file identity and conservative ownership.",
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "application UUIDv4 from CSPRNG"
+        },
+        "ownerStaffUserId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "StaffUser.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "displayName": {
+          "type": "varchar(255)",
+          "nullable": false
+        },
+        "visibility": {
+          "type": "text",
+          "nullable": false,
+          "values": ["PRIVATE", "INTERNAL"]
+        },
+        "state": {
+          "type": "text",
+          "nullable": false,
+          "values": ["ACTIVE", "ARCHIVED"]
+        },
+        "version": {
+          "type": "integer",
+          "nullable": false,
+          "default": 1,
+          "check": "version > 0"
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp()"
+        },
+        "updatedAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp(); explicitly set on update"
+        }
+      },
+      "primaryKey": ["id"],
+      "unique": [],
+      "indexes": [["ownerStaffUserId", "state", "id"]],
+      "checks": [
+        "displayName metadata only, no slash/backslash/control characters; length 1..255"
+      ],
+      "lifecycle": "Metadata fixtures only in B. No HTTP writes/delete. Future archive preserves versions and originals.",
+      "actions": ["fixture only; future domain command requires new contract"],
+      "sensitive": [
+        "files.metadata.read AND object policy; no raw storage paths"
+      ],
+      "future": "Future nonstaff ownership requires explicit schema/policy change, not nullable-owner => public."
+    },
+    "FileVersion": {
+      "purpose": "Immutable physical blob/version of a logical file.",
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "application UUIDv4 from CSPRNG"
+        },
+        "fileObjectId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "FileObject.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "number": {
+          "type": "integer",
+          "nullable": false
+        },
+        "storageKey": {
+          "type": "varchar(128)",
+          "nullable": false
+        },
+        "sha256": {
+          "type": "bytea",
+          "nullable": false,
+          "bytes": 32
+        },
+        "sizeBytes": {
+          "type": "bigint",
+          "nullable": false
+        },
+        "mimeType": {
+          "type": "varchar(127)",
+          "nullable": false
+        },
+        "originalFilename": {
+          "type": "varchar(255)",
+          "nullable": false
+        },
+        "safetyState": {
+          "type": "text",
+          "nullable": false,
+          "values": ["UNCHECKED"]
+        },
+        "createdByUserId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "StaffUser.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp()"
+        }
+      },
+      "primaryKey": ["id"],
+      "unique": [
+        ["fileObjectId", "number"],
+        ["storageKey"],
+        ["id", "fileObjectId"]
+      ],
+      "indexes": [["fileObjectId", "createdAt"]],
+      "checks": [
+        "number > 0",
+        "sizeBytes BETWEEN 0 AND 9007199254740991",
+        "octet_length(sha256) = 32",
+        "storageKey matches ^[a-f0-9]{64}$; opaque random key, not content hash/path",
+        "originalFilename same safe-name rules as FileObject.displayName",
+        "mimeType matches a bounded type/subtype syntax"
+      ],
+      "lifecycle": "Append-only; SQL trigger forbids UPDATE/DELETE for runtime role. No bytes/scan/upload/download actions in B; UNCHECKED never downloadable.",
+      "actions": ["fixture only; future authorized StoragePort.write"],
+      "sensitive": [
+        "storageKey never DTO/log; checksum/size/mime visible only after object policy"
+      ],
+      "future": "StoragePort returns key/size/sha256; verify persisted metadata against bytes in future domain transaction/compensation contract."
+    },
+    "FileLink": {
+      "purpose": "Typed attachment to an existing own seller only.",
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "nullable": false,
+          "default": "application UUIDv4 from CSPRNG"
+        },
+        "fileObjectId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "FileObject.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "fileVersionId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "FileVersion.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "sellerLegalEntityId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "SellerLegalEntity.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "visibility": {
+          "type": "text",
+          "nullable": false,
+          "values": ["INTERNAL"]
+        },
+        "createdByUserId": {
+          "type": "uuid",
+          "nullable": false,
+          "references": "StaffUser.id",
+          "onDelete": "RESTRICT",
+          "onUpdate": "RESTRICT"
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "nullable": false,
+          "default": "transaction_timestamp()"
+        }
+      },
+      "primaryKey": ["id"],
+      "unique": [["sellerLegalEntityId", "fileVersionId"]],
+      "indexes": [["fileObjectId", "sellerLegalEntityId"]],
+      "checks": [
+        "COMPOSITE FK (fileVersionId,fileObjectId) -> FileVersion(id,fileObjectId) ON DELETE/UPDATE RESTRICT",
+        "no generic entityType/entityId or arbitrary ACL JSON"
+      ],
+      "lifecycle": "B fixtures/read only; no HTTP link writes/delete. Future unlink preserves audit, immutable-version refs.",
+      "actions": ["fixture only; future domain command"],
+      "sensitive": [
+        "Not directly enumerable; object policy checks seller access and restrictive file visibility"
+      ],
+      "future": "Future typed target FKs require a reviewed XOR constraint and domain policy; do not link unimplemented entities."
+    }
+  }
+}

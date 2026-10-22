@@ -1,0 +1,464 @@
+{
+  "status": "PROPOSED",
+  "version": "0.1.0-proposed",
+  "nullPolicy": "reasonCode NULL only if null explicitly allowed for action/outcome; DENIED/FAILURE nonnull; unknown combinations reject. changes root keys must be subset of per-action list and values satisfy closed AuditChanges DTO. No secret values.",
+  "sessionRevocationReasons": [
+    "LOGOUT",
+    "ADMIN_REVOKE",
+    "SESSION_LIMIT",
+    "USER_BLOCKED",
+    "USER_UNBLOCKED",
+    "ROLE_ASSIGNED",
+    "ROLE_REMOVED",
+    "ROLE_PERMISSIONS_CHANGED",
+    "PASSWORD_CHANGED",
+    "ACCESS_RECOVERED",
+    "SESSION_ABSOLUTE_EXPIRED",
+    "SESSION_IDLE_EXPIRED"
+  ],
+  "recoveryCliReasons": ["OWNER_CONFIRMED"],
+  "actions": {
+    "auth.login": {
+      "outcomes": {
+        "SUCCESS": ["CREDENTIALS_VERIFIED"],
+        "DENIED": [
+          "INVALID_CREDENTIALS",
+          "RATE_LIMITED",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "VALIDATION_ERROR",
+          "ALREADY_AUTHENTICATED",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["accountFingerprint"]
+    },
+    "auth.logout": {
+      "outcomes": {
+        "SUCCESS": ["LOGOUT"],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "VALIDATION_ERROR",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": []
+    },
+    "staff.sessions.revoked": {
+      "outcomes": {
+        "SUCCESS": [
+          "LOGOUT",
+          "ADMIN_REVOKE",
+          "SESSION_LIMIT",
+          "USER_BLOCKED",
+          "USER_UNBLOCKED",
+          "ROLE_ASSIGNED",
+          "ROLE_REMOVED",
+          "ROLE_PERMISSIONS_CHANGED",
+          "PASSWORD_CHANGED",
+          "ACCESS_RECOVERED",
+          "SESSION_ABSOLUTE_EXPIRED",
+          "SESSION_IDLE_EXPIRED"
+        ],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "AUTH_REQUIRED",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["targetUserId", "count"]
+    },
+    "auth.session.rotated": {
+      "outcomes": {
+        "SUCCESS": ["PASSWORD_CHANGED"],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["targetUserId"]
+    },
+    "auth.session.expired": {
+      "outcomes": {
+        "DENIED": ["SESSION_ABSOLUTE_EXPIRED", "SESSION_IDLE_EXPIRED"],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": []
+    },
+    "staff.bootstrap": {
+      "outcomes": {
+        "SUCCESS": ["BOOTSTRAP"],
+        "DENIED": ["BOOTSTRAP_ALREADY_COMPLETED", "VALIDATION_ERROR"],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["targetUserId", "passwordChangeRequired"]
+    },
+    "staff.access.recovered": {
+      "outcomes": {
+        "SUCCESS": ["OWNER_CONFIRMED"],
+        "DENIED": [
+          "LAST_ADMIN_REQUIRED",
+          "INVALID_STATE_TRANSITION",
+          "NOT_FOUND",
+          "VALIDATION_ERROR"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["targetUserId", "passwordChangeRequired", "recoveryMode"]
+    },
+    "staff.password.changed": {
+      "outcomes": {
+        "SUCCESS": ["PASSWORD_CHANGED"],
+        "DENIED": [
+          "CURRENT_PASSWORD_INVALID",
+          "RATE_LIMITED",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "AUTH_REQUIRED",
+          "VALIDATION_ERROR",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["targetUserId", "passwordChangeRequired"]
+    },
+    "staff.password.rehashed": {
+      "outcomes": {
+        "SUCCESS": ["HASH_UPGRADED"],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["targetUserId"]
+    },
+    "staff.user.created": {
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "AUTH_REQUIRED",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["targetUserId", "changedFields"]
+    },
+    "staff.user.state.changed": {
+      "outcomes": {
+        "SUCCESS": ["USER_BLOCKED", "USER_UNBLOCKED"],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "AUTH_REQUIRED",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["targetUserId", "previousState", "state", "changedFields"]
+    },
+    "staff.role.created": {
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "AUTH_REQUIRED",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["roleId", "changedFields"]
+    },
+    "staff.role.changed": {
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "AUTH_REQUIRED",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["roleId", "previousState", "state", "changedFields"]
+    },
+    "staff.role.assigned": {
+      "outcomes": {
+        "SUCCESS": ["ROLE_ASSIGNED"],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "AUTH_REQUIRED",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["targetUserId", "roleId"]
+    },
+    "staff.role.removed": {
+      "outcomes": {
+        "SUCCESS": ["ROLE_REMOVED"],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "AUTH_REQUIRED",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["targetUserId", "roleId"]
+    },
+    "staff.role.permissions.changed": {
+      "outcomes": {
+        "SUCCESS": ["ROLE_PERMISSIONS_CHANGED"],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "AUTH_REQUIRED",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": [
+        "roleId",
+        "addedPermissions",
+        "removedPermissions",
+        "affectedUserCount"
+      ]
+    },
+    "seller.created": {
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "AUTH_REQUIRED",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["sellerId", "changedFields"]
+    },
+    "seller.changed": {
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "AUTH_REQUIRED",
+          "UNSUPPORTED_MEDIA_TYPE"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["sellerId", "changedFields", "previousState", "state"]
+    },
+    "file.metadata.changed": {
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["changedFields", "version"]
+    },
+    "file.version.created": {
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["changedFields", "version"]
+    },
+    "file.link.changed": {
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+          "GRANT_CEILING_EXCEEDED",
+          "LAST_ADMIN_REQUIRED",
+          "ROLE_IN_USE",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "EMAIL_IN_USE",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["changedFields", "version"]
+    }
+  }
+}
