@@ -1,0 +1,110 @@
+{
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "permissions": {
+    "staff.users.read": "List employees and current role ids; no credentials/sessions.",
+    "staff.users.create": "Create active employee with initial secret and forced password change; no roles implicit.",
+    "staff.users.status.write": "Block/unblock another employee; no self state changes.",
+    "staff.sessions.revoke": "Revoke all sessions of another employee.",
+    "staff.roles.read": "Read role definitions and permission registry.",
+    "staff.roles.write": "Create/rename/archive roles; no permission or assignment implicit.",
+    "staff.roles.permissions.write": "Replace permission set of a role not assigned to the caller; delegation ceiling applies.",
+    "staff.roles.assign": "Assign/remove another employee role; delegation ceiling applies.",
+    "sellers.read": "Read our own seller directory; no customer data.",
+    "sellers.write": "Create/edit/transition own seller directory; no quote/tax-calculation authority.",
+    "audit.read": "Read sanitized global security/admin audit.",
+    "files.metadata.read": "Read authorized file metadata only; no download authority."
+  },
+  "controlAdminRequiredPermissions": [
+    "staff.users.read",
+    "staff.users.create",
+    "staff.users.status.write",
+    "staff.sessions.revoke",
+    "staff.roles.read",
+    "staff.roles.write",
+    "staff.roles.permissions.write",
+    "staff.roles.assign"
+  ],
+  "roleTemplates": {
+    "bootstrap-admin": [
+      "staff.users.read",
+      "staff.users.create",
+      "staff.users.status.write",
+      "staff.sessions.revoke",
+      "staff.roles.read",
+      "staff.roles.write",
+      "staff.roles.permissions.write",
+      "staff.roles.assign",
+      "sellers.read",
+      "sellers.write",
+      "audit.read",
+      "files.metadata.read"
+    ],
+    "seller-maintainer": ["sellers.read", "sellers.write"],
+    "audit-reader": ["audit.read"],
+    "access-admin": [
+      "staff.users.read",
+      "staff.users.create",
+      "staff.users.status.write",
+      "staff.sessions.revoke",
+      "staff.roles.read",
+      "staff.roles.write",
+      "staff.roles.permissions.write",
+      "staff.roles.assign"
+    ]
+  },
+  "rules": [
+    "Templates are mutable ordinary role records, not special names, enums or wildcard bypasses. Only bootstrap-admin instantiated initially; others optional explicit admin actions.",
+    "Effective permissions = distinct union of registered codes in ACTIVE roles assigned to ACTIVE user. Blocked/expired/revoked/stale-version sessions grant none.",
+    "No self assignment/removal or self block/unblock; no permission-set edits of any role assigned to caller.",
+    "Grant ceiling: added permissions and every permission of newly assigned role must be subset of current actor effective permissions; staff.roles.assign distinct from staff.roles.permissions.write.",
+    "Preserve at least one usable ACTIVE control administrator with all controlAdminRequiredPermissions AND at least one usable ACTIVE full administrator with all fullAdminProtectedPermissions. Count each by its own ACTIVE-role union, never by role name or by combining different users; one full administrator satisfies both. Usable credentials require valid policy-compliant Argon2id hash and passwordChangeRequired=false, not a live session. Check resulting state in the same serialized transaction for every relevant writer; no bypass.",
+    "All access is GLOBAL to one internal seller business in B; future customer memberships and seller scopes must be introduced explicitly. No trust in caller-supplied seller ownership.",
+    "File metadata: files.metadata.read AND (owner is caller OR (visibility=INTERNAL AND a typed seller link exists AND caller has sellers.read)); PRIVATE always owner-only. Unknown/forbidden object returns 404 after action permission passes.",
+    "No engineering/quote/price/catalog permissions registered or inherited here.",
+    "Auth/me/logout/CSRF and forced own password change require session policy, not an administrator permission."
+  ],
+  "fullAdminProtectedPermissions": [
+    "staff.users.read",
+    "staff.users.create",
+    "staff.users.status.write",
+    "staff.sessions.revoke",
+    "staff.roles.read",
+    "staff.roles.write",
+    "staff.roles.permissions.write",
+    "staff.roles.assign",
+    "sellers.read",
+    "sellers.write",
+    "audit.read",
+    "files.metadata.read"
+  ],
+  "adminPreservation": {
+    "controlRequiredSet": "controlAdminRequiredPermissions",
+    "fullRequiredSet": "fullAdminProtectedPermissions",
+    "minimumControlAdmins": 1,
+    "minimumFullAdmins": 1,
+    "qualification": {
+      "userState": "ACTIVE",
+      "passwordChangeRequired": false,
+      "credential": "valid policy-compliant Argon2id passwordHash",
+      "permissions": "effective union of ACTIVE assigned roles for the same user",
+      "requiresLiveSession": false,
+      "roleNameAuthority": false
+    },
+    "lock": "pg_advisory_xact_lock(1398031445, 2)",
+    "transaction": "READ COMMITTED; acquire advisory lock before reading authorization/invariant state; recompute both administrator sets from resulting persisted state before commit",
+    "writers": [
+      "user.state",
+      "user.credentials",
+      "user.passwordChangeRequired",
+      "user.roles",
+      "role.permissions",
+      "role.state",
+      "permission.registry"
+    ],
+    "failureCode": "LAST_ADMIN_REQUIRED",
+    "failure": "rollback business rows, versions and session changes; no SUCCESS audit; separate mandatory DENIED audit with LAST_ADMIN_REQUIRED; audit failure returns 503",
+    "futurePermissions": "explicit versioned owner-approved contract update only; no automatic inclusion",
+    "privilegedBypass": false
+  }
+}
