@@ -1,6 +1,8 @@
 # R1-002B — ограниченный план реализации по FROZEN 1.0.0 контракту
 
-**Статус плана: APPROVED FOR START PREPARATION. Контракт: FROZEN 1.0.0. Реализация NOT IMPLEMENTED.**
+**Статус плана: READY TO START. Контракт: FROZEN 1.0.0. Реализация NOT IMPLEMENTED.**
+
+A объединена через PR #4 на main3075337058fb63262b59d64a725fbaa30def6b93, post-integration CI39779081785 SUCCESS. Ограниченное стартовое задание: [R1-002B-start.md](R1-002B-start.md); checkpoint: `.agent/tasks/R1-002B/state.md`.
 
 Вход: owner утвердил [пакет](R1-002-contract-decisions.md) на SHA 867184f60d5306b58dd66ac6607a6ec0487761d3; FROZEN1.0.0/provenance фиксируются в A. После интеграции A и post-integration CI подготавливается старт B — AUTO_MERGE, независимый read-only security/DB/backend review, без production migration/deploy. Один ведущий writer схемы/миграции/OpenAPI/RBAC; параллельные writers контрактов не нужны.
 

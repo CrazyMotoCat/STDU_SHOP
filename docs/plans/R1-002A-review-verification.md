@@ -6,6 +6,19 @@ Baseline `ec109beacd8fa687b2c127f160fb961d540a4f3b`; ветка `codex/r1-002a-c
 
 ## Финальная фиксация FROZEN 1.0.0
 
+**Итог A: COMPLETE / MERGED.** [PR #4](https://github.com/CrazyMotoCat/STDU_SHOP/pull/4) переведён Ready for Review и объединён обычным merge после всех gates. Owner approval и содержимое сохранены; production/B runtime implementation отсутствуют.
+
+| Этап                     | Точный SHA / фактический CI                                                                                                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Freeze commit            | bf0b66d06cca7a061c35d3f9e7af9a99f5f5ea57; [CI39778571232](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39778571232) SUCCESS attempt1                                           |
+| Actual tested candidate  | ed03bfa5b28068672894e4af0ccf5bfca91884f0; tree91d800815ea413088d6bbf81d2c07cfde516cf90 equals freeze HEAD                                                                                |
+| Integrated main          | 3075337058fb63262b59d64a725fbaa30def6b93; тот же tree; локальный main безопасно fast-forwarded                                                                                           |
+| Post-integration main CI | [CI39779081785](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39779081785) SUCCESS attempt1; job119825394521 logs подтверждают checkout3075337058fb63262b59d64a725fbaa30def6b93 |
+
+Оба новых CI выполнили frozen checker30/30,29 baseline Vitest/1 Windows-only skip,5 pytest,полный quality gate,Compose smoke+3 host smoke со штатной остановкой и сохранением volumes. На merge main повторно PASS сверка содержимого с approved source и checker. Локально полный gate30 Vitest+5 pytest, parser/type-generation/typecheck/reproducibility PASS. Никакой runtime B coverage из этого не следует.
+
+После подтверждённой интеграции добавлены только completion/status и [старт R1-002B](R1-002B-start.md). Этот небольшой documentation commit доставляется DIRECT_MAIN с отдельным exact-SHA CI; окончательные SHA/run публикуются в PR #4 и итоговом сообщении после наблюдения SUCCESS. FROZEN artifacts после freeze commit не меняются.
+
 2026-10-22 владелец явно утвердил все OD-002A-01…08, включая исправленный OD-002A-02, на точном SHA `867184f60d5306b58dd66ac6607a6ec0487761d3`. Утверждение и границы разрешения зафиксированы в [пакете решений](R1-002-contract-decisions.md) и checkpoint. Для этого источника [CI39775928280](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39775928280) SUCCESS attempt1; actual checkout39f4ad9a0eb0ddb2b61944e39f4e1ccdd4e83ff4 и равный tree854de6325646a55922a57185d2704caaf21473ad.
 
 Фиксация меняет статусы/версии и provenance; схема, permissions/templates/invariants, DTO/routes/errors и политики безопасности не изменены. Ведущий выполнил `node .local/verify-r1002-freeze.mjs`: четыре JSON структурно идентичны утверждённому Git-содержимому после исключения только точных version/status/description metadata; четыре Markdown идентичны после точных замен header/provenance; все восемь строк OD совпадают. Evidence: ignored `.local/evidence/r1002-frozen-equivalence.json`. Изменений apps/services/scripts/infra/ADR/spec/зависимостей нет.

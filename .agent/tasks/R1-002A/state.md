@@ -1,18 +1,27 @@
 # R1-002A
 
 TASK: R1-002A
-STATUS: INTEGRATING
+STATUS: COMPLETE
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE
-PHASE: Owner-approved metadata finalization FROZEN 1.0.0; CI/PR integration gate
+PHASE: FROZEN 1.0.0 merged; exact merge SHA post-integration CI PASS; B start prepared
 UPDATED_AT: 2026-10-22
-BRANCH: codex/r1-002a-contract-freeze
-LAST_SAFE_COMMIT: 867184f60d5306b58dd66ac6607a6ec0487761d3
+BRANCH: main
+LAST_SAFE_COMMIT: 3075337058fb63262b59d64a725fbaa30def6b93
 OWNER_APPROVED_SOURCE_SHA: 867184f60d5306b58dd66ac6607a6ec0487761d3
 CONTRACT_STATUS: FROZEN
 CONTRACT_VERSION: 1.0.0
 
-## OWNER_DECISION / CURRENT PHASE
+## FINAL INTEGRATION
+
+- PR4 Ready for Review then normal merge, no bypass; approved-source SHA above retained. Freeze HEAD bf0b66d06cca7a061c35d3f9e7af9a99f5f5ea57, CI39778571232 attempt1 SUCCESS; actual checkout ed03bfa5b28068672894e4af0ccf5bfca91884f0, equal tree91d800815ea413088d6bbf81d2c07cfde516cf90.
+- MERGED main3075337058fb63262b59d64a725fbaa30def6b93; same tested tree. Local main fast-forwarded, clean/synchronized before completion documentation.
+- Post-integration CI39779081785 attempt1 SUCCESS, job119825394521 logs confirm exact main checkout. Checker30/30,29 Vitest/1 intentional Windows-only skip,5 pytest,full gate,Compose+3 host smokes PASS; shutdown verified,volumes preserved.
+- Four JSON/four Markdown semantic equivalence against approved source PASS on main; all eight OD rows unchanged. No runtime B tests claimed.
+- R1-002B start task/checkpoint prepared from FROZEN1.0.0, implementation NOT STARTED. AUTO_MERGE/security+database review/runtime-test requirements retained; no production authorization.
+- Final completion-documentation commit is DIRECT_MAIN, only report/checkpoints/start preparation. Its final SHA/CI recorded in PR4 and final message after push, without self-referencing future SHA here.
+
+## OWNER_DECISION / HISTORICAL FINALIZATION PHASE
 
 2026-10-22 (Asia/Vladivostok), direct human message: approved 0.1.0-proposed at exact source SHA above, all OD-002A-01..08 including corrected OD02. Authorized metadata-only FROZEN1.0.0, Ready for Review, autonomous PR4 merge after Git gates, main/post-integration CI and completion. B permitted AUTO_MERGE within frozen contract with independent security/database review and actual runtime tests. Production migration/deployment NOT authorized. Prepare B start after A integration; no B implementation here.
 
@@ -42,7 +51,7 @@ Freeze equivalence PASS: four JSON identical excluding exact metadata, four Mark
 
 ## UNCOMMITTED
 
-- Lead-owned metadata freeze, checker/test/CI label and decisions/plan/report/checkpoint until commit. No unrelated dirty paths; ignored local evidence separate. New head/CI recorded in PR4 after push.
+- Lead-owned completion report/checkpoint/B start documentation until final commit. Contract artifacts unchanged after merge; ignored local evidence separate. Final pushed SHA/CI recorded in PR4.
 
 ## DECISIONS
 
@@ -51,11 +60,11 @@ Freeze equivalence PASS: four JSON identical excluding exact metadata, four Mark
 
 ## BLOCKERS
 
-- No owner-decision blocker. Merge requires current final head/actual-candidate CI and GitHub rules; no bypass.
+- NONE for A: owner approval, merge and exact-main CI verified. No unfinished A implementation or migration.
 
 ## NEXT_ACTION
 
-Finish local checks, commit/push freeze, mark PR4 ready, verify final exact-head/candidate CI and merge. Verify main CI, mark A COMPLETE, prepare B start.
+R1-002A complete. R1-002B next: fresh-main guard, feature branch and first approved schema/migration/test slice per docs/plans/R1-002B-start.md. No B implementation in this completion task.
 
 ## DO_NOT_REPEAT
 
