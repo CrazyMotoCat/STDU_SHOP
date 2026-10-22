@@ -1,10 +1,18 @@
 # R1-002A — независимое ревью и проверка предложения
 
-**Статус пакета: PROPOSED. Версия: 0.1.0-proposed. Режим: REVIEW_REQUIRED.**
+**Статус пакета: FROZEN. Версия: 1.0.0. Режим интеграции: AUTO_MERGE после явного owner approval.**
 
 Baseline `ec109beacd8fa687b2c127f160fb961d540a4f3b`; ветка `codex/r1-002a-contract-freeze`. Только документация, machine-readable proposed contracts, documentation consistency checker и его CI step. Рабочая Prisma schema, migrations, auth/business code, ADR, registry№1–108 и production не меняются. Один ведущий владелец контрактов; reviewers READ_ONLY.
 
-## Дополнительное ревью OD-002A-02 — актуальная ревизия
+## Финальная фиксация FROZEN 1.0.0
+
+2026-10-22 владелец явно утвердил все OD-002A-01…08, включая исправленный OD-002A-02, на точном SHA `867184f60d5306b58dd66ac6607a6ec0487761d3`. Утверждение и границы разрешения зафиксированы в [пакете решений](R1-002-contract-decisions.md) и checkpoint. Для этого источника [CI39775928280](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39775928280) SUCCESS attempt1; actual checkout39f4ad9a0eb0ddb2b61944e39f4e1ccdd4e83ff4 и равный tree854de6325646a55922a57185d2704caaf21473ad.
+
+Фиксация меняет статусы/версии и provenance; схема, permissions/templates/invariants, DTO/routes/errors и политики безопасности не изменены. Ведущий выполнил `node .local/verify-r1002-freeze.mjs`: четыре JSON структурно идентичны утверждённому Git-содержимому после исключения только точных version/status/description metadata; четыре Markdown идентичны после точных замен header/provenance; все восемь строк OD совпадают. Evidence: ignored `.local/evidence/r1002-frozen-equivalence.json`. Изменений apps/services/scripts/infra/ADR/spec/зависимостей нет.
+
+Checker теперь требует FROZEN1.0.0, включая OpenAPI x-contract-version и Markdown headers. Добавлены четыре отрицательных metadata-теста, всего30. Runtime B tests по-прежнему NOT IMPLEMENTED / NOT RUN. Обязательный CI окончательного freeze HEAD/actual checkout, merge SHA и post-integration CI фиксируются в PR #4 и финальном отчёте после наблюдения результата; исторические runs ниже не подменяют эти проверки. Production migration/deploy не разрешены.
+
+## Историческое дополнительное ревью OD-002A-02 до утверждения
 
 Исходный HEAD `e7807f60741785c1bc4b1c695d6542eb44c230e8`. Владелец запросил устранить потерю критических полномочий; пакет остаётся PROPOSED, REVIEW_REQUIRED. Прежняя защита только восьми control permissions позволяла access-operator уменьшить чужую роль с уникальным sellers.write/audit.read/files.metadata.read, после чего grant ceiling мог исключить восстановление через API.
 

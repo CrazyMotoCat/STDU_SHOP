@@ -13,18 +13,32 @@ const model = read('R1-002-data-model.json');
 const rbac = read('R1-002-rbac-matrix.json');
 const api = read('R1-002-staff.openapi.json');
 const audit = read('R1-002-audit-registry.json');
-const version = '0.1.0-proposed';
-assert.equal(model.status, 'PROPOSED');
-assert.equal(rbac.status, 'PROPOSED');
-assert.equal(api['x-status'], 'PROPOSED');
-assert.equal(audit.status, 'PROPOSED');
+const version = '1.0.0';
+assert.equal(model.status, 'FROZEN');
+assert.equal(rbac.status, 'FROZEN');
+assert.equal(api['x-status'], 'FROZEN');
+assert.equal(audit.status, 'FROZEN');
 for (const value of [
   model.version,
   rbac.version,
   api.info.version,
+  api['x-contract-version'],
   audit.version,
 ])
   assert.equal(value, version);
+for (const name of [
+  'R1-002-auth-security.md',
+  'R1-002-rbac-matrix.md',
+  'R1-002-staff-data-model.md',
+  'R1-002-test-matrix.md',
+]) {
+  assert(
+    readFileSync(resolve(directory, name), 'utf8').includes(
+      '**Статус: FROZEN. Версия: 1.0.0.',
+    ),
+    `Contract Markdown status/version drift: ${name}`,
+  );
+}
 const entities = [
   'StaffUser',
   'Role',
@@ -333,5 +347,5 @@ for (let n = 1; n <= 40; n++)
     `Missing test T-${n}`,
   );
 console.log(
-  'PASS PROPOSED R1-002: 11 entities, 12 permissions, 23 operations, 40 planned tests; full-admin preservation/references/DTO/CSRF/permission consistency. No runtime or SQL verification claimed.',
+  'PASS FROZEN R1-002 1.0.0: 11 entities, 12 permissions, 23 operations, 40 planned tests; full-admin preservation/references/DTO/CSRF/permission consistency. No runtime or SQL verification claimed.',
 );

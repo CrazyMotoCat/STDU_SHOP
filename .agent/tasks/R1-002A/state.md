@@ -1,13 +1,22 @@
 # R1-002A
 
 TASK: R1-002A
-STATUS: AWAITING_OWNER_APPROVAL
-DELIVERY_MODE: REVIEW_REQUIRED
+STATUS: INTEGRATING
+DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE
-PHASE: OD-002A-02 full-admin preservation revision; local checks and independent reviews PASS, final push/CI evidence recorded in PR
+PHASE: Owner-approved metadata finalization FROZEN 1.0.0; CI/PR integration gate
 UPDATED_AT: 2026-10-22
 BRANCH: codex/r1-002a-contract-freeze
-LAST_SAFE_COMMIT: e7807f60741785c1bc4b1c695d6542eb44c230e8
+LAST_SAFE_COMMIT: 867184f60d5306b58dd66ac6607a6ec0487761d3
+OWNER_APPROVED_SOURCE_SHA: 867184f60d5306b58dd66ac6607a6ec0487761d3
+CONTRACT_STATUS: FROZEN
+CONTRACT_VERSION: 1.0.0
+
+## OWNER_DECISION / CURRENT PHASE
+
+2026-10-22 (Asia/Vladivostok), direct human message: approved 0.1.0-proposed at exact source SHA above, all OD-002A-01..08 including corrected OD02. Authorized metadata-only FROZEN1.0.0, Ready for Review, autonomous PR4 merge after Git gates, main/post-integration CI and completion. B permitted AUTO_MERGE within frozen contract with independent security/database review and actual runtime tests. Production migration/deployment NOT authorized. Prepare B start after A integration; no B implementation here.
+
+Freeze equivalence PASS: four JSON identical excluding exact metadata, four Markdown only exact header/provenance changes; all eight decision rows unchanged. Frozen checker PASS;30/30 tests PASS. Final freeze/main CI results recorded in PR4/final report after push. No runtime B claims. Earlier phase evidence below is historical.
 
 ## COMPLETED
 
@@ -33,22 +42,22 @@ LAST_SAFE_COMMIT: e7807f60741785c1bc4b1c695d6542eb44c230e8
 
 ## UNCOMMITTED
 
-- Lead-owned OD-002A-02 contracts/checker/test matrix/plan/report/checkpoint revision until committed. No unrelated dirty paths; ignored local tooling/evidence separate. Commit SHA and completed CI recorded externally in PR4.
+- Lead-owned metadata freeze, checker/test/CI label and decisions/plan/report/checkpoint until commit. No unrelated dirty paths; ignored local evidence separate. New head/CI recorded in PR4 after push.
 
 ## DECISIONS
 
-- PROPOSED0.1.0; owner must approve schema/security/permission decisions before merge/B.
+- Owner approved exact source SHA above. FROZEN1.0.0 preserves semantic content. AUTO_MERGE authorized after all Git gates.
 - One writer, three independent read-only review roles after authored package.
 
 ## BLOCKERS
 
-- Owner approval required for merge (not for preparing/reviewing/publishing A).
+- No owner-decision blocker. Merge requires current final head/actual-candidate CI and GitHub rules; no bypass.
 
 ## NEXT_ACTION
 
-Push reviewed OD-002A-02 revision and verify final exact-HEAD/actual-candidate full CI, then present updated consolidated OD-002A-01..08 package; no merge or implementation until owner approval of updated HEAD.
+Finish local checks, commit/push freeze, mark PR4 ready, verify final exact-head/candidate CI and merge. Verify main CI, mark A COMPLETE, prepare B start.
 
 ## DO_NOT_REPEAT
 
 - No auth implementation, active Prisma schema, SQL migration/table, login UI, production, R1-003 or changes to decisions№1–108/ADRs.
-- CI/review success is not owner approval. Never merge this proposed contract without it.
+- CI/review success is not owner approval. Approval provenance is the explicit human decision above; production and B implementation are outside this metadata finalization.

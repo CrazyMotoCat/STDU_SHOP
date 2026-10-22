@@ -1,6 +1,6 @@
 # R1-002 — трассируемая матрица проверки реализации B
 
-**Статус: PROPOSED. Версия: 0.1.0-proposed. Все runtime тесты ниже NOT IMPLEMENTED / NOT RUN в A.** Текущие A syntax/contract/review проверки описаны отдельно в verification report. Указанные пути — план B, не существующее доказательство.
+**Статус: FROZEN. Версия: 1.0.0. Все runtime тесты ниже NOT IMPLEMENTED / NOT RUN в A.** Текущие A syntax/contract/review проверки описаны отдельно в verification report. Указанные пути — план B, не существующее доказательство.
 
 Основания: ADM-01/03, REQ-04, основа QUOTE-03; ADR-001/003/004; решения №10/16/49/50/55/85. Ни один тест не изменяет ручные business gates.
 

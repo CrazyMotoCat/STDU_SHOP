@@ -1,6 +1,6 @@
 {
-  "status": "PROPOSED",
-  "version": "0.1.0-proposed",
+  "status": "FROZEN",
+  "version": "1.0.0",
   "permissions": {
     "staff.users.read": "List employees and current role ids; no credentials/sessions.",
     "staff.users.create": "Create active employee with initial secret and forced password change; no roles implicit.",

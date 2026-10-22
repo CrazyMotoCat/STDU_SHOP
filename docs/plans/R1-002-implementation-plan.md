@@ -1,8 +1,8 @@
-# R1-002B — ограниченный план реализации по будущему frozen контракту
+# R1-002B — ограниченный план реализации по FROZEN 1.0.0 контракту
 
-**Статус плана: PROPOSED. Контракт: 0.1.0-proposed. Сейчас NOT AUTHORIZED / NOT IMPLEMENTED.**
+**Статус плана: APPROVED FOR START PREPARATION. Контракт: FROZEN 1.0.0. Реализация NOT IMPLEMENTED.**
 
-Вход: owner принимает [пакет](R1-002-contract-decisions.md) на точном SHA, фиксируются FROZEN1.0.0 и provenance; A PR принят/проверен. Только затем B — AUTO_MERGE, независимый read-only security/DB/backend review, без production migration/deploy. Один ведущий writer схемы/миграции/OpenAPI/RBAC; параллельные writers контрактов не нужны.
+Вход: owner утвердил [пакет](R1-002-contract-decisions.md) на SHA 867184f60d5306b58dd66ac6607a6ec0487761d3; FROZEN1.0.0/provenance фиксируются в A. После интеграции A и post-integration CI подготавливается старт B — AUTO_MERGE, независимый read-only security/DB/backend review, без production migration/deploy. Один ведущий writer схемы/миграции/OpenAPI/RBAC; параллельные writers контрактов не нужны.
 
 ## Срезы и файлы
 

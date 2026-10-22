@@ -42,7 +42,7 @@ jobs:
       - run: pnpm db:validate
       - run: pnpm lint
       - run: pnpm format:check
-      - name: Proposed R1-002A contract consistency
+      - name: Frozen R1-002 contract consistency
         run: |
           node docs/contracts/check-R1-002.mjs
           node --test docs/contracts/check-R1-002.test.mjs

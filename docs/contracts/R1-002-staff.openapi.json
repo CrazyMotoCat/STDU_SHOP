@@ -2,11 +2,11 @@
   "openapi": "3.0.3",
   "info": {
     "title": "STDU R1-002 Staff API",
-    "version": "0.1.0-proposed",
-    "description": "PROPOSED, owner approval required. Baseline ec109be. No auth implementation/migration in R1-002A. x-permission/x-csrf/x-audit/x-invariants/x-error-codes are mandatory contract semantics, not Swagger-only decoration."
+    "version": "1.0.0",
+    "description": "FROZEN 1.0.0; owner approved OD-002A-01..08 at 867184f60d5306b58dd66ac6607a6ec0487761d3. Baseline ec109be. No auth implementation/migration in R1-002A. x-permission/x-csrf/x-audit/x-invariants/x-error-codes are mandatory contract semantics, not Swagger-only decoration."
   },
-  "x-status": "PROPOSED",
-  "x-contract-version": "0.1.0-proposed",
+  "x-status": "FROZEN",
+  "x-contract-version": "1.0.0",
   "x-documents": [
     "R1-002-staff-data-model.md",
     "R1-002-data-model.json",

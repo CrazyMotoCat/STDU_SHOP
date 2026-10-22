@@ -1,6 +1,6 @@
 {
-  "status": "PROPOSED",
-  "version": "0.1.0-proposed",
+  "status": "FROZEN",
+  "version": "1.0.0",
   "baseline": "ec109beacd8fa687b2c127f160fb961d540a4f3b",
   "rules": {
     "naming": "Prisma PascalCase entity/camelCase field -> explicitly mapped snake_case tables/columns; no pluralization guessing",

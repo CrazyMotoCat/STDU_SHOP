@@ -21,6 +21,9 @@ const names = [
   'R1-002-staff.openapi.json',
   'R1-002-test-matrix.md',
   'R1-002-audit-registry.json',
+  'R1-002-auth-security.md',
+  'R1-002-rbac-matrix.md',
+  'R1-002-staff-data-model.md',
 ];
 const changeRegistry = (directory, mutate) => {
   const path = join(directory, names[4]);
@@ -36,6 +39,37 @@ const changeRbac = (directory, mutate) => {
 };
 const cases = [
   ['baseline', () => {}, 0],
+  [
+    'unfrozen OpenAPI',
+    (a) => {
+      a['x-status'] = 'PROPOSED';
+    },
+  ],
+  [
+    'wrong contract version',
+    (a) => {
+      a.info.version = '0.1.0-proposed';
+    },
+  ],
+  [
+    'OpenAPI extension version drift',
+    (a) => {
+      a['x-contract-version'] = '0.1.0-proposed';
+    },
+  ],
+  [
+    'Markdown freeze drift',
+    (_, d) => {
+      const path = join(d, 'R1-002-rbac-matrix.md');
+      writeFileSync(
+        path,
+        readFileSync(path, 'utf8').replace(
+          'Статус: FROZEN.',
+          'Статус: PROPOSED.',
+        ),
+      );
+    },
+  ],
   ['missing 401', (a) => delete a.paths['/v1/staff/users'].get.responses[401]],
   [
     'unknown permission',
@@ -204,7 +238,7 @@ for (const [label, mutate, expected = 1] of cases) {
   test(`documentation checker: ${label}`, (context) => {
     const directory = mkdtempSync(join(tmpdir(), 'stdu-contract-'));
     context.after(() => {
-      // Only the five literal names copied by this test, never recursive cleanup.
+      // Only the literal names copied by this test, never recursive cleanup.
       for (const name of names) {
         try {
           unlinkSync(join(directory, name));

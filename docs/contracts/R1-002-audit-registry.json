@@ -1,6 +1,6 @@
 {
-  "status": "PROPOSED",
-  "version": "0.1.0-proposed",
+  "status": "FROZEN",
+  "version": "1.0.0",
   "nullPolicy": "reasonCode NULL only if null explicitly allowed for action/outcome; DENIED/FAILURE nonnull; unknown combinations reject. changes root keys must be subset of per-action list and values satisfy closed AuditChanges DTO. No secret values.",
   "sessionRevocationReasons": [
     "LOGOUT",
