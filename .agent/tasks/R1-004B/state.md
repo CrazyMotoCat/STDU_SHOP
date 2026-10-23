@@ -1,14 +1,14 @@
 # R1-004B
 
 TASK: R1-004B
-STATUS: CI_REPAIR_PENDING
+STATUS: CHECKPOINT_REVERIFY_PENDING
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE_WITH_CHECKPOINT
-PHASE: catalog implementation and local acceptance complete; first Ubuntu CI exposed false failure on graceful POSIX SIGTERM exit 143; bounded shutdown classification corrected and Windows runtime re-passed; fresh exact-head CI pending
+PHASE: catalog implementation and local acceptance complete; graceful POSIX SIGTERM status classification corrected; Windows runtime and exact-head Ubuntu CI #42 pass on 952d18c; updated checkpoint commit needs fresh exact-head CI before Ready/Merge
 UPDATED_AT: 2026-10-24
 BRANCH: codex/r1-004b-catalog-domain
 BASELINE_MAIN: ab7f5a25a7d36d2d722e36effb8c9fecb848c88a
-LAST_SAFE_COMMIT: b9299bd0218bbabd16d7a0dfb52724560b96aeef
+LAST_SAFE_COMMIT: 952d18c0298827a0e6ad73be475735929b21c792
 APPROVED_SOURCE_SHA: 8ae4dd8cfd15e3722d97259818b238924851c963
 FROZEN_HEAD: 0a749af35e422f55be050bd256ea1e8639193541
 CONTRACT_MERGE_SHA: 24c9653780c7e8dc511dd5acf1706ecdb9e191eb
@@ -46,8 +46,8 @@ CONTRACT_VERSION: FROZEN 1.0.0
 - `pnpm catalog:contract:test` 47/47 and R1-002 checker regression tests 32/32 — PASS. R1-002 protected full-admin permissions remain the original 12; only the owner-approved additive catalog permission enum is extended.
 - `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm ui:smoke`, `pnpm test:r1-002b`, toolchain and DB validation — PASS; exact results and the two local-only skips are recorded in `docs/plans/R1-004B-verification.md`.
 - Independent backend, database and security reviews — PASS, no blocker. Security reviewer recorded one non-blocking P3 public 503/500 alignment note; see verification report.
-- Exact hosted CI run #41 failed after CATB-29 HTTP probes because graceful POSIX SIGTERM exit status 143 was incorrectly classified as failed shutdown. Harness corrected to accept 143 only after a task-requested SIGTERM and bounded close; Windows isolated runtime re-run passed 12/12. Fresh exact-head CI, merge and post-integration CI remain required before completion.
+- Exact hosted CI run #41 failed after CATB-29 HTTP probes because graceful POSIX SIGTERM exit status 143 was incorrectly classified as failed shutdown. Harness corrected to accept 143 only after a task-requested SIGTERM and bounded close; Windows isolated runtime re-run passed 12/12. Full exact-head Ubuntu CI #42 passed on corrected code commit `952d18c`; updated verification/checkpoint commit, merge and post-integration CI remain required before completion.
 
 ## Next action
 
-Next: commit and push the shutdown classification correction without force; wait for fresh exact-head GitHub CI, then merge only after all required checks and GitHub rules pass. Record final `main` SHA and post-integration CI before marking R1-004B complete. Do not run production migrations or the permission initializer against the working database.
+Next: commit and push the completed verification/checkpoint update without force; wait for fresh exact-head GitHub CI, then merge only after all required checks and GitHub rules pass. Record final `main` SHA and post-integration CI before marking R1-004B complete. Do not run production migrations or the permission initializer against the working database.
