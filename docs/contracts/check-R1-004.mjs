@@ -5,6 +5,7 @@ import SwaggerParser from '@apidevtools/swagger-parser';
 
 const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const frozenBaseline = '28d9a85aa82dc4bf3c116e16ca6a3973a9d7bc6e';
+const approvedSourceSha = '8ae4dd8cfd15e3722d97259818b238924851c963';
 const methods = new Set([
   'get',
   'post',
@@ -63,6 +64,9 @@ export async function loadCatalogContract() {
     frozenAudit,
     decisions,
     matrix,
+    modelMarkdown,
+    rbacMarkdown,
+    implementationPlan,
   ] = await Promise.all([
     json('docs/contracts/R1-004-catalog-data-model.json'),
     json('docs/contracts/R1-004-catalog-rbac-matrix.json'),
@@ -72,6 +76,18 @@ export async function loadCatalogContract() {
     json('docs/contracts/R1-002-audit-registry.json'),
     readFile(resolve(root, 'docs/plans/R1-004A-contract-decisions.md'), 'utf8'),
     readFile(resolve(root, 'docs/contracts/R1-004B-test-matrix.md'), 'utf8'),
+    readFile(
+      resolve(root, 'docs/contracts/R1-004-catalog-data-model.md'),
+      'utf8',
+    ),
+    readFile(
+      resolve(root, 'docs/contracts/R1-004-catalog-rbac-matrix.md'),
+      'utf8',
+    ),
+    readFile(
+      resolve(root, 'docs/plans/R1-004B-implementation-plan.md'),
+      'utf8',
+    ),
   ]);
   return {
     model,
@@ -84,6 +100,9 @@ export async function loadCatalogContract() {
     frozenAuditSnapshot: structuredClone(frozenAudit),
     decisions,
     matrix,
+    modelMarkdown,
+    rbacMarkdown,
+    implementationPlan,
   };
 }
 
@@ -146,6 +165,9 @@ export function validateCatalogContract(bundle) {
     frozenAuditSnapshot,
     decisions,
     matrix,
+    modelMarkdown,
+    rbacMarkdown,
+    implementationPlan,
   } = bundle;
   const expectedPermissions = [
     'catalog.references.read',
@@ -174,16 +196,29 @@ export function validateCatalogContract(bundle) {
   ];
 
   requireThat(
-    model.status === 'PROPOSED' && model.version === '0.1.0-proposed',
-    'R1-004 data model must remain PROPOSED 0.1.0-proposed.',
+    model.status === 'FROZEN' && model.version === '1.0.0',
+    'R1-004 data model must remain FROZEN 1.0.0.',
   );
   requireThat(
-    rbac.status === 'PROPOSED' && rbac.version === '0.1.0-proposed',
-    'R1-004 RBAC must remain PROPOSED 0.1.0-proposed.',
+    rbac.status === 'FROZEN' && rbac.version === '1.0.0',
+    'R1-004 RBAC must remain FROZEN 1.0.0.',
   );
   requireThat(
-    audit.status === 'PROPOSED' && audit.version === '0.1.0-proposed',
-    'R1-004 audit registry must remain PROPOSED 0.1.0-proposed.',
+    audit.status === 'FROZEN' && audit.version === '1.0.0',
+    'R1-004 audit registry must remain FROZEN 1.0.0.',
+  );
+  requireThat(
+    [model, rbac, audit].every(
+      (artifact) => artifact.approvedSourceSha === approvedSourceSha,
+    ) &&
+      [decisions, matrix, modelMarkdown, rbacMarkdown].every(
+        (document) =>
+          document.includes('Статус: FROZEN. Версия: 1.0.0.') &&
+          document.includes(approvedSourceSha),
+      ) &&
+      implementationPlan.includes('FROZEN R1-004 1.0.0') &&
+      implementationPlan.includes(approvedSourceSha),
+    'FROZEN R1-004 artifacts and documentation must retain the exact owner-approved source SHA and version.',
   );
   requireThat(
     model.baseline === frozenBaseline && rbac.baseline === frozenBaseline,
@@ -495,8 +530,11 @@ export function validateCatalogContract(bundle) {
     'RBAC map contains a route absent from OpenAPI.',
   );
   requireThat(
-    openapi['x-contract-status'] === 'PROPOSED / REVIEW_REQUIRED',
-    'OpenAPI contract must remain PROPOSED / REVIEW_REQUIRED.',
+    openapi['x-contract-status'] === 'FROZEN' &&
+      openapi.info.version === '1.0.0' &&
+      openapi['x-approved-source-sha'] === approvedSourceSha &&
+      openapi.info.description.includes(approvedSourceSha),
+    'OpenAPI contract must remain FROZEN 1.0.0 with exact owner-approved provenance.',
   );
   requireThat(
     openapi['x-frozen-contracts']?.includes('R1-002 1.0.0'),
@@ -925,7 +963,7 @@ async function main() {
     resolve(root, 'docs/contracts/R1-004-catalog.openapi.json'),
   );
   console.log(
-    'PASS R1-004 proposed catalog model, RBAC, OpenAPI (31 operations: 28 staff, 3 public), audit, decisions and R1-004B test matrix are consistent.',
+    'PASS FROZEN R1-004 1.0.0 catalog model, RBAC, OpenAPI (31 operations: 28 staff, 3 public), audit, owner approval and R1-004B test matrix are consistent.',
   );
 }
 

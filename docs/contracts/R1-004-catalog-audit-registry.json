@@ -1,6 +1,7 @@
 {
-  "status": "PROPOSED",
-  "version": "0.1.0-proposed",
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "approvedSourceSha": "8ae4dd8cfd15e3722d97259818b238924851c963",
   "extends": "docs/contracts/R1-002-audit-registry.json FROZEN 1.0.0; append only",
   "entityTypes": [
     "Brand",

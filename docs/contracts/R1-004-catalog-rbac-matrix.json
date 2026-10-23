@@ -1,6 +1,7 @@
 {
-  "status": "PROPOSED",
-  "version": "0.1.0-proposed",
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "approvedSourceSha": "8ae4dd8cfd15e3722d97259818b238924851c963",
   "baseline": "28d9a85aa82dc4bf3c116e16ca6a3973a9d7bc6e",
   "extends": "R1-002 RBAC FROZEN 1.0.0; no prior artifact is edited",
   "permissions": {

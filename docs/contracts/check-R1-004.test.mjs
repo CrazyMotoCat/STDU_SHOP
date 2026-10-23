@@ -17,6 +17,48 @@ test('R1-004 catalog contracts are internally consistent', () => {
   assert.doesNotThrow(() => validateCatalogContract(baseline));
 });
 
+test('checker rejects thawed contract status or version', () => {
+  for (const name of ['model', 'rbac', 'audit']) {
+    rejects((c) => {
+      c[name].status = 'PROPOSED';
+    });
+    rejects((c) => {
+      c[name].version = '0.1.0-proposed';
+    });
+  }
+  rejects((c) => {
+    c.openapi['x-contract-status'] = 'PROPOSED / REVIEW_REQUIRED';
+  });
+  rejects((c) => {
+    c.openapi.info.version = '0.1.0-proposed';
+  });
+});
+
+test('checker rejects missing or changed owner approval provenance', () => {
+  for (const name of ['model', 'rbac', 'audit']) {
+    rejects((c) => {
+      delete c[name].approvedSourceSha;
+    });
+  }
+  rejects((c) => {
+    c.openapi['x-approved-source-sha'] = 'unapproved';
+  });
+  for (const name of [
+    'decisions',
+    'matrix',
+    'modelMarkdown',
+    'rbacMarkdown',
+    'implementationPlan',
+  ]) {
+    rejects((c) => {
+      c[name] = c[name].replaceAll(
+        '8ae4dd8cfd15e3722d97259818b238924851c963',
+        'unapproved',
+      );
+    });
+  }
+});
+
 test('checker rejects adding an out-of-scope supplier model', () => {
   rejects((c) => {
     c.model.tables.Supplier = {};

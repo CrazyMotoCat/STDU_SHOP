@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "STDU R1-004 Catalog API",
-    "version": "0.1.0-proposed",
-    "description": "PROPOSED contract only. R1-004B may implement after owner approval. This document does not modify FROZEN R1-002 1.0.0."
+    "version": "1.0.0",
+    "description": "FROZEN 1.0.0. Owner approved OD-004A-01..11 at source SHA 8ae4dd8cfd15e3722d97259818b238924851c963 on 2026-10-24 (Asia/Vladivostok). R1-004B implementation is authorized after PR integration and post-integration CI. This document does not modify FROZEN R1-002 1.0.0 or authorize production operations or real permission assignments."
   },
   "servers": [
     {
@@ -5541,7 +5541,8 @@
       }
     }
   },
-  "x-contract-status": "PROPOSED / REVIEW_REQUIRED",
+  "x-contract-status": "FROZEN",
+  "x-approved-source-sha": "8ae4dd8cfd15e3722d97259818b238924851c963",
   "x-frozen-contracts": ["R1-002 1.0.0"],
   "x-pagination": {
     "staff": "limit 1..100 default 50; opaque createdAt/id cursor",

@@ -1,14 +1,16 @@
 # R1-004A
 
 TASK: R1-004A
-STATUS: PROPOSED_CONTRACT_REVIEWABLE
-DELIVERY_MODE: REVIEW_REQUIRED
+STATUS: FROZEN_APPROVED_PENDING_INTEGRATION
+DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE
-PHASE: proposed contract pushed; awaiting owner review of exact PR HEAD
+PHASE: owner-approved freeze verified locally; awaiting exact HEAD CI and integration
 UPDATED_AT: 2026-10-24
 BRANCH: codex/r1-004a-catalog-contract
 BASELINE_MAIN: 28d9a85aa82dc4bf3c116e16ca6a3973a9d7bc6e
-LAST_SAFE_COMMIT: b9b90104b62fb29ac0f435b6e547e76208d7262b
+LAST_SAFE_COMMIT: 8ae4dd8cfd15e3722d97259818b238924851c963
+APPROVED_SOURCE_SHA: 8ae4dd8cfd15e3722d97259818b238924851c963
+CONTRACT_VERSION: FROZEN 1.0.0
 
 ## Frozen inputs and owner selections
 
@@ -21,7 +23,8 @@ LAST_SAFE_COMMIT: b9b90104b62fb29ac0f435b6e547e76208d7262b
 - Product archive semantics are explicit in prose, JSON model, OpenAPI, checker and CATB-21: atomically withdraw pending as WITHDRAWN, clear all three root pointers, set ARCHIVED/revoke public visibility, audit, and preserve revision/FileVersion history.
 - Owner final correction to OD-004A-06: at least one technical filter requires categorySlug and explicitly includeDescendants=false; true or omission (default true) returns 400 VALIDATION_ERROR before a database query. Only the exact category's own AttributeDefinition applies, without inheritance or automatic code matching across categories; descendant search without technical filters remains allowed.
 - Catalog OpenAPI contains 31 operations: 28 staff and 3 public. The former report/PR claim of 23 operations was incorrect; the route set is unchanged. Frozen R1-002 separately retains its valid 23-operation count.
-- Contract remains PROPOSED / REVIEW_REQUIRED. No implementation, migration, production operation, merge, or R1-004B work is authorized before owner approval of the updated contract SHA.
+- Owner explicitly approved the complete 0.1.0-proposed package and OD-004A-01…11 on 2026-10-24 (Asia/Vladivostok) at exact source SHA 8ae4dd8cfd15e3722d97259818b238924851c963 and authorized metadata-only FROZEN 1.0.0, Ready for Review and AUTO_MERGE after GitHub gates.
+- R1-004B may start after successful integration and post-integration CI. Autonomous implementation requires independent backend/security/database review and actual PostgreSQL/HTTP/runtime CATB-01…38 evidence. The initial catalog-permission command may be implemented/tested only on an isolated test database; actual operator execution on the working database, real permission grants, production migrations/deployment and destructive operations are not authorized.
 
 ## Hard boundaries
 
@@ -43,12 +46,21 @@ LAST_SAFE_COMMIT: b9b90104b62fb29ac0f435b6e547e76208d7262b
 
 ## Independent reviews
 
+- Freeze audit: fresh independent READ_ONLY PASS against approved 8ae4dd8c; all normative JSON/OD/CATB content unchanged after removing allowed metadata. Checker and 44/44 contract tests independently rerun PASS.
 - Backend: repeated read-only PASS for final OD-004A-06 corrections; independently ran checker and 42/42 tests and verified unchanged 31 operations/components/other OD sections.
 - Database: prior proposal read-only PASS; no models, schemas or database rules changed in this final correction iteration.
 - Security: repeated read-only PASS for final OD-004A-06 corrections; independently ran checker and 42/42 tests and verified category-local filter scope, default-true rejection and unchanged permissions/publication boundaries.
 - Runtime scenarios CATB-21/35/37/38 are requirements for R1-004B; they were not implemented/executed as catalog runtime behavior in this contract-only task.
 
 ## Verification actually run
+
+### Owner-approved freeze — 2026-10-24
+
+- Exact approved-source comparison: PASS for all model/RBAC/audit/OpenAPI semantic content, OD-004A-01…11 and CATB-01…38; FROZEN R1-002 and specification files unchanged.
+- `pnpm catalog:contract:generate`, `pnpm catalog:contract:check` — PASS; FROZEN 1.0.0 metadata/provenance, 31 operations and reproducible validated OpenAPI.
+- `pnpm catalog:contract:test` — PASS, 44/44; adds negative tests for thawed status/version and missing/changed owner-approval provenance.
+- `pnpm lint`, `pnpm format:check`, `git diff --check` — PASS.
+- PR #7 integration and post-integration checks are verified against actual GitHub state before completion; exact delivered main SHA/run links are recorded in the delivery report.
 
 ### Final corrections — 2026-10-24
 
@@ -73,4 +85,4 @@ LAST_SAFE_COMMIT: b9b90104b62fb29ac0f435b6e547e76208d7262b
 
 ## Next action
 
-Hand off Draft PR #7 for owner review of the exact proposed contract HEAD and OD-004A-01…11. Keep contract status PROPOSED / REVIEW_REQUIRED; do not merge or start R1-004B before owner approval.
+Verify the exact freeze HEAD CI, move PR #7 to Ready for Review, merge after all gates, verify main/post-integration CI, then start R1-004B under the approved FROZEN contract and operator restrictions.
