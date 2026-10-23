@@ -13,6 +13,7 @@ const model = read('R1-002-data-model.json');
 const rbac = read('R1-002-rbac-matrix.json');
 const api = read('R1-002-staff.openapi.json');
 const audit = read('R1-002-audit-registry.json');
+const catalogRbac = read('R1-004-catalog-rbac-matrix.json');
 const version = '1.0.0';
 assert.equal(model.status, 'FROZEN');
 assert.equal(rbac.status, 'FROZEN');
@@ -288,10 +289,10 @@ for (const name of Object.keys(rbac.permissions))
     ),
     name,
   );
-assert.deepEqual(
-  api.components.schemas.PermissionCode.enum,
-  Object.keys(rbac.permissions),
-);
+assert.deepEqual(api.components.schemas.PermissionCode.enum, [
+  ...Object.keys(rbac.permissions),
+  ...Object.keys(catalogRbac.permissions),
+]);
 const deref = (reference) => {
   assert(reference.startsWith('#/'), 'External references forbidden');
   const found = reference
@@ -347,5 +348,5 @@ for (let n = 1; n <= 40; n++)
     `Missing test T-${n}`,
   );
 console.log(
-  'PASS FROZEN R1-002 1.0.0: 11 entities, 12 permissions, 23 operations, 40 planned tests; full-admin preservation/references/DTO/CSRF/permission consistency. No runtime or SQL verification claimed.',
+  'PASS FROZEN R1-002 1.0.0: 11 entities, 12 protected permissions, additive R1-004 catalog permission enum, 23 operations, 40 planned tests; full-admin preservation/references/DTO/CSRF/permission consistency. No runtime or SQL verification claimed.',
 );

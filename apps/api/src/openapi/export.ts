@@ -23,7 +23,7 @@ import {
   PermissionGuard,
   StaffSessionGuard,
 } from '../identity/guards.js';
-import { PERMISSION_CODES } from '../permissions/policy.js';
+import { REGISTERED_PERMISSION_CODES } from '../permissions/policy.js';
 import { StaffController } from '../staff/staff.controller.js';
 import { STAFF_OPERATION_CONTRACT_NOTES } from './operation-notes.js';
 import { STAFF_OPENAPI_ROOT_EXTENSIONS } from './root-extensions.js';
@@ -188,6 +188,39 @@ function normalizeSchema(schema: unknown): void {
       (value[key] as unknown[]).forEach(normalizeSchema);
 }
 
+function retainReferencedSchemas(document: OpenAPIObject) {
+  const schemas = document.components?.schemas;
+  if (!schemas) return;
+  const pending = new Set<string>(['PermissionCode']);
+  const visited = new Set<string>();
+  const collect = (value: unknown) => {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) {
+      value.forEach(collect);
+      return;
+    }
+    const record = value as Record<string, unknown>;
+    if (typeof record.$ref === 'string') {
+      const prefix = '#/components/schemas/';
+      if (record.$ref.startsWith(prefix))
+        pending.add(record.$ref.slice(prefix.length));
+      return;
+    }
+    Object.values(record).forEach(collect);
+  };
+  collect(document.paths);
+  while (pending.size > 0) {
+    const name = pending.values().next().value as string | undefined;
+    if (!name) break;
+    pending.delete(name);
+    if (visited.has(name)) continue;
+    visited.add(name);
+    collect(schemas[name]);
+  }
+  for (const name of Object.keys(schemas))
+    if (!visited.has(name)) delete schemas[name];
+}
+
 function finalizeDocument(document: OpenAPIObject) {
   Object.assign(document, STAFF_OPENAPI_ROOT_EXTENSIONS);
   document.openapi = '3.0.3';
@@ -230,11 +263,12 @@ function finalizeDocument(document: OpenAPIObject) {
   document.components.schemas ??= {};
   document.components.schemas.PermissionCode = {
     type: 'string',
-    enum: [...PERMISSION_CODES],
+    enum: [...REGISTERED_PERMISSION_CODES],
   };
 
   for (const path of Object.keys(document.paths))
-    if (!path.startsWith('/v1/staff')) delete document.paths[path];
+    if (!path.startsWith('/v1/staff') || path.startsWith('/v1/staff/catalog'))
+      delete document.paths[path];
   inventoryRoutes(document);
   for (const [path, pathItem] of Object.entries(document.paths)) {
     if (!path.startsWith('/v1/staff')) continue;
@@ -281,12 +315,13 @@ function finalizeDocument(document: OpenAPIObject) {
       }
     }
   }
+  retainReferencedSchemas(document);
   for (const schema of Object.values(document.components.schemas))
     normalizeSchema(schema);
   return document;
 }
 
-export async function createStaffOpenApi() {
+async function createNestOpenApiDocument() {
   const app = await NestFactory.create(AppModule, { logger: false });
   try {
     await app.init();
@@ -315,9 +350,16 @@ export async function createStaffOpenApi() {
         'Explicit loopback development; use deployment cookie profile.',
       )
       .build();
-    const document = SwaggerModule.createDocument(app, config);
-    return finalizeDocument(document);
+    return SwaggerModule.createDocument(app, config);
   } finally {
     await app.close();
   }
+}
+
+export async function createStaffOpenApi() {
+  return finalizeDocument(await createNestOpenApiDocument());
+}
+
+export async function createCatalogRuntimeOpenApi() {
+  return createNestOpenApiDocument();
 }

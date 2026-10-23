@@ -37,7 +37,12 @@
     "catalog:contract:generate": "node docs/contracts/generate-R1-004-openapi.mjs",
     "catalog:contract:check": "node docs/contracts/generate-R1-004-openapi.mjs --check && node docs/contracts/check-R1-004.mjs",
     "catalog:contract:test": "node --test docs/contracts/check-R1-004.test.mjs",
-    "client:generate": "node scripts/contracts.mjs generate-client"
+    "catalog:route:check": "node scripts/catalog-route-check.mjs",
+    "catalog:runtime:check": "pnpm --filter @stdu/api exec node scripts/run-r1-004b-migration-check.mjs",
+    "client:generate": "node scripts/contracts.mjs generate-client",
+    "catalog:client:generate": "pnpm exec openapi-typescript docs/contracts/R1-004-catalog.openapi.json --output packages/catalog-client/src/schema.d.ts",
+    "catalog:client:check": "pnpm exec openapi-typescript docs/contracts/R1-004-catalog.openapi.json --output packages/catalog-client/src/schema.d.ts --check",
+    "catalog:check": "pnpm catalog:contract:check && pnpm catalog:route:check && pnpm catalog:client:check"
   },
   "devDependencies": {
     "@apidevtools/swagger-parser": "13.1.0",

@@ -948,7 +948,7 @@ export function validateCatalogContract(bundle) {
       `Owner decision packet missing ${id}.`,
     );
   }
-  for (let id = 1; id <= 35; id += 1) {
+  for (let id = 1; id <= 38; id += 1) {
     requireThat(
       matrix.includes(`CATB-${String(id).padStart(2, '0')}`),
       `R1-004B test matrix missing CATB-${String(id).padStart(2, '0')}.`,

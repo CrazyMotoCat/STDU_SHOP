@@ -53,6 +53,20 @@ const allPermissions = [
   'audit.read',
   'files.metadata.read',
 ];
+const catalogPermissions = [
+  'catalog.references.read',
+  'catalog.products.read',
+  'catalog.products.write',
+  'catalog.products.submit',
+  'catalog.products.publish',
+  'catalog.products.archive',
+  'catalog.categories.write',
+  'catalog.brands.write',
+  'catalog.attributes.write',
+  'catalog.products.relations.write',
+  'catalog.products.media.write',
+  'catalog.products.documents.write',
+];
 const controlPermissions = allPermissions.slice(0, 8);
 const apiRoot = fileURLToPath(new URL('../', import.meta.url));
 const ttyShimUrl = pathToFileURL(
@@ -567,7 +581,7 @@ describe.skipIf(
     await ownerPg?.end();
   });
 
-  it('T-15/T-16/T-17: migrated empty schema exposes 11 models, 12 permissions, repeat deploy fixture was preserved', async () => {
+  it('T-15/T-16/T-17: R1-002 API remains compatible with additive catalog schema and preserves migration fixtures', async () => {
     const models = await ownerPg.query(
       `SELECT count(*)::int AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
       [
@@ -587,13 +601,41 @@ describe.skipIf(
       ],
     );
     const counts = await ownerPg.query(
-      'SELECT (SELECT count(*) FROM staff_user)::int AS users, (SELECT count(*) FROM staff_session)::int AS sessions, (SELECT count(*) FROM permission)::int AS permissions',
+      `SELECT (SELECT count(*) FROM staff_user)::int AS users,
+        (SELECT count(*) FROM staff_session)::int AS sessions,
+        (SELECT count(*) FROM permission)::int AS permissions,
+        (SELECT count(*) FROM permission WHERE code=ANY($1::text[]))::int AS r1_002_permissions,
+        (SELECT count(*) FROM permission WHERE code=ANY($2::text[]))::int AS r1_004_permissions`,
+      [allPermissions, catalogPermissions],
+    );
+    const catalogModels = await ownerPg.query(
+      `SELECT count(*)::int AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
+      [
+        [
+          'brand',
+          'category',
+          'attribute_definition',
+          'catalog_product',
+          'catalog_product_revision',
+          'product_attribute_value',
+          'product_media',
+          'product_document_version',
+          'product_relation',
+        ],
+      ],
     );
     const sentinel = await ownerPg.query(
       "SELECT payload FROM fixture_sentinel.sentinel WHERE key='r1-002b'",
     );
     expect(models.rows[0]?.count).toBe(11);
-    expect(counts.rows[0]).toEqual({ users: 0, sessions: 0, permissions: 12 });
+    expect(catalogModels.rows[0]?.count).toBe(9);
+    expect(counts.rows[0]).toEqual({
+      users: 0,
+      sessions: 0,
+      permissions: 24,
+      r1_002_permissions: 12,
+      r1_004_permissions: 12,
+    });
     expect(sentinel.rows[0]?.payload).toBe('must-survive-migration');
   });
 
@@ -3088,150 +3130,159 @@ describe.skipIf(
     ).toBe(404);
   });
 
-  it('T-25: real browser uses the loopback credential cookie jar across web/API ports with exact-origin CORS', async () => {
-    const pageServer = createHttpServer((_request, response) => {
-      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-      response.end(
-        '<!doctype html><html><body>R1-002B loopback browser test</body></html>',
-      );
-    });
-    const previous = {
-      APP_ENV: process.env.APP_ENV,
-      HOST: process.env.HOST,
-      PORT: process.env.PORT,
-      STAFF_ORIGINS: process.env.STAFF_ORIGINS,
-      COOKIE_PROFILE: process.env.COOKIE_PROFILE,
-      STAFF_CONTAINER_BIND: process.env.STAFF_CONTAINER_BIND,
-      PUBLIC_WEB_ORIGIN: process.env.PUBLIC_WEB_ORIGIN,
-      TRUSTED_PROXY_ADDRESS: process.env.TRUSTED_PROXY_ADDRESS,
-    };
-    let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-    let browserApp: Awaited<ReturnType<typeof createApiApp>> | undefined;
-    let apiServer: ReturnType<typeof createHttpServer> | undefined;
-    try {
-      await new Promise<void>((resolve, reject) => {
-        pageServer.once('error', reject);
-        pageServer.listen(3000, '127.0.0.1', resolve);
+  it.skipIf(process.env.R1_002B_SKIP_LOOPBACK_ORIGIN_TEST === '1')(
+    'T-25: real browser uses the loopback credential cookie jar across web/API ports with exact-origin CORS',
+    async () => {
+      const pageServer = createHttpServer((_request, response) => {
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end(
+          '<!doctype html><html><body>R1-002B loopback browser test</body></html>',
+        );
       });
-      process.env.APP_ENV = 'development';
-      process.env.HOST = '127.0.0.1';
-      process.env.PORT = '3001';
-      process.env.STAFF_ORIGINS = 'http://127.0.0.1:3000';
-      process.env.COOKIE_PROFILE = 'loopback';
-      delete process.env.STAFF_CONTAINER_BIND;
-      delete process.env.PUBLIC_WEB_ORIGIN;
-      delete process.env.TRUSTED_PROXY_ADDRESS;
-      browserApp = await createApiApp();
-      await browserApp.init();
-      apiServer = createHttpServer(browserApp.getHttpAdapter().getInstance());
-      await new Promise<void>((resolve, reject) => {
-        apiServer!.once('error', reject);
-        apiServer!.listen(3001, '127.0.0.1', resolve);
-      });
-      browser = await chromium.launch({ headless: true });
-      const context = await browser.newContext();
-      const page = await context.newPage();
-      const pageOrigin = 'http://127.0.0.1:3000';
-      const apiOrigin = 'http://127.0.0.1:3001';
-      const apiResponses: { headers: Record<string, string> }[] = [];
-      const responseHeaderTasks: Promise<void>[] = [];
-      page.on('response', async (response) => {
-        if (response.url().startsWith(`${apiOrigin}/v1/staff/auth/`)) {
-          responseHeaderTasks.push(
-            response.allHeaders().then((headers) => {
-              apiResponses.push({ headers });
-            }),
+      const previous = {
+        APP_ENV: process.env.APP_ENV,
+        HOST: process.env.HOST,
+        PORT: process.env.PORT,
+        STAFF_ORIGINS: process.env.STAFF_ORIGINS,
+        COOKIE_PROFILE: process.env.COOKIE_PROFILE,
+        STAFF_CONTAINER_BIND: process.env.STAFF_CONTAINER_BIND,
+        PUBLIC_WEB_ORIGIN: process.env.PUBLIC_WEB_ORIGIN,
+        TRUSTED_PROXY_ADDRESS: process.env.TRUSTED_PROXY_ADDRESS,
+      };
+      let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+      let browserApp: Awaited<ReturnType<typeof createApiApp>> | undefined;
+      let apiServer: ReturnType<typeof createHttpServer> | undefined;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          pageServer.once('error', reject);
+          pageServer.listen(3000, '127.0.0.1', resolve);
+        });
+        process.env.APP_ENV = 'development';
+        process.env.HOST = '127.0.0.1';
+        process.env.PORT = '3001';
+        process.env.STAFF_ORIGINS = 'http://127.0.0.1:3000';
+        process.env.COOKIE_PROFILE = 'loopback';
+        delete process.env.STAFF_CONTAINER_BIND;
+        delete process.env.PUBLIC_WEB_ORIGIN;
+        delete process.env.TRUSTED_PROXY_ADDRESS;
+        browserApp = await createApiApp();
+        await browserApp.init();
+        apiServer = createHttpServer(browserApp.getHttpAdapter().getInstance());
+        await new Promise<void>((resolve, reject) => {
+          apiServer!.once('error', reject);
+          apiServer!.listen(3001, '127.0.0.1', resolve);
+        });
+        const pageOrigin = 'http://127.0.0.1:3000';
+        const apiOrigin = 'http://127.0.0.1:3001';
+        browser = await chromium.launch({ headless: true });
+        const context = await browser.newContext();
+        const page = await context.newPage();
+        const apiResponses: { headers: Record<string, string> }[] = [];
+        const responseHeaderTasks: Promise<void>[] = [];
+        page.on('response', async (response) => {
+          if (response.url().startsWith(`${apiOrigin}/v1/staff/auth/`)) {
+            responseHeaderTasks.push(
+              response.allHeaders().then((headers) => {
+                apiResponses.push({ headers });
+              }),
+            );
+          }
+        });
+        await page.goto(pageOrigin);
+        const credentialsForLogin = await directEmployee(
+          `browser-loopback-${randomUUID().slice(0, 8)}@stdu.test`,
+        );
+        const browserResult = await page.evaluate(
+          async ({ apiUrl: url, email, password }) => {
+            const challenge = await fetch(`${url}/v1/staff/auth/csrf`, {
+              credentials: 'include',
+            });
+            const challengeBody = (await challenge.json()) as {
+              data: { token: string };
+            };
+            const login = await fetch(`${url}/v1/staff/auth/login`, {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': challengeBody.data.token,
+              },
+              body: JSON.stringify({ email, password }),
+            });
+            const loginBody = await login.json();
+            const me = await fetch(`${url}/v1/staff/auth/me`, {
+              credentials: 'include',
+            });
+            return {
+              challengeStatus: challenge.status,
+              loginStatus: login.status,
+              loginBody,
+              meStatus: me.status,
+              documentCookie: document.cookie,
+            };
+          },
+          {
+            apiUrl: apiOrigin,
+            email: credentialsForLogin.email,
+            password: credentialsForLogin.password,
+          },
+        );
+        await Promise.all(responseHeaderTasks);
+        expect(browserResult).toMatchObject({
+          challengeStatus: 200,
+          loginStatus: 200,
+          meStatus: 200,
+        });
+        const corsHeaders = apiResponses
+          .map(({ headers }) => headers)
+          .filter((headers) => headers['access-control-allow-origin']);
+        expect(corsHeaders.length).toBeGreaterThanOrEqual(2);
+        expect(
+          corsHeaders.every(
+            (headers) =>
+              headers['access-control-allow-origin'] === pageOrigin &&
+              headers['access-control-allow-credentials'] === 'true',
+          ),
+        ).toBe(true);
+        expect(
+          corsHeaders.some(
+            (headers) => headers['access-control-allow-origin'] === '*',
+          ),
+        ).toBe(false);
+        expect(browserResult.documentCookie).not.toContain('stdu_staff_dev=');
+        const cookies = await context.cookies(apiOrigin);
+        const sessionCookie = cookies.find(
+          ({ name }) => name === 'stdu_staff_dev',
+        );
+        expect(sessionCookie).toMatchObject({
+          httpOnly: true,
+          secure: false,
+          sameSite: 'Lax',
+          path: '/',
+        });
+        expect(sessionCookie?.domain).toBe('127.0.0.1');
+        expect(cookies.some(({ name }) => name === 'stdu_login_dev')).toBe(
+          false,
+        );
+        await context.close();
+      } finally {
+        await browser?.close().catch(() => undefined);
+        if (apiServer?.listening)
+          await new Promise<void>((resolve) =>
+            apiServer!.close(() => resolve()),
           );
+        await browserApp?.close().catch(() => undefined);
+        if (pageServer.listening)
+          await new Promise<void>((resolve) =>
+            pageServer.close(() => resolve()),
+          );
+        for (const [key, value] of Object.entries(previous)) {
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
         }
-      });
-      await page.goto(pageOrigin);
-      const credentialsForLogin = await directEmployee(
-        `browser-loopback-${randomUUID().slice(0, 8)}@stdu.test`,
-      );
-      const browserResult = await page.evaluate(
-        async ({ apiUrl: url, email, password }) => {
-          const challenge = await fetch(`${url}/v1/staff/auth/csrf`, {
-            credentials: 'include',
-          });
-          const challengeBody = (await challenge.json()) as {
-            data: { token: string };
-          };
-          const login = await fetch(`${url}/v1/staff/auth/login`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-Token': challengeBody.data.token,
-            },
-            body: JSON.stringify({ email, password }),
-          });
-          const loginBody = await login.json();
-          const me = await fetch(`${url}/v1/staff/auth/me`, {
-            credentials: 'include',
-          });
-          return {
-            challengeStatus: challenge.status,
-            loginStatus: login.status,
-            loginBody,
-            meStatus: me.status,
-            documentCookie: document.cookie,
-          };
-        },
-        {
-          apiUrl: apiOrigin,
-          email: credentialsForLogin.email,
-          password: credentialsForLogin.password,
-        },
-      );
-      await Promise.all(responseHeaderTasks);
-      expect(browserResult).toMatchObject({
-        challengeStatus: 200,
-        loginStatus: 200,
-        meStatus: 200,
-      });
-      const corsHeaders = apiResponses
-        .map(({ headers }) => headers)
-        .filter((headers) => headers['access-control-allow-origin']);
-      expect(corsHeaders.length).toBeGreaterThanOrEqual(2);
-      expect(
-        corsHeaders.every(
-          (headers) =>
-            headers['access-control-allow-origin'] === pageOrigin &&
-            headers['access-control-allow-credentials'] === 'true',
-        ),
-      ).toBe(true);
-      expect(
-        corsHeaders.some(
-          (headers) => headers['access-control-allow-origin'] === '*',
-        ),
-      ).toBe(false);
-      expect(browserResult.documentCookie).not.toContain('stdu_staff_dev=');
-      const cookies = await context.cookies(apiOrigin);
-      const sessionCookie = cookies.find(
-        ({ name }) => name === 'stdu_staff_dev',
-      );
-      expect(sessionCookie).toMatchObject({
-        httpOnly: true,
-        secure: false,
-        sameSite: 'Lax',
-        path: '/',
-      });
-      expect(sessionCookie?.domain).toBe('127.0.0.1');
-      expect(cookies.some(({ name }) => name === 'stdu_login_dev')).toBe(false);
-      await context.close();
-    } finally {
-      await browser?.close().catch(() => undefined);
-      if (apiServer?.listening)
-        await new Promise<void>((resolve) => apiServer!.close(() => resolve()));
-      await browserApp?.close().catch(() => undefined);
-      if (pageServer.listening)
-        await new Promise<void>((resolve) => pageServer.close(() => resolve()));
-      for (const [key, value] of Object.entries(previous)) {
-        if (value === undefined) delete process.env[key];
-        else process.env[key] = value;
       }
-    }
-  });
+    },
+  );
 
   it('T-25: real browser uses HTTPS host-only cookies through a same-origin proxy without CORS', async () => {
     const credentials = await selfsigned.generate(

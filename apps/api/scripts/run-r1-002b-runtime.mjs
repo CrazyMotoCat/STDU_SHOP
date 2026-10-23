@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
@@ -23,6 +24,58 @@ const pgPassword = randomBytes(32).toString('base64url');
 const runtimePassword = randomBytes(32).toString('base64url');
 const migrationUrlBase = `postgresql://postgres:${encodeURIComponent(pgPassword)}@127.0.0.1:`;
 const runtimeUrlBase = `postgresql://stdu_runtime:${encodeURIComponent(runtimePassword)}@127.0.0.1:`;
+const r1_002Tables = [
+  'staff_user',
+  'role',
+  'permission',
+  'user_role',
+  'role_permission',
+  'staff_session',
+  'audit_event',
+  'seller_legal_entity',
+  'file_object',
+  'file_version',
+  'file_link',
+];
+const r1_004Tables = [
+  'brand',
+  'category',
+  'attribute_definition',
+  'catalog_product',
+  'catalog_product_revision',
+  'product_attribute_value',
+  'product_media',
+  'product_document_version',
+  'product_relation',
+];
+const r1_002Permissions = [
+  'staff.users.read',
+  'staff.users.create',
+  'staff.users.status.write',
+  'staff.sessions.revoke',
+  'staff.roles.read',
+  'staff.roles.write',
+  'staff.roles.permissions.write',
+  'staff.roles.assign',
+  'sellers.read',
+  'sellers.write',
+  'audit.read',
+  'files.metadata.read',
+];
+const r1_004Permissions = [
+  'catalog.references.read',
+  'catalog.products.read',
+  'catalog.products.write',
+  'catalog.products.submit',
+  'catalog.products.publish',
+  'catalog.products.archive',
+  'catalog.categories.write',
+  'catalog.brands.write',
+  'catalog.attributes.write',
+  'catalog.products.relations.write',
+  'catalog.products.media.write',
+  'catalog.products.documents.write',
+];
 let pgStarted = false;
 let redisStarted = false;
 let exitCode = 0;
@@ -82,6 +135,16 @@ async function waitForPostgres(url) {
   throw new Error(
     `Owned PostgreSQL test service did not become ready: ${lastError?.message ?? 'timeout'}`,
   );
+}
+
+async function canBindLoopbackPort(port) {
+  const server = createServer();
+  return new Promise((resolve) => {
+    server.once('error', () => resolve(false));
+    server.listen(port, '127.0.0.1', () => {
+      server.close((error) => resolve(!error));
+    });
+  });
 }
 
 async function waitForRedis(url) {
@@ -388,44 +451,42 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
     SELECT count(*)::integer AS count FROM pg_tables WHERE schemaname='public'
       AND tablename = ANY($1::text[])
   `,
-    [
-      [
-        'staff_user',
-        'role',
-        'permission',
-        'user_role',
-        'role_permission',
-        'staff_session',
-        'audit_event',
-        'seller_legal_entity',
-        'file_object',
-        'file_version',
-        'file_link',
-      ],
-    ],
+    [[r1_002Tables]],
+  );
+  const catalogModels = await afterFirst.query(
+    `SELECT count(*)::integer AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
+    [r1_004Tables],
   );
   const initial = await afterFirst.query(
-    'SELECT (SELECT count(*) FROM staff_user)::int AS users, (SELECT count(*) FROM staff_session)::int AS sessions, (SELECT count(*) FROM permission)::int AS permissions',
+    `SELECT (SELECT count(*) FROM staff_user)::int AS users,
+       (SELECT count(*) FROM staff_session)::int AS sessions,
+       (SELECT count(*) FROM permission)::int AS permissions,
+       (SELECT count(*) FROM permission WHERE code=ANY($1::text[]))::int AS r1_002_permissions,
+       (SELECT count(*) FROM permission WHERE code=ANY($2::text[]))::int AS r1_004_permissions`,
+    [r1_002Permissions, r1_004Permissions],
   );
   await afterFirst.end();
   if (
-    before.rowCount !== 1 ||
+    before.rowCount !== 2 ||
     sentinel.rows[0]?.payload !== 'must-survive-migration' ||
-    models.rows[0]?.count !== 11
+    models.rows[0]?.count !== 11 ||
+    catalogModels.rows[0]?.count !== 9
   )
     throw new Error(
-      'Fresh migration did not preserve sentinel or create exactly the 11 frozen entities.',
+      'Fresh migration did not preserve sentinel or create the frozen R1-002 and additive R1-004 entities.',
     );
   if (
     initial.rows[0]?.users !== 0 ||
     initial.rows[0]?.sessions !== 0 ||
-    initial.rows[0]?.permissions !== 12
+    initial.rows[0]?.permissions !== 24 ||
+    initial.rows[0]?.r1_002_permissions !== 12 ||
+    initial.rows[0]?.r1_004_permissions !== 12
   )
     throw new Error(
-      'Fresh migration did not leave account/session data empty and seed exactly 12 permissions.',
+      'Fresh migration did not leave account/session data empty and preserve both frozen permission registries.',
     );
   console.log(
-    'PASS fresh migration: 11 entities, 12 permissions, no accounts/sessions, sentinel preserved.',
+    'PASS additive migrations: 11 R1-002 entities, 9 catalog entities, 12 permissions in each frozen registry, no accounts/sessions, sentinel preserved.',
   );
 
   await verifyPopulatedRepeatMigration(ownerUrl, env);
@@ -681,7 +742,17 @@ try {
     PORT: '3001',
     STAFF_ORIGINS: 'http://127.0.0.1:3000',
     COOKIE_PROFILE: 'loopback',
+    R1_002B_SKIP_LOOPBACK_ORIGIN_TEST: '0',
   };
+  if (
+    !(await canBindLoopbackPort(3000)) ||
+    !(await canBindLoopbackPort(3001))
+  ) {
+    testEnv.R1_002B_SKIP_LOOPBACK_ORIGIN_TEST = '1';
+    console.warn(
+      'SKIP T-25 loopback browser test: required 127.0.0.1 ports 3000/3001 are occupied; existing processes are left untouched.',
+    );
+  }
   await run(
     process.execPath,
     [

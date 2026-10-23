@@ -16,7 +16,10 @@ export class HttpBoundaryFilter implements ExceptionFilter {
     const request = http.getRequest<StaffRequest>();
     const response = http.getResponse<Response>();
     const requestId = request.requestId ?? randomUUID();
-    if (!request.path.startsWith('/v1/staff')) {
+    const catalogRequest =
+      request.path.startsWith('/v1/staff/catalog') ||
+      request.path.startsWith('/v1/public/catalog');
+    if (!request.path.startsWith('/v1/staff') && !catalogRequest) {
       const legacy = exception instanceof HttpException ? exception : null;
       response.status(legacy?.getStatus() ?? 500).json(
         legacy?.getResponse() ?? {
