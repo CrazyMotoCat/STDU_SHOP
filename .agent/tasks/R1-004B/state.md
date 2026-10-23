@@ -1,14 +1,14 @@
 # R1-004B
 
 TASK: R1-004B
-STATUS: IMPLEMENTED_LOCAL_VERIFIED
+STATUS: AWAITING_HOSTED_CI
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE_WITH_CHECKPOINT
 PHASE: catalog HTTP implementation, generated client, migration/initializer harness and CATB runtime coverage complete; local quality gates and independent reviews pass; exact-head CI and integration pending
 UPDATED_AT: 2026-10-24
 BRANCH: codex/r1-004b-catalog-domain
 BASELINE_MAIN: ab7f5a25a7d36d2d722e36effb8c9fecb848c88a
-LAST_SAFE_COMMIT: d49f1adb7cc32f31f0a66179a04f9416a1ac871a
+LAST_SAFE_COMMIT: 66205477da0a7238f1e5c4529524646106b94fec
 APPROVED_SOURCE_SHA: 8ae4dd8cfd15e3722d97259818b238924851c963
 FROZEN_HEAD: 0a749af35e422f55be050bd256ea1e8639193541
 CONTRACT_MERGE_SHA: 24c9653780c7e8dc511dd5acf1706ecdb9e191eb
@@ -50,4 +50,4 @@ CONTRACT_VERSION: FROZEN 1.0.0
 
 ## Next action
 
-Next: inspect/stage explicit task-owned paths, commit and push the completed implementation; update PR #8 with the verification report, wait for exact-head GitHub CI, then merge only after all required checks and GitHub rules pass. Record final `main` SHA and post-integration CI before marking R1-004B complete. Do not run production migrations or the permission initializer against the working database.
+Next: push the committed implementation and checkpoint without force; update PR #8 with the verification report, wait for exact-head GitHub CI, then merge only after all required checks and GitHub rules pass. Record final `main` SHA and post-integration CI before marking R1-004B complete. Do not run production migrations or the permission initializer against the working database.

@@ -4,6 +4,8 @@
 
 **Contract:** R1-004A Catalog Domain Contract FROZEN 1.0.0, approved source `8ae4dd8cfd15e3722d97259818b238924851c963`.
 
+**Implementation source commit:** `66205477da0a7238f1e5c4529524646106b94fec`.
+
 **Delivery mode:** AUTO_MERGE, within the owner-approved contract and Git Delivery Policy.
 
 ## Implemented scope
