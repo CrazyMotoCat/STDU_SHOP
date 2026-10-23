@@ -1,0 +1,466 @@
+import assert from 'node:assert/strict';
+import { createServer } from 'node:net';
+import { mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+import { chromium } from 'playwright';
+import { root, requireFreePort } from './lib.mjs';
+import { withProcesses } from './process-lifecycle.mjs';
+
+const web = resolve(root, 'apps/web');
+const requireWeb = createRequire(resolve(web, 'package.json'));
+const nextCli = requireWeb.resolve('next/dist/bin/next');
+const artifacts = resolve(root, 'artifacts/verification/R1-003');
+const viewports = [
+  { name: 'mobile', width: 375, height: 812 },
+  { name: 'tablet', width: 768, height: 1024 },
+  { name: 'desktop', width: 1440, height: 1000 },
+];
+
+async function reserveEphemeralPort() {
+  const server = createServer();
+  await new Promise((accept, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', accept);
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string')
+    throw new Error('Could not obtain a local UI smoke port.');
+  await new Promise((accept, reject) =>
+    server.close((error) => (error ? reject(error) : accept())),
+  );
+  await requireFreePort(address.port);
+  return address.port;
+}
+
+async function waitForPage(url, signal) {
+  const deadline = performance.now() + 45000;
+  let lastError;
+  while (performance.now() < deadline) {
+    signal.throwIfAborted();
+    try {
+      const response = await fetch(url, {
+        signal: AbortSignal.any([signal, AbortSignal.timeout(2500)]),
+      });
+      if (response.status === 200) return;
+      lastError = new Error(`UI server returned HTTP ${response.status}.`);
+    } catch (error) {
+      signal.throwIfAborted();
+      lastError = error;
+    }
+    await delay(200, undefined, { signal });
+  }
+  throw new Error(
+    `Built Next.js UI did not become ready: ${lastError?.message ?? 'deadline exceeded'}.`,
+  );
+}
+
+function rgb(color) {
+  const hex = /^#([\da-f]{3}|[\da-f]{6})$/i.exec(color.trim());
+  if (hex) {
+    const value =
+      hex[1].length === 3
+        ? [...hex[1]].map((digit) => digit + digit).join('')
+        : hex[1];
+    return [0, 2, 4].map((offset) =>
+      parseInt(value.slice(offset, offset + 2), 16),
+    );
+  }
+  const match =
+    /^rgba?\(\s*(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)/i.exec(
+      color,
+    );
+  if (!match) throw new Error(`Unsupported computed color: ${color}`);
+  return match.slice(1).map(Number);
+}
+
+function luminance(color) {
+  const [red, green, blue] = rgb(color).map((channel) => {
+    const value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function contrastRatio(foreground, background) {
+  const values = [luminance(foreground), luminance(background)].sort(
+    (a, b) => b - a,
+  );
+  return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
+async function assertAccessibleMarkup(page) {
+  assert.equal(await page.locator('html').getAttribute('lang'), 'ru');
+  assert.equal(await page.getByRole('heading', { level: 1 }).count(), 1);
+  assert.equal(
+    await page.getByRole('navigation', { name: 'Основная навигация' }).count(),
+    1,
+  );
+
+  const unnamed = await page
+    .locator('button, a, input')
+    .evaluateAll((elements) =>
+      elements.flatMap((element) => {
+        const control = element;
+        const name =
+          control.getAttribute('aria-label')?.trim() ||
+          control.getAttribute('aria-labelledby')?.trim() ||
+          control.innerText?.trim() ||
+          (control instanceof HTMLInputElement
+            ? control.labels?.[0]?.innerText.trim()
+            : '');
+        return name ? [] : [control.outerHTML.slice(0, 180)];
+      }),
+    );
+  assert.deepEqual(
+    unnamed,
+    [],
+    `Unnamed interactive controls: ${unnamed.join('; ')}`,
+  );
+
+  const brokenReferences = await page
+    .locator('[aria-controls], [aria-describedby]')
+    .evaluateAll((elements) =>
+      elements.flatMap((element) => {
+        const attributes = ['aria-controls', 'aria-describedby'];
+        return attributes.flatMap((attribute) => {
+          const references =
+            element.getAttribute(attribute)?.split(/\s+/) ?? [];
+          return references
+            .filter((reference) => !document.getElementById(reference))
+            .map((reference) => `${attribute}=${reference}`);
+        });
+      }),
+    );
+  assert.deepEqual(
+    brokenReferences,
+    [],
+    `Broken ARIA references: ${brokenReferences.join(', ')}`,
+  );
+
+  const duplicateIds = await page.locator('[id]').evaluateAll((elements) => {
+    const ids = elements.map((element) => element.id);
+    return ids.filter((id, index) => ids.indexOf(id) !== index);
+  });
+  assert.deepEqual(
+    duplicateIds,
+    [],
+    `Duplicate IDs: ${duplicateIds.join(', ')}`,
+  );
+
+  const contrastPairs = await page.evaluate(() => {
+    const style = getComputedStyle(document.documentElement);
+    return [
+      ['body text', '--color-text-primary', '--color-surface-page'],
+      ['secondary text', '--color-text-secondary', '--color-surface-page'],
+      ['accent text', '--color-accent', '--color-white'],
+      ['menu text', '--color-accent-hover', '--color-white'],
+      [
+        'disabled controls',
+        '--color-disabled-text',
+        '--color-disabled-surface',
+      ],
+      ['inverse text', '--color-text-inverse', '--color-deep-navy'],
+    ].map(([name, foreground, background]) => ({
+      name,
+      foreground: style.getPropertyValue(foreground).trim(),
+      background: style.getPropertyValue(background).trim(),
+    }));
+  });
+  for (const pair of contrastPairs) {
+    const ratio = contrastRatio(pair.foreground, pair.background);
+    assert.ok(
+      ratio >= 4.5,
+      `${pair.name} contrast ${ratio.toFixed(2)} is below WCAG AA.`,
+    );
+  }
+
+  const brokenImages = await page.locator('svg[role="img"]').evaluateAll(
+    (elements) =>
+      elements.filter((element) => {
+        const labelledBy =
+          element.getAttribute('aria-labelledby')?.split(/\s+/) ?? [];
+        return (
+          !labelledBy.length ||
+          labelledBy.some((id) => !document.getElementById(id))
+        );
+      }).length,
+  );
+  assert.equal(
+    brokenImages,
+    0,
+    'Illustrations must have accessible names and descriptions.',
+  );
+}
+
+async function assertMenuKeyboardAndPointer(page) {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(page.url(), { waitUntil: 'domcontentloaded' });
+  const equipment = page.getByRole('button', {
+    name: 'Оборудование',
+    exact: true,
+  });
+  await equipment.focus();
+  await page.keyboard.press('ArrowDown');
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute('data-menu-index') === '0',
+  );
+  assert.equal(await equipment.getAttribute('aria-expanded'), 'true');
+  await page.keyboard.press('ArrowDown');
+  assert.equal(
+    await page.evaluate(() =>
+      document.activeElement?.getAttribute('data-menu-index'),
+    ),
+    '1',
+  );
+  await page.keyboard.press('Home');
+  assert.equal(
+    await page.evaluate(() =>
+      document.activeElement?.getAttribute('data-menu-index'),
+    ),
+    '0',
+  );
+  await page.keyboard.press('ArrowUp');
+  assert.equal(
+    await page.evaluate(() =>
+      document.activeElement?.getAttribute('data-menu-index'),
+    ),
+    '1',
+  );
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Escape');
+  assert.equal(await equipment.getAttribute('aria-expanded'), 'false');
+  await page.waitForFunction(() =>
+    document.activeElement?.matches('[data-menu-trigger="equipment"]'),
+  );
+  assert.equal(
+    await equipment.evaluate((node) => node === document.activeElement),
+    true,
+  );
+
+  await equipment.hover();
+  assert.equal(await equipment.getAttribute('aria-expanded'), 'true');
+  await page.mouse.move(0, 0);
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-menu-trigger="equipment"]')
+        ?.getAttribute('aria-expanded') === 'false',
+  );
+}
+
+async function assertMobileNavigation(browser, baseUrl) {
+  const context = await browser.newContext({
+    viewport: { width: 375, height: 812 },
+    hasTouch: true,
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    // Its accessible name changes to "Закрыть меню" after activation.
+    const toggle = page.locator('.mobile-menu-toggle');
+    await toggle.tap();
+    assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+    const navigation = page.getByRole('navigation', {
+      name: 'Основная навигация',
+    });
+    assert.equal(await navigation.isVisible(), true);
+
+    const panels = page.getByRole('button', {
+      name: 'Электрощиты',
+      exact: true,
+    });
+    await panels.tap();
+    assert.equal(await panels.getAttribute('aria-expanded'), 'true');
+    await page.keyboard.press('Escape');
+    assert.equal(await panels.getAttribute('aria-expanded'), 'false');
+    assert.equal(
+      await panels.evaluate((node) => node === document.activeElement),
+      true,
+    );
+    await page.keyboard.press('Escape');
+    assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+    await page.waitForFunction(() =>
+      document.activeElement?.matches('.mobile-menu-toggle'),
+    );
+    assert.equal(
+      await toggle.evaluate((node) => node === document.activeElement),
+      true,
+    );
+
+    await toggle.tap();
+    await panels.tap();
+    await page.getByRole('link', { name: 'Перейти к разделу' }).tap();
+    assert.equal(new URL(page.url()).hash, '#panels');
+    assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+  } finally {
+    await context.close();
+  }
+}
+
+async function assertDisabledFutureActions(page) {
+  const searches = page.getByRole('searchbox', {
+    name: 'Поиск по каталогу — пока недоступен',
+  });
+  const upload = page.getByRole('button', { name: 'Загрузить спецификацию' });
+  const quote = page.getByRole('button', { name: 'Запросить КП' });
+  assert.ok((await searches.count()) >= 1);
+  for (const search of await searches.all())
+    assert.equal(await search.isDisabled(), true);
+  assert.equal(await upload.isDisabled(), true);
+  assert.equal(await quote.isDisabled(), true);
+  assert.match(
+    await page.locator('#unavailable-actions').innerText(),
+    /пока\s+недоступны/i,
+  );
+  assert.equal(await page.locator('input[type="file"]').count(), 0);
+  assert.equal(await page.locator('form').count(), 0);
+
+  await quote.evaluate((button) => button.click());
+  await upload.evaluate((button) => button.click());
+  assert.equal(await page.getByRole('dialog').count(), 0);
+  assert.equal(
+    await page
+      .getByText(/успешно отправлено|заявка создана|файл загружен/i)
+      .count(),
+    0,
+  );
+}
+
+async function captureAndCheckViewports(page, baseUrl) {
+  for (const viewport of [
+    ...viewports.slice(0, 2),
+    { name: 'laptop', width: 1280, height: 900 },
+    viewports[2],
+  ]) {
+    await page.setViewportSize({
+      width: viewport.width,
+      height: viewport.height,
+    });
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    const dimensions = await page.evaluate(() => ({
+      viewport: window.innerWidth,
+      document: document.documentElement.scrollWidth,
+      body: document.body.scrollWidth,
+    }));
+    assert.ok(
+      dimensions.document <= dimensions.viewport &&
+        dimensions.body <= dimensions.viewport,
+      `Horizontal overflow at ${viewport.width}px: ${JSON.stringify(dimensions)}`,
+    );
+
+    if (
+      viewport.name === 'mobile' ||
+      viewport.name === 'tablet' ||
+      viewport.name === 'desktop'
+    ) {
+      await page.screenshot({
+        path: resolve(artifacts, `home-${viewport.name}.png`),
+        fullPage: true,
+        animations: 'disabled',
+      });
+    }
+  }
+}
+
+async function main() {
+  if (!existsSync(resolve(web, '.next/BUILD_ID')))
+    throw new Error(
+      'UI smoke requires a production build. Run pnpm build first.',
+    );
+  await mkdir(artifacts, { recursive: true });
+  const port = await reserveEphemeralPort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const definition = {
+    name: 'web-ui-smoke',
+    command: process.execPath,
+    args: [nextCli, 'start', '--hostname', '127.0.0.1', '--port', String(port)],
+    cwd: web,
+    env: { NEXT_TELEMETRY_DISABLED: '1' },
+    quiet: true,
+  };
+
+  await withProcesses(
+    [definition],
+    async (signal) => {
+      await waitForPage(baseUrl, signal);
+      const browser = await chromium.launch({ headless: true });
+      const externalRequests = [];
+      const pageErrors = [];
+      try {
+        const page = await browser.newPage({
+          viewport: { width: 1440, height: 1000 },
+        });
+        const origin = new URL(baseUrl).origin;
+        page.on('request', (request) => {
+          if (new URL(request.url()).origin !== origin)
+            externalRequests.push(request.url());
+        });
+        page.on('pageerror', (error) => pageErrors.push(error.message));
+        await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+        await assertAccessibleMarkup(page);
+        await assertDisabledFutureActions(page);
+
+        await page.keyboard.press('Tab');
+        const skipFocus = await page.evaluate(() => ({
+          className: document.activeElement?.className,
+          outlineStyle: getComputedStyle(document.activeElement).outlineStyle,
+          outlineWidth: getComputedStyle(document.activeElement).outlineWidth,
+        }));
+        assert.equal(skipFocus.className, 'skip-link');
+        assert.equal(skipFocus.outlineStyle, 'solid');
+        assert.ok(parseFloat(skipFocus.outlineWidth) >= 2);
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.activeElement?.id === 'main');
+        assert.equal(
+          await page.locator('#main').evaluate((node) => node.tabIndex),
+          -1,
+        );
+        assert.equal(
+          await page
+            .locator('#main')
+            .evaluate((node) => getComputedStyle(node).outlineStyle),
+          'solid',
+        );
+
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        const reducedMotion = await page.evaluate(() => ({
+          scroll: getComputedStyle(document.documentElement).scrollBehavior,
+          spinner: getComputedStyle(document.body).animationDuration,
+        }));
+        assert.equal(reducedMotion.scroll, 'auto');
+        assert.ok(parseFloat(reducedMotion.spinner) <= 0.001);
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+        await assertMenuKeyboardAndPointer(page);
+        await assertMobileNavigation(browser, baseUrl);
+        await captureAndCheckViewports(page, baseUrl);
+
+        assert.deepEqual(
+          pageErrors,
+          [],
+          `Browser errors: ${pageErrors.join('; ')}`,
+        );
+        assert.deepEqual(
+          externalRequests,
+          [],
+          `Unexpected external requests: ${externalRequests.join(', ')}`,
+        );
+      } finally {
+        await browser.close();
+      }
+    },
+    { graceMs: 5000, forceMs: 3000 },
+  );
+
+  console.log(
+    `PASS R1-003 UI acceptance: keyboard/ARIA, contrast, unavailable actions, reduced motion, viewports 375/768/1280/1440; screenshots saved in ${artifacts}.`,
+  );
+}
+
+main().catch((error) => {
+  console.error(error instanceof Error ? error.stack : 'UI acceptance failed.');
+  process.exitCode = 1;
+});

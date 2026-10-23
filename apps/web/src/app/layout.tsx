@@ -3,8 +3,9 @@ import type { ReactNode } from 'react';
 import './styles.css';
 
 export const metadata: Metadata = {
-  title: 'STDU SHOP — Graphite & Petrol',
-  description: 'Оборудование, электрощиты и инжиниринг.',
+  title: 'STDU SHOP — оборудование и инженерные решения',
+  description:
+    'Промышленное электротехническое оборудование, электрощиты, проектирование и программирование.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
