@@ -226,10 +226,15 @@ async function removeOwnedTemporaryDirectory(directory) {
 }
 
 async function stopOwnedApi(child, closed, getLogs) {
+  let gracefulSignalRequested = false;
   if (child.exitCode === null && child.signalCode === null) {
     try {
-      if (process.platform === 'win32') child.kill('SIGTERM');
-      else if (child.pid) process.kill(-child.pid, 'SIGTERM');
+      if (process.platform === 'win32')
+        gracefulSignalRequested = child.kill('SIGTERM');
+      else if (child.pid) {
+        process.kill(-child.pid, 'SIGTERM');
+        gracefulSignalRequested = true;
+      }
     } catch (error) {
       if (error?.code !== 'ESRCH')
         throw new Error(
@@ -268,7 +273,7 @@ async function stopOwnedApi(child, closed, getLogs) {
       `Pre-catalog API required forced shutdown after the 8-second graceful deadline; process was task-owned and is now closed. ${forceError?.message ?? ''}\n${getLogs()}`,
     );
   }
-  return result.value;
+  return { ...result.value, gracefulSignalRequested };
 }
 
 async function exercisePreCatalogApi(port, databaseUrl, redisUrl) {
@@ -395,7 +400,13 @@ async function exercisePreCatalogApi(port, databaseUrl, redisUrl) {
   if (child && closed) {
     try {
       const stopped = await stopOwnedApi(child, closed, () => logs);
-      if (stopped.code !== null && stopped.code !== 0)
+      const expectedSigtermExit =
+        stopped.gracefulSignalRequested &&
+        (stopped.signal === 'SIGTERM' ||
+          (process.platform !== 'win32' &&
+            stopped.signal === null &&
+            stopped.code === 128 + 15));
+      if (stopped.code !== null && stopped.code !== 0 && !expectedSigtermExit)
         throw new Error(
           `Owned pre-catalog API exited with code ${stopped.code} during shutdown.\n${logs}`,
         );

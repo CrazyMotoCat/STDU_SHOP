@@ -42,7 +42,7 @@ The CATB HTTP/PostgreSQL suite passed **12/12 grouped Vitest tests**. It covers 
 | `pnpm catalog:runtime:check`                         | PASS — isolated PostgreSQL/Redis and CATB HTTP runtime evidence described above                                                                                     |
 | `git diff --check`                                   | PASS                                                                                                                                                                |
 
-CI on the exact implementation head and post-integration CI are pending and must be recorded before marking the task delivered.
+The first exact-head Ubuntu CI attempt, [run #41](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39994071093), failed after CATB-29 had completed its HTTP probes: the pre-catalog API closed after the harness sent SIGTERM with POSIX exit status 143, and the harness incorrectly treated every nonzero code as failed shutdown. The owned process closed before the grace deadline; this was an exit-status classification bug, not a timeout or orphan-process failure. The harness now accepts status 143 only when it requested SIGTERM and the process closed within the graceful bound; forced shutdown and other unexpected exit statuses still fail. Windows `pnpm catalog:runtime:check` passed again after this correction. A fresh exact-head Ubuntu CI run and post-integration CI remain pending.
 
 ## Independent reviews
 
@@ -54,4 +54,4 @@ Security review recorded one non-blocking **P3** contract/runtime alignment note
 
 ## Delivery status
 
-PR #8 remains Draft until the final implementation commit is pushed and exact-head CI succeeds. Then mark it ready, verify required GitHub rules/reviews/checks, merge only when eligible, and record the resulting `main` SHA plus post-integration CI. This verification does not authorize production migration, deployment, real catalog permission grants or destructive actions.
+PR #8 remains Draft until the shutdown correction is pushed and exact-head CI succeeds. Then mark it ready, verify required GitHub rules/reviews/checks, merge only when eligible, and record the resulting `main` SHA plus post-integration CI. This verification does not authorize production migration, deployment, real catalog permission grants or destructive actions.
