@@ -72,15 +72,10 @@ export function EngineeringMotionShowcase() {
     <div className="engineering-showcase">
       <div className="engineering-showcase__layout">
         <div className="engineering-showcase__copy">
-          <p className="eyebrow">ИНЖЕНЕРНЫЕ НАПРАВЛЕНИЯ</p>
           <h3 className="engineering-showcase__title">Выберите этап</h3>
-          <p className="engineering-showcase__intro">
-            Один инженерный процесс: от выбора оборудования до структуры
-            электрощита и системы управления.
-          </p>
 
           <div
-            aria-label="Состояния инженерной схемы"
+            aria-label="Этапы инженерной схемы"
             className="engineering-showcase__choices"
             role="group"
           >
@@ -92,12 +87,6 @@ export function EngineeringMotionShowcase() {
                 onClick={() => setActiveId(stage.id)}
                 type="button"
               >
-                <span
-                  aria-hidden="true"
-                  className="engineering-showcase__choice-index"
-                >
-                  {stage.index}
-                </span>
                 <span>{stage.label}</span>
               </button>
             ))}
@@ -112,9 +101,6 @@ export function EngineeringMotionShowcase() {
               className="engineering-showcase__summary-content"
               key={activeId}
             >
-              <span className="engineering-showcase__summary-index">
-                {activeStage.index} / 03
-              </span>
               <p className="engineering-showcase__summary-title">
                 {activeStage.title}
               </p>
@@ -122,7 +108,7 @@ export function EngineeringMotionShowcase() {
             </div>
           </div>
           <p className="engineering-showcase__note">
-            Иллюстрация направлений работы, не конфигуратор и не подключённая
+            Демонстрационная схема: это не конфигуратор и не подключённая
             система.
           </p>
         </div>
@@ -137,7 +123,7 @@ export function EngineeringMotionShowcase() {
             role="img"
             viewBox="0 0 760 440"
           >
-            <title id={titleId}>Схема инженерных направлений</title>
+            <title id={titleId}>Схема инженерного решения</title>
             <desc id={descriptionId}>
               Оригинальная техническая иллюстрация компонентов, шкафа и системы
               управления. Это статическая демонстрационная схема.
@@ -173,33 +159,6 @@ export function EngineeringMotionShowcase() {
               stroke="var(--showcase-frame)"
               strokeWidth="1"
             />
-            <path
-              d="M36 48H724"
-              stroke="var(--showcase-frame)"
-              strokeWidth="1"
-            />
-            <text
-              fill="var(--showcase-caption)"
-              fontFamily="var(--font-mono)"
-              fontSize="10"
-              letterSpacing="1.2"
-              x="42"
-              y="34"
-            >
-              ENGINEERING / OVERVIEW
-            </text>
-            <text
-              fill="var(--showcase-caption)"
-              fontFamily="var(--font-mono)"
-              fontSize="10"
-              letterSpacing="1.2"
-              textAnchor="end"
-              x="718"
-              y="34"
-            >
-              {activeStage.index} / 03
-            </text>
-
             <g
               aria-hidden="true"
               className="engineering-showcase__stage"
@@ -462,10 +421,6 @@ export function EngineeringMotionShowcase() {
               </g>
             </g>
           </svg>
-          <figcaption className="engineering-showcase__caption">
-            <span>Схематичное представление направлений</span>
-            <span>{activeStage.index} / 03</span>
-          </figcaption>
         </figure>
       </div>
     </div>

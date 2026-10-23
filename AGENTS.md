@@ -77,6 +77,10 @@ No force-push to main, destructive reset/cleanup of unknown work, deletion of ot
 
 Report Task ID, delivery mode, changes/major files, actual tests, CI, PR if any, integration status PUSHED / MERGED / BLOCKED, delivered main SHA, limitations and next step. REVIEW_REQUIRED means prepared for an owner decision, not delivered. Unavailable CI or unverifiable results must be stated explicitly.
 
+## VISUAL-FIRST / BATCH QUALITY GATE
+
+For UI and design tasks, implement the agreed visual package in one iteration and make routine layout, type and spacing decisions autonomously. Before the owner approves the design, keep checks to the requested formatting/typecheck plus a quick browser review and desktop/mobile screenshots; skip full CI, runtime suites and separate reviews. Keep visual changes in the same Draft PR and do not merge before design approval. After approval, run one comprehensive frontend review and required checks, then follow the Git Delivery Policy. Never bypass repository protections. Backend, database, RBAC, API, security and FROZEN-contract changes keep their strict gates.
+
 ## Codex workflow skills (adapted from AC_Expluatation)
 
 Repository skills are in `skills/README.md`; do **not** load every skill for every task. Pick the minimal set:

@@ -4,10 +4,6 @@ export function SwitchgearIllustration() {
   const instanceId = useId().replaceAll(':', '');
   return (
     <div className="switchgear-art">
-      <div className="switchgear-art__caption">
-        <span>Graphite &amp; Petrol</span>
-        <span>01 / 03</span>
-      </div>
       <svg
         className="switchgear-art__drawing"
         role="img"
@@ -171,14 +167,6 @@ export function SwitchgearIllustration() {
         <circle cx="561" cy="64" r="3" fill="var(--art-accent)" />
         <circle cx="575" cy="362" r="3" fill="var(--art-accent)" />
       </svg>
-      <div className="switchgear-art__legend" aria-hidden="true">
-        <span>
-          <i className="legend-dot legend-dot--petrol" /> Электрические системы
-        </span>
-        <span>
-          <i className="legend-dot legend-dot--silver" /> Инженерная проработка
-        </span>
-      </div>
     </div>
   );
 }
