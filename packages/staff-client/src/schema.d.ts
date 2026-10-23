@@ -328,7 +328,7 @@ export interface components {
             passwordChangeRequired: boolean;
         };
         MyPermissions: {
-            permissions: ("staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read")[];
+            permissions: ("staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read" | "catalog.references.read" | "catalog.products.read" | "catalog.products.write" | "catalog.products.submit" | "catalog.products.publish" | "catalog.products.archive" | "catalog.categories.write" | "catalog.brands.write" | "catalog.attributes.write" | "catalog.products.relations.write" | "catalog.products.media.write" | "catalog.products.documents.write")[];
             passwordChangeRequired: boolean;
         };
         Success: {
@@ -359,7 +359,7 @@ export interface components {
             name: string;
             /** @enum {string} */
             state: "ACTIVE" | "ARCHIVED";
-            permissions: ("staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read")[];
+            permissions: ("staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read" | "catalog.references.read" | "catalog.products.read" | "catalog.products.write" | "catalog.products.submit" | "catalog.products.publish" | "catalog.products.archive" | "catalog.categories.write" | "catalog.brands.write" | "catalog.attributes.write" | "catalog.products.relations.write" | "catalog.products.media.write" | "catalog.products.documents.write")[];
             /** Format: int32 */
             version: number;
             /** Format: date-time */
@@ -369,7 +369,7 @@ export interface components {
         };
         Permission: {
             /** @enum {string} */
-            code: "staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read";
+            code: "staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read" | "catalog.references.read" | "catalog.products.read" | "catalog.products.write" | "catalog.products.submit" | "catalog.products.publish" | "catalog.products.archive" | "catalog.categories.write" | "catalog.brands.write" | "catalog.attributes.write" | "catalog.products.relations.write" | "catalog.products.media.write" | "catalog.products.documents.write";
             description: string;
         };
         Seller: {
@@ -402,8 +402,8 @@ export interface components {
             targetUserId?: string;
             /** Format: uuid */
             sellerId?: string;
-            addedPermissions?: ("staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read")[];
-            removedPermissions?: ("staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read")[];
+            addedPermissions?: ("staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read" | "catalog.references.read" | "catalog.products.read" | "catalog.products.write" | "catalog.products.submit" | "catalog.products.publish" | "catalog.products.archive" | "catalog.categories.write" | "catalog.brands.write" | "catalog.attributes.write" | "catalog.products.relations.write" | "catalog.products.media.write" | "catalog.products.documents.write")[];
+            removedPermissions?: ("staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read" | "catalog.references.read" | "catalog.products.read" | "catalog.products.write" | "catalog.products.submit" | "catalog.products.publish" | "catalog.products.archive" | "catalog.categories.write" | "catalog.brands.write" | "catalog.attributes.write" | "catalog.products.relations.write" | "catalog.products.media.write" | "catalog.products.documents.write")[];
             affectedUserCount?: number;
             count?: number;
             passwordChangeRequired?: boolean;
@@ -586,7 +586,7 @@ export interface components {
             expectedVersion: number;
         };
         ReplaceRolePermissions: {
-            permissions: ("staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read")[];
+            permissions: ("staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read" | "catalog.references.read" | "catalog.products.read" | "catalog.products.write" | "catalog.products.submit" | "catalog.products.publish" | "catalog.products.archive" | "catalog.categories.write" | "catalog.brands.write" | "catalog.attributes.write" | "catalog.products.relations.write" | "catalog.products.media.write" | "catalog.products.documents.write")[];
             /** Format: int32 */
             expectedVersion: number;
         };
@@ -615,7 +615,7 @@ export interface components {
             expectedVersion: number;
         };
         /** @enum {string} */
-        PermissionCode: "staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read";
+        PermissionCode: "staff.users.read" | "staff.users.create" | "staff.users.status.write" | "staff.sessions.revoke" | "staff.roles.read" | "staff.roles.write" | "staff.roles.permissions.write" | "staff.roles.assign" | "sellers.read" | "sellers.write" | "audit.read" | "files.metadata.read" | "catalog.references.read" | "catalog.products.read" | "catalog.products.write" | "catalog.products.submit" | "catalog.products.publish" | "catalog.products.archive" | "catalog.categories.write" | "catalog.brands.write" | "catalog.attributes.write" | "catalog.products.relations.write" | "catalog.products.media.write" | "catalog.products.documents.write";
     };
     responses: never;
     parameters: never;

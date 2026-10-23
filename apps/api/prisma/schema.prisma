@@ -27,6 +27,12 @@ model StaffUser {
   ownedFiles            FileObject[]
   createdFileVersions   FileVersion[]  @relation("FileVersionCreator")
   createdFileLinks      FileLink[]     @relation("FileLinkCreator")
+  createdCatalogRevisions   CatalogProductRevision[] @relation("CatalogRevisionCreator")
+  submittedCatalogRevisions CatalogProductRevision[] @relation("CatalogRevisionSubmitter")
+  decidedCatalogRevisions   CatalogProductRevision[] @relation("CatalogRevisionReviewer")
+  createdProductMedia       ProductMedia[]           @relation("ProductMediaCreator")
+  createdProductDocuments   ProductDocumentVersion[] @relation("ProductDocumentCreator")
+  createdProductRelations   ProductRelation[]        @relation("ProductRelationCreator")
 
   @@index([state, id], map: "staff_user_state_id_idx")
   @@map("staff_user")
@@ -176,6 +182,8 @@ model FileVersion {
   fileObject       FileObject  @relation(fields: [fileObjectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   createdBy        StaffUser   @relation("FileVersionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   links            FileLink[]
+  productMedia     ProductMedia[]
+  productDocuments ProductDocumentVersion[]
 
   @@unique([fileObjectId, number], map: "file_version_object_number_key")
   @@unique([id, fileObjectId], map: "file_version_id_object_key")
@@ -199,4 +207,226 @@ model FileLink {
   @@unique([sellerLegalEntityId, fileVersionId], map: "file_link_seller_version_key")
   @@index([fileObjectId, sellerLegalEntityId], map: "file_link_object_seller_idx")
   @@map("file_link")
+}
+
+model Brand {
+  id        String                   @id @db.Uuid
+  slug      String                   @unique(map: "brand_slug_key") @db.VarChar(120)
+  name      String                   @db.VarChar(160)
+  state     String                   @db.Text
+  version   Int                      @default(1)
+  createdAt DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  products  CatalogProduct[]         @relation("CatalogProductBrand")
+  revisions CatalogProductRevision[] @relation("CatalogRevisionBrand")
+
+  @@index([state, name, id], map: "brand_state_name_id_idx")
+  @@map("brand")
+}
+
+model Category {
+  id                   String                   @id @db.Uuid
+  parentId             String?                  @map("parent_id") @db.Uuid
+  slug                 String                   @unique(map: "category_slug_key") @db.VarChar(120)
+  name                 String                   @db.VarChar(160)
+  description          String?                  @db.VarChar(2000)
+  state                String                   @db.Text
+  sortOrder            Int                      @default(0) @map("sort_order")
+  version              Int                      @default(1)
+  createdAt            DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  parent               Category?                @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  children             Category[]               @relation("CategoryTree")
+  attributeDefinitions AttributeDefinition[]
+  revisions            CatalogProductRevision[]
+
+  @@index([parentId, state, sortOrder, slug], map: "category_parent_state_sort_slug_idx")
+  @@index([state, id], map: "category_state_id_idx")
+  @@map("category")
+}
+
+model AttributeDefinition {
+  id          String                  @id @db.Uuid
+  categoryId  String                  @map("category_id") @db.Uuid
+  code        String                  @db.VarChar(80)
+  label       String                  @db.VarChar(160)
+  valueType   String                  @map("value_type") @db.Text
+  unitCode    String?                 @map("unit_code") @db.VarChar(32)
+  unitLabel   String?                 @map("unit_label") @db.VarChar(48)
+  enumOptions Json?                   @map("enum_options") @db.JsonB
+  filterable  Boolean                 @default(false)
+  searchable  Boolean                 @default(false)
+  comparable  Boolean                 @default(true)
+  state       String                  @db.Text
+  version     Int                     @default(1)
+  createdAt   DateTime                @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime                @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  category    Category                @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  values      ProductAttributeValue[]
+
+  @@unique([categoryId, code], map: "attribute_definition_category_code_key")
+  @@unique([id, categoryId, valueType], map: "attribute_definition_identity_key")
+  @@index([categoryId, state, code], map: "attribute_definition_category_state_code_idx")
+  @@map("attribute_definition")
+}
+
+model CatalogProduct {
+  id                     String                   @id @db.Uuid
+  brandId                String?                  @map("brand_id") @db.Uuid
+  manufacturerName       String?                  @map("manufacturer_name") @db.VarChar(200)
+  originalPartNumber     String?                  @map("original_part_number") @db.VarChar(160)
+  modification           String?                  @db.VarChar(160)
+  slug                   String                   @unique(map: "catalog_product_slug_key") @db.VarChar(160)
+  publicationState       String                   @map("publication_state") @db.Text
+  publishedRevisionId    String?                  @map("published_revision_id") @db.Uuid
+  pendingRevisionId      String?                  @map("pending_revision_id") @db.Uuid
+  currentDraftRevisionId String?                  @map("current_draft_revision_id") @db.Uuid
+  version                Int                      @default(1)
+  createdAt              DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  brand                  Brand?                   @relation("CatalogProductBrand", fields: [brandId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  revisions              CatalogProductRevision[] @relation("CatalogProductRevisions")
+  publishedRevision      CatalogProductRevision?  @relation("ProductPublishedRevision", fields: [publishedRevisionId, id], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
+  pendingRevision        CatalogProductRevision?  @relation("ProductPendingRevision", fields: [pendingRevisionId, id], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
+  currentDraftRevision   CatalogProductRevision?  @relation("ProductDraftRevision", fields: [currentDraftRevisionId, id], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([publicationState, updatedAt, id], map: "catalog_product_state_updated_id_idx")
+  @@index([brandId, publicationState, id], map: "catalog_product_brand_state_id_idx")
+  @@index([originalPartNumber, id], map: "catalog_product_part_number_id_idx")
+  @@map("catalog_product")
+}
+
+model CatalogProductRevision {
+  id                         String                   @id @db.Uuid
+  productId                  String                   @map("product_id") @db.Uuid
+  revisionNo                 Int                      @map("revision_no")
+  sourceRevisionId           String?                  @map("source_revision_id") @db.Uuid
+  brandId                    String?                  @map("brand_id") @db.Uuid
+  categoryId                 String                   @map("category_id") @db.Uuid
+  state                      String                   @db.Text
+  displayName                String                   @map("display_name") @db.VarChar(240)
+  summary                    String?                  @db.VarChar(500)
+  description                String?                  @db.Text
+  brandNameSnapshot          String?                  @map("brand_name_snapshot") @db.VarChar(160)
+  brandSlugSnapshot          String?                  @map("brand_slug_snapshot") @db.VarChar(120)
+  categoryNameSnapshot       String                   @map("category_name_snapshot") @db.VarChar(160)
+  categorySlugSnapshot       String                   @map("category_slug_snapshot") @db.VarChar(120)
+  manufacturerNameSnapshot   String?                  @map("manufacturer_name_snapshot") @db.VarChar(200)
+  originalPartNumberSnapshot String?                  @map("original_part_number_snapshot") @db.VarChar(160)
+  modificationSnapshot       String?                  @map("modification_snapshot") @db.VarChar(160)
+  createdByUserId            String                   @map("created_by_user_id") @db.Uuid
+  createdAt                  DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  submittedByUserId          String?                  @map("submitted_by_user_id") @db.Uuid
+  submittedAt                DateTime?                @map("submitted_at") @db.Timestamptz(6)
+  decidedByUserId            String?                  @map("decided_by_user_id") @db.Uuid
+  decidedAt                  DateTime?                @map("decided_at") @db.Timestamptz(6)
+  decision                   String?                  @db.Text
+  decisionReason             String?                  @map("decision_reason") @db.VarChar(1000)
+  publishedAt                DateTime?                @map("published_at") @db.Timestamptz(6)
+  product                    CatalogProduct           @relation("CatalogProductRevisions", fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sourceRevision             CatalogProductRevision?  @relation("RevisionSource", fields: [sourceRevisionId, productId], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
+  derivedRevisions           CatalogProductRevision[] @relation("RevisionSource")
+  brand                      Brand?                   @relation("CatalogRevisionBrand", fields: [brandId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  category                   Category                 @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy                  StaffUser                @relation("CatalogRevisionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  submittedBy                StaffUser?               @relation("CatalogRevisionSubmitter", fields: [submittedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  decidedBy                  StaffUser?               @relation("CatalogRevisionReviewer", fields: [decidedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  publishedFor               CatalogProduct[]         @relation("ProductPublishedRevision")
+  pendingFor                 CatalogProduct[]         @relation("ProductPendingRevision")
+  draftFor                   CatalogProduct[]         @relation("ProductDraftRevision")
+  attributeValues            ProductAttributeValue[]
+  media                      ProductMedia[]
+  documents                  ProductDocumentVersion[]
+  sourceRelations            ProductRelation[]        @relation("ProductRelationSource")
+  targetRelations            ProductRelation[]        @relation("ProductRelationTarget")
+
+  // Partial unique indexes for DRAFT and PENDING_REVIEW are SQL-only.
+  @@unique([productId, revisionNo], map: "catalog_product_revision_product_no_key")
+  @@unique([id, productId], map: "catalog_product_revision_id_product_key")
+  @@unique([id, categoryId], map: "catalog_product_revision_id_category_key")
+  @@index([productId, revisionNo(sort: Desc)], map: "catalog_product_revision_product_no_idx")
+  @@index([state, createdAt, id], map: "catalog_product_revision_state_created_id_idx")
+  @@index([categoryId, state, productId], map: "catalog_product_revision_category_state_product_idx")
+  @@map("catalog_product_revision")
+}
+
+model ProductAttributeValue {
+  productRevisionId     String                 @map("product_revision_id") @db.Uuid
+  categoryId            String                 @map("category_id") @db.Uuid
+  attributeDefinitionId String                 @map("attribute_definition_id") @db.Uuid
+  valueType             String                 @map("value_type") @db.Text
+  codeSnapshot          String                 @map("code_snapshot") @db.VarChar(80)
+  labelSnapshot         String                 @map("label_snapshot") @db.VarChar(160)
+  unitCodeSnapshot      String?                @map("unit_code_snapshot") @db.VarChar(32)
+  unitLabelSnapshot     String?                @map("unit_label_snapshot") @db.VarChar(48)
+  filterableSnapshot    Boolean                @map("filterable_snapshot")
+  searchableSnapshot    Boolean                @map("searchable_snapshot")
+  comparableSnapshot    Boolean                @map("comparable_snapshot")
+  textValue             String?                @map("text_value") @db.VarChar(240)
+  numericValue          Decimal?               @map("numeric_value") @db.Decimal
+  booleanValue          Boolean?               @map("boolean_value")
+  enumCodeValue         String?                @map("enum_code_value") @db.VarChar(80)
+  enumLabelSnapshot     String?                @map("enum_label_snapshot") @db.VarChar(160)
+  revision              CatalogProductRevision @relation(fields: [productRevisionId, categoryId], references: [id, categoryId], onDelete: Restrict, onUpdate: Restrict)
+  definition            AttributeDefinition    @relation(fields: [attributeDefinitionId, categoryId, valueType], references: [id, categoryId, valueType], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([productRevisionId, attributeDefinitionId])
+  @@index([attributeDefinitionId, textValue, productRevisionId], map: "product_attribute_value_text_idx")
+  @@index([attributeDefinitionId, numericValue, productRevisionId], map: "product_attribute_value_numeric_idx")
+  @@index([attributeDefinitionId, enumCodeValue, productRevisionId], map: "product_attribute_value_enum_idx")
+  @@map("product_attribute_value")
+}
+
+model ProductMedia {
+  productRevisionId String                 @map("product_revision_id") @db.Uuid
+  fileVersionId     String                 @map("file_version_id") @db.Uuid
+  altText           String                 @map("alt_text") @db.VarChar(240)
+  caption           String?                @db.VarChar(500)
+  sortOrder         Int                    @map("sort_order")
+  isPrimary         Boolean                @default(false) @map("is_primary")
+  createdByUserId   String                 @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime               @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  revision          CatalogProductRevision @relation(fields: [productRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  fileVersion       FileVersion            @relation(fields: [fileVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy         StaffUser              @relation("ProductMediaCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([productRevisionId, fileVersionId])
+  @@unique([productRevisionId, sortOrder], map: "product_media_revision_sort_key")
+  // A partial unique index allows several media rows but at most one primary.
+  @@map("product_media")
+}
+
+model ProductDocumentVersion {
+  productRevisionId String                 @map("product_revision_id") @db.Uuid
+  fileVersionId     String                 @map("file_version_id") @db.Uuid
+  documentKind      String                 @map("document_kind") @db.Text
+  displayName       String                 @map("display_name") @db.VarChar(240)
+  locale            String?                @db.VarChar(35)
+  sortOrder         Int                    @map("sort_order")
+  createdByUserId   String                 @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime               @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  revision          CatalogProductRevision @relation(fields: [productRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  fileVersion       FileVersion            @relation(fields: [fileVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy         StaffUser              @relation("ProductDocumentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([productRevisionId, fileVersionId])
+  @@unique([productRevisionId, sortOrder], map: "product_document_revision_sort_key")
+  @@map("product_document_version")
+}
+
+model ProductRelation {
+  sourceRevisionId String                 @map("source_revision_id") @db.Uuid
+  targetProductId  String                 @map("target_product_id") @db.Uuid
+  targetRevisionId String                 @map("target_revision_id") @db.Uuid
+  relationType     String                 @map("relation_type") @db.Text
+  sortOrder        Int                    @map("sort_order")
+  createdByUserId  String                 @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime               @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  sourceRevision   CatalogProductRevision @relation("ProductRelationSource", fields: [sourceRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  targetRevision   CatalogProductRevision @relation("ProductRelationTarget", fields: [targetRevisionId, targetProductId], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy        StaffUser              @relation("ProductRelationCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([sourceRevisionId, targetProductId, relationType])
+  @@unique([sourceRevisionId, sortOrder], map: "product_relation_source_sort_key")
+  @@map("product_relation")
 }

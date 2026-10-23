@@ -23,7 +23,7 @@ import {
   PermissionGuard,
   StaffSessionGuard,
 } from '../identity/guards.js';
-import { PERMISSION_CODES } from '../permissions/policy.js';
+import { REGISTERED_PERMISSION_CODES } from '../permissions/policy.js';
 import { StaffController } from '../staff/staff.controller.js';
 import { STAFF_OPERATION_CONTRACT_NOTES } from './operation-notes.js';
 import { STAFF_OPENAPI_ROOT_EXTENSIONS } from './root-extensions.js';
@@ -230,7 +230,7 @@ function finalizeDocument(document: OpenAPIObject) {
   document.components.schemas ??= {};
   document.components.schemas.PermissionCode = {
     type: 'string',
-    enum: [...PERMISSION_CODES],
+    enum: [...REGISTERED_PERMISSION_CODES],
   };
 
   for (const path of Object.keys(document.paths))

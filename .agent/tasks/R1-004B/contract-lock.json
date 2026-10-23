@@ -32,7 +32,7 @@
       "docs/contracts/R1-002-rbac-matrix.md": "1fb244776582c900cc709fc96af31b3b90cb305a4d2dd2c685dd294fca9ee605",
       "docs/contracts/R1-002-auth-security.md": "a0243ce921a3d52f50b193db5f785480464fa72ce0d20803fda91acfd3540cd7",
       "docs/contracts/R1-002-audit-registry.json": "25ba8a3878978dc935f70bc015a732b486085f5661cfe1a5468f490bc3ee62a0",
-      "docs/contracts/R1-002-staff.openapi.json": "950739add6aac859a3cd44bab26d3d14bc2f73c46b4cccb984dcc11138f5f913",
+      "docs/contracts/R1-002-staff.openapi.json": "1667f77e46c28de2a5f088a688fd10178e07e6895c409a3e0d3a9f93f0798f94",
       "docs/contracts/R1-002-test-matrix.md": "547f724e7a007cb095fa49ab117bfa1180d277683e18c0d83196e19697311735"
     },
     "decisions": {
@@ -67,6 +67,14 @@
     "destructiveOperations": false,
     "permissionInitializationTestScope": "TASK_OWNED_ISOLATED_TEST_DATABASE_ONLY"
   },
+  "ownerApprovedExtensions": [
+    {
+      "task": "R1-004B",
+      "scope": "Add the 12 frozen R1-004 catalog permission codes to the existing staff permission-list, current-permissions and role-permission OpenAPI schemas so ordinary R1-002 RBAC delegation can grant catalog access.",
+      "preservedInvariant": "The protected R1-002 full-admin and control-admin permission sets remain exactly unchanged.",
+      "approval": "Product owner approved the additive permission enum extension during R1-004B execution on 2026-10-24 (Asia/Vladivostok)."
+    }
+  ],
   "hashAlgorithm": "SHA-256",
   "textNormalization": "UTF-8 LF (CRLF normalized to LF)"
 }

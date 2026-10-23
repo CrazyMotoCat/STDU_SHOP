@@ -28,6 +28,26 @@ export const PERMISSION_CODES = [
   'files.metadata.read',
 ] as const;
 
+export const CATALOG_PERMISSION_CODES = [
+  'catalog.references.read',
+  'catalog.products.read',
+  'catalog.products.write',
+  'catalog.products.submit',
+  'catalog.products.publish',
+  'catalog.products.archive',
+  'catalog.categories.write',
+  'catalog.brands.write',
+  'catalog.attributes.write',
+  'catalog.products.relations.write',
+  'catalog.products.media.write',
+  'catalog.products.documents.write',
+] as const;
+
+export const REGISTERED_PERMISSION_CODES = [
+  ...PERMISSION_CODES,
+  ...CATALOG_PERMISSION_CODES,
+] as const;
+
 export const FULL_ADMIN_PERMISSIONS = PERMISSION_CODES;
 
 export async function acquireAdminInvariantLock(tx: Prisma.TransactionClient) {

@@ -1,9 +1,9 @@
 import type { Type } from '@nestjs/common';
 import { ApiProperty } from '@nestjs/swagger';
 import { ApiSchema } from '@nestjs/swagger';
-import { PERMISSION_CODES } from './permissions/policy.js';
+import { REGISTERED_PERMISSION_CODES } from './permissions/policy.js';
 
-const permissionCodes = PERMISSION_CODES;
+const permissionCodes = REGISTERED_PERMISSION_CODES;
 
 const errorCodes = [
   'VALIDATION_ERROR',
