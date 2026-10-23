@@ -1,14 +1,14 @@
 # R1-004B
 
 TASK: R1-004B
-STATUS: CHECKPOINT_REVERIFY_PENDING
+STATUS: COMPLETE
 DELIVERY_MODE: AUTO_MERGE
-CHECKPOINT_STATUS: SAFE_WITH_CHECKPOINT
-PHASE: catalog implementation and local acceptance complete; graceful POSIX SIGTERM status classification corrected; Windows runtime and exact-head Ubuntu CI #42 pass on 952d18c; updated checkpoint commit needs fresh exact-head CI before Ready/Merge
+CHECKPOINT_STATUS: COMPLETE
+PHASE: catalog implementation and acceptance complete; PR #8 merged; final main SHA 6c5457be678939a3dbba3c0e6f9d5edc5a634da9; code verification passed on identical tree in CI #42
 UPDATED_AT: 2026-10-24
 BRANCH: codex/r1-004b-catalog-domain
 BASELINE_MAIN: ab7f5a25a7d36d2d722e36effb8c9fecb848c88a
-LAST_SAFE_COMMIT: 952d18c0298827a0e6ad73be475735929b21c792
+LAST_SAFE_COMMIT: 6c5457be678939a3dbba3c0e6f9d5edc5a634da9
 APPROVED_SOURCE_SHA: 8ae4dd8cfd15e3722d97259818b238924851c963
 FROZEN_HEAD: 0a749af35e422f55be050bd256ea1e8639193541
 CONTRACT_MERGE_SHA: 24c9653780c7e8dc511dd5acf1706ecdb9e191eb
@@ -46,8 +46,9 @@ CONTRACT_VERSION: FROZEN 1.0.0
 - `pnpm catalog:contract:test` 47/47 and R1-002 checker regression tests 32/32 — PASS. R1-002 protected full-admin permissions remain the original 12; only the owner-approved additive catalog permission enum is extended.
 - `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm ui:smoke`, `pnpm test:r1-002b`, toolchain and DB validation — PASS; exact results and the two local-only skips are recorded in `docs/plans/R1-004B-verification.md`.
 - Independent backend, database and security reviews — PASS, no blocker. Security reviewer recorded one non-blocking P3 public 503/500 alignment note; see verification report.
-- Exact hosted CI run #41 failed after CATB-29 HTTP probes because graceful POSIX SIGTERM exit status 143 was incorrectly classified as failed shutdown. Harness corrected to accept 143 only after a task-requested SIGTERM and bounded close; Windows isolated runtime re-run passed 12/12. Full exact-head Ubuntu CI #42 passed on corrected code commit `952d18c`; updated verification/checkpoint commit, merge and post-integration CI remain required before completion.
+- Exact hosted CI run #41 failed after CATB-29 HTTP probes because graceful POSIX SIGTERM exit status 143 was incorrectly classified as failed shutdown. Harness corrected to accept 143 only after a task-requested SIGTERM and bounded close; Windows isolated runtime re-run passed 12/12. Full Ubuntu CI #42 passed on corrected code commit `952d18c`. Only two docs changed after that commit; PR head `157a184` and merge SHA `6c5457b` have the same application/code tree. Per owner instruction, docs-only run #43 and post-integration run #44 were not awaited and are treated as green based on the passing CI #42 for identical code.
+- PR #8 was marked Ready and merged; `main` is at `6c5457be678939a3dbba3c0e6f9d5edc5a634da9`. No production database, migration, deployment, working-database permission initialization or destructive operation was performed.
 
-## Next action
+## Completion
 
-Next: commit and push the completed verification/checkpoint update without force; wait for fresh exact-head GitHub CI, then merge only after all required checks and GitHub rules pass. Record final `main` SHA and post-integration CI before marking R1-004B complete. Do not run production migrations or the permission initializer against the working database.
+R1-004B is complete and integrated on `main`. Preserve the production boundary: do not run production migrations, deployment, or the permission initializer against the working database without separate owner authorization.

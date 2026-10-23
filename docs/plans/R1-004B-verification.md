@@ -1,10 +1,12 @@
 # R1-004B — implementation verification
 
-**Status:** implementation and local acceptance checks complete; exact-head CI passed for the corrected implementation commit; final checkpoint commit CI and integration pending.
+**Status:** COMPLETE — PR #8 merged; final `main` is `6c5457be678939a3dbba3c0e6f9d5edc5a634da9`.
 
 **Contract:** R1-004A Catalog Domain Contract FROZEN 1.0.0, approved source `8ae4dd8cfd15e3722d97259818b238924851c963`.
 
 **Implementation source commit:** `952d18c0298827a0e6ad73be475735929b21c792` (includes the POSIX shutdown classification correction).
+
+**Integrated PR head:** `157a184493f13e925062a8377a8b41c47b7ffd87`. The merge tree matches that head; the only changes after the implementation commit were this report and the task checkpoint.
 
 **Delivery mode:** AUTO_MERGE, within the owner-approved contract and Git Delivery Policy.
 
@@ -42,7 +44,7 @@ The CATB HTTP/PostgreSQL suite passed **12/12 grouped Vitest tests**. It covers 
 | `pnpm catalog:runtime:check`                         | PASS — isolated PostgreSQL/Redis and CATB HTTP runtime evidence described above                                                                                     |
 | `git diff --check`                                   | PASS                                                                                                                                                                |
 
-The first exact-head Ubuntu CI attempt, [run #41](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39994071093), failed after CATB-29 had completed its HTTP probes: the pre-catalog API closed after the harness sent SIGTERM with POSIX exit status 143, and the harness incorrectly treated every nonzero code as failed shutdown. The owned process closed before the grace deadline; this was an exit-status classification bug, not a timeout or orphan-process failure. The harness now accepts status 143 only when it requested SIGTERM and the process closed within the graceful bound; forced shutdown and other unexpected exit statuses still fail. Windows `pnpm catalog:runtime:check` passed again after this correction. The corrected implementation commit `952d18c0298827a0e6ad73be475735929b21c792` passed exact-head Ubuntu CI [run #42](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39994674118), including the PostgreSQL/HTTP harness, R1-002B runtime, build, UI acceptance, five-service integration, three consecutive host smoke runs, and stopped-state restoration without volume deletion. A docs-only checkpoint commit will receive its own final-head CI; post-integration CI remains required.
+The first exact-head Ubuntu CI attempt, [run #41](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39994071093), failed after CATB-29 had completed its HTTP probes: the pre-catalog API closed after the harness sent SIGTERM with POSIX exit status 143, and the harness incorrectly treated every nonzero code as failed shutdown. The owned process closed before the grace deadline; this was an exit-status classification bug, not a timeout or orphan-process failure. The harness now accepts status 143 only when it requested SIGTERM and the process closed within the graceful bound; forced shutdown and other unexpected exit statuses still fail. Windows `pnpm catalog:runtime:check` passed again after this correction. The corrected implementation commit `952d18c0298827a0e6ad73be475735929b21c792` passed exact-head Ubuntu CI [run #42](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39994674118), including the PostgreSQL/HTTP harness, R1-002B runtime, build, UI acceptance, five-service integration, three consecutive host smoke runs, and stopped-state restoration without volume deletion. After that run, only the report and checkpoint changed; the current `main` tree has no code differences from the CI-tested tree. Per the owner's instruction, the docs-only PR-head run #43 and post-integration main run #44 are treated as green without waiting for duplicate execution.
 
 ## Independent reviews
 
@@ -54,4 +56,4 @@ Security review recorded one non-blocking **P3** contract/runtime alignment note
 
 ## Delivery status
 
-PR #8 remains Draft until the updated checkpoint commit has exact-head CI. Then mark it ready, verify required GitHub rules/reviews/checks, merge only when eligible, and record the resulting `main` SHA plus post-integration CI. This verification does not authorize production migration, deployment, real catalog permission grants or destructive actions.
+PR #8 was marked Ready and merged under GitHub rules. Merge SHA and final `origin/main`: `6c5457be678939a3dbba3c0e6f9d5edc5a634da9`. Post-integration run #44 was observed in progress and not awaited under the owner's instruction to carry forward the passing run #42 for an identical code tree. This verification does not authorize production migration, deployment, real catalog permission grants or destructive actions.
