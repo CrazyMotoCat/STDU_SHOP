@@ -26,6 +26,7 @@
     "build": "node scripts/tasks.mjs build",
     "smoke": "node scripts/smoke.mjs compose",
     "smoke:host": "node scripts/smoke.mjs host",
+    "ui:smoke": "node scripts/ui-smoke.mjs",
     "db:validate": "pnpm --filter @stdu/api db:validate",
     "db:runtime-role:init": "pnpm --filter @stdu/api db:runtime-role:init",
     "db:migrate:dev": "pnpm --filter @stdu/api db:migrate:dev",

@@ -55,6 +55,8 @@ jobs:
       - name: R1-002B PostgreSQL and Redis runtime acceptance
         run: pnpm test:r1-002b
       - run: pnpm build
+      - name: R1-003 public UI acceptance
+        run: pnpm ui:smoke
       - name: Five-service integration and dependency failures
         run: pnpm smoke
       - name: Stop full Compose before host mode
