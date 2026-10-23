@@ -1,0 +1,12 @@
+# Isolated smoke project storage. No named or persistent volumes are used.
+services:
+  postgres:
+    volumes: !override
+      - type: tmpfs
+        target: /var/lib/postgresql
+  api:
+    volumes: !override
+      - type: tmpfs
+        target: /data/files
+
+volumes: !override {}

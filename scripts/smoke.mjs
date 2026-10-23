@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -8,6 +9,7 @@ import {
   requireLocalDocker,
   requireFreePort,
   reportFailure,
+  run,
   root,
 } from './lib.mjs';
 import { composeUp, infraUp } from './ops.mjs';
@@ -94,7 +96,10 @@ async function checkReady(signal) {
 
 async function outage(dependency, signal) {
   console.log(`Checking ${dependency} outage in the local ${mode} project...`);
-  await compose(['stop', dependency]);
+  // Pause only this task's dependency. Stopping the isolated Compose PostgreSQL
+  // container discards its test-only tmpfs data and prevents a meaningful
+  // recovery check after it starts again.
+  await compose(['pause', dependency]);
   try {
     const api = await request('api', '/health/ready', signal);
     assert.equal(api.code, 503);
@@ -125,35 +130,63 @@ async function outage(dependency, signal) {
     );
   } finally {
     // Restore this task's dependency; never remove containers, volumes or data.
-    await compose(['start', dependency]);
+    await compose(['unpause', dependency]);
     await waitReady(signal);
   }
 }
 
 async function main() {
   loadLocalEnv();
+  configureIsolatedSmoke();
   await requireLocalDocker();
-  if (mode === 'compose') {
-    await composeUp();
-    await checks();
-  } else if (mode === 'host') {
-    for (const port of [3000, 3001, 8000]) await requireFreePort(port);
+  try {
     await infraUp();
-    // Start built Node apps and the locked Python venv directly, without
-    // shell/pnpm/uv/watch/reload intermediaries in the test lifecycle.
-    if (
-      !existsSync(resolve(root, 'apps/web/.next/BUILD_ID')) ||
-      !existsSync(resolve(root, 'apps/api/dist/main.js'))
-    )
-      throw new Error('Host smoke requires built apps. Run pnpm build first.');
-    await withHostApps(checks, { smoke: true });
-    for (const port of [3000, 3001, 8000]) await requireFreePort(port);
-  } else {
-    throw new Error('Smoke mode must be compose or host.');
+    await run('pnpm', ['db:runtime-role:init']);
+    await run('pnpm', ['db:migrate:deploy']);
+    if (mode === 'compose') {
+      await composeUp();
+      await checks();
+    } else if (mode === 'host') {
+      for (const port of [3000, 3001, 8000]) await requireFreePort(port);
+      // Start built Node apps and the locked Python venv directly, without
+      // shell/pnpm/uv/watch/reload intermediaries in the test lifecycle.
+      if (
+        !existsSync(resolve(root, 'apps/web/.next/BUILD_ID')) ||
+        !existsSync(resolve(root, 'apps/api/dist/main.js'))
+      )
+        throw new Error(
+          'Host smoke requires built apps. Run pnpm build first.',
+        );
+      await withHostApps(checks, { smoke: true });
+      for (const port of [3000, 3001, 8000]) await requireFreePort(port);
+    } else {
+      throw new Error('Smoke mode must be compose or host.');
+    }
+  } finally {
+    // Smoke has its own tmpfs-only Compose project; stop only that project.
+    await compose(['stop']);
   }
   console.log(
     `PASS ${mode} infrastructure smoke completed; ${mode === 'host' ? 'shutdown verified; ' : ''}dependencies restored; volumes preserved.`,
   );
+}
+
+function configureIsolatedSmoke() {
+  if (mode !== 'compose' && mode !== 'host')
+    throw new Error('Smoke mode must be compose or host.');
+  const runtimePassword = randomBytes(32).toString('hex');
+  const database = process.env.POSTGRES_DB;
+  const adminUser = process.env.POSTGRES_USER;
+  const adminPassword = process.env.POSTGRES_PASSWORD;
+  const port = process.env.POSTGRES_HOST_PORT;
+  if (!database || !adminUser || !adminPassword || !port)
+    throw new Error('Local PostgreSQL configuration is incomplete.');
+  process.env.STDU_ISOLATED_TEST = '1';
+  process.env.STDU_COMPOSE_PROJECT = `stdu-shop-r1-002b-${mode}-${process.pid}`;
+  process.env.STDU_RUNTIME_PASSWORD = runtimePassword;
+  process.env.MIGRATION_DATABASE_URL = `postgresql://${adminUser}:${adminPassword}@127.0.0.1:${port}/${database}`;
+  process.env.STAFF_DATABASE_URL = `postgresql://stdu_runtime:${runtimePassword}@127.0.0.1:${port}/${database}`;
+  process.env.STAFF_COMPOSE_DATABASE_URL = `postgresql://stdu_runtime:${runtimePassword}@postgres:5432/${database}`;
 }
 
 async function checks(signal) {

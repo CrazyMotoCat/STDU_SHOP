@@ -8,6 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -
 RUN --mount=type=cache,id=stdu-pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY apps/api apps/api
+COPY scripts/prisma-generate.mjs scripts/prisma-generate.mjs
+# Prisma generate does not connect; this build-only placeholder is not a credential.
+ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build
 RUN pnpm --filter @stdu/api build
 RUN pnpm --filter @stdu/api deploy --prod --legacy /runtime
 

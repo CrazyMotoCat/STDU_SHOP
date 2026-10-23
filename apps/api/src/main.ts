@@ -1,17 +1,12 @@
-import 'reflect-metadata';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module.js';
-import { readConfig } from './config.js';
+import { createApiApp } from './app.factory.js';
 
-async function bootstrap() {
-  const config = readConfig(process.env);
-  const app = await NestFactory.create(AppModule);
-  app.getHttpAdapter().getInstance().disable('x-powered-by');
-  app.enableShutdownHooks();
-  await app.listen(config.port, config.host);
-}
-
-bootstrap().catch(() => {
-  console.error('API startup failed; check the required environment keys.');
-  process.exitCode = 1;
-});
+createApiApp()
+  .then((app) => {
+    const port = Number(process.env.PORT ?? '3001');
+    const host = process.env.HOST ?? '127.0.0.1';
+    return app.listen(port, host);
+  })
+  .catch(() => {
+    console.error('API startup failed; check the required environment keys.');
+    process.exitCode = 1;
+  });

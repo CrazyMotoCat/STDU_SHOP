@@ -1,0 +1,86 @@
+// Contract-level metadata is emitted from code so semantic comparison detects drift in root x-* fields.
+export const STAFF_OPENAPI_ROOT_EXTENSIONS = {
+  'x-status': 'FROZEN',
+  'x-contract-version': '1.0.0',
+  'x-documents': [
+    'R1-002-staff-data-model.md',
+    'R1-002-data-model.json',
+    'R1-002-rbac-matrix.md',
+    'R1-002-rbac-matrix.json',
+    'R1-002-auth-security.md',
+    'R1-002-test-matrix.md',
+    'R1-002-audit-registry.json',
+  ],
+  'x-deployment-profiles': {
+    production: {
+      cookie: '__Host-stdu_staff',
+      origin: 'configured HTTPS same origin',
+      domainAttribute: false,
+    },
+    development: {
+      cookie: 'stdu_staff_dev',
+      origin: 'http://127.0.0.1:3000',
+      api: 'http://127.0.0.1:3001',
+      credentials: 'include',
+      domainAttribute: false,
+    },
+  },
+  'x-auth-decision-clock':
+    'PostgreSQL clock_timestamp() after row-lock waits, never transaction-start timestamp',
+  'x-admin-preservation': {
+    controlRequiredSet: 'controlAdminRequiredPermissions',
+    fullRequiredSet: 'fullAdminProtectedPermissions',
+    minimumControlAdmins: 1,
+    minimumFullAdmins: 1,
+    qualification: {
+      userState: 'ACTIVE',
+      passwordChangeRequired: false,
+      credential: 'valid policy-compliant Argon2id passwordHash',
+      permissions: 'effective union of ACTIVE assigned roles for the same user',
+      requiresLiveSession: false,
+      roleNameAuthority: false,
+    },
+    lock: 'pg_advisory_xact_lock(1398031445, 2)',
+    transaction:
+      'READ COMMITTED; acquire advisory lock before reading authorization/invariant state; recompute both administrator sets from resulting persisted state before commit',
+    writers: [
+      'user.state',
+      'user.credentials',
+      'user.passwordChangeRequired',
+      'user.roles',
+      'role.permissions',
+      'role.state',
+      'permission.registry',
+    ],
+    failureCode: 'LAST_ADMIN_REQUIRED',
+    failure:
+      'rollback business rows, versions and session changes; no SUCCESS audit; separate mandatory DENIED audit with LAST_ADMIN_REQUIRED; audit failure returns 503',
+    futurePermissions:
+      'explicit versioned owner-approved contract update only; no automatic inclusion',
+    privilegedBypass: false,
+    controlAdminRequiredPermissions: [
+      'staff.users.read',
+      'staff.users.create',
+      'staff.users.status.write',
+      'staff.sessions.revoke',
+      'staff.roles.read',
+      'staff.roles.write',
+      'staff.roles.permissions.write',
+      'staff.roles.assign',
+    ],
+    fullAdminProtectedPermissions: [
+      'staff.users.read',
+      'staff.users.create',
+      'staff.users.status.write',
+      'staff.sessions.revoke',
+      'staff.roles.read',
+      'staff.roles.write',
+      'staff.roles.permissions.write',
+      'staff.roles.assign',
+      'sellers.read',
+      'sellers.write',
+      'audit.read',
+      'files.metadata.read',
+    ],
+  },
+} as const;
