@@ -1,14 +1,14 @@
 # R1-004B
 
 TASK: R1-004B
-STATUS: IN_PROGRESS
+STATUS: IMPLEMENTED_LOCAL_VERIFIED
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE_WITH_CHECKPOINT
-PHASE: steps 2-5 additive schema/migration, permission/audit registry and isolated one-time permission initializer implemented; next slice is catalog HTTP vertical implementation
+PHASE: catalog HTTP implementation, generated client, migration/initializer harness and CATB runtime coverage complete; local quality gates and independent reviews pass; exact-head CI and integration pending
 UPDATED_AT: 2026-10-24
 BRANCH: codex/r1-004b-catalog-domain
 BASELINE_MAIN: ab7f5a25a7d36d2d722e36effb8c9fecb848c88a
-LAST_SAFE_COMMIT: 89a24b5
+LAST_SAFE_COMMIT: d49f1adb7cc32f31f0a66179a04f9416a1ac871a
 APPROVED_SOURCE_SHA: 8ae4dd8cfd15e3722d97259818b238924851c963
 FROZEN_HEAD: 0a749af35e422f55be050bd256ea1e8639193541
 CONTRACT_MERGE_SHA: 24c9653780c7e8dc511dd5acf1706ecdb9e191eb
@@ -37,17 +37,17 @@ CONTRACT_VERSION: FROZEN 1.0.0
 
 - `node .agent/tasks/R1-004B/verify-contract-lock.mjs` — PASS: 19 protected artifacts; approved source preserved.
 - `pnpm catalog:contract:check` — PASS: FROZEN metadata/provenance, reproducible validated 31-operation OpenAPI.
-- `pnpm catalog:contract:test` — PASS, 44/44.
+- `pnpm catalog:contract:test` — PASS, 47/47.
 - `pnpm --filter @stdu/api db:validate` — PASS; Prisma client generated.
-- `pnpm --filter @stdu/api exec node scripts/run-r1-004b-migration-check.mjs` — PASS on isolated PostgreSQL 18.6, fresh and populated fixtures; no persistent volume or external DB.
-- The same isolated PostgreSQL harness also invokes the actual initializer CLI against its fresh disposable DB. Validation, eligible-target check, future-registry fail-closed, audit-failure rollback, exact 12-code role assignment, unchanged bootstrap role, and two concurrent one-time invocations all passed; exactly one concurrent command committed.
-- `pnpm --filter @stdu/api typecheck`, `pnpm lint`, and `pnpm format:check` — PASS after the initializer slice.
-- `pnpm contract:check` and `pnpm client:generate` — PASS after the owner-approved additive permission enum update; 23 existing staff operations remain stable and client generation is reproducible.
-- Full lint/format/typecheck/test/build and end-to-end catalog runtime acceptance remain pending.
-- Exact hosted CI is checked against the pushed Draft PR HEAD; links/results are recorded in the PR and delivery report.
-- Existing main post-integration CI covers R1-002B runtime and foundation/UI smoke; it is not CATB-01…38 evidence.
-- Catalog PostgreSQL/HTTP runtime CATB-01…38: NOT RUN. Independent database review of the schema/migration slice: PASS after four reviewed guard fixes. Backend and security implementation reviews remain pending; all are mandatory before R1-004B acceptance/merge.
+- `pnpm catalog:runtime:check` — PASS on task-owned disposable PostgreSQL 18.6 and Redis; fresh/populated migrations, protected fixture preservation, backup/restore sentinels, permission initializer and CATB HTTP/PostgreSQL suite passed. No persistent volumes or external databases used.
+- CATB-29 launched the exact pre-catalog API at `d6bed64ac2e1d21e7312230efc99cc782c5e7508` on the additive schema with `stdu_runtime`: readiness/CSRF returned 200 and unauthenticated auth/me returned 401. Migration/fixture verification used the separate administrative URL.
+- `pnpm contract:check`, `pnpm contract:test` — PASS; 23 existing staff operations remain stable and client generation is reproducible; 7/7 tests.
+- `pnpm catalog:check` — PASS; frozen 31-operation OpenAPI, Nest route inventory/security parity and generated TS client reproducibility.
+- `pnpm catalog:contract:test` 47/47 and R1-002 checker regression tests 32/32 — PASS. R1-002 protected full-admin permissions remain the original 12; only the owner-approved additive catalog permission enum is extended.
+- `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm ui:smoke`, `pnpm test:r1-002b`, toolchain and DB validation — PASS; exact results and the two local-only skips are recorded in `docs/plans/R1-004B-verification.md`.
+- Independent backend, database and security reviews — PASS, no blocker. Security reviewer recorded one non-blocking P3 public 503/500 alignment note; see verification report.
+- Exact hosted CI is pending the implementation commit push; merge and post-integration CI remain required before completion.
 
 ## Next action
 
-Next: implement the 28 staff and 3 public catalog HTTP operations, runtime OpenAPI/client consistency, and CATB PostgreSQL/HTTP checks. Preserve sorted root locks for relation replace/publish (CATB-34), keep R1-002 full-admin invariants unchanged, and retain this PR as Draft until CATB-01…38, independent backend/security/database review, exact-head CI and integration gates are complete.
+Next: inspect/stage explicit task-owned paths, commit and push the completed implementation; update PR #8 with the verification report, wait for exact-head GitHub CI, then merge only after all required checks and GitHub rules pass. Record final `main` SHA and post-integration CI before marking R1-004B complete. Do not run production migrations or the permission initializer against the working database.

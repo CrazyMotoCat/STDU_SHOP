@@ -5,9 +5,10 @@ import { HealthController } from './health/health.controller.js';
 import { DatabaseModule } from './database/database.module.js';
 import { IdentityModule } from './identity/identity.module.js';
 import { StaffModule } from './staff/staff.module.js';
+import { CatalogModule } from './catalog/catalog.module.js';
 
 @Module({
-  imports: [DatabaseModule, IdentityModule, StaffModule],
+  imports: [DatabaseModule, IdentityModule, StaffModule, CatalogModule],
   controllers: [HealthController],
   providers: [
     {

@@ -23,6 +23,14 @@ export const ERROR_CODES = [
   'DEPENDENCY_UNAVAILABLE',
   'INTERNAL_ERROR',
   'CURRENT_PASSWORD_INVALID',
+  'IDENTITY_CONFLICT',
+  'SLUG_CONFLICT',
+  'CATEGORY_CYCLE',
+  'CATEGORY_INACTIVE_PARENT',
+  'ATTRIBUTE_NOT_APPLICABLE',
+  'PUBLICATION_NOT_READY',
+  'REFERENCE_IN_USE',
+  'FILE_NOT_ACCESSIBLE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -54,6 +62,14 @@ const statusByCode: Record<ErrorCode, number> = {
   DEPENDENCY_UNAVAILABLE: 503,
   INTERNAL_ERROR: 500,
   CURRENT_PASSWORD_INVALID: 400,
+  IDENTITY_CONFLICT: 409,
+  SLUG_CONFLICT: 409,
+  CATEGORY_CYCLE: 409,
+  CATEGORY_INACTIVE_PARENT: 409,
+  ATTRIBUTE_NOT_APPLICABLE: 400,
+  PUBLICATION_NOT_READY: 409,
+  REFERENCE_IN_USE: 409,
+  FILE_NOT_ACCESSIBLE: 404,
 };
 
 const messages: Record<ErrorCode, string> = {
@@ -79,6 +95,14 @@ const messages: Record<ErrorCode, string> = {
   DEPENDENCY_UNAVAILABLE: 'A required service is unavailable.',
   INTERNAL_ERROR: 'The request could not be completed.',
   CURRENT_PASSWORD_INVALID: 'The current password is incorrect.',
+  IDENTITY_CONFLICT: 'The product identity is already in use.',
+  SLUG_CONFLICT: 'The catalog slug is already in use.',
+  CATEGORY_CYCLE: 'The category change would create a cycle.',
+  CATEGORY_INACTIVE_PARENT: 'The selected parent category is unavailable.',
+  ATTRIBUTE_NOT_APPLICABLE: 'The attribute is not valid for this category.',
+  PUBLICATION_NOT_READY: 'The product revision is not ready for publication.',
+  REFERENCE_IN_USE: 'The catalog reference is still in use.',
+  FILE_NOT_ACCESSIBLE: 'The file metadata is not accessible.',
 };
 
 export class StaffError extends HttpException {

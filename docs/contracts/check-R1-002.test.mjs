@@ -24,6 +24,7 @@ const names = [
   'R1-002-auth-security.md',
   'R1-002-rbac-matrix.md',
   'R1-002-staff-data-model.md',
+  'R1-004-catalog-rbac-matrix.json',
 ];
 const changeRegistry = (directory, mutate) => {
   const path = join(directory, names[4]);
@@ -76,6 +77,14 @@ const cases = [
     (a) => {
       a.paths['/v1/staff/users'].get['x-permission'] = 'catalog.publish';
     },
+  ],
+  [
+    'missing additive catalog permission',
+    (a) => a.components.schemas.PermissionCode.enum.pop(),
+  ],
+  [
+    'unapproved additive permission',
+    (a) => a.components.schemas.PermissionCode.enum.push('catalog.unapproved'),
   ],
   [
     'missing CSRF',

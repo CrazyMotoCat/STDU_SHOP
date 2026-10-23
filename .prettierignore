@@ -11,6 +11,7 @@ AGENTS.md
 **/.next/
 **/next-env.d.ts
 packages/staff-client/src/schema.d.ts
+packages/catalog-client/src/schema.d.ts
 **/dist/
 **/.venv/
 **/.pytest_cache/

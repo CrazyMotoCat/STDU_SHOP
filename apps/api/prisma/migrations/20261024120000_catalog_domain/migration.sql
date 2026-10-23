@@ -900,8 +900,8 @@ BEGIN
     END IF;
   END IF;
   expected_state := CASE
-    WHEN product_row.pending_revision_id IS NOT NULL THEN 'PENDING_REVIEW'
     WHEN product_row.published_revision_id IS NOT NULL THEN 'PUBLISHED'
+    WHEN product_row.pending_revision_id IS NOT NULL THEN 'PENDING_REVIEW'
     ELSE 'DRAFT'
   END;
   IF product_row.publication_state IS DISTINCT FROM expected_state THEN
@@ -1275,16 +1275,16 @@ CREATE OR REPLACE FUNCTION audit_event_valid(
   p_changes jsonb
 )
 RETURNS boolean
-LANGUAGE plpgsql
+LANGUAGE sql
 IMMUTABLE
-AS $$
-BEGIN
-  IF p_action LIKE 'catalog.%' THEN
-    RETURN catalog_audit_event_valid(p_action, p_outcome, p_reason, p_changes);
-  END IF;
-  RETURN audit_event_valid_r1_002(p_action, p_outcome, p_reason, p_changes);
+BEGIN ATOMIC
+  SELECT CASE
+    WHEN p_action LIKE 'catalog.%' THEN
+      public.catalog_audit_event_valid(p_action, p_outcome, p_reason, p_changes)
+    ELSE
+      public.audit_event_valid_r1_002(p_action, p_outcome, p_reason, p_changes)
+  END;
 END;
-$$;
 
 ALTER TABLE audit_event DROP CONSTRAINT audit_event_entity_type_check;
 ALTER TABLE audit_event ADD CONSTRAINT audit_event_entity_type_check CHECK (
@@ -1304,7 +1304,9 @@ ALTER TABLE audit_event ADD CONSTRAINT audit_event_catalog_staff_actor_check CHE
   OR actor_kind = 'STAFF'
 );
 ALTER TABLE audit_event ADD CONSTRAINT audit_event_catalog_entity_action_check CHECK (
-  action NOT LIKE 'catalog.%' OR COALESCE(CASE action
+  action NOT LIKE 'catalog.%'
+  OR (outcome <> 'SUCCESS' AND entity_type IS NULL AND entity_id IS NULL)
+  OR COALESCE(CASE action
     WHEN 'catalog.reference.changed' THEN entity_type IN ('Brand','Category','AttributeDefinition')
     WHEN 'catalog.product.created' THEN entity_type = 'CatalogProduct'
     WHEN 'catalog.product.revision.created' THEN entity_type IN ('CatalogProduct','CatalogProductRevision')

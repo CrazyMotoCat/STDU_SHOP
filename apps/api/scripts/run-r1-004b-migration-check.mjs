@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdtemp, readFile, rm, symlink } from 'node:fs/promises';
+import { createServer } from 'node:net';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +22,7 @@ const catalogMigration = resolve(
   migrationRoot,
   '20261024120000_catalog_domain/migration.sql',
 );
+const preCatalogApiCommit = 'd6bed64ac2e1d21e7312230efc99cc782c5e7508';
 const catalogRbacContract = JSON.parse(
   await readFile(
     resolve(repoRoot, 'docs/contracts/R1-004-catalog-rbac-matrix.json'),
@@ -34,10 +37,13 @@ const prismaCli = require.resolve('prisma/build/index.js');
 const tsxCli = require.resolve('tsx/cli');
 const suffix = randomUUID().replaceAll('-', '').slice(0, 10);
 const containerName = `stdu-r1-004b-migration-${process.pid}-${suffix}`;
+const redisContainerName = `stdu-r1-004b-redis-${process.pid}-${suffix}`;
 const adminPassword = randomBytes(32).toString('base64url');
 const runtimePassword = randomBytes(32).toString('base64url');
 let containerCreated = false;
 let containerCreationAttempted = false;
+let redisContainerCreated = false;
+let redisContainerCreationAttempted = false;
 
 function createClient(options) {
   const client = new Client(options);
@@ -125,8 +131,309 @@ async function waitForPublishedPort() {
   );
 }
 
+async function waitForContainerPort(name, containerPort, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  let observedPorts = 'not available';
+  while (Date.now() < deadline) {
+    observedPorts = await docker([
+      'inspect',
+      '--format',
+      '{{json .NetworkSettings.Ports}}',
+      name,
+    ]);
+    const bindings = JSON.parse(observedPorts);
+    const published = bindings?.[`${containerPort}/tcp`]?.[0]?.HostPort;
+    if (published && /^\d+$/.test(published)) return Number(published);
+    await delay(200);
+  }
+  throw new Error(
+    `Docker did not publish ${name} port ${containerPort} after ${timeoutMs}ms; observed bindings: ${observedPorts}`,
+  );
+}
+
+async function waitForRedis(name) {
+  const deadline = Date.now() + 15_000;
+  let lastOutput = 'not available';
+  while (Date.now() < deadline) {
+    try {
+      lastOutput = await docker(['exec', name, 'redis-cli', 'ping']);
+      if (lastOutput === 'PONG') return;
+    } catch (error) {
+      lastOutput = error instanceof Error ? error.message : 'unknown error';
+    }
+    await delay(200);
+  }
+  throw new Error(`Owned Redis did not become ready: ${lastOutput}`);
+}
+
+async function reserveLoopbackPort() {
+  const server = createServer();
+  await new Promise((accept, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', accept);
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string')
+    throw new Error(
+      'Could not reserve a loopback port for the pre-catalog API.',
+    );
+  await new Promise((accept, reject) =>
+    server.close((error) => (error ? reject(error) : accept())),
+  );
+  return address.port;
+}
+
+function appendLog(current, chunk) {
+  const next = current + chunk.toString();
+  return next.length > 20_000 ? next.slice(-20_000) : next;
+}
+
+function normalizeWorktreePath(value) {
+  const normalized = resolve(value).replaceAll('\\', '/');
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+async function removeOwnedLegacyWorktree(checkout, temporaryRoot) {
+  const normalizedCheckout = normalizeWorktreePath(checkout);
+  const listing = await run('git', ['worktree', 'list', '--porcelain'], {
+    cwd: repoRoot,
+    capture: true,
+  });
+  const paths = listing
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('worktree '))
+    .map((line) => line.slice('worktree '.length));
+  if (!paths.some((path) => normalizeWorktreePath(path) === normalizedCheckout))
+    throw new Error(
+      `Refusing to remove pre-catalog checkout because Git does not report the task-owned worktree: ${checkout}`,
+    );
+  await run('git', ['worktree', 'remove', '--force', checkout], {
+    cwd: repoRoot,
+  });
+  await removeOwnedTemporaryDirectory(temporaryRoot);
+}
+
+async function removeOwnedTemporaryDirectory(directory) {
+  const target = normalizeWorktreePath(directory);
+  const allowedPrefix = normalizeWorktreePath(
+    join(tmpdir(), 'stdu-r1-004b-pre-catalog-'),
+  );
+  if (!target.startsWith(allowedPrefix))
+    throw new Error(
+      `Refusing to remove a pre-catalog temporary directory outside its unique task prefix: ${directory}`,
+    );
+  await rm(directory, { recursive: true, force: true });
+}
+
+async function stopOwnedApi(child, closed, getLogs) {
+  if (child.exitCode === null && child.signalCode === null) {
+    try {
+      if (process.platform === 'win32') child.kill('SIGTERM');
+      else if (child.pid) process.kill(-child.pid, 'SIGTERM');
+    } catch (error) {
+      if (error?.code !== 'ESRCH')
+        throw new Error(
+          `Could not request graceful stop for owned pre-catalog API: ${error.message}`,
+          { cause: error },
+        );
+    }
+  }
+
+  let result = await Promise.race([
+    closed.then((value) => ({ closed: true, value })),
+    delay(8_000).then(() => ({ closed: false })),
+  ]);
+  if (!result.closed) {
+    let forceError;
+    try {
+      if (process.platform === 'win32') {
+        await run('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+          capture: true,
+        });
+      } else if (child.pid) {
+        process.kill(-child.pid, 'SIGKILL');
+      }
+    } catch (error) {
+      forceError = error;
+    }
+    result = await Promise.race([
+      closed.then((value) => ({ closed: true, value })),
+      delay(4_000).then(() => ({ closed: false })),
+    ]);
+    if (!result.closed)
+      throw new Error(
+        `Owned pre-catalog API did not close within 12 seconds after graceful and forced shutdown. ${forceError?.message ?? ''}\n${getLogs()}`,
+      );
+    throw new Error(
+      `Pre-catalog API required forced shutdown after the 8-second graceful deadline; process was task-owned and is now closed. ${forceError?.message ?? ''}\n${getLogs()}`,
+    );
+  }
+  return result.value;
+}
+
+async function exercisePreCatalogApi(port, databaseUrl, redisUrl) {
+  const temporaryRoot = await mkdtemp(
+    join(tmpdir(), 'stdu-r1-004b-pre-catalog-'),
+  );
+  const checkout = join(temporaryRoot, 'checkout');
+  const oldApiRoot = join(checkout, 'apps', 'api');
+  let worktreeAdded = false;
+  let child;
+  let closed;
+  let logs = '';
+  let failure;
+  try {
+    await run(
+      'git',
+      ['worktree', 'add', '--detach', checkout, preCatalogApiCommit],
+      { cwd: repoRoot },
+    );
+    worktreeAdded = true;
+    await symlink(
+      resolve(apiRoot, 'node_modules'),
+      join(oldApiRoot, 'node_modules'),
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+    const oldSchema = resolve(oldApiRoot, 'prisma/schema.prisma');
+    await run(
+      process.execPath,
+      [prismaCli, 'generate', '--schema', oldSchema],
+      {
+        cwd: oldApiRoot,
+        env: {
+          ...process.env,
+          DATABASE_URL: databaseUrl,
+          STAFF_DATABASE_URL: databaseUrl,
+          MIGRATION_DATABASE_URL: databaseUrl,
+        },
+      },
+    );
+
+    const apiPort = await reserveLoopbackPort();
+    const publicOrigin = 'https://r1-004b-pre-catalog.invalid';
+    const oldApiEnv = {
+      ...process.env,
+      APP_ENV: 'production',
+      COOKIE_PROFILE: 'https',
+      HOST: '127.0.0.1',
+      PORT: String(apiPort),
+      DATABASE_URL: databaseUrl,
+      STAFF_DATABASE_URL: databaseUrl,
+      REDIS_URL: redisUrl,
+      SESSION_HMAC_KEY: randomBytes(32).toString('hex'),
+      RATE_LIMIT_KEY: randomBytes(32).toString('hex'),
+      STAFF_ORIGINS: publicOrigin,
+      PUBLIC_WEB_ORIGIN: publicOrigin,
+      TRUSTED_PROXY_ADDRESS: '127.0.0.1',
+    };
+    child = spawn(
+      process.execPath,
+      [tsxCli, resolve(oldApiRoot, 'src/main.ts')],
+      {
+        cwd: oldApiRoot,
+        env: oldApiEnv,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        detached: process.platform !== 'win32',
+      },
+    );
+    child.stdout?.on('data', (chunk) => (logs = appendLog(logs, chunk)));
+    child.stderr?.on('data', (chunk) => (logs = appendLog(logs, chunk)));
+    let spawnError;
+    child.once('error', (error) => (spawnError = error));
+    closed = new Promise((accept) =>
+      child.once('close', (code, signal) => accept({ code, signal })),
+    );
+
+    const readyUrl = `http://127.0.0.1:${apiPort}/health/ready`;
+    const deadline = Date.now() + 20_000;
+    let lastReadiness = 'no response';
+    let ready = false;
+    while (Date.now() < deadline) {
+      if (spawnError) throw spawnError;
+      if (child.exitCode !== null || child.signalCode !== null) {
+        const ended = await closed;
+        throw new Error(
+          `Pre-catalog API exited before readiness (${ended.code ?? ended.signal}).\n${logs}`,
+        );
+      }
+      try {
+        const response = await fetch(readyUrl, {
+          signal: AbortSignal.timeout(1_000),
+        });
+        const body = await response.text();
+        lastReadiness = `${response.status} ${body.slice(0, 300)}`;
+        if (response.status === 200) {
+          ready = true;
+          break;
+        }
+      } catch (error) {
+        lastReadiness = error instanceof Error ? error.message : String(error);
+      }
+      await delay(200);
+    }
+    if (!ready)
+      throw new Error(
+        `Pre-catalog API did not become ready on the additive R1-004 schema: ${lastReadiness}.\n${logs}`,
+      );
+
+    const csrf = await fetch(`http://127.0.0.1:${apiPort}/v1/staff/auth/csrf`, {
+      headers: { Origin: publicOrigin },
+    });
+    assert.equal(csrf.status, 200, 'Old R1-002 CSRF route remains available.');
+    const self = await fetch(`http://127.0.0.1:${apiPort}/v1/staff/auth/me`, {
+      headers: { Origin: publicOrigin },
+    });
+    assert.equal(self.status, 401, 'Old R1-002 auth boundary remains active.');
+    console.log(
+      `PASS CATB-29 pre-catalog API ${preCatalogApiCommit.slice(0, 7)} starts on additive R1-004 schema; /health/ready, auth/csrf (200), and unauthenticated auth/me (401) verified.`,
+    );
+  } catch (error) {
+    failure = error;
+  }
+
+  if (child && closed) {
+    try {
+      const stopped = await stopOwnedApi(child, closed, () => logs);
+      if (stopped.code !== null && stopped.code !== 0)
+        throw new Error(
+          `Owned pre-catalog API exited with code ${stopped.code} during shutdown.\n${logs}`,
+        );
+    } catch (error) {
+      failure = failure
+        ? new AggregateError(
+            [failure, error],
+            'Pre-catalog compatibility check and shutdown both failed.',
+          )
+        : error;
+    }
+  }
+
+  if (
+    worktreeAdded &&
+    (!child || child.exitCode !== null || child.signalCode !== null)
+  ) {
+    try {
+      await removeOwnedLegacyWorktree(checkout, temporaryRoot);
+    } catch (error) {
+      failure = failure
+        ? new AggregateError(
+            [failure, error],
+            'Pre-catalog compatibility check and owned checkout cleanup both failed.',
+          )
+        : error;
+    }
+  }
+  if (!worktreeAdded) await removeOwnedTemporaryDirectory(temporaryRoot);
+  if (failure) throw failure;
+}
+
 function connectionString(port, database) {
   return `postgresql://postgres:${encodeURIComponent(adminPassword)}@127.0.0.1:${port}/${database}`;
+}
+
+function runtimeConnectionString(port, database) {
+  return `postgresql://stdu_runtime:${encodeURIComponent(runtimePassword)}@127.0.0.1:${port}/${database}`;
 }
 
 async function applyMigrationState(port, database, baseSql, populated) {
@@ -342,6 +649,111 @@ async function protectedSnapshot(client) {
   return result;
 }
 
+async function exerciseBackupRestore(containerName, port, sourceDatabase) {
+  const source = createClient({
+    connectionString: connectionString(port, sourceDatabase),
+  });
+  await source.connect();
+  const categoryId = randomUUID();
+  const brandId = randomUUID();
+  await source.query(
+    `INSERT INTO category(id,slug,name,state)
+     VALUES ($1,$2,'Backup restore sentinel category','ACTIVE')`,
+    [categoryId, `backup-category-${suffix}`],
+  );
+  await source.query(
+    `INSERT INTO brand(id,slug,name,state)
+     VALUES ($1,$2,'Backup restore sentinel brand','ACTIVE')`,
+    [brandId, `backup-brand-${suffix}`],
+  );
+  const expectedProtected = await protectedSnapshot(source);
+  const expectedCatalog = {
+    category: (
+      await source.query(
+        `SELECT id::text,slug,name,state,sort_order,version,
+           created_at::text,updated_at::text
+         FROM category ORDER BY id`,
+      )
+    ).rows,
+    brand: (
+      await source.query(
+        `SELECT id::text,slug,name,state,version,created_at::text,updated_at::text
+         FROM brand ORDER BY id`,
+      )
+    ).rows,
+  };
+  await source.end();
+
+  const restoredDatabase = `catalog_restore_${suffix}`;
+  const admin = createClient({
+    connectionString: connectionString(port, 'postgres'),
+  });
+  await admin.connect();
+  await admin.query(`CREATE DATABASE "${restoredDatabase}"`);
+  await admin.end();
+
+  const backupFile = `/tmp/stdu-r1-004b-${suffix}.dump`;
+  await docker([
+    'exec',
+    '--user',
+    'postgres',
+    containerName,
+    'pg_dump',
+    '--username=postgres',
+    '--format=custom',
+    '--no-owner',
+    '--file',
+    backupFile,
+    sourceDatabase,
+  ]);
+  await docker([
+    'exec',
+    '--user',
+    'postgres',
+    containerName,
+    'pg_restore',
+    '--username=postgres',
+    '--no-owner',
+    '--exit-on-error',
+    '--dbname',
+    restoredDatabase,
+    backupFile,
+  ]);
+
+  const restored = createClient({
+    connectionString: connectionString(port, restoredDatabase),
+  });
+  await restored.connect();
+  assert.deepEqual(
+    await protectedSnapshot(restored),
+    expectedProtected,
+    'The restored backup preserves protected R1-002 identity, RBAC, file and audit rows.',
+  );
+  assert.deepEqual(
+    {
+      category: (
+        await restored.query(
+          `SELECT id::text,slug,name,state,sort_order,version,
+             created_at::text,updated_at::text
+           FROM category ORDER BY id`,
+        )
+      ).rows,
+      brand: (
+        await restored.query(
+          `SELECT id::text,slug,name,state,version,created_at::text,updated_at::text
+           FROM brand ORDER BY id`,
+        )
+      ).rows,
+    },
+    expectedCatalog,
+    'The restored backup preserves catalog category and brand sentinel rows.',
+  );
+  await restored.end();
+  console.log(
+    'PASS CATB-29 pg_dump/pg_restore round-trip preserves protected R1-002 fixtures and catalog sentinel rows on disposable PostgreSQL.',
+  );
+}
+
 async function exerciseCatalogAuditRegistry(client, actorUserId) {
   const acceptedLegacy = await client.query(
     `SELECT audit_event_valid('auth.login','SUCCESS','CREDENTIALS_VERIFIED',
@@ -404,6 +816,24 @@ async function exerciseCatalogAuditRegistry(client, actorUserId) {
     false,
     'Unknown catalog audit values fail closed.',
   );
+  const acceptedEntitylessDenial = await client.query(
+    `SELECT audit_event_valid('catalog.reference.changed','DENIED',
+       'REFERENCE_IN_USE','{}'::jsonb) AS valid`,
+  );
+  assert.equal(
+    acceptedEntitylessDenial.rows[0].valid,
+    true,
+    'A denied reference command can be audited when no persisted target was resolved.',
+  );
+  if (actorUserId) {
+    await client.query(
+      `INSERT INTO audit_event
+        (id,actor_kind,actor_user_id,action,outcome,reason_code,request_id,changes)
+       VALUES ($1,'STAFF',$2,'catalog.reference.changed','DENIED',
+         'REFERENCE_IN_USE',$3,'{}'::jsonb)`,
+      [randomUUID(), actorUserId, randomUUID()],
+    );
+  }
 
   const expectedPermissions =
     catalogRbacContract.initialGrant.catalogPermissionCodes;
@@ -1084,6 +1514,7 @@ async function main() {
 
   await applyMigrationState(port, databases[0], baseSql, false);
   await applyMigrationState(port, databases[1], baseSql, true);
+  await exerciseBackupRestore(containerName, port, databases[1]);
   const disposableInitializerUrl = connectionString(port, databases[0]);
   await run(
     process.execPath,
@@ -1100,38 +1531,115 @@ async function main() {
   console.log(
     'PASS catalog additive migration and permission-initializer checks on isolated PostgreSQL 18.6; no persistent Docker volume or external database used.',
   );
+
+  redisContainerCreationAttempted = true;
+  await docker([
+    'run',
+    '--detach',
+    '--name',
+    redisContainerName,
+    '--label',
+    'io.stdu.task=r1-004b-runtime-check',
+    '--tmpfs',
+    '/data:rw,size=64m',
+    '--publish',
+    '127.0.0.1::6379/tcp',
+    'redis:7.4.2-alpine',
+    'redis-server',
+    '--save',
+    '',
+    '--appendonly',
+    'no',
+  ]);
+  redisContainerCreated = true;
+  await waitForRedis(redisContainerName);
+  const redisPort = await waitForContainerPort(redisContainerName, 6379);
+  const adminDatabaseUrl = connectionString(port, databases[1]);
+  const runtimeDatabaseUrl = runtimeConnectionString(port, databases[1]);
+  const runtimeEnv = {
+    ...process.env,
+    APP_ENV: 'development',
+    COOKIE_PROFILE: 'loopback',
+    STAFF_ORIGINS: 'http://127.0.0.1:3000',
+    DATABASE_URL: runtimeDatabaseUrl,
+    STAFF_DATABASE_URL: runtimeDatabaseUrl,
+    MIGRATION_DATABASE_URL: adminDatabaseUrl,
+    REDIS_URL: `redis://127.0.0.1:${redisPort}`,
+    SESSION_HMAC_KEY: randomBytes(32).toString('hex'),
+    RATE_LIMIT_KEY: randomBytes(32).toString('hex'),
+  };
+  await exercisePreCatalogApi(port, runtimeDatabaseUrl, runtimeEnv.REDIS_URL);
+  const vitest = resolve(dirname(require.resolve('vitest')), 'vitest.mjs');
+  await run(
+    process.execPath,
+    [
+      vitest,
+      'run',
+      'test/r1-004b.catalog.runtime.test.ts',
+      '--testTimeout=30000',
+      '--hookTimeout=90000',
+      '--maxWorkers=1',
+    ],
+    { cwd: apiRoot, env: runtimeEnv },
+  );
+  console.log(
+    'PASS catalog HTTP/PostgreSQL runtime acceptance against the isolated populated DB and ephemeral Redis; owned containers use tmpfs only.',
+  );
+}
+
+function errorDetails(error) {
+  if (error instanceof AggregateError)
+    return `${error.stack ?? error.message}\n${[...error.errors]
+      .map(errorDetails)
+      .join('\nCaused by:\n')}`;
+  return error instanceof Error
+    ? (error.stack ?? error.message)
+    : String(error ?? 'Catalog migration check failed.');
 }
 
 main()
   .catch((error) => {
-    console.error(
-      error instanceof Error ? error.stack : 'Catalog migration check failed.',
-    );
+    console.error(errorDetails(error));
     process.exitCode = 1;
   })
   .finally(async () => {
-    if (!containerCreationAttempted) return;
-    try {
-      const label = await docker([
-        'inspect',
-        '--format',
-        '{{index .Config.Labels "io.stdu.task"}}',
-        containerName,
-      ]);
-      if (label === 'r1-004b-migration-check') {
-        await docker(['rm', '--force', containerName]);
-      } else {
-        console.error(
-          'Owned migration-check cleanup refused: container ownership label changed.',
-        );
-        process.exitCode = 1;
-      }
-    } catch (error) {
-      if (containerCreated) {
-        console.error(
-          `Owned migration-check container could not be stopped: ${error instanceof Error ? error.message : 'unknown error'}`,
-        );
-        process.exitCode = 1;
+    for (const resource of [
+      {
+        attempted: redisContainerCreationAttempted,
+        created: redisContainerCreated,
+        name: redisContainerName,
+        label: 'r1-004b-runtime-check',
+      },
+      {
+        attempted: containerCreationAttempted,
+        created: containerCreated,
+        name: containerName,
+        label: 'r1-004b-migration-check',
+      },
+    ]) {
+      if (!resource.attempted) continue;
+      try {
+        const label = await docker([
+          'inspect',
+          '--format',
+          '{{index .Config.Labels "io.stdu.task"}}',
+          resource.name,
+        ]);
+        if (label === resource.label) {
+          await docker(['rm', '--force', resource.name]);
+        } else {
+          console.error(
+            `Owned runtime cleanup refused for ${resource.name}: container ownership label changed.`,
+          );
+          process.exitCode = 1;
+        }
+      } catch (error) {
+        if (resource.created) {
+          console.error(
+            `Owned runtime container ${resource.name} could not be stopped: ${error instanceof Error ? error.message : 'unknown error'}`,
+          );
+          process.exitCode = 1;
+        }
       }
     }
   });
