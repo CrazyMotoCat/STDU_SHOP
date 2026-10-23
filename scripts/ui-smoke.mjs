@@ -12,7 +12,12 @@ import { withProcesses } from './process-lifecycle.mjs';
 const web = resolve(root, 'apps/web');
 const requireWeb = createRequire(resolve(web, 'package.json'));
 const nextCli = requireWeb.resolve('next/dist/bin/next');
-const artifacts = resolve(root, 'artifacts/verification/R1-003');
+const verificationTask = process.env.UI_SMOKE_TASK_ID ?? 'R1-003';
+if (!/^[A-Za-z0-9-]+$/.test(verificationTask))
+  throw new Error(
+    'UI_SMOKE_TASK_ID must contain only letters, digits, and hyphens.',
+  );
+const artifacts = resolve(root, 'artifacts/verification', verificationTask);
 const viewports = [
   { name: 'mobile', width: 375, height: 812 },
   { name: 'tablet', width: 768, height: 1024 },
@@ -177,6 +182,21 @@ async function assertAccessibleMarkup(page) {
     );
   }
 
+  const showcaseCaption = await page
+    .locator('.engineering-showcase__caption')
+    .evaluate((caption) => ({
+      foreground: getComputedStyle(caption).color,
+      background: getComputedStyle(caption.parentElement).backgroundColor,
+    }));
+  const showcaseCaptionRatio = contrastRatio(
+    showcaseCaption.foreground,
+    showcaseCaption.background,
+  );
+  assert.ok(
+    showcaseCaptionRatio >= 4.5,
+    `Showcase caption contrast ${showcaseCaptionRatio.toFixed(2)} is below WCAG AA.`,
+  );
+
   const brokenImages = await page.locator('svg[role="img"]').evaluateAll(
     (elements) =>
       elements.filter((element) => {
@@ -198,7 +218,10 @@ async function assertAccessibleMarkup(page) {
 async function assertMenuKeyboardAndPointer(page) {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(page.url(), { waitUntil: 'domcontentloaded' });
-  const equipment = page.getByRole('button', {
+  const navigation = page.getByRole('navigation', {
+    name: 'Основная навигация',
+  });
+  const equipment = navigation.getByRole('button', {
     name: 'Оборудование',
     exact: true,
   });
@@ -329,6 +352,157 @@ async function assertDisabledFutureActions(page) {
   );
 }
 
+async function assertServerRenderedShowcase(baseUrl) {
+  const response = await fetch(baseUrl);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /aria-label="Состояния инженерной схемы"/);
+  assert.match(html, /aria-pressed="true"/);
+  assert.match(html, /Схема инженерных направлений/);
+}
+
+async function assertEngineeringShowcase(page) {
+  const section = page.locator('.engineering-showcase');
+  const group = page.getByRole('group', { name: 'Состояния инженерной схемы' });
+  const buttons = group.getByRole('button');
+  const expected = ['Оборудование', 'Электрощит', 'Инжиниринг'];
+  assert.equal(await buttons.count(), expected.length);
+  assert.deepEqual(
+    await buttons.allTextContents().then((labels) =>
+      labels.map((label) =>
+        label
+          .replace(/\s+/g, ' ')
+          .trim()
+          .replace(/^\d+\s*/, ''),
+      ),
+    ),
+    expected,
+  );
+
+  for (let index = 0; index < expected.length; index += 1) {
+    const button = buttons.nth(index);
+    await button.click();
+    assert.equal(await button.getAttribute('aria-pressed'), 'true');
+    assert.match(
+      await section.locator('.engineering-showcase__summary').innerText(),
+      new RegExp(
+        [
+          'Компоненты и обозначения',
+          'Компоновка шкафа',
+          'Структура системы управления',
+        ][index],
+      ),
+    );
+    await section.screenshot({
+      path: resolve(artifacts, `showcase-state-0${index + 1}.png`),
+      animations: 'disabled',
+    });
+  }
+
+  await buttons.nth(0).focus();
+  await page.keyboard.press('Tab');
+  assert.equal(
+    await buttons
+      .nth(1)
+      .evaluate((button) => button === document.activeElement),
+    true,
+  );
+  await page.keyboard.press('Space');
+  assert.equal(await buttons.nth(1).getAttribute('aria-pressed'), 'true');
+  await page.keyboard.press('Tab');
+  assert.equal(
+    await buttons
+      .nth(2)
+      .evaluate((button) => button === document.activeElement),
+    true,
+  );
+  await page.keyboard.press('Enter');
+  assert.equal(await buttons.nth(2).getAttribute('aria-pressed'), 'true');
+}
+
+async function assertShowcaseTouch(browser, baseUrl) {
+  const context = await browser.newContext({
+    viewport: { width: 375, height: 812 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    const section = page.locator('.engineering-showcase');
+    await section.scrollIntoViewIfNeeded();
+    const button = page.getByRole('button', { name: 'Инжиниринг' });
+    await button.tap();
+    assert.equal(await button.getAttribute('aria-pressed'), 'true');
+    assert.match(await section.innerText(), /Структура системы управления/);
+  } finally {
+    await context.close();
+  }
+}
+async function measureMobilePerformance(browser, baseUrl) {
+  const context = await browser.newContext({
+    viewport: { width: 375, height: 812 },
+  });
+  try {
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      const metrics = { cumulativeLayoutShift: 0, largestContentfulPaint: 0 };
+      window.__uiSmokePerformance = metrics;
+      if (PerformanceObserver.supportedEntryTypes.includes('layout-shift')) {
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (!entry.hadRecentInput)
+              metrics.cumulativeLayoutShift += entry.value;
+          }
+        }).observe({ type: 'layout-shift', buffered: true });
+      }
+      if (
+        PerformanceObserver.supportedEntryTypes.includes(
+          'largest-contentful-paint',
+        )
+      ) {
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries())
+            metrics.largestContentfulPaint = entry.startTime;
+        }).observe({ type: 'largest-contentful-paint', buffered: true });
+      }
+    });
+    const response = await page.goto(baseUrl, { waitUntil: 'load' });
+    assert.equal(response?.status(), 200);
+    await page.waitForTimeout(1600);
+    const metrics = await page.evaluate(() => {
+      const navigation = performance.getEntriesByType('navigation')[0];
+      const javascriptBytes = performance
+        .getEntriesByType('resource')
+        .filter(
+          (entry) =>
+            new URL(entry.name).origin === location.origin &&
+            entry.name.endsWith('.js'),
+        )
+        .reduce((total, entry) => total + entry.encodedBodySize, 0);
+      return {
+        domContentLoadedMs: Math.round(navigation.domContentLoadedEventEnd),
+        largestContentfulPaintMs: Math.round(
+          window.__uiSmokePerformance.largestContentfulPaint,
+        ),
+        cumulativeLayoutShift:
+          Math.round(window.__uiSmokePerformance.cumulativeLayoutShift * 1000) /
+          1000,
+        javascriptKiB: Math.round(javascriptBytes / 1024),
+      };
+    });
+    assert.ok(
+      metrics.cumulativeLayoutShift <= 0.1,
+      `Mobile cumulative layout shift ${metrics.cumulativeLayoutShift} exceeds 0.1.`,
+    );
+    console.log(
+      `UI mobile performance (375px): DOM-ready ${metrics.domContentLoadedMs}ms, LCP ${metrics.largestContentfulPaintMs}ms, CLS ${metrics.cumulativeLayoutShift}, JavaScript ${metrics.javascriptKiB} KiB encoded.`,
+    );
+  } finally {
+    await context.close();
+  }
+}
+
 async function captureAndCheckViewports(page, baseUrl) {
   for (const viewport of [
     ...viewports.slice(0, 2),
@@ -398,7 +572,13 @@ async function main() {
           if (new URL(request.url()).origin !== origin)
             externalRequests.push(request.url());
         });
+        const consoleErrors = [];
+        page.on('console', (message) => {
+          if (message.type() === 'error') consoleErrors.push(message.text());
+        });
         page.on('pageerror', (error) => pageErrors.push(error.message));
+        await assertServerRenderedShowcase(baseUrl);
+        await measureMobilePerformance(browser, baseUrl);
         await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
         await assertAccessibleMarkup(page);
         await assertDisabledFutureActions(page);
@@ -432,16 +612,34 @@ async function main() {
         }));
         assert.equal(reducedMotion.scroll, 'auto');
         assert.ok(parseFloat(reducedMotion.spinner) <= 0.001);
+        const reducedShowcaseMotion = await page.evaluate(() => ({
+          transition: getComputedStyle(
+            document.querySelector('.engineering-showcase__stage'),
+          ).transitionDuration,
+          pulse: getComputedStyle(
+            document.querySelector('.switchgear-art__pulse'),
+          ).animationDuration,
+        }));
+        assert.ok(parseFloat(reducedShowcaseMotion.transition) <= 0.001);
+        assert.ok(parseFloat(reducedShowcaseMotion.pulse) <= 0.001);
         await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+        await assertEngineeringShowcase(page);
 
         await assertMenuKeyboardAndPointer(page);
         await assertMobileNavigation(browser, baseUrl);
+        await assertShowcaseTouch(browser, baseUrl);
         await captureAndCheckViewports(page, baseUrl);
 
         assert.deepEqual(
           pageErrors,
           [],
           `Browser errors: ${pageErrors.join('; ')}`,
+        );
+        assert.deepEqual(
+          consoleErrors,
+          [],
+          `Browser console errors: ${consoleErrors.join('; ')}`,
         );
         assert.deepEqual(
           externalRequests,
@@ -456,7 +654,7 @@ async function main() {
   );
 
   console.log(
-    `PASS R1-003 UI acceptance: keyboard/ARIA, contrast, unavailable actions, reduced motion, viewports 375/768/1280/1440; screenshots saved in ${artifacts}.`,
+    `PASS UI acceptance (${verificationTask}): SSR, keyboard/ARIA, touch, contrast, unavailable actions, reduced motion, viewports 375/768/1280/1440; screenshots and state frames saved in ${artifacts}.`,
   );
 }
 
