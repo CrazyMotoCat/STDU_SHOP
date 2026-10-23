@@ -1,14 +1,14 @@
 # R1-003
 
 TASK: R1-003
-STATUS: IMPLEMENTED_LOCAL_CHECKS_PASS_CI_PENDING
+STATUS: COMPLETED_MERGED
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE
-PHASE: A2 — implementation complete; independent review findings resolved; hosted CI pending
+PHASE: COMPLETE — implementation, review, hosted CI, merge, and post-integration CI verified
 UPDATED_AT: 2026-10-23
 BRANCH: codex/r1-003-graphite-petrol-ui
 BASELINE_MAIN: eb9065782b17ba4a8a74201dcc5d615aa5575793
-LAST_SAFE_COMMIT: eb9065782b17ba4a8a74201dcc5d615aa5575793
+LAST_SAFE_COMMIT: 6694af5a12d2d91619308d3b5f9e1e6739d268b3
 
 ## FROZEN TASK CONTRACT
 
@@ -43,10 +43,14 @@ LAST_SAFE_COMMIT: eb9065782b17ba4a8a74201dcc5d615aa5575793
 - `pnpm smoke:host` — PASS x3 sequential on Windows; health/readiness and dependency outage/recovery passed; bounded supervisor verified owned job shutdown and ports were reusable; volumes preserved.
 - Independent read-only frontend/UX/accessibility review — no HIGH; one MEDIUM and one LOW resolved; reran affected checks.
 
-## DELIVERY PENDING
+## DELIVERY COMPLETE
 
-- Branch: `codex/r1-003-graphite-petrol-ui` from baseline main `eb9065782b17ba4a8a74201dcc5d615aa5575793`.
-- CI, PR merge, and post-integration main SHA are pending.
+- PR #6: https://github.com/CrazyMotoCat/STDU_SHOP/pull/6.
+- PR head: `905c7ef197b827dcbca609294d2e567dbd6d8be8`; its required CI run #24 completed successfully on the verified merge candidate.
+- Merged into `main` with merge commit `6694af5a12d2d91619308d3b5f9e1e6739d268b3` (parents: baseline main `eb9065782b17ba4a8a74201dcc5d615aa5575793` and PR head above).
+- Post-integration GitHub Actions run #25: https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39945267620 — SUCCESS for exact `main` SHA `6694af5a12d2d91619308d3b5f9e1e6739d268b3`.
+- Post-integration CI verified toolchain, DB validation, lint/format, frozen-contract consistency, typecheck, unit tests, browser setup, PostgreSQL/Redis runtime acceptance, build, R1-003 UI acceptance, full Compose/dependency smoke, three consecutive Ubuntu host lifecycle smokes, and restoration to stopped state without deleting volumes.
+- Independent read-only frontend/UX/accessibility review passed after the skip-link focus, unique-ID, and keyboard navigation fixes.
 
 ## NON-GOALS
 
