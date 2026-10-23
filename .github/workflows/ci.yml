@@ -52,6 +52,8 @@ jobs:
         run: |
           pnpm catalog:contract:check
           pnpm catalog:contract:test
+      - name: R1-004B frozen contract trace
+        run: node .agent/tasks/R1-004B/verify-contract-lock.mjs
       - run: pnpm typecheck
       - run: pnpm test
       - name: Install Chromium for HTTPS browser acceptance
