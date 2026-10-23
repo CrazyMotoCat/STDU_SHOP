@@ -2,8 +2,12 @@ import { Module } from '@nestjs/common';
 import { readConfig } from './config.js';
 import { DependencyProbe, READINESS_PROBE } from './health/dependencies.js';
 import { HealthController } from './health/health.controller.js';
+import { DatabaseModule } from './database/database.module.js';
+import { IdentityModule } from './identity/identity.module.js';
+import { StaffModule } from './staff/staff.module.js';
 
 @Module({
+  imports: [DatabaseModule, IdentityModule, StaffModule],
   controllers: [HealthController],
   providers: [
     {

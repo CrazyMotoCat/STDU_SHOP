@@ -9,5 +9,5 @@ if (existsSync(localEnv)) loadEnvFile(localEnv);
 export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: { path: 'prisma/migrations' },
-  datasource: { url: env('DATABASE_URL') },
+  datasource: { url: env('MIGRATION_DATABASE_URL') },
 });

@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { createServer } from 'node:net';
 
 export const root = fileURLToPath(new URL('..', import.meta.url));
-export const project = 'stdu-shop-r1-001';
+export const project = process.env.STDU_COMPOSE_PROJECT ?? 'stdu-shop-r1-001';
 export const toolchain = JSON.parse(
   readFileSync(resolve(root, 'toolchain.json'), 'utf8'),
 );
@@ -23,7 +23,15 @@ export function loadLocalEnv() {
     'POSTGRES_PASSWORD',
     'REDIS_PASSWORD',
     'DATABASE_URL',
+    'MIGRATION_DATABASE_URL',
+    'STAFF_DATABASE_URL',
+    'STAFF_COMPOSE_DATABASE_URL',
     'REDIS_URL',
+    'STDU_RUNTIME_PASSWORD',
+    'SESSION_HMAC_KEY',
+    'RATE_LIMIT_KEY',
+    'STAFF_ORIGINS',
+    'COOKIE_PROFILE',
     'API_INTERNAL_URL',
   ]) {
     if (!env[key]) throw new Error(`Missing local configuration key: ${key}`);
@@ -109,10 +117,15 @@ export function composeArgs(host = false) {
     '--env-file',
     resolve(root, '.env.local'),
     '-p',
-    project,
+    process.env.STDU_COMPOSE_PROJECT ?? project,
     '-f',
     resolve(root, 'infra/compose/compose.yaml'),
-    ...(host ? ['-f', resolve(root, 'infra/compose/compose.host.yaml')] : []),
+    ...(process.env.STDU_ISOLATED_TEST === '1'
+      ? ['-f', resolve(root, 'infra/compose/compose.test.yaml')]
+      : []),
+    ...(host || process.env.STDU_ISOLATED_TEST === '1'
+      ? ['-f', resolve(root, 'infra/compose/compose.host.yaml')]
+      : []),
   ];
 }
 

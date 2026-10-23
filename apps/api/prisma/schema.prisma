@@ -1,4 +1,202 @@
-// R1-001 infrastructure only. R1-002 must freeze its schema before adding models.
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
 datasource db {
   provider = "postgresql"
+}
+
+model StaffUser {
+  id                    String         @id @db.Uuid
+  email                 String         @db.VarChar(254)
+  emailNormalized       String         @unique(map: "staff_user_email_normalized_key") @map("email_normalized") @db.VarChar(254)
+  displayName           String         @map("display_name") @db.VarChar(120)
+  passwordHash          String         @map("password_hash")
+  passwordChangeRequired Boolean       @default(false) @map("password_change_required")
+  state                 String         @db.Text
+  authVersion           Int            @default(1) @map("auth_version")
+  blockedAt             DateTime?      @map("blocked_at") @db.Timestamptz(6)
+  version               Int            @default(1)
+  createdAt             DateTime       @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime       @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  roles                 UserRole[]
+  roleAssignments       UserRole[]     @relation("UserRoleAssignedBy")
+  sessions              StaffSession[]
+  auditEvents           AuditEvent[]   @relation("AuditActor")
+  ownedFiles            FileObject[]
+  createdFileVersions   FileVersion[]  @relation("FileVersionCreator")
+  createdFileLinks      FileLink[]     @relation("FileLinkCreator")
+
+  @@index([state, id], map: "staff_user_state_id_idx")
+  @@map("staff_user")
+}
+
+model Role {
+  id              String         @id @db.Uuid
+  code            String         @unique(map: "role_code_key") @db.VarChar(64)
+  name            String         @db.VarChar(120)
+  state           String         @db.Text
+  version         Int            @default(1)
+  createdAt       DateTime       @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  assignments     UserRole[]
+  permissions     RolePermission[]
+
+  @@index([state, id], map: "role_state_id_idx")
+  @@map("role")
+}
+
+model Permission {
+  id          String           @id @db.Uuid
+  code        String           @unique(map: "permission_code_key") @db.VarChar(80)
+  description String           @db.VarChar(240)
+  createdAt   DateTime         @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  roles       RolePermission[]
+
+  @@map("permission")
+}
+
+model UserRole {
+  staffUserId      String    @map("staff_user_id") @db.Uuid
+  roleId           String    @map("role_id") @db.Uuid
+  assignedByUserId String?   @map("assigned_by_user_id") @db.Uuid
+  createdAt        DateTime  @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  staffUser        StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  role             Role      @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  assignedBy       StaffUser? @relation("UserRoleAssignedBy", fields: [assignedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([staffUserId, roleId])
+  @@index([roleId, staffUserId], map: "user_role_role_user_idx")
+  @@map("user_role")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  createdAt    DateTime   @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId, roleId], map: "role_permission_permission_role_idx")
+  @@map("role_permission")
+}
+
+model StaffSession {
+  id                 String    @id @db.Uuid
+  staffUserId        String    @map("staff_user_id") @db.Uuid
+  tokenHash          Bytes     @unique(map: "staff_session_token_hash_key") @map("token_hash") @db.ByteA
+  authVersion        Int       @map("auth_version")
+  absoluteExpiresAt  DateTime  @map("absolute_expires_at") @db.Timestamptz(6)
+  idleTimeoutSeconds Int       @default(1800) @map("idle_timeout_seconds")
+  lastSeenAt         DateTime  @map("last_seen_at") @db.Timestamptz(6)
+  revokedAt          DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revocationReason   String?   @map("revocation_reason") @db.VarChar(64)
+  createdAt          DateTime  @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  staffUser          StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([staffUserId, revokedAt], map: "staff_session_user_revoked_idx")
+  @@index([absoluteExpiresAt], map: "staff_session_absolute_expiry_idx")
+  @@map("staff_session")
+}
+
+model SellerLegalEntity {
+  id           String    @id @db.Uuid
+  displayName  String    @map("display_name") @db.VarChar(160)
+  legalName    String?   @map("legal_name") @db.VarChar(500)
+  kind         String    @db.Text
+  inn          String?   @db.VarChar(12)
+  kpp          String?   @db.VarChar(9)
+  ogrn         String?   @db.VarChar(15)
+  legalAddress String?   @map("legal_address") @db.VarChar(1000)
+  state        String    @db.Text
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(6)
+  version      Int       @default(1)
+  createdAt    DateTime  @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  fileLinks    FileLink[]
+
+  @@index([state, id], map: "seller_legal_entity_state_id_idx")
+  @@map("seller_legal_entity")
+}
+
+model AuditEvent {
+  id           String     @id @db.Uuid
+  occurredAt   DateTime   @default(dbgenerated("transaction_timestamp()")) @map("occurred_at") @db.Timestamptz(6)
+  actorKind    String     @map("actor_kind") @db.Text
+  actorUserId  String?    @map("actor_user_id") @db.Uuid
+  operatorLabel String?   @map("operator_label") @db.VarChar(80)
+  action       String     @db.VarChar(80)
+  entityType   String?    @map("entity_type") @db.Text
+  entityId     String?    @map("entity_id") @db.Uuid
+  outcome      String     @db.Text
+  reasonCode   String?    @map("reason_code") @db.VarChar(64)
+  requestId    String     @map("request_id") @db.Uuid
+  sourceHash   Bytes?     @map("source_hash") @db.ByteA
+  changes      Json       @default("{}") @db.JsonB
+  actor        StaffUser? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([occurredAt(sort: Desc), id(sort: Desc)], map: "audit_event_occurred_id_idx")
+  @@index([actorUserId, occurredAt(sort: Desc)], map: "audit_event_actor_occurred_idx")
+  @@index([entityType, entityId, occurredAt(sort: Desc)], map: "audit_event_entity_occurred_idx")
+  @@index([requestId], map: "audit_event_request_id_idx")
+  @@map("audit_event")
+}
+
+model FileObject {
+  id              String      @id @db.Uuid
+  ownerStaffUserId String     @map("owner_staff_user_id") @db.Uuid
+  displayName     String      @map("display_name") @db.VarChar(255)
+  visibility      String      @db.Text
+  state           String      @db.Text
+  version         Int         @default(1)
+  createdAt       DateTime    @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime    @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  owner           StaffUser   @relation(fields: [ownerStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  versions        FileVersion[]
+  links           FileLink[]
+
+  @@index([ownerStaffUserId, state, id], map: "file_object_owner_state_id_idx")
+  @@map("file_object")
+}
+
+model FileVersion {
+  id               String      @id @db.Uuid
+  fileObjectId     String      @map("file_object_id") @db.Uuid
+  number           Int
+  storageKey       String      @unique(map: "file_version_storage_key_key") @map("storage_key") @db.VarChar(128)
+  sha256           Bytes       @db.ByteA
+  sizeBytes        BigInt      @map("size_bytes")
+  mimeType         String      @map("mime_type") @db.VarChar(127)
+  originalFilename String      @map("original_filename") @db.VarChar(255)
+  safetyState      String      @map("safety_state") @db.Text
+  createdByUserId  String      @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime    @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  fileObject       FileObject  @relation(fields: [fileObjectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy        StaffUser   @relation("FileVersionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  links            FileLink[]
+
+  @@unique([fileObjectId, number], map: "file_version_object_number_key")
+  @@unique([id, fileObjectId], map: "file_version_id_object_key")
+  @@index([fileObjectId, createdAt], map: "file_version_object_created_idx")
+  @@map("file_version")
+}
+
+model FileLink {
+  id                  String           @id @db.Uuid
+  fileObjectId        String           @map("file_object_id") @db.Uuid
+  fileVersionId       String           @map("file_version_id") @db.Uuid
+  sellerLegalEntityId String           @map("seller_legal_entity_id") @db.Uuid
+  visibility          String           @db.Text
+  createdByUserId     String           @map("created_by_user_id") @db.Uuid
+  createdAt           DateTime         @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  fileObject          FileObject       @relation(fields: [fileObjectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  fileVersion         FileVersion      @relation(fields: [fileVersionId, fileObjectId], references: [id, fileObjectId], onDelete: Restrict, onUpdate: Restrict)
+  sellerLegalEntity   SellerLegalEntity @relation(fields: [sellerLegalEntityId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy           StaffUser        @relation("FileLinkCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([sellerLegalEntityId, fileVersionId], map: "file_link_seller_version_key")
+  @@index([fileObjectId, sellerLegalEntityId], map: "file_link_object_seller_idx")
+  @@map("file_link")
 }
