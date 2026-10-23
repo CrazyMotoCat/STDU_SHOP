@@ -123,13 +123,15 @@ const queryParameters = [
     name: 'categorySlug',
     in: 'query',
     schema: { type: 'string', minLength: 1, maxLength: 120 },
-    description: 'Exact active public category slug.',
+    description:
+      "Exact active public category slug. Required when at least one technical filter is supplied; each filter resolves only this category's own AttributeDefinition, without inheritance or automatic matching by code across categories.",
   },
   {
     name: 'includeDescendants',
     in: 'query',
     schema: { type: 'boolean', default: true },
-    description: 'Include products assigned to active descendant categories.',
+    description:
+      'Include products assigned to active descendant categories when no technical filter is supplied. Defaults to true when omitted. With at least one filter, this parameter must be explicitly false; true or omission returns 400 VALIDATION_ERROR before a database query.',
   },
   {
     name: 'brandSlug',
@@ -154,7 +156,7 @@ const queryParameters = [
       items: { type: 'string', minLength: 3, maxLength: 240 },
     },
     description:
-      'Repeatable decoded grammar attributeCode:operator:value; categorySlug is required. Supported ops: eq all types, contains TEXT, gte/lte DECIMAL or INTEGER. Filters are ANDed; duplicate code/operator is invalid.',
+      "Repeatable decoded grammar attributeCode:operator:value. At least one filter requires categorySlug and explicitly includeDescendants=false; true or omitted includeDescendants (default true), or missing categorySlug, returns 400 VALIDATION_ERROR before a database query. Filters use only the exact selected category's own AttributeDefinition, without inheritance or automatic matching by code across categories. Supported ops: eq all types, contains TEXT, gte/lte DECIMAL or INTEGER. Filters are ANDed; duplicate code/operator is invalid.",
   },
   {
     name: 'page',
@@ -541,12 +543,28 @@ const paths = {
     }),
   },
   '/v1/public/catalog/products': {
-    get: publicOperation({
-      operationId: 'searchPublicCatalogProducts',
-      summary: 'Search and filter published catalog products',
-      responseSchema: 'PublicCatalogProductListResponse',
-      parameters: queryParameters,
-    }),
+    get: {
+      ...publicOperation({
+        operationId: 'searchPublicCatalogProducts',
+        summary: 'Search and filter published catalog products',
+        responseSchema: 'PublicCatalogProductListResponse',
+        parameters: queryParameters,
+        invariants: [
+          'Category search may include descendants only when no technical filter is supplied. With at least one filter, categorySlug and explicitly includeDescendants=false are required; true or omitted includeDescendants (default true), or missing categorySlug, returns 400 VALIDATION_ERROR before a database query.',
+          'Technical filters use only the exact selected category and its own AttributeDefinition, without inheritance or automatic matching by code across categories.',
+        ],
+      }),
+      'x-technical-filter-policy': {
+        appliesWhen: 'filter.length >= 1',
+        categorySlugRequired: true,
+        includeDescendantsMustBeExplicit: true,
+        includeDescendantsRequiredValue: false,
+        descendantsAllowedWithoutFilter: true,
+        attributeDefinitionScope: 'EXACT_SELECTED_CATEGORY',
+        matchDefinitionsAcrossCategoriesByCode: false,
+        invalidCombination: { status: 400, code: 'VALIDATION_ERROR' },
+      },
+    },
   },
   '/v1/public/catalog/products/{slug}': {
     get: publicOperation({

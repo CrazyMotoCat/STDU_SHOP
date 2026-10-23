@@ -151,6 +151,83 @@ test('checker rejects disallowing the empty q value from the owner contract', ()
   });
 });
 
+test('checker rejects technical filters combined with includeDescendants=true', () => {
+  rejects((c) => {
+    c.openapi.paths['/v1/public/catalog/products'].get[
+      'x-technical-filter-policy'
+    ].includeDescendantsRequiredValue = true;
+  });
+});
+
+test('checker rejects technical filters accepting omitted includeDescendants', () => {
+  rejects((c) => {
+    c.openapi.paths['/v1/public/catalog/products'].get[
+      'x-technical-filter-policy'
+    ].includeDescendantsMustBeExplicit = false;
+  });
+  rejects((c) => {
+    c.openapi.paths['/v1/public/catalog/products'].get.parameters.find(
+      (parameter) => parameter.name === 'includeDescendants',
+    ).schema.default = false;
+  });
+});
+
+test('checker rejects technical filters accepting missing categorySlug', () => {
+  rejects((c) => {
+    c.openapi.paths['/v1/public/catalog/products'].get[
+      'x-technical-filter-policy'
+    ].categorySlugRequired = false;
+  });
+});
+
+test('checker rejects automatic technical attribute code matching across categories', () => {
+  rejects((c) => {
+    c.openapi.paths['/v1/public/catalog/products'].get[
+      'x-technical-filter-policy'
+    ].matchDefinitionsAcrossCategoriesByCode = true;
+  });
+});
+
+test('checker rejects technical filters scoped to descendant definitions', () => {
+  rejects((c) => {
+    c.openapi.paths['/v1/public/catalog/products'].get[
+      'x-technical-filter-policy'
+    ].attributeDefinitionScope = 'CATEGORY_AND_DESCENDANTS';
+  });
+});
+
+test('checker preserves descendant search without technical filters', () => {
+  rejects((c) => {
+    c.openapi.paths['/v1/public/catalog/products'].get[
+      'x-technical-filter-policy'
+    ].descendantsAllowedWithoutFilter = false;
+  });
+});
+
+test('checker rejects losing the 400 response for incompatible technical filter queries', () => {
+  rejects((c) => {
+    delete c.openapi.paths['/v1/public/catalog/products'].get.responses['400'];
+  });
+});
+
+test('checker rejects OD-004A-06 without the explicit false requirement', () => {
+  rejects((c) => {
+    c.decisions = c.decisions.replace(
+      'явно переданный `includeDescendants=false`',
+      'автоматически выбранный includeDescendants',
+    );
+  });
+});
+
+test('checker rejects CATB-25 without the omitted/default-true negative case', () => {
+  rejects((c) => {
+    c.matrix = c.matrix.replace(
+      'отсутствующим includeDescendants (default true)',
+      'явно переданным includeDescendants',
+    );
+  });
+});
+
 test('checker rejects category parent semantics without active-parent locking', () => {
   rejects((c) => {
     c.model.tables.Category.treeMutation =

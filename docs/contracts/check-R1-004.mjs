@@ -687,9 +687,72 @@ export function validateCatalogContract(bundle) {
       'Цена по запросу',
     'Public R1-004 price label differs from approved wording.',
   );
-  const queryText = openapi.paths[
-    '/v1/public/catalog/products'
-  ].get.parameters.find((parameter) => parameter.name === 'q');
+  const publicProductSearch = openapi.paths['/v1/public/catalog/products'].get;
+  const searchParameters = new Map(
+    publicProductSearch.parameters.map((parameter) => [
+      parameter.name,
+      parameter,
+    ]),
+  );
+  const searchValidationResponse =
+    openapi.components.responses[
+      publicProductSearch.responses['400']?.$ref?.split('/').at(-1)
+    ];
+  requireThat(
+    JSON.stringify(publicProductSearch['x-technical-filter-policy']) ===
+      JSON.stringify({
+        appliesWhen: 'filter.length >= 1',
+        categorySlugRequired: true,
+        includeDescendantsMustBeExplicit: true,
+        includeDescendantsRequiredValue: false,
+        descendantsAllowedWithoutFilter: true,
+        attributeDefinitionScope: 'EXACT_SELECTED_CATEGORY',
+        matchDefinitionsAcrossCategoriesByCode: false,
+        invalidCombination: { status: 400, code: 'VALIDATION_ERROR' },
+      }) &&
+      searchParameters.get('includeDescendants')?.schema.default === true &&
+      searchParameters.get('includeDescendants')?.schema.type === 'boolean' &&
+      searchParameters
+        .get('filter')
+        ?.description.includes('explicitly includeDescendants=false') &&
+      searchParameters
+        .get('categorySlug')
+        ?.description.includes(
+          'without inheritance or automatic matching by code across categories',
+        ) &&
+      publicProductSearch['x-invariants']?.some(
+        (text) =>
+          text.includes('explicitly includeDescendants=false') &&
+          text.includes('omitted includeDescendants (default true)') &&
+          text.includes('400 VALIDATION_ERROR before a database query'),
+      ) &&
+      searchValidationResponse?.['x-error-codes']?.includes('VALIDATION_ERROR'),
+    'OD-004A-06 requires exact-category technical filters with categorySlug and explicitly includeDescendants=false; true or omission must return 400 VALIDATION_ERROR, while unfiltered descendant search remains allowed.',
+  );
+  const filterDecision =
+    decisions.split('## OD-004A-06')[1]?.split('\n## ')[0] ?? '';
+  const filterScenario =
+    matrix.split('## CATB-25 — technical filters')[1]?.split('\n## ')[0] ?? '';
+  requireThat(
+    filterDecision.includes('явно переданный `includeDescendants=false`') &&
+      filterDecision.includes(
+        'отсутствующим `includeDescendants` (default `true`)',
+      ) &&
+      filterDecision.includes('400 VALIDATION_ERROR') &&
+      filterDecision.includes('без наследования') &&
+      filterDecision.includes(
+        'не сопоставляются автоматически по одинаковому `code`',
+      ) &&
+      filterScenario.includes('явно переданного `includeDescendants=false`') &&
+      filterScenario.includes(
+        'отсутствующим includeDescendants (default true)',
+      ) &&
+      filterScenario.includes('400 VALIDATION_ERROR') &&
+      filterScenario.includes('без наследования') &&
+      filterScenario.includes('parent/child/sibling'),
+    'OD-004A-06 and CATB-25 must retain explicit false/default-true rejection and category-local AttributeDefinition coverage.',
+  );
+  const queryText = searchParameters.get('q');
   requireThat(
     queryText &&
       queryText.schema.minLength === undefined &&
@@ -862,7 +925,7 @@ async function main() {
     resolve(root, 'docs/contracts/R1-004-catalog.openapi.json'),
   );
   console.log(
-    'PASS R1-004 proposed catalog model, RBAC, OpenAPI, audit, decisions and R1-004B test matrix are consistent.',
+    'PASS R1-004 proposed catalog model, RBAC, OpenAPI (31 operations: 28 staff, 3 public), audit, decisions and R1-004B test matrix are consistent.',
   );
 }
 
