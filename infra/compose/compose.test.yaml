@@ -5,8 +5,13 @@ services:
       - type: tmpfs
         target: /var/lib/postgresql
   api:
+    ports: !override
+      - '127.0.0.1:${STDU_SMOKE_API_PORT:-3001}:3001'
     volumes: !override
       - type: tmpfs
         target: /data/files
+  web:
+    ports: !override
+      - '127.0.0.1:${STDU_SMOKE_WEB_PORT:-3000}:3000'
 
 volumes: !override {}
