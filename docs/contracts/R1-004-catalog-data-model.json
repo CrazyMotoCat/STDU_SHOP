@@ -1,0 +1,321 @@
+{
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "approvedSourceSha": "8ae4dd8cfd15e3722d97259818b238924851c963",
+  "baseline": "28d9a85aa82dc4bf3c116e16ca6a3973a9d7bc6e",
+  "extends": {
+    "staffDataModel": "R1-002 1.0.0 FROZEN",
+    "orm": "ADR-001 Prisma 7.10.1 / Prisma Migrate",
+    "audit": "Append-only extension; do not edit R1-002 registry or schema artifacts"
+  },
+  "rules": {
+    "ids": "UUIDv4 CSPRNG",
+    "utc": "timestamptz(6) UTC",
+    "delete": "All foreign keys ON DELETE/UPDATE RESTRICT; no catalog hard delete",
+    "optimistic": "Every catalog root/reference mutation uses positive int32 version expectedVersion compare-and-swap; conflict is VERSION_CONFLICT",
+    "numericAttributes": "DECIMAL wire values are canonical base-10 strings without exponent, leading plus/zeroes, trailing fractional zeroes or negative zero, and at most 64 characters; INTEGER wire values are JSON safe integers; never round or convert through binary floating point",
+    "textAttributes": "TEXT values are limited to 240 Unicode characters in request, response and PostgreSQL varchar(240); reject longer values before persistence",
+    "referenceLocks": "Product revision create/submit/publish revalidates exact ACTIVE Brand, Category and AttributeDefinition rows under FOR SHARE locks held through commit, sorted by table then UUID. Reference archive/state changes take FOR UPDATE on the same rows, then recheck product/child usage after waiting. All category create/reparent/archive operations also take pg_advisory_xact_lock(1398031445, 3) before reading tree or usage state; they lock affected parent/child/category rows FOR UPDATE in UUID order and recheck active children and product use before commit.",
+    "relationLocks": "Relation replace and source publish lock source and target CatalogProduct roots FOR UPDATE in sorted UUID order, then revalidate source != target, target ACTIVE and target publishedRevisionId equals the exact pinned targetRevisionId; archive/republish takes the same root row lock.",
+    "draftBaseSelection": "When no current draft and no pending revision exist, baseRevisionId must be the highest revisionNo RETURNED/REJECTED revision created after the current published revision; if none exists, it must equal the current publishedRevisionId. If the product has never been published, use its latest RETURNED/REJECTED revision. Reject any other baseRevisionId as VERSION_CONFLICT.",
+    "workflowMutation": "Workflow pointer/state consistency is checked by deferred transaction guards at commit. Replacing a DRAFT locks root FOR UPDATE, temporarily nulls currentDraftRevisionId, marks old revision SUPERSEDED, inserts the new DRAFT, then sets the new pointer; the partial unique index is never violated and no intermediate state is visible outside the transaction.",
+    "slugs": "Unique ASCII lowercase ^[a-z0-9]+(?:-[a-z0-9]+)*$; staff supplied; never reused; product slug immutable after first submit",
+    "publishedData": "Public API reads only CatalogProduct.publishedRevisionId; editor writes create a new immutable revision",
+    "audit": "Every accepted catalog mutation and decision shares one PostgreSQL transaction with its AuditEvent; audit failure rolls back mutation",
+    "files": "ProductMedia/ProductDocumentVersion may reference a specific R1-002 FileVersion; FK is not ACL; no upload/download or public file URL in R1-004B",
+    "prices": "No CatalogProduct price columns; public price display is ON_REQUEST until an approved current R1-007/R1-009 source exists"
+  },
+  "identity": {
+    "fields": [
+      "brandId",
+      "manufacturerName",
+      "originalPartNumber",
+      "modification"
+    ],
+    "brandIsManufacturer": false,
+    "normalization": "brandId FK; manufacturerName, originalPartNumber and modification use Unicode NFC and trim only outer U+0020 spaces; preserve case, internal whitespace, punctuation and hyphens; compare normalized text with PostgreSQL COLLATE \"C\"; NULL modification means no modification",
+    "uniqueWhenComplete": "Partial unique expression index on brandId, normalized manufacturerName COLLATE \"C\", normalized originalPartNumber COLLATE \"C\", coalesce(normalized modification,'') COLLATE \"C\" only when brandId, manufacturerName and originalPartNumber are non-null",
+    "mutableUntil": "Before first PENDING_REVIEW only; thereafter identity tuple immutable",
+    "revisionSynchronization": "Product creation writes the root identity tuple and initial DRAFT revision identity snapshot from the same request in one transaction. Before the first successful submit, every draft replacement updates the root identity tuple and inserts the matching new DRAFT revision in the same transaction; a superseded revision keeps its original snapshot. The unique identity index is enforced on the root update and conflict maps to IDENTITY_CONFLICT. The first successful submit freezes the root tuple. Every revision created after that point copies the frozen root tuple exactly: brandId plus normalized manufacturerName, originalPartNumber, and modification snapshots. Root/revision identity mismatch aborts the transaction.",
+    "duplicateBehavior": "IDENTITY_CONFLICT; never merge or infer functional analogues"
+  },
+  "tables": {
+    "Brand": {
+      "fields": {
+        "id": "uuid PK",
+        "slug": "varchar(120) NOT NULL UNIQUE",
+        "name": "varchar(160) NOT NULL",
+        "state": "text NOT NULL ACTIVE|ARCHIVED",
+        "version": "integer NOT NULL DEFAULT 1 CHECK > 0",
+        "createdAt": "timestamptz(6) NOT NULL",
+        "updatedAt": "timestamptz(6) NOT NULL"
+      },
+      "indexes": [["state", "name", "id"]],
+      "checks": [
+        "slug matches canonical slug rule",
+        "name trimmed length 1..160"
+      ],
+      "deletePolicy": "No hard delete; archive refused while a non-archived CatalogProduct uses the brand"
+    },
+    "Category": {
+      "fields": {
+        "id": "uuid PK",
+        "parentId": "uuid NULL FK Category.id RESTRICT",
+        "slug": "varchar(120) NOT NULL UNIQUE",
+        "name": "varchar(160) NOT NULL",
+        "description": "varchar(2000) NULL plain text",
+        "state": "text NOT NULL ACTIVE|ARCHIVED",
+        "sortOrder": "integer NOT NULL DEFAULT 0",
+        "version": "integer NOT NULL DEFAULT 1 CHECK > 0",
+        "createdAt": "timestamptz(6) NOT NULL",
+        "updatedAt": "timestamptz(6) NOT NULL"
+      },
+      "indexes": [
+        ["parentId", "state", "sortOrder", "slug"],
+        ["state", "id"]
+      ],
+      "checks": [
+        "parentId IS NULL OR parentId <> id",
+        "slug matches canonical slug rule",
+        "sortOrder >= 0",
+        "name trimmed length 1..160",
+        "description is plain text and <= 2000 characters"
+      ],
+      "deletePolicy": "No hard delete; archive requires no active child and no non-archived product current draft, pending or published revision assigned to the category; returned/rejected/superseded and other non-current historical revisions do not block archive",
+      "treeMutation": "Every category create/reparent/archive command acquires pg_advisory_xact_lock(1398031445, 3) before reading tree/reference state, locks affected parent/child/category rows FOR UPDATE in UUID order and rechecks state before commit. Every non-null parentId must reference an ACTIVE parent checked under the lock; reject CATEGORY_INACTIVE_PARENT otherwise. Recheck active children and non-archived product current draft/pending/published pointer usage before archive commit; returned/rejected/superseded/non-current historical revisions do not block archive. Reparent runs a recursive descendant check; reject CATEGORY_CYCLE",
+      "publicNavigation": "Index supports parentId/state equality followed by sortOrder/slug keyset ordering. Public pages use an optional opaque unpadded base64url cursor for the last (sortOrder, slug) tuple and pageSize 1..100; no page-number ceiling or total count is exposed. Each query returns one ACTIVE direct-child page only, selecting pageSize+1 rows to determine nextCursor. Cursor contents are validated as a nonnegative int32 sortOrder and canonical slug."
+    },
+    "AttributeDefinition": {
+      "fields": {
+        "id": "uuid PK",
+        "categoryId": "uuid NOT NULL FK Category.id RESTRICT",
+        "code": "varchar(80) NOT NULL",
+        "label": "varchar(160) NOT NULL",
+        "valueType": "text NOT NULL TEXT|DECIMAL|INTEGER|BOOLEAN|ENUM",
+        "unitCode": "varchar(32) NULL",
+        "unitLabel": "varchar(48) NULL",
+        "enumOptions": "jsonb NULL array of unique {code,label}; required and nonempty only for ENUM",
+        "filterable": "boolean NOT NULL DEFAULT false",
+        "searchable": "boolean NOT NULL DEFAULT false",
+        "comparable": "boolean NOT NULL DEFAULT true",
+        "state": "text NOT NULL ACTIVE|ARCHIVED",
+        "version": "integer NOT NULL DEFAULT 1 CHECK > 0",
+        "createdAt": "timestamptz(6) NOT NULL",
+        "updatedAt": "timestamptz(6) NOT NULL"
+      },
+      "primaryKey": ["id"],
+      "unique": [
+        ["categoryId", "code"],
+        ["id", "categoryId", "valueType"]
+      ],
+      "indexes": [["categoryId", "state", "code"]],
+      "checks": [
+        "code matches ^[a-z][a-z0-9_]{1,79}$",
+        "label trimmed length 1..160",
+        "unitCode and unitLabel are both null or both non-null",
+        "unit is allowed only for DECIMAL or INTEGER",
+        "ENUM iff enumOptions is nonempty JSON array; non-ENUM requires enumOptions null"
+      ],
+      "semanticMutation": "Once referenced by a product revision, code/valueType/unitCode/unitLabel/enumOptions and filter/search/compare flags are immutable; a changed semantic definition uses a new code. Label may be renamed; revision snapshots preserve prior labels.",
+      "scope": "Exactly one category; no implicit parent-category inheritance"
+    },
+    "CatalogProduct": {
+      "fields": {
+        "id": "uuid PK",
+        "brandId": "uuid NULL FK Brand.id RESTRICT",
+        "manufacturerName": "varchar(200) NULL",
+        "originalPartNumber": "varchar(160) NULL",
+        "modification": "varchar(160) NULL",
+        "slug": "varchar(160) NOT NULL UNIQUE",
+        "publicationState": "text NOT NULL DRAFT|PENDING_REVIEW|PUBLISHED|ARCHIVED",
+        "publishedRevisionId": "uuid NULL composite FK CatalogProductRevision(id,productId) RESTRICT",
+        "pendingRevisionId": "uuid NULL composite FK CatalogProductRevision(id,productId) RESTRICT; at most one pending revision per product",
+        "currentDraftRevisionId": "uuid NULL composite FK CatalogProductRevision(id,productId) RESTRICT",
+        "version": "integer NOT NULL DEFAULT 1 CHECK > 0",
+        "createdAt": "timestamptz(6) NOT NULL",
+        "updatedAt": "timestamptz(6) NOT NULL"
+      },
+      "indexes": [
+        ["publicationState", "updatedAt", "id"],
+        ["brandId", "publicationState", "id"],
+        ["originalPartNumber", "id"]
+      ],
+      "uniqueIndexes": [
+        "Partial expression index on complete normalized exact identity tuple; see identity rule"
+      ],
+      "checks": [
+        "publicationState=ARCHIVED is terminal at application and trigger layer",
+        "publicationState=ARCHIVED requires publishedRevisionId, pendingRevisionId and currentDraftRevisionId all NULL",
+        "identity strings are null or trimmed nonempty and within declared lengths",
+        "slug matches canonical slug rule",
+        "publishedRevisionId, pendingRevisionId and currentDraftRevisionId are null or belong to this product",
+        "each pointer targets a revision in PUBLISHED, PENDING_REVIEW or DRAFT state respectively",
+        "one partial unique index permits at most one DRAFT and a separate partial unique index permits at most one PENDING_REVIEW revision per product; SUPERSEDED is terminal"
+      ],
+      "deletePolicy": "No hard delete; archive clears root current pointers but preserves immutable revisions, revision child rows and FileVersion/reference history",
+      "archiveMutation": "ARCHIVE is terminal from any non-archived root state. In one transaction withdraw a pending revision as WITHDRAWN, clear publishedRevisionId, pendingRevisionId and currentDraftRevisionId, set publicationState=ARCHIVED, revoke public visibility and write audit. Preserve all revisions and file references; delete no data."
+    },
+    "CatalogProductRevision": {
+      "purpose": "Additional immutable version table required to keep current public content intact while edits wait for human review",
+      "fields": {
+        "id": "uuid PK",
+        "productId": "uuid NOT NULL FK CatalogProduct.id RESTRICT",
+        "revisionNo": "integer NOT NULL CHECK > 0",
+        "sourceRevisionId": "uuid NULL composite FK CatalogProductRevision(id,productId) RESTRICT; a copied revision must belong to the same product",
+        "brandId": "uuid NULL FK Brand.id RESTRICT",
+        "categoryId": "uuid NOT NULL FK Category.id RESTRICT",
+        "state": "text NOT NULL DRAFT|SUPERSEDED|PENDING_REVIEW|PUBLISHED|RETURNED|REJECTED|WITHDRAWN",
+        "displayName": "varchar(240) NOT NULL",
+        "summary": "varchar(500) NULL plain text",
+        "description": "text NULL plain text with 20000 character application limit",
+        "brandNameSnapshot": "varchar(160) NULL",
+        "brandSlugSnapshot": "varchar(120) NULL",
+        "categoryNameSnapshot": "varchar(160) NOT NULL",
+        "categorySlugSnapshot": "varchar(120) NOT NULL",
+        "manufacturerNameSnapshot": "varchar(200) NULL",
+        "originalPartNumberSnapshot": "varchar(160) NULL",
+        "modificationSnapshot": "varchar(160) NULL",
+        "createdByUserId": "uuid NOT NULL FK StaffUser.id RESTRICT",
+        "createdAt": "timestamptz(6) NOT NULL",
+        "submittedByUserId": "uuid NULL FK StaffUser.id RESTRICT",
+        "submittedAt": "timestamptz(6) NULL",
+        "decidedByUserId": "uuid NULL FK StaffUser.id RESTRICT",
+        "decidedAt": "timestamptz(6) NULL",
+        "decision": "text NULL PUBLISH|RETURN_FOR_CHANGES|REJECT",
+        "decisionReason": "varchar(1000) NULL plain text",
+        "publishedAt": "timestamptz(6) NULL"
+      },
+      "unique": [
+        ["productId", "revisionNo"],
+        ["id", "productId"],
+        ["id", "categoryId"]
+      ],
+      "uniqueIndexes": [
+        "UNIQUE(productId) WHERE state='DRAFT'",
+        "UNIQUE(productId) WHERE state='PENDING_REVIEW'"
+      ],
+      "indexes": [
+        ["productId", "revisionNo DESC"],
+        ["state", "createdAt", "id"],
+        ["categoryId", "state", "productId"]
+      ],
+      "checks": [
+        "submittedAt and submittedByUserId are both null or both non-null",
+        "decidedAt and decidedByUserId are both null or both non-null",
+        "PUBLISHED iff publishedAt IS NOT NULL",
+        "decision/reviewer fields required for RETURNED or REJECTED",
+        "root publishedRevisionId points only to PUBLISHED revision; pendingRevisionId points only to PENDING_REVIEW revision; currentDraftRevisionId points only to DRAFT revision",
+        "revision brand/category snapshots match linked reference IDs at creation"
+      ],
+      "contentMutation": "Revision payload and child values/relations/media/documents are immutable after INSERT; only allowed workflow status/reviewer timestamps may advance under guarded transaction. Replacing an existing current DRAFT uses workflowMutation: clear pointer, transition prior DRAFT to terminal SUPERSEDED, insert the new DRAFT, then set the new pointer, all in the same transaction. After submit, edits are blocked while pending. Once no pending/current draft exists, a new DRAFT uses draftBaseSelection to validate explicit baseRevisionId. This permits post-publication edits and retries without changing history. No UPDATE/DELETE of payload.",
+      "provenance": "R1-004 only STAFF_MANUAL; creator, time, parent revision and audit record establish history. Import provenance is added with R1-006, never a hidden parser path."
+    },
+    "ProductAttributeValue": {
+      "fields": {
+        "productRevisionId": "uuid NOT NULL composite FK CatalogProductRevision(id,categoryId) RESTRICT",
+        "categoryId": "uuid NOT NULL",
+        "attributeDefinitionId": "uuid NOT NULL composite FK AttributeDefinition(id,categoryId,valueType) RESTRICT",
+        "valueType": "text NOT NULL snapshot TEXT|DECIMAL|INTEGER|BOOLEAN|ENUM",
+        "codeSnapshot": "varchar(80) NOT NULL",
+        "labelSnapshot": "varchar(160) NOT NULL",
+        "unitCodeSnapshot": "varchar(32) NULL",
+        "unitLabelSnapshot": "varchar(48) NULL",
+        "filterableSnapshot": "boolean NOT NULL",
+        "searchableSnapshot": "boolean NOT NULL",
+        "comparableSnapshot": "boolean NOT NULL",
+        "textValue": "varchar(240) NULL CHECK (textValue IS NULL OR char_length(textValue) <= 240)",
+        "numericValue": "numeric NULL",
+        "booleanValue": "boolean NULL",
+        "enumCodeValue": "varchar(80) NULL",
+        "enumLabelSnapshot": "varchar(160) NULL"
+      },
+      "primaryKey": ["productRevisionId", "attributeDefinitionId"],
+      "unique": [["productRevisionId", "attributeDefinitionId"]],
+      "indexes": [
+        ["attributeDefinitionId", "textValue", "productRevisionId"],
+        ["attributeDefinitionId", "numericValue", "productRevisionId"],
+        ["attributeDefinitionId", "enumCodeValue", "productRevisionId"]
+      ],
+      "checks": [
+        "categoryId equals both referenced product revision and AttributeDefinition category",
+        "exactly one typed value column is populated consistently with valueType",
+        "INTEGER numericValue has scale 0",
+        "ENUM requires enumCodeValue and enumLabelSnapshot; other types forbid them",
+        "snapshot unit/type agrees with AttributeDefinition composite key"
+      ]
+    },
+    "ProductMedia": {
+      "fields": {
+        "productRevisionId": "uuid NOT NULL FK CatalogProductRevision.id RESTRICT",
+        "fileVersionId": "uuid NOT NULL FK FileVersion.id RESTRICT",
+        "altText": "varchar(240) NOT NULL",
+        "caption": "varchar(500) NULL plain text",
+        "sortOrder": "integer NOT NULL CHECK >= 0",
+        "isPrimary": "boolean NOT NULL DEFAULT false",
+        "createdByUserId": "uuid NOT NULL FK StaffUser.id RESTRICT",
+        "createdAt": "timestamptz(6) NOT NULL"
+      },
+      "primaryKey": ["productRevisionId", "fileVersionId"],
+      "uniqueIndexes": [
+        "UNIQUE(productRevisionId, sortOrder)",
+        "UNIQUE(productRevisionId) WHERE isPrimary"
+      ],
+      "checks": [
+        "altText trimmed length 1..240",
+        "caption plain text <= 500 characters"
+      ],
+      "visibility": "Metadata reference only; never returns a URL or grants access; no public output until a separate approved safe-file contract exists"
+    },
+    "ProductDocumentVersion": {
+      "fields": {
+        "productRevisionId": "uuid NOT NULL FK CatalogProductRevision.id RESTRICT",
+        "fileVersionId": "uuid NOT NULL FK FileVersion.id RESTRICT",
+        "documentKind": "text NOT NULL DATASHEET|MANUAL|CERTIFICATE|SCHEME|OTHER",
+        "displayName": "varchar(240) NOT NULL",
+        "locale": "varchar(35) NULL BCP-47",
+        "sortOrder": "integer NOT NULL CHECK >= 0",
+        "createdByUserId": "uuid NOT NULL FK StaffUser.id RESTRICT",
+        "createdAt": "timestamptz(6) NOT NULL"
+      },
+      "primaryKey": ["productRevisionId", "fileVersionId"],
+      "unique": [["productRevisionId", "sortOrder"]],
+      "checks": [
+        "displayName trimmed length 1..240",
+        "locale null or valid bounded BCP-47 tag"
+      ],
+      "visibility": "Metadata reference only; no public download or URL; exact FileVersion remains immutable"
+    },
+    "ProductRelation": {
+      "fields": {
+        "sourceRevisionId": "uuid NOT NULL FK CatalogProductRevision.id RESTRICT",
+        "targetProductId": "uuid NOT NULL",
+        "targetRevisionId": "uuid NOT NULL",
+        "relationType": "text NOT NULL ACCESSORY|COMPATIBLE_EQUIPMENT",
+        "sortOrder": "integer NOT NULL CHECK >= 0",
+        "createdByUserId": "uuid NOT NULL FK StaffUser.id RESTRICT",
+        "createdAt": "timestamptz(6) NOT NULL"
+      },
+      "primaryKey": ["sourceRevisionId", "targetProductId", "relationType"],
+      "unique": [["sourceRevisionId", "sortOrder"]],
+      "foreignKeys": [
+        "(targetRevisionId, targetProductId) REFERENCES CatalogProductRevision(id, productId) ON DELETE/UPDATE RESTRICT"
+      ],
+      "checks": ["sortOrder >= 0"],
+      "guards": [
+        "Source and target product IDs differ; enforce in transaction guard, not CHECK",
+        "At relation replacement and source publish, lock source and target roots FOR UPDATE in sorted UUID order, then require target root ACTIVE and publishedRevisionId=targetRevisionId; this serializes against target archive/republish and does not auto-retarget"
+      ],
+      "visibility": "Only manually chosen exact published target revisions; public product detail exposes a safe target card only while target product is active and still points to this exact revision; never a functional analogue/substitute; do not auto-retarget"
+    }
+  },
+  "publicInvariants": [
+    "Only active CatalogProduct with a current publishedRevisionId is reachable by slug",
+    "A pending or rejected revision never changes the current public revision",
+    "Published content and technical attributes come only from current published revision; public brand/category display labels are resolved from current ACTIVE references, while immutable revision snapshots remain available to staff history",
+    "Public category navigation returns only ACTIVE direct children in a page of at most 100 rows using cursor pagination with no page-number ceiling; clients obtain deeper levels with additional bounded requests, and no recursive response is returned",
+    "Public product detail includes only manual ACCESSORY and COMPATIBLE_EQUIPMENT relations whose target is active and still points to the exact pinned revision; stale targets are omitted until a new source revision is manually published",
+    "Draft, pending, returned, rejected and archived products return indistinguishable 404 from unknown slug",
+    "No cost, supplier, provenance, internal comments, staff IDs, raw file IDs/storage keys or unchecked/private files appear in Public DTO",
+    "Price display is ON_REQUEST in R1-004B; stale/unapproved/absent source cannot emit an amount"
+  ]
+}

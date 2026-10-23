@@ -1,0 +1,5566 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "STDU R1-004 Catalog API",
+    "version": "1.0.0",
+    "description": "FROZEN 1.0.0. Owner approved OD-004A-01..11 at source SHA 8ae4dd8cfd15e3722d97259818b238924851c963 on 2026-10-24 (Asia/Vladivostok). R1-004B implementation is authorized after PR integration and post-integration CI. This document does not modify FROZEN R1-002 1.0.0 or authorize production operations or real permission assignments."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Production same-origin reverse proxy; relative server, no invented domain."
+    },
+    {
+      "url": "http://127.0.0.1:3001",
+      "description": "Explicit loopback development only."
+    }
+  ],
+  "tags": [
+    {
+      "name": "catalog-staff",
+      "description": "Session-authenticated staff catalog API."
+    },
+    {
+      "name": "catalog-public",
+      "description": "Published catalog only; no file delivery."
+    }
+  ],
+  "paths": {
+    "/v1/staff/catalog/categories": {
+      "get": {
+        "operationId": "listCatalogCategories",
+        "summary": "Read catalog categories and hierarchy",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StaffLimit"
+          },
+          {
+            "$ref": "#/components/parameters/StaffCursor"
+          }
+        ],
+        "x-permission": "catalog.references.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCategoryListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCatalogCategory",
+        "summary": "Create category",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.categories.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.reference.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCatalogCategory"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/categories/{categoryId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CategoryId"
+        }
+      ],
+      "get": {
+        "operationId": "getCatalogCategory",
+        "summary": "Read one category",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [],
+        "x-permission": "catalog.references.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCategoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchCatalogCategory",
+        "summary": "Change category metadata or parent",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.categories.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.reference.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "Reject a parent change that creates a cycle; tree check is serialized in PostgreSQL."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCatalogCategory"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/categories/{categoryId}/archive": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CategoryId"
+        }
+      ],
+      "post": {
+        "operationId": "archiveCatalogCategory",
+        "summary": "Archive an unused category",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.categories.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.reference.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "Reject while active children or non-archived products current draft, pending or published revision pointers use this category. Returned, rejected, superseded and other non-current historical revisions do not block archive. Never hard-delete."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/brands": {
+      "get": {
+        "operationId": "listCatalogBrands",
+        "summary": "Read catalog brands",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StaffLimit"
+          },
+          {
+            "$ref": "#/components/parameters/StaffCursor"
+          }
+        ],
+        "x-permission": "catalog.references.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBrandListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCatalogBrand",
+        "summary": "Create brand",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.brands.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.reference.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCatalogBrand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/brands/{brandId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/BrandId"
+        }
+      ],
+      "get": {
+        "operationId": "getCatalogBrand",
+        "summary": "Read one brand",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [],
+        "x-permission": "catalog.references.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogBrandResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchCatalogBrand",
+        "summary": "Change brand metadata",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.brands.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.reference.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCatalogBrand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/brands/{brandId}/archive": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/BrandId"
+        }
+      ],
+      "post": {
+        "operationId": "archiveCatalogBrand",
+        "summary": "Archive an unused brand",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.brands.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.reference.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "Reject while any non-archived product uses the brand; never hard-delete."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/attributes": {
+      "get": {
+        "operationId": "listCatalogAttributes",
+        "summary": "Read attribute definitions for one category",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StaffLimit"
+          },
+          {
+            "$ref": "#/components/parameters/StaffCursor"
+          },
+          {
+            "$ref": "#/components/parameters/CategoryIdQuery"
+          }
+        ],
+        "x-permission": "catalog.references.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogAttributeListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCatalogAttribute",
+        "summary": "Create a typed category attribute definition",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.attributes.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.reference.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCatalogAttribute"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/attributes/{attributeId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/AttributeId"
+        }
+      ],
+      "get": {
+        "operationId": "getCatalogAttribute",
+        "summary": "Read one attribute definition",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [],
+        "x-permission": "catalog.references.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogAttributeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchCatalogAttribute",
+        "summary": "Change an attribute definition",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.attributes.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.reference.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "Semantic changes after use are refused; create a new definition code instead."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCatalogAttribute"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/attributes/{attributeId}/archive": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/AttributeId"
+        }
+      ],
+      "post": {
+        "operationId": "archiveCatalogAttribute",
+        "summary": "Archive an attribute definition",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.attributes.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.reference.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "Historical revision snapshots remain readable; new drafts cannot use an archived definition."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/products": {
+      "get": {
+        "operationId": "listStaffCatalogProducts",
+        "summary": "Read internal products and workflow states",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StaffLimit"
+          },
+          {
+            "$ref": "#/components/parameters/StaffCursor"
+          },
+          {
+            "$ref": "#/components/parameters/ProductState"
+          },
+          {
+            "$ref": "#/components/parameters/CategoryIdQuery"
+          }
+        ],
+        "x-permission": "catalog.products.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "publicationState DRAFT, PENDING_REVIEW or PUBLISHED selects products by the corresponding currentDraftRevisionId, pendingRevisionId or publishedRevisionId pointer. ARCHIVED matches the root CatalogProduct.publicationState. With DRAFT, PENDING_REVIEW or PUBLISHED, categoryId must match the category on that same pointer-selected revision. Without publicationState, categoryId matches any existing current draft, pending or published pointer. The ARCHIVED + categoryId combination is rejected with VALIDATION_ERROR because product archival clears all current pointers. Non-current historical revisions never satisfy this filter."
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffCatalogProductListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCatalogProduct",
+        "summary": "Create product identity and initial draft revision",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.products.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.product.created",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "Creates root identity and initial DRAFT revision from the same request in one transaction. Creates DRAFT only; does not submit, publish, assign a price or create file bytes."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCatalogProduct"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/products/{productId}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProductId"
+        }
+      ],
+      "get": {
+        "operationId": "getStaffCatalogProduct",
+        "summary": "Read product identity, revisions and current workflow state",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [],
+        "x-permission": "catalog.products.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffCatalogProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchCatalogProductDraft",
+        "summary": "Append an updated draft revision",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.products.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.product.revision.created",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "Requires expectedVersion and baseRevisionId. With a current DRAFT, baseRevisionId must equal currentDraftRevisionId and the prior DRAFT becomes SUPERSEDED. Without a draft or pending revision, baseRevisionId must equal the latest RETURNED/REJECTED revision created after the current published revision; if none exists it must equal the current published revision. An unpublished product may use its latest RETURNED/REJECTED revision. The command appends a new immutable DRAFT copied from that base. A pending review blocks draft creation. Published pointer is unchanged.",
+          "Before first successful submit, the effective identity tuple (brandId, manufacturerName, originalPartNumber, modification) is written to the root and new DRAFT snapshot in the same transaction; omitted identity fields inherit from baseRevisionId. Existing SUPERSEDED snapshots remain unchanged. After first submit the root tuple is frozen and every subsequent revision copies it exactly; attempted changes fail with INVALID_STATE_TRANSITION. Root identity uniqueness conflict is IDENTITY_CONFLICT and rolls back revision and audit."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCatalogProductDraft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/products/{productId}/submit": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProductId"
+        }
+      ],
+      "post": {
+        "operationId": "submitCatalogProduct",
+        "summary": "Submit one draft revision for publication review",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.products.submit",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.product.submitted",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "Submission freezes content and checks category/brand/typed attribute/reference readiness. It never publishes."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitCatalogProduct"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/products/{productId}/review": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProductId"
+        }
+      ],
+      "post": {
+        "operationId": "decideCatalogProductPublication",
+        "summary": "Publish, return or reject one pending revision",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.products.publish",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.product.reviewed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "PUBLISH atomically replaces the public pointer; RETURN_FOR_CHANGES and REJECT preserve the prior public revision."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogProductReviewDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/products/{productId}/archive": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProductId"
+        }
+      ],
+      "post": {
+        "operationId": "archiveCatalogProduct",
+        "summary": "Archive product and withdraw pending revision",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.products.archive",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.product.archived",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "ARCHIVE is terminal from any non-archived root state. In one transaction it withdraws a pending revision as WITHDRAWN, clears publishedRevisionId, pendingRevisionId and currentDraftRevisionId, sets publicationState=ARCHIVED, revokes public visibility and writes audit. It preserves all product revisions and FileVersion references; it deletes no data."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/products/{productId}/relations": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProductId"
+        }
+      ],
+      "get": {
+        "operationId": "listCatalogProductRelations",
+        "summary": "Read manually managed product relations",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [],
+        "x-permission": "catalog.products.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogProductRelationsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceCatalogProductRelations",
+        "summary": "Replace relations on a new product draft revision",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.products.relations.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.product.relations.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "Types are ACCESSORY or COMPATIBLE_EQUIPMENT only; target must be an exact current published revision; no automatic analogue."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceCatalogProductRelations"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/products/{productId}/media": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProductId"
+        }
+      ],
+      "get": {
+        "operationId": "listCatalogProductMediaMetadata",
+        "summary": "Read accessible media metadata; no file bytes or URL",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [],
+        "x-permission": "catalog.products.read",
+        "x-required-permissions": [
+          "catalog.products.read",
+          "files.metadata.read"
+        ],
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogProductMediaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceCatalogProductMediaMetadata",
+        "summary": "Replace media metadata on a new draft revision",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.products.media.write",
+        "x-required-permissions": [
+          "catalog.products.media.write",
+          "files.metadata.read"
+        ],
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.product.media.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "FileVersion must already exist and be accessible to this employee. No upload/download or public exposure."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceCatalogProductMedia"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/staff/catalog/products/{productId}/documents": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ProductId"
+        }
+      ],
+      "get": {
+        "operationId": "listCatalogProductDocumentMetadata",
+        "summary": "Read accessible document metadata; no file bytes or URL",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [],
+        "x-permission": "catalog.products.read",
+        "x-required-permissions": [
+          "catalog.products.read",
+          "files.metadata.read"
+        ],
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [],
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogProductDocumentsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceCatalogProductDocumentMetadata",
+        "summary": "Replace document metadata on a new draft revision",
+        "tags": ["catalog-staff"],
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OriginHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfHeader"
+          }
+        ],
+        "x-permission": "catalog.products.documents.write",
+        "x-required-permissions": [
+          "catalog.products.documents.write",
+          "files.metadata.read"
+        ],
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "catalog.product.documents.changed",
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ],
+        "x-invariants": [
+          "FileVersion must already exist and be accessible to this employee. No upload/download or public exposure."
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceCatalogProductDocuments"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; response follows R1-002 data/meta and X-Request-Id conventions. No credentials or storage paths.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "description": "Staff and error responses are never cached.",
+                "schema": {
+                  "type": "string",
+                  "enum": ["no-store"]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/public/catalog/categories": {
+      "get": {
+        "operationId": "listPublicCatalogCategoryChildren",
+        "summary": "List a bounded page of active direct child categories",
+        "tags": ["catalog-public"],
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicCategoryParentSlug"
+          },
+          {
+            "$ref": "#/components/parameters/PublicCategoryCursor"
+          },
+          {
+            "$ref": "#/components/parameters/PublicCategoryPageSize"
+          }
+        ],
+        "x-cache-policy": "Public data only; implementations must not serve draft or archived data.",
+        "x-invariants": [
+          "Return only ACTIVE direct children of parentSlug; when parentSlug is absent, return ACTIVE root categories.",
+          "An unknown or inactive parentSlug returns the same 404 response.",
+          "Order each page by sortOrder ASC then slug ASC; use an optional keyset cursor and pageSize 1..100 (default 24), with no page-number ceiling.",
+          "The opaque unpadded base64url cursor encodes the last returned nonnegative int32 sortOrder and canonical slug separated by a colon; reject malformed cursors.",
+          "Each response contains one level only and at most pageSize categories; meta.nextCursor is null at the end. Clients assemble navigation trees with additional bounded requests."
+        ],
+        "responses": {
+          "200": {
+            "description": "Published catalog data only.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCatalogCategoryListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/public/catalog/products": {
+      "get": {
+        "operationId": "searchPublicCatalogProducts",
+        "summary": "Search and filter published catalog products",
+        "tags": ["catalog-public"],
+        "security": [],
+        "parameters": [
+          {
+            "name": "categorySlug",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "description": "Exact active public category slug. Required when at least one technical filter is supplied; each filter resolves only this category's own AttributeDefinition, without inheritance or automatic matching by code across categories."
+          },
+          {
+            "name": "includeDescendants",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            },
+            "description": "Include products assigned to active descendant categories when no technical filter is supplied. Defaults to true when omitted. With at least one filter, this parameter must be explicitly false; true or omission returns 400 VALIDATION_ERROR before a database query."
+          },
+          {
+            "name": "brandSlug",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "description": "Literal case-insensitive substring over published display name, brand, manufacturer, original part number, modification and searchable attribute snapshots. No regex or ranking. An empty string is treated as absent."
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "maxItems": 40,
+              "items": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 240
+              }
+            },
+            "description": "Repeatable decoded grammar attributeCode:operator:value. At least one filter requires categorySlug and explicitly includeDescendants=false; true or omitted includeDescendants (default true), or missing categorySlug, returns 400 VALIDATION_ERROR before a database query. Filters use only the exact selected category's own AttributeDefinition, without inheritance or automatic matching by code across categories. Supported ops: eq all types, contains TEXT, gte/lte DECIMAL or INTEGER. Filters are ANDed; duplicate code/operator is invalid."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 24
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["name_asc", "name_desc", "brand_asc", "part_number_asc"],
+              "default": "name_asc"
+            }
+          }
+        ],
+        "x-cache-policy": "Public data only; implementations must not serve draft or archived data.",
+        "x-invariants": [
+          "Category search may include descendants only when no technical filter is supplied. With at least one filter, categorySlug and explicitly includeDescendants=false are required; true or omitted includeDescendants (default true), or missing categorySlug, returns 400 VALIDATION_ERROR before a database query.",
+          "Technical filters use only the exact selected category and its own AttributeDefinition, without inheritance or automatic matching by code across categories."
+        ],
+        "responses": {
+          "200": {
+            "description": "Published catalog data only.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCatalogProductListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        },
+        "x-technical-filter-policy": {
+          "appliesWhen": "filter.length >= 1",
+          "categorySlugRequired": true,
+          "includeDescendantsMustBeExplicit": true,
+          "includeDescendantsRequiredValue": false,
+          "descendantsAllowedWithoutFilter": true,
+          "attributeDefinitionScope": "EXACT_SELECTED_CATEGORY",
+          "matchDefinitionsAcrossCategoriesByCode": false,
+          "invalidCombination": {
+            "status": 400,
+            "code": "VALIDATION_ERROR"
+          }
+        }
+      }
+    },
+    "/v1/public/catalog/products/{slug}": {
+      "get": {
+        "operationId": "getPublicCatalogProductBySlug",
+        "summary": "Read one published product by stable slug",
+        "tags": ["catalog-public"],
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicSlug"
+          }
+        ],
+        "x-cache-policy": "Public data only; implementations must not serve draft or archived data.",
+        "x-invariants": [],
+        "responses": {
+          "200": {
+            "description": "Published catalog data only.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Generated server request UUID; not caller identity.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCatalogProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "staffCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-stdu_staff",
+        "description": "Exact frozen R1-002 opaque HttpOnly staff cookie. Explicit loopback uses stdu_staff_dev. Generated clients use credentials:include and never construct auth tokens."
+      }
+    },
+    "parameters": {
+      "OriginHeader": {
+        "name": "Origin",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uri"
+        },
+        "description": "Exact configured trusted origin; missing/null is rejected."
+      },
+      "CsrfHeader": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        "description": "STAFF-bound HMAC token; never a credential or logged value."
+      },
+      "CategoryId": {
+        "name": "categoryId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "BrandId": {
+        "name": "brandId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "AttributeId": {
+        "name": "attributeId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "ProductId": {
+        "name": "productId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "PublicSlug": {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 160
+        }
+      },
+      "PublicCategoryParentSlug": {
+        "name": "parentSlug",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 120
+        },
+        "description": "Optional exact ACTIVE parent slug. Omission selects root categories."
+      },
+      "PublicCategoryCursor": {
+        "name": "cursor",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "description": "Opaque unpadded base64url cursor for the last returned sortOrder and slug tuple."
+      },
+      "PublicCategoryPageSize": {
+        "name": "pageSize",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 24
+        }
+      },
+      "StaffLimit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        }
+      },
+      "StaffCursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "description": "Opaque base64url cursor over stable createdAt/id ordering; not an authorization token."
+      },
+      "CategoryIdQuery": {
+        "name": "categoryId",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Staff product list filter. With DRAFT, PENDING_REVIEW or PUBLISHED, this category must belong to that same pointer-selected revision. Without publicationState, it matches any current draft, pending or published revision pointer. Combining categoryId with ARCHIVED is rejected with VALIDATION_ERROR because product archival clears all current pointers; historical non-current revisions are ignored."
+      },
+      "ProductState": {
+        "name": "publicationState",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": ["DRAFT", "PENDING_REVIEW", "PUBLISHED", "ARCHIVED"]
+        },
+        "description": "Staff product list filter. DRAFT, PENDING_REVIEW and PUBLISHED select the corresponding current revision pointer; ARCHIVED matches root CatalogProduct.publicationState."
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "VALIDATION_ERROR or catalog query/type validation.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "Cache-Control": {
+            "description": "Staff and error responses are never cached.",
+            "schema": {
+              "type": "string",
+              "enum": ["no-store"]
+            }
+          }
+        },
+        "x-error-codes": [
+          "VALIDATION_ERROR",
+          "CATEGORY_CYCLE",
+          "CATEGORY_INACTIVE_PARENT",
+          "ATTRIBUTE_NOT_APPLICABLE"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "AUTH_REQUIRED.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "Cache-Control": {
+            "description": "Staff and error responses are never cached.",
+            "schema": {
+              "type": "string",
+              "enum": ["no-store"]
+            }
+          }
+        },
+        "x-error-codes": ["AUTH_REQUIRED"],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "FORBIDDEN, password policy, Origin or CSRF rejection.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "Cache-Control": {
+            "description": "Staff and error responses are never cached.",
+            "schema": {
+              "type": "string",
+              "enum": ["no-store"]
+            }
+          }
+        },
+        "x-error-codes": [
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "NOT_FOUND; public draft/archived/unknown slug are indistinguishable.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "Cache-Control": {
+            "description": "Staff and error responses are never cached.",
+            "schema": {
+              "type": "string",
+              "enum": ["no-store"]
+            }
+          }
+        },
+        "x-error-codes": ["NOT_FOUND"],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "OCC, identity, slug, reference or publication conflict.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "Cache-Control": {
+            "description": "Staff and error responses are never cached.",
+            "schema": {
+              "type": "string",
+              "enum": ["no-store"]
+            }
+          }
+        },
+        "x-error-codes": [
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "IDENTITY_CONFLICT",
+          "SLUG_CONFLICT",
+          "PUBLICATION_NOT_READY",
+          "REFERENCE_IN_USE"
+        ],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      },
+      "UnsupportedMediaType": {
+        "description": "UNSUPPORTED_MEDIA_TYPE.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "Cache-Control": {
+            "description": "Staff and error responses are never cached.",
+            "schema": {
+              "type": "string",
+              "enum": ["no-store"]
+            }
+          }
+        },
+        "x-error-codes": ["UNSUPPORTED_MEDIA_TYPE"],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "INTERNAL_ERROR.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "Cache-Control": {
+            "description": "Staff and error responses are never cached.",
+            "schema": {
+              "type": "string",
+              "enum": ["no-store"]
+            }
+          }
+        },
+        "x-error-codes": ["INTERNAL_ERROR"],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      },
+      "Unavailable": {
+        "description": "DEPENDENCY_UNAVAILABLE or AUDIT_UNAVAILABLE.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "Cache-Control": {
+            "description": "Staff and error responses are never cached.",
+            "schema": {
+              "type": "string",
+              "enum": ["no-store"]
+            }
+          }
+        },
+        "x-error-codes": ["DEPENDENCY_UNAVAILABLE", "AUDIT_UNAVAILABLE"],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      },
+      "PublicValidationError": {
+        "description": "VALIDATION_ERROR for malformed pagination or unsupported filter.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "x-error-codes": ["VALIDATION_ERROR", "ATTRIBUTE_NOT_APPLICABLE"],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      },
+      "PublicNotFound": {
+        "description": "NOT_FOUND, including unpublished or archived slug.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "x-error-codes": ["NOT_FOUND"],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      },
+      "PublicInternalError": {
+        "description": "INTERNAL_ERROR.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "x-error-codes": ["INTERNAL_ERROR"],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      },
+      "PublicUnavailable": {
+        "description": "DEPENDENCY_UNAVAILABLE.",
+        "headers": {
+          "X-Request-Id": {
+            "description": "Generated server request UUID; not caller identity.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "x-error-codes": ["DEPENDENCY_UNAVAILABLE"],
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CatalogError"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId"],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PublicPageMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId", "page", "pageSize", "total", "totalPages"],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "PublicCategoryCursorPageMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId", "pageSize", "nextCursor"],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "nextCursor": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        }
+      },
+      "CatalogError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "requestId"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "VALIDATION_ERROR",
+              "AUTH_REQUIRED",
+              "INVALID_CREDENTIALS",
+              "FORBIDDEN",
+              "PASSWORD_CHANGE_REQUIRED",
+              "CSRF_INVALID",
+              "ORIGIN_FORBIDDEN",
+              "NOT_FOUND",
+              "EMAIL_IN_USE",
+              "LAST_ADMIN_REQUIRED",
+              "SELF_PRIVILEGE_CHANGE_FORBIDDEN",
+              "GRANT_CEILING_EXCEEDED",
+              "ROLE_IN_USE",
+              "VERSION_CONFLICT",
+              "INVALID_STATE_TRANSITION",
+              "ALREADY_AUTHENTICATED",
+              "RATE_LIMITED",
+              "UNSUPPORTED_MEDIA_TYPE",
+              "AUDIT_UNAVAILABLE",
+              "DEPENDENCY_UNAVAILABLE",
+              "INTERNAL_ERROR",
+              "CURRENT_PASSWORD_INVALID",
+              "IDENTITY_CONFLICT",
+              "SLUG_CONFLICT",
+              "CATEGORY_CYCLE",
+              "CATEGORY_INACTIVE_PARENT",
+              "ATTRIBUTE_NOT_APPLICABLE",
+              "PUBLICATION_NOT_READY",
+              "REFERENCE_IN_USE",
+              "FILE_NOT_ACCESSIBLE"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fields": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["field", "code"],
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                }
+              }
+            }
+          }
+        }
+      },
+      "MutationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              }
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "CatalogBrand": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "slug", "name", "state", "version"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 120
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "state": {
+            "type": "string",
+            "enum": ["ACTIVE", "ARCHIVED"]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CatalogCategory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "parentId",
+          "slug",
+          "name",
+          "state",
+          "sortOrder",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 120
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "description": {
+            "type": ["string", "null"],
+            "maxLength": 2000
+          },
+          "state": {
+            "type": "string",
+            "enum": ["ACTIVE", "ARCHIVED"]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CatalogAttributeDefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "valueType": {
+                  "const": "ENUM"
+                }
+              },
+              "required": ["valueType"]
+            },
+            "then": {
+              "properties": {
+                "enumOptions": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 200
+                }
+              },
+              "required": ["enumOptions"]
+            },
+            "else": {
+              "properties": {
+                "enumOptions": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "valueType": {
+                  "enum": ["DECIMAL", "INTEGER"]
+                }
+              },
+              "required": ["valueType"]
+            },
+            "then": {
+              "oneOf": [
+                {
+                  "properties": {
+                    "unitCode": {
+                      "type": "null"
+                    },
+                    "unitLabel": {
+                      "type": "null"
+                    }
+                  },
+                  "required": ["unitCode", "unitLabel"]
+                },
+                {
+                  "properties": {
+                    "unitCode": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    },
+                    "unitLabel": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 48
+                    }
+                  },
+                  "required": ["unitCode", "unitLabel"]
+                },
+                {
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": ["unitCode"]
+                      },
+                      {
+                        "required": ["unitLabel"]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "else": {
+              "properties": {
+                "unitCode": {
+                  "type": "null"
+                },
+                "unitLabel": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ],
+        "required": [
+          "id",
+          "categoryId",
+          "code",
+          "label",
+          "valueType",
+          "unitCode",
+          "unitLabel",
+          "enumOptions",
+          "filterable",
+          "searchable",
+          "comparable",
+          "state",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,79}$",
+            "maxLength": 80
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "valueType": {
+            "type": "string",
+            "enum": ["TEXT", "DECIMAL", "INTEGER", "BOOLEAN", "ENUM"]
+          },
+          "unitCode": {
+            "type": ["string", "null"],
+            "maxLength": 32
+          },
+          "unitLabel": {
+            "type": ["string", "null"],
+            "maxLength": 48
+          },
+          "enumOptions": {
+            "type": ["array", "null"],
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["code", "label"],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_-]{0,79}$"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              }
+            }
+          },
+          "filterable": {
+            "type": "boolean"
+          },
+          "searchable": {
+            "type": "boolean"
+          },
+          "comparable": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["ACTIVE", "ARCHIVED"]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CatalogAttributeValue": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CatalogAttributeValueTEXT"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeValueDECIMAL"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeValueINTEGER"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeValueBOOLEAN"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeValueENUM"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "valueType"
+        }
+      },
+      "CatalogProductRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "revisionNo",
+          "state",
+          "categoryId",
+          "displayName",
+          "summary",
+          "description",
+          "brandId",
+          "brandNameSnapshot",
+          "brandSlugSnapshot",
+          "categoryNameSnapshot",
+          "categorySlugSnapshot",
+          "attributes",
+          "createdByUserId",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revisionNo": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUPERSEDED",
+              "PENDING_REVIEW",
+              "PUBLISHED",
+              "RETURNED",
+              "REJECTED",
+              "WITHDRAWN"
+            ]
+          },
+          "sourceRevisionId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "summary": {
+            "type": ["string", "null"],
+            "maxLength": 500
+          },
+          "description": {
+            "type": ["string", "null"],
+            "maxLength": 20000
+          },
+          "brandId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "brandNameSnapshot": {
+            "type": ["string", "null"],
+            "maxLength": 160
+          },
+          "brandSlugSnapshot": {
+            "type": ["string", "null"],
+            "maxLength": 120
+          },
+          "categoryNameSnapshot": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "categorySlugSnapshot": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "manufacturerNameSnapshot": {
+            "type": ["string", "null"],
+            "maxLength": 200
+          },
+          "originalPartNumberSnapshot": {
+            "type": ["string", "null"],
+            "maxLength": 160
+          },
+          "modificationSnapshot": {
+            "type": ["string", "null"],
+            "maxLength": 160
+          },
+          "attributes": {
+            "type": "array",
+            "maxItems": 300,
+            "items": {
+              "$ref": "#/components/schemas/CatalogAttributeValue"
+            }
+          },
+          "createdByUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "submittedByUserId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "submittedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "decidedByUserId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "decidedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "decision": {
+            "type": ["string", "null"],
+            "enum": ["PUBLISH", "RETURN_FOR_CHANGES", "REJECT", null]
+          },
+          "decisionReason": {
+            "type": ["string", "null"],
+            "maxLength": 1000
+          },
+          "publishedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          }
+        }
+      },
+      "StaffCatalogProduct": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "slug",
+          "publicationState",
+          "brandId",
+          "manufacturerName",
+          "originalPartNumber",
+          "modification",
+          "publishedRevisionId",
+          "pendingRevisionId",
+          "currentDraftRevisionId",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "publicationState": {
+            "type": "string",
+            "enum": ["DRAFT", "PENDING_REVIEW", "PUBLISHED", "ARCHIVED"]
+          },
+          "brandId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "manufacturerName": {
+            "type": ["string", "null"]
+          },
+          "originalPartNumber": {
+            "type": ["string", "null"]
+          },
+          "modification": {
+            "type": ["string", "null"]
+          },
+          "publishedRevisionId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "pendingRevisionId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "currentDraftRevisionId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "StaffCatalogProductDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "slug",
+          "publicationState",
+          "brandId",
+          "manufacturerName",
+          "originalPartNumber",
+          "modification",
+          "publishedRevisionId",
+          "pendingRevisionId",
+          "currentDraftRevisionId",
+          "version",
+          "publishedRevision",
+          "pendingRevision",
+          "editorRevision",
+          "revisionHistory"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "publicationState": {
+            "type": "string",
+            "enum": ["DRAFT", "PENDING_REVIEW", "PUBLISHED", "ARCHIVED"]
+          },
+          "brandId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "manufacturerName": {
+            "type": ["string", "null"]
+          },
+          "originalPartNumber": {
+            "type": ["string", "null"]
+          },
+          "modification": {
+            "type": ["string", "null"]
+          },
+          "publishedRevisionId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "pendingRevisionId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "currentDraftRevisionId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "publishedRevision": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CatalogProductRevision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pendingRevision": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CatalogProductRevision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "editorRevision": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CatalogProductRevision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revisionHistory": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/CatalogProductRevision"
+            }
+          }
+        }
+      },
+      "CatalogProductRelation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "targetProductId",
+          "targetRevisionId",
+          "relationType",
+          "sortOrder"
+        ],
+        "properties": {
+          "targetProductId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetRevisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "relationType": {
+            "type": "string",
+            "enum": ["ACCESSORY", "COMPATIBLE_EQUIPMENT"]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "CatalogProductMediaItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fileVersionId",
+          "altText",
+          "caption",
+          "sortOrder",
+          "isPrimary"
+        ],
+        "properties": {
+          "fileVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "altText": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "caption": {
+            "type": ["string", "null"],
+            "maxLength": 500
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "isPrimary": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogProductDocumentItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fileVersionId",
+          "documentKind",
+          "displayName",
+          "locale",
+          "sortOrder"
+        ],
+        "properties": {
+          "fileVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentKind": {
+            "type": "string",
+            "enum": ["DATASHEET", "MANUAL", "CERTIFICATE", "SCHEME", "OTHER"]
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "locale": {
+            "type": ["string", "null"],
+            "maxLength": 35
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "VersionCommand": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "CreateCatalogBrand": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slug", "name"],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 120
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        }
+      },
+      "PatchCatalogBrand": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        }
+      },
+      "CreateCatalogCategory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slug", "name"],
+        "properties": {
+          "parentId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 120
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "description": {
+            "type": ["string", "null"],
+            "maxLength": 2000
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "default": 0
+          }
+        }
+      },
+      "PatchCatalogCategory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "parentId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "description": {
+            "type": ["string", "null"],
+            "maxLength": 2000
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "CreateCatalogAttribute": {
+        "type": "object",
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "valueType": {
+                  "const": "ENUM"
+                }
+              },
+              "required": ["valueType"]
+            },
+            "then": {
+              "properties": {
+                "enumOptions": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 200
+                }
+              },
+              "required": ["enumOptions"]
+            },
+            "else": {
+              "properties": {
+                "enumOptions": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "valueType": {
+                  "enum": ["DECIMAL", "INTEGER"]
+                }
+              },
+              "required": ["valueType"]
+            },
+            "then": {
+              "oneOf": [
+                {
+                  "properties": {
+                    "unitCode": {
+                      "type": "null"
+                    },
+                    "unitLabel": {
+                      "type": "null"
+                    }
+                  },
+                  "required": ["unitCode", "unitLabel"]
+                },
+                {
+                  "properties": {
+                    "unitCode": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    },
+                    "unitLabel": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 48
+                    }
+                  },
+                  "required": ["unitCode", "unitLabel"]
+                },
+                {
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": ["unitCode"]
+                      },
+                      {
+                        "required": ["unitLabel"]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "else": {
+              "properties": {
+                "unitCode": {
+                  "type": "null"
+                },
+                "unitLabel": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ],
+        "required": [
+          "categoryId",
+          "code",
+          "label",
+          "valueType",
+          "filterable",
+          "searchable",
+          "comparable"
+        ],
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,79}$",
+            "maxLength": 80
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "valueType": {
+            "type": "string",
+            "enum": ["TEXT", "DECIMAL", "INTEGER", "BOOLEAN", "ENUM"]
+          },
+          "unitCode": {
+            "type": ["string", "null"],
+            "maxLength": 32
+          },
+          "unitLabel": {
+            "type": ["string", "null"],
+            "maxLength": 48
+          },
+          "enumOptions": {
+            "type": ["array", "null"],
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "required": ["code", "label"],
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_-]{0,79}$",
+                  "maxLength": 80
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              }
+            }
+          },
+          "filterable": {
+            "type": "boolean"
+          },
+          "searchable": {
+            "type": "boolean"
+          },
+          "comparable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PatchCatalogAttribute": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "filterable": {
+            "type": "boolean"
+          },
+          "searchable": {
+            "type": "boolean"
+          },
+          "comparable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogAttributeInput": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CatalogAttributeInputTEXT"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeInputDECIMAL"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeInputINTEGER"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeInputBOOLEAN"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeInputENUM"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "valueType"
+        }
+      },
+      "CreateCatalogProduct": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slug", "categoryId", "displayName"],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 160
+          },
+          "brandId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "manufacturerName": {
+            "type": ["string", "null"],
+            "maxLength": 200
+          },
+          "originalPartNumber": {
+            "type": ["string", "null"],
+            "maxLength": 160
+          },
+          "modification": {
+            "type": ["string", "null"],
+            "maxLength": 160
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "summary": {
+            "type": ["string", "null"],
+            "maxLength": 500
+          },
+          "description": {
+            "type": ["string", "null"],
+            "maxLength": 20000
+          },
+          "attributes": {
+            "type": "array",
+            "maxItems": 300,
+            "items": {
+              "$ref": "#/components/schemas/CatalogAttributeInput"
+            }
+          }
+        }
+      },
+      "PatchCatalogProductDraft": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion", "baseRevisionId"],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "baseRevisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "brandId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "manufacturerName": {
+            "type": ["string", "null"],
+            "maxLength": 200
+          },
+          "originalPartNumber": {
+            "type": ["string", "null"],
+            "maxLength": 160
+          },
+          "modification": {
+            "type": ["string", "null"],
+            "maxLength": 160
+          },
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "summary": {
+            "type": ["string", "null"],
+            "maxLength": 500
+          },
+          "description": {
+            "type": ["string", "null"],
+            "maxLength": 20000
+          },
+          "attributes": {
+            "type": "array",
+            "maxItems": 300,
+            "items": {
+              "$ref": "#/components/schemas/CatalogAttributeInput"
+            }
+          }
+        }
+      },
+      "SubmitCatalogProduct": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "CatalogProductReviewDecision": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["expectedVersion", "revisionId", "decision"],
+            "properties": {
+              "expectedVersion": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "revisionId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "decision": {
+                "const": "PUBLISH"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["expectedVersion", "revisionId", "decision", "reason"],
+            "properties": {
+              "expectedVersion": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "revisionId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "decision": {
+                "const": "RETURN_FOR_CHANGES"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["expectedVersion", "revisionId", "decision", "reason"],
+            "properties": {
+              "expectedVersion": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "revisionId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "decision": {
+                "const": "REJECT"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              }
+            }
+          }
+        ]
+      },
+      "ReplaceCatalogProductRelations": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion", "relations"],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "relations": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/CatalogProductRelation"
+            }
+          }
+        }
+      },
+      "ReplaceCatalogProductMedia": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion", "items"],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/CatalogProductMediaItem"
+            }
+          }
+        }
+      },
+      "ReplaceCatalogProductDocuments": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion", "items"],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/CatalogProductDocumentItem"
+            }
+          }
+        }
+      },
+      "CatalogMediaMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fileVersionId",
+          "altText",
+          "caption",
+          "sortOrder",
+          "isPrimary"
+        ],
+        "properties": {
+          "fileVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "altText": {
+            "type": "string"
+          },
+          "caption": {
+            "type": ["string", "null"]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "isPrimary": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogDocumentMetadata": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fileVersionId",
+          "documentKind",
+          "displayName",
+          "locale",
+          "sortOrder"
+        ],
+        "properties": {
+          "fileVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentKind": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "locale": {
+            "type": ["string", "null"]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "PublicCatalogCategory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slug", "name", "sortOrder"],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 120
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "sortOrder": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          }
+        }
+      },
+      "PublicCatalogProductCard": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "slug",
+          "displayName",
+          "brand",
+          "manufacturerName",
+          "originalPartNumber",
+          "modification",
+          "category",
+          "priceDisplay"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "brand": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PublicBrand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manufacturerName": {
+            "type": ["string", "null"]
+          },
+          "originalPartNumber": {
+            "type": ["string", "null"]
+          },
+          "modification": {
+            "type": ["string", "null"]
+          },
+          "category": {
+            "$ref": "#/components/schemas/PublicCategory"
+          },
+          "priceDisplay": {
+            "$ref": "#/components/schemas/PublicPriceDisplay"
+          }
+        }
+      },
+      "PublicBrand": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "slug"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 120
+          }
+        },
+        "description": "Current active brand reference label; not a revision snapshot."
+      },
+      "PublicCategory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "slug"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 120
+          }
+        },
+        "description": "Current active category reference label; not a revision snapshot."
+      },
+      "PublicPriceDisplay": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "label"],
+        "properties": {
+          "kind": {
+            "const": "ON_REQUEST"
+          },
+          "label": {
+            "const": "Цена по запросу"
+          }
+        }
+      },
+      "PublicCatalogProduct": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "slug",
+          "displayName",
+          "brand",
+          "manufacturerName",
+          "originalPartNumber",
+          "modification",
+          "category",
+          "priceDisplay",
+          "summary",
+          "description",
+          "attributes",
+          "relations"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "brand": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PublicBrand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manufacturerName": {
+            "type": ["string", "null"]
+          },
+          "originalPartNumber": {
+            "type": ["string", "null"]
+          },
+          "modification": {
+            "type": ["string", "null"]
+          },
+          "category": {
+            "$ref": "#/components/schemas/PublicCategory"
+          },
+          "priceDisplay": {
+            "$ref": "#/components/schemas/PublicPriceDisplay"
+          },
+          "summary": {
+            "type": ["string", "null"]
+          },
+          "description": {
+            "type": ["string", "null"]
+          },
+          "attributes": {
+            "type": "array",
+            "maxItems": 300,
+            "items": {
+              "$ref": "#/components/schemas/PublicAttributeValue"
+            }
+          },
+          "relations": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/PublicCatalogRelation"
+            }
+          }
+        }
+      },
+      "PublicCatalogRelation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["relationType", "target"],
+        "properties": {
+          "relationType": {
+            "type": "string",
+            "enum": ["ACCESSORY", "COMPATIBLE_EQUIPMENT"]
+          },
+          "target": {
+            "$ref": "#/components/schemas/PublicCatalogProductCard"
+          }
+        }
+      },
+      "PublicAttributeValue": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CatalogAttributeValueTEXT"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeValueDECIMAL"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeValueINTEGER"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeValueBOOLEAN"
+          },
+          {
+            "$ref": "#/components/schemas/CatalogAttributeValueENUM"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "valueType"
+        }
+      },
+      "CatalogAttributeInputTEXT": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attributeDefinitionId", "valueType", "value"],
+        "properties": {
+          "attributeDefinitionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valueType": {
+            "const": "TEXT"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 240
+          }
+        }
+      },
+      "CatalogAttributeInputDECIMAL": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attributeDefinitionId", "valueType", "value"],
+        "properties": {
+          "attributeDefinitionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valueType": {
+            "const": "DECIMAL"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^(?:0|-?[1-9][0-9]*)(?:\\.[0-9]*[1-9])?$|^-0\\.[0-9]*[1-9]$",
+            "description": "Canonical base-10 decimal string: no exponent, leading plus/zeroes, trailing fractional zeroes or negative zero."
+          }
+        }
+      },
+      "CatalogAttributeInputINTEGER": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attributeDefinitionId", "valueType", "value"],
+        "properties": {
+          "attributeDefinitionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valueType": {
+            "const": "INTEGER"
+          },
+          "value": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "CatalogAttributeInputBOOLEAN": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attributeDefinitionId", "valueType", "value"],
+        "properties": {
+          "attributeDefinitionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valueType": {
+            "const": "BOOLEAN"
+          },
+          "value": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogAttributeInputENUM": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attributeDefinitionId", "valueType", "value"],
+        "properties": {
+          "attributeDefinitionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valueType": {
+            "const": "ENUM"
+          },
+          "value": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,79}$",
+                "maxLength": 80
+              }
+            }
+          }
+        }
+      },
+      "CatalogAttributeValueTEXT": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attributeCode",
+          "label",
+          "valueType",
+          "value",
+          "unitCode",
+          "unitLabel",
+          "comparable"
+        ],
+        "properties": {
+          "attributeCode": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "valueType": {
+            "const": "TEXT"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "unitCode": {
+            "type": ["string", "null"],
+            "maxLength": 32
+          },
+          "unitLabel": {
+            "type": ["string", "null"],
+            "maxLength": 48
+          },
+          "comparable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogAttributeValueDECIMAL": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attributeCode",
+          "label",
+          "valueType",
+          "value",
+          "unitCode",
+          "unitLabel",
+          "comparable"
+        ],
+        "properties": {
+          "attributeCode": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "valueType": {
+            "const": "DECIMAL"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^(?:0|-?[1-9][0-9]*)(?:\\.[0-9]*[1-9])?$|^-0\\.[0-9]*[1-9]$",
+            "description": "Canonical base-10 decimal string: no exponent, leading plus/zeroes, trailing fractional zeroes or negative zero."
+          },
+          "unitCode": {
+            "type": ["string", "null"],
+            "maxLength": 32
+          },
+          "unitLabel": {
+            "type": ["string", "null"],
+            "maxLength": 48
+          },
+          "comparable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogAttributeValueINTEGER": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attributeCode",
+          "label",
+          "valueType",
+          "value",
+          "unitCode",
+          "unitLabel",
+          "comparable"
+        ],
+        "properties": {
+          "attributeCode": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "valueType": {
+            "const": "INTEGER"
+          },
+          "value": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "unitCode": {
+            "type": ["string", "null"],
+            "maxLength": 32
+          },
+          "unitLabel": {
+            "type": ["string", "null"],
+            "maxLength": 48
+          },
+          "comparable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogAttributeValueBOOLEAN": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attributeCode",
+          "label",
+          "valueType",
+          "value",
+          "unitCode",
+          "unitLabel",
+          "comparable"
+        ],
+        "properties": {
+          "attributeCode": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "valueType": {
+            "const": "BOOLEAN"
+          },
+          "value": {
+            "type": "boolean"
+          },
+          "unitCode": {
+            "type": ["string", "null"],
+            "maxLength": 32
+          },
+          "unitLabel": {
+            "type": ["string", "null"],
+            "maxLength": 48
+          },
+          "comparable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogAttributeValueENUM": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attributeCode",
+          "label",
+          "valueType",
+          "value",
+          "unitCode",
+          "unitLabel",
+          "comparable"
+        ],
+        "properties": {
+          "attributeCode": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "valueType": {
+            "const": "ENUM"
+          },
+          "value": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "label"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,79}$",
+                "maxLength": 80
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              }
+            }
+          },
+          "unitCode": {
+            "type": ["string", "null"],
+            "maxLength": 32
+          },
+          "unitLabel": {
+            "type": ["string", "null"],
+            "maxLength": 48
+          },
+          "comparable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogBrandListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogBrand"
+            }
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["requestId", "limit", "nextCursor"],
+            "properties": {
+              "requestId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "nextCursor": {
+                "type": ["string", "null"],
+                "maxLength": 256,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              }
+            }
+          }
+        }
+      },
+      "CatalogBrandResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CatalogBrand"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "CatalogCategoryListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogCategory"
+            }
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["requestId", "limit", "nextCursor"],
+            "properties": {
+              "requestId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "nextCursor": {
+                "type": ["string", "null"],
+                "maxLength": 256,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              }
+            }
+          }
+        }
+      },
+      "CatalogCategoryResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CatalogCategory"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "CatalogAttributeListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogAttributeDefinition"
+            }
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["requestId", "limit", "nextCursor"],
+            "properties": {
+              "requestId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "nextCursor": {
+                "type": ["string", "null"],
+                "maxLength": 256,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              }
+            }
+          }
+        }
+      },
+      "CatalogAttributeResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CatalogAttributeDefinition"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "StaffCatalogProductListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffCatalogProduct"
+            }
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["requestId", "limit", "nextCursor"],
+            "properties": {
+              "requestId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "nextCursor": {
+                "type": ["string", "null"],
+                "maxLength": 256,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              }
+            }
+          }
+        }
+      },
+      "StaffCatalogProductResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StaffCatalogProductDetail"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "CatalogProductRelationsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogProductRelation"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "CatalogProductMediaResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogMediaMetadata"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "CatalogProductDocumentsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogDocumentMetadata"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      },
+      "PublicCatalogCategoryListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/PublicCatalogCategory"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PublicCategoryCursorPageMeta"
+          }
+        }
+      },
+      "PublicCatalogProductListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicCatalogProductCard"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PublicPageMeta"
+          }
+        }
+      },
+      "PublicCatalogProductResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PublicCatalogProduct"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
+        }
+      }
+    }
+  },
+  "x-contract-status": "FROZEN",
+  "x-approved-source-sha": "8ae4dd8cfd15e3722d97259818b238924851c963",
+  "x-frozen-contracts": ["R1-002 1.0.0"],
+  "x-pagination": {
+    "staff": "limit 1..100 default 50; opaque createdAt/id cursor",
+    "public": "Catalog products: page 1..10000 default 1; pageSize 1..100 default 24. Categories: keyset cursor over sortOrder/slug; pageSize 1..100 default 24; no total count or page-number ceiling."
+  },
+  "x-public-file-policy": "No media/document URL or public FileVersion DTO in R1-004B; add only after separate approved safe file delivery contract.",
+  "x-catalog-permissions": [
+    "catalog.references.read",
+    "catalog.products.read",
+    "catalog.products.write",
+    "catalog.products.submit",
+    "catalog.products.publish",
+    "catalog.products.archive",
+    "catalog.categories.write",
+    "catalog.brands.write",
+    "catalog.attributes.write",
+    "catalog.products.relations.write",
+    "catalog.products.media.write",
+    "catalog.products.documents.write"
+  ]
+}

@@ -1,0 +1,327 @@
+{
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "approvedSourceSha": "8ae4dd8cfd15e3722d97259818b238924851c963",
+  "extends": "docs/contracts/R1-002-audit-registry.json FROZEN 1.0.0; append only",
+  "entityTypes": [
+    "Brand",
+    "Category",
+    "AttributeDefinition",
+    "CatalogProduct",
+    "CatalogProductRevision",
+    "ProductAttributeValue",
+    "ProductMedia",
+    "ProductDocumentVersion",
+    "ProductRelation"
+  ],
+  "commonOutcomes": {
+    "DENIED": [
+      "AUTH_REQUIRED",
+      "FORBIDDEN",
+      "PASSWORD_CHANGE_REQUIRED",
+      "ORIGIN_FORBIDDEN",
+      "CSRF_INVALID",
+      "UNSUPPORTED_MEDIA_TYPE",
+      "VALIDATION_ERROR",
+      "NOT_FOUND",
+      "VERSION_CONFLICT",
+      "INVALID_STATE_TRANSITION",
+      "IDENTITY_CONFLICT",
+      "SLUG_CONFLICT",
+      "CATEGORY_CYCLE",
+      "CATEGORY_INACTIVE_PARENT",
+      "ATTRIBUTE_NOT_APPLICABLE",
+      "PUBLICATION_NOT_READY",
+      "REFERENCE_IN_USE",
+      "FILE_NOT_ACCESSIBLE",
+      "GRANT_CEILING_EXCEEDED",
+      "LAST_ADMIN_REQUIRED"
+    ],
+    "FAILURE": ["DEPENDENCY_UNAVAILABLE", "AUDIT_UNAVAILABLE", "INTERNAL_ERROR"]
+  },
+  "changesValuePolicy": "Only IDs, enumerated decisions, bounded reason/reference codes, sorted changed field names and integer counts; no complete product text, file bytes/paths, credentials, supplier/pricing details or raw requests.",
+  "actions": {
+    "catalog.reference.changed": {
+      "entityTypes": ["Brand", "Category", "AttributeDefinition"],
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "UNSUPPORTED_MEDIA_TYPE",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "VERSION_CONFLICT",
+          "CATEGORY_CYCLE",
+          "CATEGORY_INACTIVE_PARENT",
+          "REFERENCE_IN_USE"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": [
+        "changedFields",
+        "version",
+        "previousParentId",
+        "parentId",
+        "previousState",
+        "state"
+      ]
+    },
+    "catalog.product.created": {
+      "entityTypes": ["CatalogProduct"],
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "UNSUPPORTED_MEDIA_TYPE",
+          "VALIDATION_ERROR",
+          "IDENTITY_CONFLICT",
+          "SLUG_CONFLICT",
+          "NOT_FOUND"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": ["revisionId", "changedFields", "version", "changeSource"]
+    },
+    "catalog.product.revision.created": {
+      "entityTypes": ["CatalogProduct", "CatalogProductRevision"],
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "UNSUPPORTED_MEDIA_TYPE",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "VERSION_CONFLICT",
+          "IDENTITY_CONFLICT",
+          "SLUG_CONFLICT",
+          "ATTRIBUTE_NOT_APPLICABLE",
+          "FILE_NOT_ACCESSIBLE",
+          "REFERENCE_IN_USE"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": [
+        "revisionId",
+        "sourceRevisionId",
+        "changedFields",
+        "version",
+        "changeSource"
+      ]
+    },
+    "catalog.product.submitted": {
+      "entityTypes": ["CatalogProduct", "CatalogProductRevision"],
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "UNSUPPORTED_MEDIA_TYPE",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "PUBLICATION_NOT_READY"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": ["revisionId", "version"]
+    },
+    "catalog.product.reviewed": {
+      "entityTypes": ["CatalogProduct", "CatalogProductRevision"],
+      "outcomes": {
+        "SUCCESS": ["PUBLISHED", "RETURN_FOR_CHANGES", "REJECTED"],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "UNSUPPORTED_MEDIA_TYPE",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "PUBLICATION_NOT_READY",
+          "REFERENCE_IN_USE"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": [
+        "revisionId",
+        "decision",
+        "reasonCode",
+        "version",
+        "publishedRevisionId"
+      ]
+    },
+    "catalog.product.archived": {
+      "entityTypes": ["CatalogProduct"],
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "UNSUPPORTED_MEDIA_TYPE",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": [
+        "previousState",
+        "state",
+        "publishedRevisionId",
+        "pendingRevisionId",
+        "version"
+      ]
+    },
+    "catalog.product.relations.changed": {
+      "entityTypes": ["CatalogProductRevision", "ProductRelation"],
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "UNSUPPORTED_MEDIA_TYPE",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "REFERENCE_IN_USE"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": ["revisionId", "addedCount", "removedCount", "version"]
+    },
+    "catalog.product.media.changed": {
+      "entityTypes": ["CatalogProductRevision", "ProductMedia"],
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "UNSUPPORTED_MEDIA_TYPE",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "FILE_NOT_ACCESSIBLE"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": ["revisionId", "addedCount", "removedCount", "version"]
+    },
+    "catalog.product.documents.changed": {
+      "entityTypes": ["CatalogProductRevision", "ProductDocumentVersion"],
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "PASSWORD_CHANGE_REQUIRED",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "UNSUPPORTED_MEDIA_TYPE",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "FILE_NOT_ACCESSIBLE"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": ["revisionId", "addedCount", "removedCount", "version"]
+    },
+    "catalog.permissions.initialized": {
+      "entityTypes": ["Role"],
+      "actorKinds": ["OPERATOR"],
+      "outcomes": {
+        "SUCCESS": ["OWNER_APPROVED"],
+        "DENIED": [
+          "OWNER_APPROVAL_REQUIRED",
+          "INITIAL_GRANT_ALREADY_USED",
+          "TARGET_NOT_ELIGIBLE",
+          "LAST_ADMIN_REQUIRED",
+          "VALIDATION_ERROR"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": [
+        "targetUserId",
+        "roleId",
+        "permissionCodes",
+        "approvalReference"
+      ],
+      "changesValueConstraints": {
+        "permissionCodes": "Exactly the 12 catalogPermissionCodes pinned by R1-004 0.1.0-proposed; initialization fails closed if registry differs.",
+        "approvalReference": "Required non-secret external ticket/reference label, 1..80 characters matching ^[A-Za-z0-9][A-Za-z0-9._:/-]{0,79}$; recorded as supplied and is not proof of owner approval."
+      }
+    }
+  }
+}

@@ -1,0 +1,168 @@
+{
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "approvedSourceSha": "8ae4dd8cfd15e3722d97259818b238924851c963",
+  "baseline": "28d9a85aa82dc4bf3c116e16ca6a3973a9d7bc6e",
+  "extends": "R1-002 RBAC FROZEN 1.0.0; no prior artifact is edited",
+  "permissions": {
+    "catalog.references.read": "Read active staff catalog brands, categories and attribute definitions.",
+    "catalog.products.read": "Read internal product roots, editor revisions and publication history; not file bytes or inaccessible file metadata.",
+    "catalog.products.write": "Create products and append new DRAFT revisions; never submit or publish implicitly.",
+    "catalog.products.submit": "Submit the current DRAFT revision for a human publication decision.",
+    "catalog.products.publish": "Publish, return for changes or reject one pending revision; separate from edit and submit.",
+    "catalog.products.archive": "Archive one product and suppress its public pointer; preserve all revision history.",
+    "catalog.categories.write": "Create/edit/reparent/archive categories under tree and reference integrity rules.",
+    "catalog.brands.write": "Create/edit/archive brands under reference integrity rules.",
+    "catalog.attributes.write": "Create/edit/archive category-specific typed attribute definitions under semantic immutability rules.",
+    "catalog.products.relations.write": "Replace a product draft's manually selected accessory/compatible relations.",
+    "catalog.products.media.write": "Replace draft media metadata referencing an already existing accessible FileVersion; no upload/download.",
+    "catalog.products.documents.write": "Replace draft document metadata referencing an already existing accessible FileVersion; no upload/download."
+  },
+  "actions": {
+    "catalog.references.read": [
+      { "method": "GET", "path": "/v1/staff/catalog/categories" },
+      { "method": "GET", "path": "/v1/staff/catalog/categories/{categoryId}" },
+      { "method": "GET", "path": "/v1/staff/catalog/brands" },
+      { "method": "GET", "path": "/v1/staff/catalog/brands/{brandId}" },
+      { "method": "GET", "path": "/v1/staff/catalog/attributes" },
+      { "method": "GET", "path": "/v1/staff/catalog/attributes/{attributeId}" }
+    ],
+    "catalog.products.read": [
+      { "method": "GET", "path": "/v1/staff/catalog/products" },
+      { "method": "GET", "path": "/v1/staff/catalog/products/{productId}" },
+      {
+        "method": "GET",
+        "path": "/v1/staff/catalog/products/{productId}/relations"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/staff/catalog/products/{productId}/media"
+      },
+      {
+        "method": "GET",
+        "path": "/v1/staff/catalog/products/{productId}/documents"
+      }
+    ],
+    "catalog.products.write": [
+      { "method": "POST", "path": "/v1/staff/catalog/products" },
+      { "method": "PATCH", "path": "/v1/staff/catalog/products/{productId}" }
+    ],
+    "catalog.products.submit": [
+      {
+        "method": "POST",
+        "path": "/v1/staff/catalog/products/{productId}/submit"
+      }
+    ],
+    "catalog.products.publish": [
+      {
+        "method": "POST",
+        "path": "/v1/staff/catalog/products/{productId}/review"
+      }
+    ],
+    "catalog.products.archive": [
+      {
+        "method": "POST",
+        "path": "/v1/staff/catalog/products/{productId}/archive"
+      }
+    ],
+    "catalog.categories.write": [
+      { "method": "POST", "path": "/v1/staff/catalog/categories" },
+      {
+        "method": "PATCH",
+        "path": "/v1/staff/catalog/categories/{categoryId}"
+      },
+      {
+        "method": "POST",
+        "path": "/v1/staff/catalog/categories/{categoryId}/archive"
+      }
+    ],
+    "catalog.brands.write": [
+      { "method": "POST", "path": "/v1/staff/catalog/brands" },
+      { "method": "PATCH", "path": "/v1/staff/catalog/brands/{brandId}" },
+      { "method": "POST", "path": "/v1/staff/catalog/brands/{brandId}/archive" }
+    ],
+    "catalog.attributes.write": [
+      { "method": "POST", "path": "/v1/staff/catalog/attributes" },
+      {
+        "method": "PATCH",
+        "path": "/v1/staff/catalog/attributes/{attributeId}"
+      },
+      {
+        "method": "POST",
+        "path": "/v1/staff/catalog/attributes/{attributeId}/archive"
+      }
+    ],
+    "catalog.products.relations.write": [
+      {
+        "method": "PUT",
+        "path": "/v1/staff/catalog/products/{productId}/relations"
+      }
+    ],
+    "catalog.products.media.write": [
+      {
+        "method": "PUT",
+        "path": "/v1/staff/catalog/products/{productId}/media"
+      }
+    ],
+    "catalog.products.documents.write": [
+      {
+        "method": "PUT",
+        "path": "/v1/staff/catalog/products/{productId}/documents"
+      }
+    ]
+  },
+  "additionalPermissionRequirements": {
+    "mediaOrDocumentsWrite": [
+      "files.metadata.read",
+      "object-level FileVersion policy from frozen R1-002"
+    ],
+    "mediaOrDocumentsRead": [
+      "files.metadata.read",
+      "object-level FileVersion policy from frozen R1-002"
+    ]
+  },
+  "roleTemplates": {
+    "bootstrap-admin": "No catalog permissions are added automatically.",
+    "access-admin": "No catalog permissions are added automatically.",
+    "seller-maintainer": "No catalog permissions are added automatically.",
+    "audit-reader": "No catalog permissions are added automatically."
+  },
+  "rules": [
+    "Effective permissions remain the ACTIVE-role union of one ACTIVE employee; role names have no authority.",
+    "No public/staff route uses catalog.admin, wildcard permissions, UI visibility or role-name checks.",
+    "All catalog permissions have default deny. Permission registry migration inserts codes only; no RolePermission grant is seeded.",
+    "Staff RBAC grant ceiling remains exactly R1-002: an ordinary permission/assignment change can grant only actions in the actor current effective union.",
+    "The one-time operator initialization command is explicit owner-authorized bootstrap, not an HTTP/API path, app startup action, migration side effect or repeatable bypass. It creates a new ordinary role, assigns the complete catalog permission set to that role and one explicitly selected eligible employee, and writes one OPERATOR audit event in the same transaction.",
+    "Initialization target is ACTIVE, passwordChangeRequired=false, valid Argon2id credentials, and already has effective staff.roles.read, staff.roles.write, staff.roles.permissions.write and staff.roles.assign. No existing role is altered or auto-expanded.",
+    "The one-time command serializes under the existing pg_advisory_xact_lock(1398031445, 2); it verifies the R1-002 control-admin and full-admin invariants before and after, and refuses if either is already broken. Those protected 12 permissions remain unchanged.",
+    "A successful catalog-permission initialization action in append-only AuditEvent makes a second initialization fail. Normal delegation after initialization uses ordinary R1-002 RBAC API and grant ceiling.",
+    "File metadata calls require both the catalog permission and frozen files.metadata.read/object policy. The catalog FK never grants file visibility or download authority."
+  ],
+  "initialGrant": {
+    "command": "pnpm --filter @stdu/api catalog:permissions:initialize --target-user-id <uuid> --owner-approval-ref <reference> --operator <label>",
+    "catalogPermissionCodes": [
+      "catalog.references.read",
+      "catalog.products.read",
+      "catalog.products.write",
+      "catalog.products.submit",
+      "catalog.products.publish",
+      "catalog.products.archive",
+      "catalog.categories.write",
+      "catalog.brands.write",
+      "catalog.attributes.write",
+      "catalog.products.relations.write",
+      "catalog.products.media.write",
+      "catalog.products.documents.write"
+    ],
+    "catalogPermissionCodesMustMatchRegistryExactly": true,
+    "role": "Creates a normal role with generated non-authoritative code catalog-bootstrap-<request-uuid> and descriptive name; assigns exactly the 12 catalogPermissionCodes listed in this 0.1.0-proposed contract and assigns the role to exactly the selected staff user. The CLI fails closed if the registered R1-004 permission set differs in either direction; changing the pinned set requires an approved contract update.",
+    "actor": "OPERATOR; operator label and owner approval reference attest an off-application owner decision and are not cryptographic identity proof.",
+    "ownerApprovalReference": "Required external ticket/reference label, 1..80 characters matching ^[A-Za-z0-9][A-Za-z0-9._:/-]{0,79}$. Must not contain secrets or personal data. The CLI records the label only; it does not resolve or prove the approval.",
+    "oneTime": "At most one successful initialization per database; enforced by advisory lock and append-only catalog.permissions.initialized success audit record.",
+    "transaction": "Same existing RBAC advisory lock and one PostgreSQL transaction for eligible-target revalidation, role creation, RolePermission rows, UserRole row, last-admin checks and SUCCESS audit; any failure rolls all back.",
+    "secretPolicy": "No password, file path, token, or credential is accepted by the command. Command is not run by R1-004A or automatically by migration/deployment."
+  },
+  "deniedByDefault": true,
+  "changesProtectedR1_002Sets": false,
+  "changesDecisions1To108": false
+}
