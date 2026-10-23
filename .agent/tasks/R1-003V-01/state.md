@@ -1,15 +1,15 @@
 # R1-003V-01 — Engineering Motion Showcase
 
 TASK: R1-003V-01
-STATUS: LOCAL_VERIFICATION_COMPLETE_HOST_SMOKE_BLOCKED
+STATUS: IMPLEMENTATION_COMMITTED_PR_PENDING_HOST_SMOKE_BLOCKED
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE
-PHASE: implementation, local checks, and independent reviews complete; hosted gates pending
+PHASE: implementation committed; independent reviews passed; hosted gates pending
 UPDATED_AT: 2026-10-24
 BRANCH: codex/r1-003v-01-engineering-motion
 BASELINE_MAIN: ab7f5a25a7d36d2d722e36effb8c9fecb848c88a
-LAST_SAFE_COMMIT: ab7f5a25a7d36d2d722e36effb8c9fecb848c88a
-WORKTREE_STATUS: known task-owned changes only, not yet committed
+LAST_SAFE_COMMIT: 14c1245
+WORKTREE_STATUS: clean after task checkpoint commit
 
 ## Frozen task contract
 
@@ -57,5 +57,5 @@ WORKTREE_STATUS: known task-owned changes only, not yet committed
 
 ## Delivery status
 
-- No commit or PR yet. Follow-up reviews and a fresh origin/main/parallel-branch compatibility check passed; final diff/secret check and hosted gates remain.
+- Code commit `14c1245` created after staged diff review. Both independent follow-up reviews passed; fresh `origin/main` and parallel-branch compatibility checks passed. No PR yet. Hosted exact-HEAD gates remain, and local host smoke is blocked by the active R1-001 API listener.
 - AUTO_MERGE remains gated on required exact-HEAD GitHub checks, approvals, no blocking reviews/threads, clean compatibility with current main, and successful integration. Host smoke limitation must be represented honestly if CI does not provide equivalent evidence.
