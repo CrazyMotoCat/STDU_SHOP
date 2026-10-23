@@ -795,13 +795,7 @@ svg {
 .hero-section {
   padding-block: clamp(3rem, 5.4vw, 5rem) clamp(3rem, 5vw, 4.5rem);
   overflow: clip;
-  background:
-    radial-gradient(
-      ellipse at 82% 42%,
-      rgb(23 122 131 / 9%),
-      transparent 34rem
-    ),
-    linear-gradient(112deg, #f9fbfc 4%, #f6f9fa 57%, #eef4f5 100%);
+  background: #f6f8f9;
 }
 
 .hero-grid {
@@ -910,11 +904,10 @@ svg {
   padding: clamp(0.75rem, 1.4vw, 1.25rem);
   border: 1px solid rgb(133 173 176 / 42%);
   border-radius: calc(var(--radius-lg) + 0.125rem);
-  background: linear-gradient(145deg, #20384a 0%, #142738 46%, #0c1928 100%);
+  background: #102131;
   box-shadow:
-    0 1.6rem 3.5rem rgb(14 27 44 / 19%),
-    0 0.25rem 0.8rem rgb(14 27 44 / 10%),
-    inset 0 1px 0 rgb(255 255 255 / 13%);
+    0 1.2rem 2.7rem rgb(14 27 44 / 16%),
+    inset 0 1px 0 rgb(255 255 255 / 7%);
 }
 
 .hero-visual::after {
@@ -936,9 +929,7 @@ svg {
   overflow: hidden;
   border: 1px solid rgb(175 209 208 / 12%);
   border-radius: var(--radius-md);
-  background:
-    radial-gradient(ellipse at 78% 18%, rgb(41 153 155 / 23%), transparent 38%),
-    linear-gradient(142deg, #112638 0%, var(--art-background) 62%, #0b1725 100%);
+  background: var(--art-background);
   color: var(--color-silver);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
 }
@@ -1040,12 +1031,8 @@ svg {
   min-height: 16.75rem;
   overflow: hidden;
   border-color: #d4dfe1;
-  background:
-    radial-gradient(ellipse at 92% 18%, rgb(23 122 131 / 8%), transparent 38%),
-    linear-gradient(146deg, #fff 0%, #fbfcfc 57%, #f2f7f7 100%);
-  box-shadow:
-    0 0.6rem 1.8rem rgb(14 27 44 / 5%),
-    inset 0 1px 0 rgb(255 255 255 / 90%);
+  background: #fff;
+  box-shadow: 0 0.4rem 1rem rgb(14 27 44 / 5%);
 }
 
 .service-card--direction::before {
@@ -1110,6 +1097,10 @@ svg {
   fill: rgb(23 122 131 / 13%);
   stroke: currentColor;
   stroke-width: 1.2;
+}
+
+.direction-visual__rail {
+  fill: #6c858b;
 }
 
 .direction-visual__accent {
@@ -1194,30 +1185,7 @@ svg {
   overflow: hidden;
   border-top: 1px solid rgb(178 213 214 / 14%);
   padding-block: clamp(3.5rem, 6vw, 5.5rem);
-  background:
-    radial-gradient(
-      ellipse at 86% 7%,
-      rgb(37 123 130 / 23%),
-      transparent 31rem
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0 3.4rem,
-      rgb(187 220 220 / 3%) 3.4rem 3.45rem
-    ),
-    linear-gradient(118deg, #0d1a29 0%, #112635 66%, #102f35 100%);
-}
-
-.closing-section::before {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: min(38vw, 30rem);
-  height: 100%;
-  border-left: 1px solid rgb(177 215 214 / 12%);
-  background: linear-gradient(90deg, transparent, rgb(31 112 118 / 8%));
-  content: '';
-  pointer-events: none;
+  background: var(--color-deep-navy);
 }
 
 .closing-section__inner {
@@ -1583,15 +1551,22 @@ svg {
     border-radius: 1rem;
   }
 
-  .engineering-showcase__choices {
+  .engineering-showcase .engineering-showcase__choices {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.35rem;
     margin-top: var(--space-4);
   }
 
-  .engineering-showcase__choice {
+  .engineering-showcase .engineering-showcase__choice {
     min-height: 3.1rem;
     padding: 0.45rem 0.35rem;
     font-size: 0.82rem;
+  }
+
+  .engineering-showcase .engineering-showcase__choice:last-child {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc(50% - 0.175rem);
   }
 
   .engineering-showcase__summary {
@@ -1774,6 +1749,42 @@ svg {
   }
 }
 
+@keyframes switchgear-flow {
+  0%,
+  4% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 0.78;
+  }
+
+  23% {
+    stroke-dashoffset: -100;
+    opacity: 0.72;
+  }
+
+  27%,
+  100% {
+    stroke-dashoffset: -100;
+    opacity: 0;
+  }
+}
+
+@keyframes switchgear-accent-breathe {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.27;
+    transform: scale(1.015);
+  }
+}
+
 @keyframes technical-rule-reveal {
   from {
     opacity: 0.25;
@@ -1809,6 +1820,45 @@ svg {
   }
 }
 
+@keyframes showcase-signal-flow {
+  0%,
+  4% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 0.86;
+  }
+
+  23% {
+    stroke-dashoffset: -108;
+    opacity: 0.78;
+  }
+
+  28%,
+  100% {
+    stroke-dashoffset: -108;
+    opacity: 0;
+  }
+}
+
+@keyframes showcase-device-accent {
+  0%,
+  7%,
+  100% {
+    stroke-opacity: 0.78;
+  }
+
+  12% {
+    stroke-opacity: 1;
+  }
+
+  19% {
+    stroke-opacity: 0.84;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .switchgear-art__outline--front {
     stroke-dashoffset: 1500;
@@ -1833,11 +1883,23 @@ svg {
   }
 
   .switchgear-art__highlight {
-    animation: switchgear-highlight 1.25s ease-out 0.46s both;
+    animation: switchgear-highlight 1.25s ease-out 0.46s 1 both;
   }
 
   .switchgear-art__pulse {
     animation: switchgear-impulse 1.05s ease-out 0.82s 1 both;
+  }
+
+  .switchgear-art[data-in-view='true'] .switchgear-art__highlight {
+    animation:
+      switchgear-highlight 1.25s ease-out 0.46s 1 both,
+      switchgear-accent-breathe 7.2s ease-in-out 2s infinite;
+  }
+
+  .switchgear-art[data-in-view='true'] .switchgear-art__pulse {
+    animation:
+      switchgear-impulse 1.05s ease-out 0.82s 1 both,
+      switchgear-flow 7.2s linear 2.2s infinite;
   }
 
   .hero-section__rule {
@@ -1867,27 +1929,8 @@ svg {
   padding: clamp(1.15rem, 2.5vw, 2rem);
   border: 1px solid #d2dfe1;
   border-radius: 1.35rem;
-  background:
-    radial-gradient(ellipse at 0% 100%, rgb(23 122 131 / 5%), transparent 48%),
-    linear-gradient(132deg, #fff 0%, #f8fafb 58%, #f1f6f7 100%);
-  box-shadow:
-    0 1rem 2.6rem rgb(14 27 44 / 7%),
-    inset 0 1px 0 rgb(255 255 255 / 90%);
-}
-
-.engineering-showcase::before {
-  position: absolute;
-  top: 0;
-  right: 2rem;
-  left: 2rem;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgb(23 122 131 / 28%),
-    transparent
-  );
-  content: '';
+  background: #f4f7f8;
+  box-shadow: 0 0.7rem 1.8rem rgb(14 27 44 / 6%);
 }
 
 .engineering-showcase__layout {
@@ -1946,11 +1989,9 @@ svg {
 
 .engineering-showcase__choice[aria-pressed='true'] {
   border-color: rgb(255 255 255 / 20%);
-  background: linear-gradient(135deg, #174b53, #12343e);
+  background: #123a43;
   color: var(--color-white);
-  box-shadow:
-    0 0.35rem 0.8rem rgb(14 27 44 / 16%),
-    inset 0 1px 0 rgb(255 255 255 / 12%);
+  box-shadow: 0 0.25rem 0.6rem rgb(14 27 44 / 14%);
 }
 
 @media (hover: hover) {
@@ -2017,26 +2058,8 @@ svg {
   overflow: hidden;
   border: 1px solid rgb(116 160 164 / 40%);
   border-radius: 1rem;
-  background: linear-gradient(140deg, #172e40, #0e1b2c 62%, #0b1725);
-  box-shadow:
-    0 1.2rem 2.8rem rgb(14 27 44 / 20%),
-    inset 0 1px 0 rgb(255 255 255 / 12%);
-}
-
-.engineering-showcase__figure::after {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  border: 1px solid rgb(225 244 241 / 11%);
-  border-radius: inherit;
-  background: linear-gradient(
-    118deg,
-    rgb(255 255 255 / 4%),
-    transparent 30% 74%,
-    rgb(46 166 164 / 5%)
-  );
-  content: '';
-  pointer-events: none;
+  background: #0e1b2c;
+  box-shadow: 0 0.9rem 1.9rem rgb(14 27 44 / 17%);
 }
 
 .engineering-showcase__drawing {
@@ -2109,9 +2132,93 @@ svg {
   stroke-dasharray: 12 280;
 }
 
-.engineering-showcase__stage[data-active='true']
-  .engineering-showcase__connection--highlight {
-  animation: switchgear-impulse 1.1s ease-out 1 both;
+.engineering-showcase__connection--signal,
+.engineering-showcase__panel-wire--signal {
+  stroke: var(--showcase-accent-bright);
+  stroke-width: 2.4;
+  stroke-dasharray: 8 92;
+  stroke-dashoffset: 0;
+  opacity: 0;
+}
+
+.engineering-showcase__panel-wire--signal {
+  stroke-width: 2.6;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__connection--signal {
+  animation: showcase-signal-flow 8.2s linear infinite;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__equipment-signal--2 {
+  animation-delay: 0.72s;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__equipment-signal--3 {
+  animation-delay: 1.44s;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__signal-step--2 {
+  animation-delay: 0.65s;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__signal-step--3 {
+  animation-delay: 1.3s;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__signal-step--4 {
+  animation-delay: 1.95s;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__signal-step--5 {
+  animation-delay: 2.6s;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__panel-wire--signal {
+  animation: showcase-signal-flow 8.2s linear 0.25s infinite;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__device--signal-1
+  > rect {
+  animation: showcase-device-accent 8.2s ease-in-out 0s infinite;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__device--signal-2
+  > rect {
+  animation: showcase-device-accent 8.2s ease-in-out 0.72s infinite;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__device--signal-3
+  > rect {
+  animation: showcase-device-accent 8.2s ease-in-out 1.44s infinite;
+}
+
+.engineering-showcase__drawing[data-in-view='true']
+  .engineering-showcase__stage[data-active='true']
+  .engineering-showcase__device--signal-4
+  > rect {
+  animation: showcase-device-accent 8.2s ease-in-out 2.16s infinite;
 }
 
 .engineering-showcase__node {
@@ -2209,5 +2316,16 @@ svg {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .switchgear-art__highlight,
+  .switchgear-art__pulse,
+  .engineering-showcase__connection--signal,
+  .engineering-showcase__panel-wire--signal,
+  .engineering-showcase__device--signal-1 > rect,
+  .engineering-showcase__device--signal-2 > rect,
+  .engineering-showcase__device--signal-3 > rect,
+  .engineering-showcase__device--signal-4 > rect {
+    animation: none !important;
   }
 }

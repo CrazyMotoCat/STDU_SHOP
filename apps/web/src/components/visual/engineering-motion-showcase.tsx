@@ -36,24 +36,24 @@ export function EngineeringMotionShowcase() {
   const instanceId = useId().replaceAll(':', '');
   const drawingRef = useRef<SVGSVGElement>(null);
   const [decorationVisible, setDecorationVisible] = useState(false);
+  const [drawingInView, setDrawingInView] = useState(false);
 
   useEffect(() => {
     const drawing = drawingRef.current;
     if (!drawing) return;
 
-    if (
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-      !('IntersectionObserver' in window)
-    ) {
+    if (!('IntersectionObserver' in window)) {
       setDecorationVisible(true);
+      setDrawingInView(true);
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
+        const visible = entries.some((entry) => entry.isIntersecting);
+        setDrawingInView(visible);
+        if (visible) {
           setDecorationVisible(true);
-          observer.disconnect();
         }
       },
       { rootMargin: '0px 0px -8% 0px' },
@@ -121,6 +121,7 @@ export function EngineeringMotionShowcase() {
             aria-labelledby={`${titleId} ${descriptionId}`}
             className="engineering-showcase__drawing"
             data-revealed={decorationVisible}
+            data-in-view={drawingInView}
             ref={drawingRef}
             fill="none"
             role="img"
@@ -128,8 +129,8 @@ export function EngineeringMotionShowcase() {
           >
             <title id={titleId}>Схема инженерного решения</title>
             <desc id={descriptionId}>
-              Оригинальная техническая иллюстрация компонентов, шкафа и системы
-              управления. Это статическая демонстрационная схема.
+              Оригинальная условная инженерная схема компонентов, шкафа и
+              системы управления.
             </desc>
             <defs>
               <pattern
@@ -174,6 +175,21 @@ export function EngineeringMotionShowcase() {
               <path
                 className="engineering-showcase__connection"
                 d="M174 218H236M324 218H386M474 218H536"
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__equipment-signal--1"
+                d="M174 218H236"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__equipment-signal--2"
+                d="M324 218H386"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__equipment-signal--3"
+                d="M474 218H536"
+                pathLength={100}
               />
               {[174, 236, 324, 386, 474, 536].map((x) => (
                 <circle
@@ -296,29 +312,34 @@ export function EngineeringMotionShowcase() {
                 className="engineering-showcase__panel-wire engineering-showcase__panel-wire--accent"
                 d="M271 305H450"
               />
+              <path
+                className="engineering-showcase__panel-wire engineering-showcase__panel-wire--signal"
+                d="M271 305H450"
+                pathLength={100}
+              />
               <g
-                className="engineering-showcase__device"
+                className="engineering-showcase__device engineering-showcase__device--signal-1"
                 transform="translate(267 160)"
               >
                 <rect height="52" rx="4" width="38" />
                 <path d="M19 8V25M11 30H27" />
               </g>
               <g
-                className="engineering-showcase__device"
+                className="engineering-showcase__device engineering-showcase__device--signal-2"
                 transform="translate(336 160)"
               >
                 <rect height="52" rx="4" width="38" />
                 <path d="M8 26C8 16 19 16 19 26S30 36 30 26" />
               </g>
               <g
-                className="engineering-showcase__device"
+                className="engineering-showcase__device engineering-showcase__device--signal-3"
                 transform="translate(405 160)"
               >
                 <rect height="52" rx="4" width="38" />
                 <path d="M8 13H30M8 23H30M8 33H25" />
               </g>
               <g
-                className="engineering-showcase__device engineering-showcase__device--wide"
+                className="engineering-showcase__device engineering-showcase__device--wide engineering-showcase__device--signal-4"
                 transform="translate(305 253)"
               >
                 <rect height="50" rx="4" width="98" />
@@ -352,8 +373,29 @@ export function EngineeringMotionShowcase() {
                 d="M210 145H300V204M210 292H300V236M460 204V145H550M460 236V292H550M380 270V328H270M380 328H500"
               />
               <path
-                className="engineering-showcase__connection engineering-showcase__connection--highlight"
+                className="engineering-showcase__connection engineering-showcase__connection--highlight engineering-showcase__connection--signal"
                 d="M210 145H300V204"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__signal-step--2"
+                d="M460 204V145H550"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__signal-step--3"
+                d="M460 236V292H550"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__signal-step--4"
+                d="M380 270V328H270"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__signal-step--5"
+                d="M380 328H500"
+                pathLength={100}
               />
               <g
                 className="engineering-showcase__node-card"

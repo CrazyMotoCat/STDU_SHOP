@@ -1,9 +1,31 @@
-import { useId } from 'react';
+'use client';
+
+import { useEffect, useId, useRef, useState } from 'react';
 
 export function SwitchgearIllustration() {
   const instanceId = useId().replaceAll(':', '');
+  const artRef = useRef<HTMLDivElement>(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    const art = artRef.current;
+    if (!art) return;
+
+    if (!('IntersectionObserver' in window)) {
+      setIsInView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsInView(entry?.isIntersecting ?? false),
+      { rootMargin: '120px 0px' },
+    );
+    observer.observe(art);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="switchgear-art">
+    <div className="switchgear-art" data-in-view={isInView} ref={artRef}>
       <svg
         className="switchgear-art__drawing"
         role="img"
@@ -12,11 +34,11 @@ export function SwitchgearIllustration() {
         fill="none"
       >
         <title id={`switchgear-title-${instanceId}`}>
-          Инженерная схема электрощита
+          Условная инженерная схема электротехнического шкафа
         </title>
         <desc id={`switchgear-description-${instanceId}`}>
-          Оригинальная векторная иллюстрация шкафа управления с дверцей,
-          индикаторами и внутренними электрическими линиями.
+          Векторная схема шкафа управления с модульными аппаратами и
+          DIN-рейками; она не изображает конкретную модель оборудования.
         </desc>
         <defs>
           <pattern
@@ -130,13 +152,60 @@ export function SwitchgearIllustration() {
         />
         <path d="M258 161H372V202H258V161Z" fill="var(--art-rail)" />
         <path
+          d="M264 171H366M264 181H366M264 191H366"
+          stroke="var(--art-device-muted)"
+          strokeWidth="1.5"
+        />
+        <path
+          d="M258 205H372V210H258V205ZM258 261H372V266H258V261Z"
+          fill="var(--art-base)"
+          stroke="var(--art-line-soft)"
+          strokeWidth="0.75"
+        />
+        <circle cx="263" cy="207.5" r="1.5" fill="var(--art-handle)" />
+        <circle cx="367" cy="207.5" r="1.5" fill="var(--art-handle)" />
+        <circle cx="263" cy="263.5" r="1.5" fill="var(--art-handle)" />
+        <circle cx="367" cy="263.5" r="1.5" fill="var(--art-handle)" />
+        <path
           d="M260 211H291V257H260V211ZM300 211H331V257H300V211ZM340 211H371V257H340V211Z"
           fill="var(--art-device)"
+          stroke="var(--art-door-line)"
+          strokeWidth="1"
         />
         <path
           d="M260 267H291V313H260V267ZM300 267H331V313H300V267ZM340 267H371V313H340V267Z"
           fill="var(--art-device-muted)"
+          stroke="var(--art-door-line)"
+          strokeWidth="1"
         />
+        <path
+          d="M267 216H284V222H267V216ZM307 216H324V222H307V216ZM347 216H364V222H347V216Z"
+          fill="var(--art-panel)"
+          stroke="var(--art-line-soft)"
+          strokeWidth="0.75"
+        />
+        <path
+          d="M273 222V232M313 222V232M353 222V232"
+          stroke="var(--art-accent)"
+          strokeLinecap="round"
+          strokeWidth="3"
+        />
+        <path
+          d="M264 239H287M304 239H327M344 239H367M264 247H287M304 247H327M344 247H367"
+          stroke="var(--art-line-soft)"
+          strokeWidth="1"
+        />
+        <path
+          d="M264 274H287M304 274H327M344 274H367M264 305H287M304 305H327M344 305H367"
+          stroke="var(--art-line-soft)"
+          strokeWidth="1"
+        />
+        <circle cx="269" cy="283" r="1.5" fill="var(--art-handle)" />
+        <circle cx="279" cy="283" r="1.5" fill="var(--art-handle)" />
+        <circle cx="309" cy="283" r="1.5" fill="var(--art-handle)" />
+        <circle cx="319" cy="283" r="1.5" fill="var(--art-handle)" />
+        <circle cx="349" cy="283" r="1.5" fill="var(--art-handle)" />
+        <circle cx="359" cy="283" r="1.5" fill="var(--art-handle)" />
         <path
           d="M276 202V211M316 202V211M356 202V211M276 257V267M316 257V267M356 257V267"
           stroke="var(--art-wire)"
@@ -157,15 +226,6 @@ export function SwitchgearIllustration() {
           strokeLinecap="round"
           strokeWidth="3"
         />
-        <path
-          d="M186 114H167V151M186 394H167V370M492 88 561 64M532 377 575 362"
-          stroke="var(--art-accent)"
-          strokeWidth="1.5"
-        />
-        <circle cx="167" cy="151" r="3" fill="var(--art-accent)" />
-        <circle cx="167" cy="370" r="3" fill="var(--art-accent)" />
-        <circle cx="561" cy="64" r="3" fill="var(--art-accent)" />
-        <circle cx="575" cy="362" r="3" fill="var(--art-accent)" />
       </svg>
     </div>
   );

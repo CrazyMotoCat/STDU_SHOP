@@ -45,35 +45,43 @@ function DirectionVisual({
   if (type === 'equipment') {
     return (
       <svg fill="none" viewBox="0 0 112 68">
-        <path
-          className="direction-visual__outline"
-          d="M20 9H77L91 18V57H20V9Z"
-        />
-        <path
-          className="direction-visual__line"
-          d="M77 9V18H91M30 19H68M30 48H81"
+        <path className="direction-visual__line" d="M20 47H93" />
+        <path className="direction-visual__rail" d="M23 44H90V48H23V44Z" />
+        <rect
+          className="direction-visual__module"
+          height="29"
+          rx="2"
+          width="18"
+          x="26"
+          y="13"
         />
         <rect
           className="direction-visual__module"
-          height="19"
+          height="29"
           rx="2"
-          width="13"
-          x="31"
-          y="25"
+          width="18"
+          x="48"
+          y="13"
         />
         <rect
           className="direction-visual__module"
-          height="19"
+          height="29"
           rx="2"
-          width="13"
-          x="51"
-          y="25"
+          width="18"
+          x="70"
+          y="13"
         />
         <path
           className="direction-visual__accent"
-          d="M37.5 21V25M57.5 21V25M37.5 44V48M57.5 44V48"
+          d="M35 24V33M57 24V33M79 24V33"
         />
-        <circle className="direction-visual__node" cx="83" cy="24" r="2.5" />
+        <path
+          className="direction-visual__line"
+          d="M30 18H40M52 18H62M74 18H84"
+        />
+        <circle className="direction-visual__node" cx="35" cy="39" r="1.6" />
+        <circle className="direction-visual__node" cx="57" cy="39" r="1.6" />
+        <circle className="direction-visual__node" cx="79" cy="39" r="1.6" />
       </svg>
     );
   }
