@@ -18,12 +18,14 @@ const directions = [
     index: '01',
     title: 'Оборудование',
     description: 'Точная идентификация компонентов для промышленных систем.',
+    visual: 'equipment',
   },
   {
     id: 'panels',
     index: '02',
     title: 'Изготовление электрощитов',
     description: 'Типовые и индивидуальные шкафы с инженерной проработкой.',
+    visual: 'panel',
   },
   {
     id: 'engineering',
@@ -31,8 +33,112 @@ const directions = [
     title: 'Проектирование и программирование',
     description:
       'Инженерная проработка решений для управления промышленными процессами.',
+    visual: 'engineering',
   },
 ] as const;
+
+function DirectionVisual({
+  type,
+}: {
+  type: (typeof directions)[number]['visual'];
+}) {
+  if (type === 'equipment') {
+    return (
+      <svg fill="none" viewBox="0 0 112 68">
+        <path
+          className="direction-visual__outline"
+          d="M20 9H77L91 18V57H20V9Z"
+        />
+        <path
+          className="direction-visual__line"
+          d="M77 9V18H91M30 19H68M30 48H81"
+        />
+        <rect
+          className="direction-visual__module"
+          height="19"
+          rx="2"
+          width="13"
+          x="31"
+          y="25"
+        />
+        <rect
+          className="direction-visual__module"
+          height="19"
+          rx="2"
+          width="13"
+          x="51"
+          y="25"
+        />
+        <path
+          className="direction-visual__accent"
+          d="M37.5 21V25M57.5 21V25M37.5 44V48M57.5 44V48"
+        />
+        <circle className="direction-visual__node" cx="83" cy="24" r="2.5" />
+      </svg>
+    );
+  }
+
+  if (type === 'panel') {
+    return (
+      <svg fill="none" viewBox="0 0 112 68">
+        <path
+          className="direction-visual__side"
+          d="M74 11 91 18V56L74 62V11Z"
+        />
+        <path className="direction-visual__outline" d="M22 11H74V62H22V11Z" />
+        <path
+          className="direction-visual__line"
+          d="M29 18H67V54H29V18ZM35 26H61M35 44H61"
+        />
+        <path
+          className="direction-visual__accent"
+          d="M38 26V35M48 26V35M58 26V35M38 35H58"
+        />
+        <path className="direction-visual__line" d="M68 33H71V42H68" />
+        <circle className="direction-visual__node" cx="83" cy="22" r="2.5" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg fill="none" viewBox="0 0 112 68">
+      <path
+        className="direction-visual__line"
+        d="M27 22H49V45H67M49 22H78M27 45H37"
+      />
+      <rect
+        className="direction-visual__module"
+        height="16"
+        rx="3"
+        width="22"
+        x="12"
+        y="14"
+      />
+      <rect
+        className="direction-visual__module"
+        height="18"
+        rx="3"
+        width="24"
+        x="37"
+        y="36"
+      />
+      <rect
+        className="direction-visual__module"
+        height="16"
+        rx="3"
+        width="22"
+        x="78"
+        y="14"
+      />
+      <path
+        className="direction-visual__accent"
+        d="M18 22H28M44 45H54M84 22H94"
+      />
+      <circle className="direction-visual__node" cx="49" cy="22" r="3" />
+      <circle className="direction-visual__node" cx="67" cy="45" r="3" />
+    </svg>
+  );
+}
 
 export default function Home() {
   return (
@@ -137,6 +243,7 @@ export default function Home() {
                   index={direction.index}
                   key={direction.id}
                   title={direction.title}
+                  visual={<DirectionVisual type={direction.visual} />}
                 />
               ))}
             </div>

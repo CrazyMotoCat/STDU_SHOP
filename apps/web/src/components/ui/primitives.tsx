@@ -121,6 +121,7 @@ export type ServiceCardProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   title: string;
   description: string;
   tag?: string;
+  visual?: ReactNode;
 };
 
 export function ServiceCard({
@@ -128,6 +129,7 @@ export function ServiceCard({
   title,
   description,
   tag = 'Направление',
+  visual,
   className,
   ...props
 }: ServiceCardProps) {
@@ -137,6 +139,11 @@ export function ServiceCard({
         <span className="service-card__index" aria-hidden="true">
           {index}
         </span>
+        {visual ? (
+          <span className="service-card__visual" aria-hidden="true">
+            {visual}
+          </span>
+        ) : null}
         <span className="service-card__tag">{tag}</span>
       </span>
       <span className="service-card__title">{title}</span>

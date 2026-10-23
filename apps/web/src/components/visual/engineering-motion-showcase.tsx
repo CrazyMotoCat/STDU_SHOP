@@ -101,6 +101,9 @@ export function EngineeringMotionShowcase() {
               className="engineering-showcase__summary-content"
               key={activeId}
             >
+              <span className="engineering-showcase__sequence">
+                ЭТАП {activeStage.index} ИЗ 03
+              </span>
               <p className="engineering-showcase__summary-title">
                 {activeStage.title}
               </p>
@@ -153,6 +156,10 @@ export function EngineeringMotionShowcase() {
             <rect height="440" width="760" fill="var(--showcase-background)" />
             <rect height="440" width="760" fill={`url(#${gridId})`} />
             <circle cx="608" cy="94" r="150" fill={`url(#${glowId})`} />
+            <path
+              className="engineering-showcase__frame-mark"
+              d="M36 75V42H92M668 42H724V75M36 365V398H92M668 398H724V365"
+            />
             <path
               className="engineering-showcase__decor-line"
               d="M36 398H724"

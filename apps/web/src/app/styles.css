@@ -795,6 +795,13 @@ svg {
 .hero-section {
   padding-block: clamp(3rem, 5.4vw, 5rem) clamp(3rem, 5vw, 4.5rem);
   overflow: clip;
+  background:
+    radial-gradient(
+      ellipse at 82% 42%,
+      rgb(23 122 131 / 9%),
+      transparent 34rem
+    ),
+    linear-gradient(112deg, #f9fbfc 4%, #f6f9fa 57%, #eef4f5 100%);
 }
 
 .hero-grid {
@@ -901,9 +908,23 @@ svg {
   align-self: center;
   min-width: 0;
   padding: clamp(0.75rem, 1.4vw, 1.25rem);
-  border-radius: var(--radius-lg);
-  background: var(--color-deep-navy);
-  box-shadow: 0 1.5rem 3rem rgb(14 27 44 / 16%);
+  border: 1px solid rgb(133 173 176 / 42%);
+  border-radius: calc(var(--radius-lg) + 0.125rem);
+  background: linear-gradient(145deg, #20384a 0%, #142738 46%, #0c1928 100%);
+  box-shadow:
+    0 1.6rem 3.5rem rgb(14 27 44 / 19%),
+    0 0.25rem 0.8rem rgb(14 27 44 / 10%),
+    inset 0 1px 0 rgb(255 255 255 / 13%);
+}
+
+.hero-visual::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0.4rem;
+  border: 1px solid rgb(220 241 240 / 10%);
+  border-radius: calc(var(--radius-lg) - 0.125rem);
+  content: '';
+  pointer-events: none;
 }
 
 .switchgear-art {
@@ -913,11 +934,13 @@ svg {
 
   position: relative;
   overflow: hidden;
-  border-radius: var(--radius-sm);
+  border: 1px solid rgb(175 209 208 / 12%);
+  border-radius: var(--radius-md);
   background:
-    radial-gradient(circle at 78% 18%, var(--art-glow), transparent 34%),
-    var(--art-background);
+    radial-gradient(ellipse at 78% 18%, rgb(41 153 155 / 23%), transparent 38%),
+    linear-gradient(142deg, #112638 0%, var(--art-background) 62%, #0b1725 100%);
   color: var(--color-silver);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
 }
 
 .switchgear-art__drawing {
@@ -972,6 +995,11 @@ svg {
     border-color: var(--color-accent);
     box-shadow: var(--shadow-card);
   }
+
+  .service-card--direction:hover .service-card__visual {
+    color: var(--color-accent-hover);
+    transform: translateY(-2px) scale(1.04);
+  }
 }
 
 .service-card:focus-visible {
@@ -1005,6 +1033,97 @@ svg {
 
 .service-card--direction .service-card__tag {
   display: none;
+}
+
+.service-card--direction {
+  position: relative;
+  min-height: 16.75rem;
+  overflow: hidden;
+  border-color: #d4dfe1;
+  background:
+    radial-gradient(ellipse at 92% 18%, rgb(23 122 131 / 8%), transparent 38%),
+    linear-gradient(146deg, #fff 0%, #fbfcfc 57%, #f2f7f7 100%);
+  box-shadow:
+    0 0.6rem 1.8rem rgb(14 27 44 / 5%),
+    inset 0 1px 0 rgb(255 255 255 / 90%);
+}
+
+.service-card--direction::before {
+  position: absolute;
+  top: 0;
+  left: 1.5rem;
+  width: 3.4rem;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-accent), rgb(23 122 131 / 0%));
+  content: '';
+}
+
+.service-card--direction .service-card__topline {
+  position: relative;
+  z-index: 1;
+  min-height: 3.5rem;
+  align-items: flex-start;
+  margin-bottom: 1.2rem;
+}
+
+.service-card--direction .service-card__index {
+  padding-top: 0.2rem;
+}
+
+.service-card__visual {
+  display: block;
+  width: 6rem;
+  height: 3.65rem;
+  margin: -0.18rem 0 0 auto;
+  color: #628b91;
+  transition:
+    color 180ms ease,
+    transform 220ms ease;
+}
+
+.service-card__visual svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.direction-visual__outline,
+.direction-visual__side,
+.direction-visual__line {
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.direction-visual__outline,
+.direction-visual__side {
+  fill: rgb(23 122 131 / 4%);
+}
+
+.direction-visual__side {
+  fill: rgb(23 122 131 / 11%);
+}
+
+.direction-visual__module {
+  fill: rgb(23 122 131 / 13%);
+  stroke: currentColor;
+  stroke-width: 1.2;
+}
+
+.direction-visual__accent {
+  stroke: #22929a;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+}
+
+.direction-visual__node {
+  fill: #22929a;
+}
+
+.service-card--direction .service-card__title {
+  margin-top: auto;
 }
 
 .service-card__title {
@@ -1072,10 +1191,38 @@ svg {
 }
 
 .closing-section {
+  overflow: hidden;
+  border-top: 1px solid rgb(178 213 214 / 14%);
   padding-block: clamp(3.5rem, 6vw, 5.5rem);
+  background:
+    radial-gradient(
+      ellipse at 86% 7%,
+      rgb(37 123 130 / 23%),
+      transparent 31rem
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 3.4rem,
+      rgb(187 220 220 / 3%) 3.4rem 3.45rem
+    ),
+    linear-gradient(118deg, #0d1a29 0%, #112635 66%, #102f35 100%);
+}
+
+.closing-section::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(38vw, 30rem);
+  height: 100%;
+  border-left: 1px solid rgb(177 215 214 / 12%);
+  background: linear-gradient(90deg, transparent, rgb(31 112 118 / 8%));
+  content: '';
+  pointer-events: none;
 }
 
 .closing-section__inner {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(16rem, 0.9fr);
   align-items: end;
@@ -1099,6 +1246,7 @@ svg {
 }
 
 .site-footer {
+  border-top: 1px solid rgb(178 213 214 / 14%);
   padding-block: var(--space-8);
   background: var(--color-deep-navy);
   color: var(--color-silver);
@@ -1328,8 +1476,22 @@ svg {
     padding: 1.25rem;
   }
 
+  .service-card--direction {
+    min-height: 14.5rem;
+  }
+
   .service-card__topline {
     margin-bottom: var(--space-4);
+  }
+
+  .service-card--direction .service-card__topline {
+    min-height: 3rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .service-card__visual {
+    width: 5.5rem;
+    height: 3.3rem;
   }
 
   .service-card__title {
@@ -1417,6 +1579,8 @@ svg {
 
   .engineering-showcase {
     margin-block: var(--space-5) var(--space-6);
+    padding: 1rem;
+    border-radius: 1rem;
   }
 
   .engineering-showcase__choices {
@@ -1437,7 +1601,7 @@ svg {
   }
 
   .engineering-showcase__figure {
-    border-radius: var(--radius-md);
+    border-radius: 0.8rem;
   }
 
   .engineering-principle {
@@ -1697,7 +1861,33 @@ svg {
 
 /* The switchable engineering visual is static-first and uses no external art. */
 .engineering-showcase {
+  position: relative;
+  overflow: hidden;
   margin-block: var(--space-6) var(--space-8);
+  padding: clamp(1.15rem, 2.5vw, 2rem);
+  border: 1px solid #d2dfe1;
+  border-radius: 1.35rem;
+  background:
+    radial-gradient(ellipse at 0% 100%, rgb(23 122 131 / 5%), transparent 48%),
+    linear-gradient(132deg, #fff 0%, #f8fafb 58%, #f1f6f7 100%);
+  box-shadow:
+    0 1rem 2.6rem rgb(14 27 44 / 7%),
+    inset 0 1px 0 rgb(255 255 255 / 90%);
+}
+
+.engineering-showcase::before {
+  position: absolute;
+  top: 0;
+  right: 2rem;
+  left: 2rem;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(23 122 131 / 28%),
+    transparent
+  );
+  content: '';
 }
 
 .engineering-showcase__layout {
@@ -1727,7 +1917,7 @@ svg {
   margin-top: var(--space-5);
   padding: 0.3rem;
   border-radius: 0.75rem;
-  background: var(--color-surface-subtle);
+  background: #eaf0f1;
 }
 
 .engineering-showcase__choice {
@@ -1755,10 +1945,12 @@ svg {
 }
 
 .engineering-showcase__choice[aria-pressed='true'] {
-  border-color: var(--color-border);
-  background: var(--color-surface-raised);
-  color: var(--color-accent-hover);
-  box-shadow: 0 0.2rem 0.7rem rgb(14 27 44 / 8%);
+  border-color: rgb(255 255 255 / 20%);
+  background: linear-gradient(135deg, #174b53, #12343e);
+  color: var(--color-white);
+  box-shadow:
+    0 0.35rem 0.8rem rgb(14 27 44 / 16%),
+    inset 0 1px 0 rgb(255 255 255 / 12%);
 }
 
 @media (hover: hover) {
@@ -1780,8 +1972,18 @@ svg {
 .engineering-showcase__summary {
   min-height: 6rem;
   margin-top: var(--space-4);
-  padding-left: var(--space-3);
-  border-left: 3px solid var(--color-accent);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--color-accent);
+}
+
+.engineering-showcase__sequence {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--color-accent-hover);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
 }
 
 .engineering-showcase__summary p {
@@ -1807,22 +2009,43 @@ svg {
 }
 
 .engineering-showcase__figure {
-  --showcase-caption: #a5c2c3;
+  --showcase-caption: #b3cacc;
 
+  position: relative;
+  isolation: isolate;
   margin: 0;
   overflow: hidden;
-  border-radius: 0.875rem;
-  background: #0e1b2c;
-  box-shadow: 0 1rem 2.25rem rgb(14 27 44 / 12%);
+  border: 1px solid rgb(116 160 164 / 40%);
+  border-radius: 1rem;
+  background: linear-gradient(140deg, #172e40, #0e1b2c 62%, #0b1725);
+  box-shadow:
+    0 1.2rem 2.8rem rgb(14 27 44 / 20%),
+    inset 0 1px 0 rgb(255 255 255 / 12%);
+}
+
+.engineering-showcase__figure::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border: 1px solid rgb(225 244 241 / 11%);
+  border-radius: inherit;
+  background: linear-gradient(
+    118deg,
+    rgb(255 255 255 / 4%),
+    transparent 30% 74%,
+    rgb(46 166 164 / 5%)
+  );
+  content: '';
+  pointer-events: none;
 }
 
 .engineering-showcase__drawing {
-  --showcase-background: #0e1b2c;
-  --showcase-grid: rgb(129 165 170 / 10%);
-  --showcase-frame: rgb(159 190 191 / 36%);
-  --showcase-line: #80a4a8;
-  --showcase-accent: #53c5bf;
-  --showcase-accent-bright: #b8eee7;
+  --showcase-background: #0e1b2b;
+  --showcase-grid: rgb(142 183 185 / 12%);
+  --showcase-frame: rgb(159 190 191 / 45%);
+  --showcase-line: #91b2b5;
+  --showcase-accent: #61d0c9;
+  --showcase-accent-bright: #c8f4eb;
   --showcase-panel: #162d3d;
   --showcase-panel-raised: #203c4b;
   --showcase-muted: #476572;
@@ -1837,6 +2060,13 @@ svg {
 .engineering-showcase__decor-line {
   opacity: 0.5;
   stroke-width: 1;
+}
+
+.engineering-showcase__frame-mark {
+  fill: none;
+  stroke: var(--showcase-frame);
+  stroke-width: 1;
+  opacity: 0.58;
 }
 
 .engineering-showcase__drawing[data-revealed='true']
@@ -1855,6 +2085,7 @@ svg {
 .engineering-showcase__stage[data-active='true'] {
   visibility: visible;
   opacity: 1;
+  filter: drop-shadow(0 0.5rem 0.85rem rgb(0 0 0 / 15%));
   transition-delay: 0s;
 }
 
