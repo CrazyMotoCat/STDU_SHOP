@@ -1,16 +1,21 @@
 # R1-004A
 
 TASK: R1-004A
-STATUS: FROZEN_APPROVED_PENDING_INTEGRATION
+STATUS: COMPLETE
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE
-PHASE: owner-approved freeze verified locally; awaiting exact HEAD CI and integration
+PHASE: FROZEN 1.0.0 merged; exact main post-integration CI passed
 UPDATED_AT: 2026-10-24
-BRANCH: codex/r1-004a-catalog-contract
+BRANCH: main
 BASELINE_MAIN: 28d9a85aa82dc4bf3c116e16ca6a3973a9d7bc6e
-LAST_SAFE_COMMIT: 8ae4dd8cfd15e3722d97259818b238924851c963
+LAST_SAFE_COMMIT: 24c9653780c7e8dc511dd5acf1706ecdb9e191eb
 APPROVED_SOURCE_SHA: 8ae4dd8cfd15e3722d97259818b238924851c963
 CONTRACT_VERSION: FROZEN 1.0.0
+FROZEN_HEAD: 0a749af35e422f55be050bd256ea1e8639193541
+MERGED_MAIN_SHA: 24c9653780c7e8dc511dd5acf1706ecdb9e191eb
+PULL_REQUEST: https://github.com/CrazyMotoCat/STDU_SHOP/pull/7
+POST_INTEGRATION_CI: https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39970886845
+COMPLETION_RECORD_MODE: DIRECT_MAIN (checkpoint documentation only)
 
 ## Frozen inputs and owner selections
 
@@ -60,15 +65,17 @@ CONTRACT_VERSION: FROZEN 1.0.0
 - `pnpm catalog:contract:generate`, `pnpm catalog:contract:check` — PASS; FROZEN 1.0.0 metadata/provenance, 31 operations and reproducible validated OpenAPI.
 - `pnpm catalog:contract:test` — PASS, 44/44; adds negative tests for thawed status/version and missing/changed owner-approval provenance.
 - `pnpm lint`, `pnpm format:check`, `git diff --check` — PASS.
-- PR #7 integration and post-integration checks are verified against actual GitHub state before completion; exact delivered main SHA/run links are recorded in the delivery report.
+- PR #7 moved to Ready for Review and merged using normal merge API with expected freeze HEAD; no GitHub rule bypass, unresolved review thread or blocking finding.
+- Exact freeze HEAD 0a749af3: full CI run #30 (39969830349) PASS, first attempt; actual tested merge candidate adf3009b64509d865ee1b0624fb4afb72ac7d9da verified.
+- Merge/main 24c96537: full push CI run #31 (39970886845) PASS, first attempt; main tree equals verified freeze HEAD. All quality/contract/baseline runtime/UI/Compose and three host smoke steps passed.
 
-### Final corrections — 2026-10-24
+### Final corrections before owner approval — 2026-10-24
 
 - `pnpm catalog:contract:generate`, `pnpm catalog:contract:check` — PASS; generated OpenAPI is reproducible and validates successfully, including 31 operations (28 staff, 3 public).
 - `pnpm catalog:contract:test` — PASS, 42/42, including nine new negative contract checks. These validate the proposed artifacts/checker, not an implemented catalog HTTP runtime.
 - `pnpm lint`, `pnpm format:check`, `git diff --check` — PASS.
 - Independent scope comparison against b9b90104: operation routes/IDs, OpenAPI components, models, RBAC, audit registry and OD sections outside OD-004A-06 are unchanged.
-- Draft PR #7 remains the owner-review artifact. Hosted CI is checked live for its exact pushed HEAD before handoff; final SHA/run results are recorded in the PR description and delivery report.
+- Proposal review and exact HEAD CI were completed in PR #7 before the owner approval recorded above; the frozen package is now merged with successful post-integration CI.
 
 ### Historical proposal verification — before final corrections
 
@@ -85,4 +92,4 @@ CONTRACT_VERSION: FROZEN 1.0.0
 
 ## Next action
 
-Verify the exact freeze HEAD CI, move PR #7 to Ready for Review, merge after all gates, verify main/post-integration CI, then start R1-004B under the approved FROZEN contract and operator restrictions.
+Start R1-004B step 1 on its own feature branch: record frozen artifact hashes and the R1-002 schema/migration baseline, then proceed through the approved implementation plan and mandatory independent/runtime gates. Catalog runtime CATB-01…38 are not yet executed.
