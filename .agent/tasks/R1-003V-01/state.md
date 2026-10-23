@@ -1,15 +1,15 @@
 # R1-003V-01 — Engineering Motion Showcase
 
 TASK: R1-003V-01
-STATUS: PR_OPEN_REQUIRED_CI_PENDING_LOCAL_HOST_SMOKE_BLOCKED
+STATUS: COMPLETED_MERGED
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE
-PHASE: PR #9 open; independent reviews passed; full exact-HEAD workflow pending
+PHASE: Integrated; PR and post-integration CI passed
 UPDATED_AT: 2026-10-24
 BRANCH: codex/r1-003v-01-engineering-motion
 BASELINE_MAIN: ab7f5a25a7d36d2d722e36effb8c9fecb848c88a
-LAST_SAFE_COMMIT: 14c1245
-WORKTREE_STATUS: clean after PR checkpoint update
+LAST_SAFE_COMMIT: 9596eb9649658ed30fca8ae2643d6539a472aa7f (PR merge commit)
+WORKTREE_STATUS: feature worktree clean; branch integrated
 
 ## Frozen task contract
 
@@ -22,7 +22,7 @@ WORKTREE_STATUS: clean after PR checkpoint update
 ## Repository and parallel-work preflight
 
 - Created isolated worktree `C:\Users\mvideo\.codex\worktrees\r1-003v-01\SHOP STDU` on `codex/r1-003v-01-engineering-motion` from fresh `origin/main` `ab7f5a25a7d36d2d722e36effb8c9fecb848c88a`.
-- Fresh fetch confirmed `origin/main` remains at the baseline SHA.
+- Fresh fetch confirmed `origin/main` remained at the baseline SHA before implementation.
 - The parallel `codex/r1-004b-catalog-domain` branch changes only its R1-004B task/contract and CI files; no overlap with this task's changed paths. Its worktree was not modified.
 - The existing `stdu-shop-r1-001` Compose stack owns host ports 3000 and 3001. It was left running and untouched.
 
@@ -46,8 +46,8 @@ WORKTREE_STATUS: clean after PR checkpoint update
 - `pnpm build` — PASS (web, API, and ingestion source distribution).
 - `pnpm ui:smoke` with `UI_SMOKE_TASK_ID=R1-003V-01` — PASS: SSR, keyboard/ARIA, touch, contrast, disabled actions, reduced motion, browser console, and 375/768/1280/1440 widths. Mobile cold browser sample at 375px: DOM-ready 72 ms, LCP 80 ms, CLS 0, 137 KiB encoded JS. This is a local smoke sample, not a production-device performance guarantee.
 - `pnpm smoke` with `STDU_SMOKE_WEB_PORT=13000`, `STDU_SMOKE_API_PORT=13001`, `STDU_SMOKE_INGESTION_PORT=18000` — PASS: Compose app readiness/liveness, PostgreSQL SELECT 1, Redis PING, dependency outage behavior, no secret leakage; volumes preserved and isolated smoke services stopped.
-- `pnpm smoke:host` — BLOCKED before app startup: required host API port 3001 is occupied by `stdu-shop-r1-001-api-1` in the running `stdu-shop-r1-001` stack. The stack was preserved. Host smoke must be rerun when that listener is released or by hosted CI in a clean runner.
-- Independent read-only reviews originally found two contour-length/motion-polish points and one caption contrast issue. Those were corrected and both frontend and UX/accessibility follow-up reviews passed read-only.
+- `pnpm smoke:host` locally was blocked before app startup because required host API port 3001 is occupied by `stdu-shop-r1-001-api-1` in the running `stdu-shop-r1-001` stack. The stack was preserved.
+- Independent read-only reviews originally found two contour-length/motion-polish points and one caption contrast issue. Those were corrected; both frontend and UX/accessibility follow-up reviews passed read-only.
 - Browser artifacts: before/after desktop, tablet, mobile; state 01/02/03. No video was recorded; the requested interaction frame sequence is present.
 
 ## Non-goals
@@ -57,5 +57,8 @@ WORKTREE_STATUS: clean after PR checkpoint update
 
 ## Delivery status
 
-- Code commit `14c1245` and task checkpoint commit are on PR #9: https://github.com/CrazyMotoCat/STDU_SHOP/pull/9. Both independent follow-up reviews passed; fresh `origin/main` and parallel-branch compatibility checks passed. The full workflow must pass for the current PR HEAD. Local host smoke is blocked by the active R1-001 API listener.
-- AUTO_MERGE remains gated on required exact-HEAD GitHub checks, approvals, no blocking reviews/threads, clean compatibility with current main, and successful integration. Host smoke limitation must be represented honestly if CI does not provide equivalent evidence.
+- PR #9 merged: https://github.com/CrazyMotoCat/STDU_SHOP/pull/9. Merge commit `9596eb9649658ed30fca8ae2643d6539a472aa7f` is confirmed on `main`.
+- PR workflow #35 passed on exact head `a49159e71c532747bb5621460353a009c171816c`; job logs confirm the workflow checked out merge candidate `b15fd194aac7f44c1d32e69875733e37ab1fc87d`. It passed all steps, including three host lifecycle smoke runs: https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39977783466
+- Post-integration push workflow passed on `main` merge SHA `9596eb9649658ed30fca8ae2643d6539a472aa7f`, including contracts, tests, build, public UI acceptance, Compose integration, and three host lifecycle smoke runs: https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/39979059660
+- Local host smoke remains blocked by the active R1-001 API listener; hosted CI supplied equivalent clean-runner evidence.
+- No blocking GitHub reviews or review threads were present. No production deployment or production migration was performed.
