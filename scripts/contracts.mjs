@@ -7,6 +7,7 @@ const action = process.argv[2] ?? 'check';
 
 async function main() {
   loadLocalEnv();
+  await run('pnpm', ['--filter', '@stdu/api', 'db:generate']);
   await run('pnpm', [
     '--filter',
     '@stdu/api',
