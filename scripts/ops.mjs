@@ -27,8 +27,10 @@ export async function infraUp() {
 
 export async function composeUp() {
   const running = await runningServices();
-  if (!running.includes('web')) await requireFreePort(3000);
-  if (!running.includes('api')) await requireFreePort(3001);
+  if (!running.includes('web'))
+    await requireFreePort(Number(process.env.STDU_SMOKE_WEB_PORT ?? 3000));
+  if (!running.includes('api'))
+    await requireFreePort(Number(process.env.STDU_SMOKE_API_PORT ?? 3001));
   await compose(['up', '-d', '--build', '--wait', '--wait-timeout', '180']);
 }
 

@@ -23,7 +23,7 @@ export function hostDefinitions({ smoke = false } = {}) {
         '--hostname',
         '127.0.0.1',
         '--port',
-        '3000',
+        smoke ? (process.env.STDU_SMOKE_WEB_PORT ?? '3000') : '3000',
       ],
       cwd: web,
       env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' },
@@ -35,7 +35,11 @@ export function hostDefinitions({ smoke = false } = {}) {
         ? ['dist/main.js']
         : [requireRoot.resolve('tsx/cli'), 'watch', 'src/main.ts'],
       cwd: api,
-      env: { ...process.env, HOST: '127.0.0.1', PORT: '3001' },
+      env: {
+        ...process.env,
+        HOST: '127.0.0.1',
+        PORT: '3001',
+      },
     },
     {
       name: 'ingestion',
@@ -47,7 +51,7 @@ export function hostDefinitions({ smoke = false } = {}) {
         '--host',
         '127.0.0.1',
         '--port',
-        '8000',
+        smoke ? (process.env.STDU_SMOKE_INGESTION_PORT ?? '8000') : '8000',
         ...(smoke
           ? []
           : ['--reload', '--reload-dir', 'services/ingestion/src']),

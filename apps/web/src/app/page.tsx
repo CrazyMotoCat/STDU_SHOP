@@ -1,5 +1,6 @@
 import { PublicLayout } from '../components/layouts/page-layouts';
 import { SwitchgearIllustration } from '../components/site/switchgear-illustration';
+import { EngineeringMotionShowcase } from '../components/visual/engineering-motion-showcase';
 import {
   Badge,
   Breadcrumbs,
@@ -181,15 +182,15 @@ export default function Home() {
             <div className="section-heading section-heading--compact">
               <div>
                 <p className="eyebrow">СТРУКТУРА ПЛАТФОРМЫ</p>
-                <h2 id="overview-title">
-                  От компонента — к целостному решению.
-                </h2>
+                <h2 id="overview-title">От компонента — к системе.</h2>
               </div>
               <p>
                 Разделы будут открываться по мере готовности соответствующих
                 сервисов. Сейчас доступен обзор их назначения.
               </p>
             </div>
+
+            <EngineeringMotionShowcase />
 
             <div className="direction-details">
               {details.map((detail) => (

@@ -34,7 +34,12 @@ async function request(service, endpoint, signal) {
       }),
     );
   }
-  const ports = { web: 3000, api: 3001, ingestion: 8000 };
+  const ports = {
+    web: Number(process.env.STDU_SMOKE_WEB_PORT ?? 3000),
+    api:
+      mode === 'host' ? 3001 : Number(process.env.STDU_SMOKE_API_PORT ?? 3001),
+    ingestion: Number(process.env.STDU_SMOKE_INGESTION_PORT ?? 8000),
+  };
   const response = await fetch(
     `http://127.0.0.1:${ports[service]}${endpoint}`,
     {
@@ -77,7 +82,8 @@ async function checkReady(signal) {
   await waitReady(signal);
   const api = await request('api', '/health/ready', signal);
   assert.deepEqual(api.body.checks, { postgres: 'up', redis: 'up' });
-  const page = await fetch('http://127.0.0.1:3000', {
+  const webPort = Number(process.env.STDU_SMOKE_WEB_PORT ?? 3000);
+  const page = await fetch(`http://127.0.0.1:${webPort}`, {
     signal: signal
       ? AbortSignal.any([signal, AbortSignal.timeout(10000)])
       : AbortSignal.timeout(10000),
@@ -147,7 +153,7 @@ async function main() {
       await composeUp();
       await checks();
     } else if (mode === 'host') {
-      for (const port of [3000, 3001, 8000]) await requireFreePort(port);
+      for (const port of smokeHostPorts()) await requireFreePort(port);
       // Start built Node apps and the locked Python venv directly, without
       // shell/pnpm/uv/watch/reload intermediaries in the test lifecycle.
       if (
@@ -158,7 +164,7 @@ async function main() {
           'Host smoke requires built apps. Run pnpm build first.',
         );
       await withHostApps(checks, { smoke: true });
-      for (const port of [3000, 3001, 8000]) await requireFreePort(port);
+      for (const port of smokeHostPorts()) await requireFreePort(port);
     } else {
       throw new Error('Smoke mode must be compose or host.');
     }
@@ -171,6 +177,14 @@ async function main() {
   );
 }
 
+function smokeHostPorts() {
+  return [
+    Number(process.env.STDU_SMOKE_WEB_PORT),
+    3001,
+    Number(process.env.STDU_SMOKE_INGESTION_PORT),
+  ];
+}
+
 function configureIsolatedSmoke() {
   if (mode !== 'compose' && mode !== 'host')
     throw new Error('Smoke mode must be compose or host.');
@@ -181,6 +195,9 @@ function configureIsolatedSmoke() {
   const port = process.env.POSTGRES_HOST_PORT;
   if (!database || !adminUser || !adminPassword || !port)
     throw new Error('Local PostgreSQL configuration is incomplete.');
+  process.env.STDU_SMOKE_WEB_PORT ??= '3000';
+  process.env.STDU_SMOKE_API_PORT ??= '3001';
+  process.env.STDU_SMOKE_INGESTION_PORT ??= '8000';
   process.env.STDU_ISOLATED_TEST = '1';
   process.env.STDU_COMPOSE_PROJECT = `stdu-shop-r1-002b-${mode}-${process.pid}`;
   process.env.STDU_RUNTIME_PASSWORD = runtimePassword;

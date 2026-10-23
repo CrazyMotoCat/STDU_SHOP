@@ -1,4 +1,7 @@
+import { useId } from 'react';
+
 export function SwitchgearIllustration() {
+  const instanceId = useId().replaceAll(':', '');
   return (
     <div className="switchgear-art">
       <div className="switchgear-art__caption">
@@ -8,18 +11,20 @@ export function SwitchgearIllustration() {
       <svg
         className="switchgear-art__drawing"
         role="img"
-        aria-labelledby="switchgear-title switchgear-description"
+        aria-labelledby={`switchgear-title-${instanceId} switchgear-description-${instanceId}`}
         viewBox="0 0 680 560"
         fill="none"
       >
-        <title id="switchgear-title">Инженерная схема электрощита</title>
-        <desc id="switchgear-description">
+        <title id={`switchgear-title-${instanceId}`}>
+          Инженерная схема электрощита
+        </title>
+        <desc id={`switchgear-description-${instanceId}`}>
           Оригинальная векторная иллюстрация шкафа управления с дверцей,
           индикаторами и внутренними электрическими линиями.
         </desc>
         <defs>
           <pattern
-            id="switchgear-grid"
+            id={`${instanceId}-grid`}
             width="28"
             height="28"
             patternUnits="userSpaceOnUse"
@@ -27,7 +32,7 @@ export function SwitchgearIllustration() {
             <path d="M28 0H0V28" stroke="var(--art-grid)" strokeWidth="1" />
           </pattern>
           <linearGradient
-            id="cabinet-face"
+            id={`${instanceId}-face`}
             x1="190"
             y1="83"
             x2="470"
@@ -38,7 +43,7 @@ export function SwitchgearIllustration() {
             <stop offset="1" stopColor="var(--art-face-end)" />
           </linearGradient>
           <linearGradient
-            id="cabinet-side"
+            id={`${instanceId}-side`}
             x1="465"
             y1="105"
             x2="539"
@@ -49,8 +54,14 @@ export function SwitchgearIllustration() {
             <stop offset="1" stopColor="var(--art-side-end)" />
           </linearGradient>
         </defs>
-        <rect width="680" height="560" fill="url(#switchgear-grid)" />
-        <circle cx="530" cy="122" r="83" fill="var(--art-glow)" />
+        <rect width="680" height="560" fill={`url(#${instanceId}-grid)`} />
+        <circle
+          className="switchgear-art__glow"
+          cx="530"
+          cy="122"
+          r="83"
+          fill="var(--art-glow)"
+        />
         <path d="M82 453H598" stroke="var(--art-line-soft)" strokeWidth="1.5" />
         <path d="M142 478H536" stroke="var(--art-line-soft)" strokeWidth="1" />
         <path d="M159 435 190 449V477L159 464V435Z" fill="var(--art-base)" />
@@ -59,18 +70,21 @@ export function SwitchgearIllustration() {
           fill="var(--art-base-dark)"
         />
         <path
+          className="switchgear-art__outline switchgear-art__outline--front"
           d="M190 88 462 72 537 104V408L468 434 190 449V88Z"
-          fill="url(#cabinet-face)"
+          fill={`url(#${instanceId}-face)`}
           stroke="var(--art-line)"
           strokeWidth="2"
         />
         <path
+          className="switchgear-art__outline switchgear-art__outline--side"
           d="M462 72 537 104V408L468 434V104L462 72Z"
-          fill="url(#cabinet-side)"
+          fill={`url(#${instanceId}-side)`}
           stroke="var(--art-line)"
           strokeWidth="2"
         />
         <path
+          className="switchgear-art__outline switchgear-art__outline--door"
           d="M215 112 443 99V410L215 422V112Z"
           fill="var(--art-door)"
           stroke="var(--art-line-soft)"
@@ -105,10 +119,18 @@ export function SwitchgearIllustration() {
           fill="var(--art-device)"
         />
         <path
+          className="switchgear-art__outline switchgear-art__outline--inner"
           d="M245 147H385V365H245V147Z"
           fill="var(--art-inner)"
           stroke="var(--art-line-soft)"
           strokeWidth="1.5"
+        />
+        <circle
+          className="switchgear-art__highlight"
+          cx="316"
+          cy="258"
+          r="56"
+          fill="var(--art-highlight)"
         />
         <path d="M258 161H372V202H258V161Z" fill="var(--art-rail)" />
         <path
@@ -131,6 +153,14 @@ export function SwitchgearIllustration() {
           strokeWidth="2"
         />
         <path d="M260 346H371" stroke="var(--art-accent)" strokeWidth="2" />
+        <path
+          className="switchgear-art__pulse"
+          d="M260 346H371"
+          pathLength="100"
+          stroke="var(--art-pulse)"
+          strokeLinecap="round"
+          strokeWidth="3"
+        />
         <path
           d="M186 114H167V151M186 394H167V370M492 88 561 64M532 377 575 362"
           stroke="var(--art-accent)"
