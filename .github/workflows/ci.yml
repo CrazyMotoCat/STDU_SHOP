@@ -48,6 +48,10 @@ jobs:
           pnpm contract:test
           node docs/contracts/check-R1-002.mjs
           node --test docs/contracts/check-R1-002.test.mjs
+      - name: Proposed R1-004 catalog contract consistency
+        run: |
+          pnpm catalog:contract:check
+          pnpm catalog:contract:test
       - run: pnpm typecheck
       - run: pnpm test
       - name: Install Chromium for HTTPS browser acceptance

@@ -34,6 +34,9 @@
     "openapi:export": "node scripts/openapi-export.mjs",
     "contract:check": "node scripts/contracts.mjs check",
     "contract:test": "node --test scripts/contracts.node.mjs",
+    "catalog:contract:generate": "node docs/contracts/generate-R1-004-openapi.mjs",
+    "catalog:contract:check": "node docs/contracts/generate-R1-004-openapi.mjs --check && node docs/contracts/check-R1-004.mjs",
+    "catalog:contract:test": "node --test docs/contracts/check-R1-004.test.mjs",
     "client:generate": "node scripts/contracts.mjs generate-client"
   },
   "devDependencies": {
