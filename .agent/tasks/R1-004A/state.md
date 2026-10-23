@@ -4,7 +4,7 @@ TASK: R1-004A
 STATUS: PROPOSED_CONTRACT_REVIEWABLE
 DELIVERY_MODE: REVIEW_REQUIRED
 CHECKPOINT_STATUS: SAFE
-PHASE: contract prepared; final delivery verification and owner review handoff
+PHASE: proposed contract pushed; awaiting owner review of exact PR HEAD
 UPDATED_AT: 2026-10-23
 BRANCH: codex/r1-004a-catalog-contract
 BASELINE_MAIN: 28d9a85aa82dc4bf3c116e16ca6a3973a9d7bc6e
@@ -57,8 +57,8 @@ LAST_SAFE_COMMIT: 28d9a85aa82dc4bf3c116e16ca6a3973a9d7bc6e
 - `pnpm smoke` first attempt failed because this project's Compose held host port 3000. Stopped only `stdu-shop-r1-001` services without deleting volumes, reran — PASS; dependencies restored by the smoke and volumes preserved.
 - `pnpm smoke:host` — three consecutive Windows runs PASS; each shutdown used bounded force on the task-owned web/API/ingestion processes after grace expiry; smoke verified cleanup and preserved volumes.
 - Restored the main project Compose; all five services reported healthy. No project volumes were deleted.
-- Hosted CI must pass for the exact pushed Draft PR head; final PR/CI status is reported after delivery verification.
+- The current proposal is published in Draft PR #7. CI status is checked live against its exact HEAD before owner handoff; do not merge or start R1-004B before owner approval.
 
 ## Next action
 
-Run final diff/secret review, stage only task-owned paths, commit/push and create a Draft PR. Verify full GitHub Actions for the exact PR SHA. Keep contract status PROPOSED / REVIEW_REQUIRED; do not merge or start R1-002B before owner approval.
+Hand off Draft PR #7 for owner review of the exact proposed contract HEAD and OD-004A-01…11. Keep contract status PROPOSED / REVIEW_REQUIRED; do not merge or start R1-004B before owner approval.
