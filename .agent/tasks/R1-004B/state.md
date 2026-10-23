@@ -4,11 +4,11 @@ TASK: R1-004B
 STATUS: IN_PROGRESS
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE_WITH_CHECKPOINT
-PHASE: step 2 additive schema/migration and permission/audit registry implemented; next slice is catalog operator initialization and API vertical slices
+PHASE: steps 2-5 additive schema/migration, permission/audit registry and isolated one-time permission initializer implemented; next slice is catalog HTTP vertical implementation
 UPDATED_AT: 2026-10-24
 BRANCH: codex/r1-004b-catalog-domain
 BASELINE_MAIN: ab7f5a25a7d36d2d722e36effb8c9fecb848c88a
-LAST_SAFE_COMMIT: ab7f5a25a7d36d2d722e36effb8c9fecb848c88a
+LAST_SAFE_COMMIT: 89a24b5
 APPROVED_SOURCE_SHA: 8ae4dd8cfd15e3722d97259818b238924851c963
 FROZEN_HEAD: 0a749af35e422f55be050bd256ea1e8639193541
 CONTRACT_MERGE_SHA: 24c9653780c7e8dc511dd5acf1706ecdb9e191eb
@@ -31,7 +31,7 @@ CONTRACT_VERSION: FROZEN 1.0.0
 - The additive nine-model catalog migration is implemented; the original R1-002 migration is unchanged.
 - Migration/harness validation uses two owned disposable PostgreSQL 18.6 databases (fresh and populated). It verifies original R1-002 fixture/audit/file/permission rows unchanged, exactly 12 catalog Permission registry rows added, no RolePermission grants, accepted legacy/new audit events, and catalog constraints/workflow/locking/history invariants.
 - Owner explicitly approved an additive extension of permission-list, current-permissions and role-permission enum schemas for the 12 catalog codes, while preserving the R1-002 control/full-admin permission sets. The R1-002 OpenAPI/client and contract-lock hash were updated to this narrowly authorized extension.
-- Catalog permissions remain unassigned; the operator initialization command has not been implemented or run.
+- Catalog permissions remain unassigned outside the disposable test database. The explicit one-time initializer is implemented; it has only been invoked by the isolated disposable PostgreSQL harness, never against the working database.
 
 ## Verification
 
@@ -40,12 +40,14 @@ CONTRACT_VERSION: FROZEN 1.0.0
 - `pnpm catalog:contract:test` — PASS, 44/44.
 - `pnpm --filter @stdu/api db:validate` — PASS; Prisma client generated.
 - `pnpm --filter @stdu/api exec node scripts/run-r1-004b-migration-check.mjs` — PASS on isolated PostgreSQL 18.6, fresh and populated fixtures; no persistent volume or external DB.
+- The same isolated PostgreSQL harness also invokes the actual initializer CLI against its fresh disposable DB. Validation, eligible-target check, future-registry fail-closed, audit-failure rollback, exact 12-code role assignment, unchanged bootstrap role, and two concurrent one-time invocations all passed; exactly one concurrent command committed.
+- `pnpm --filter @stdu/api typecheck`, `pnpm lint`, and `pnpm format:check` — PASS after the initializer slice.
 - `pnpm contract:check` and `pnpm client:generate` — PASS after the owner-approved additive permission enum update; 23 existing staff operations remain stable and client generation is reproducible.
 - Full lint/format/typecheck/test/build and end-to-end catalog runtime acceptance remain pending.
 - Exact hosted CI is checked against the pushed Draft PR HEAD; links/results are recorded in the PR and delivery report.
 - Existing main post-integration CI covers R1-002B runtime and foundation/UI smoke; it is not CATB-01…38 evidence.
-- Catalog PostgreSQL/HTTP runtime CATB-01…38: NOT RUN. Independent backend/security/database implementation reviews: NOT RUN; mandatory before R1-004B acceptance/merge.
+- Catalog PostgreSQL/HTTP runtime CATB-01…38: NOT RUN. Independent database review of the schema/migration slice: PASS after four reviewed guard fixes. Backend and security implementation reviews remain pending; all are mandatory before R1-004B acceptance/merge.
 
 ## Next action
 
-Next: implement the isolated `catalog:permissions:initialize` CLI against task-owned databases, then staff/public catalog HTTP vertical slices. Preserve sorted root locks for relation replace/publish (CATB-34), keep R1-002 full-admin invariants unchanged, and retain this PR as Draft until CATB-01…38, independent backend/security/database review, exact-head CI and integration gates are complete.
+Next: implement the 28 staff and 3 public catalog HTTP operations, runtime OpenAPI/client consistency, and CATB PostgreSQL/HTTP checks. Preserve sorted root locks for relation replace/publish (CATB-34), keep R1-002 full-admin invariants unchanged, and retain this PR as Draft until CATB-01…38, independent backend/security/database review, exact-head CI and integration gates are complete.

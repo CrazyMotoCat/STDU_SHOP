@@ -31,6 +31,7 @@ const expectedCatalogPermissions = Object.keys(
 ).sort();
 const require = createRequire(resolve(apiRoot, 'package.json'));
 const prismaCli = require.resolve('prisma/build/index.js');
+const tsxCli = require.resolve('tsx/cli');
 const suffix = randomUUID().replaceAll('-', '').slice(0, 10);
 const containerName = `stdu-r1-004b-migration-${process.pid}-${suffix}`;
 const adminPassword = randomBytes(32).toString('base64url');
@@ -1083,8 +1084,21 @@ async function main() {
 
   await applyMigrationState(port, databases[0], baseSql, false);
   await applyMigrationState(port, databases[1], baseSql, true);
+  const disposableInitializerUrl = connectionString(port, databases[0]);
+  await run(
+    process.execPath,
+    [tsxCli, resolve(apiRoot, 'scripts/catalog-initializer-check.ts')],
+    {
+      cwd: apiRoot,
+      env: {
+        ...process.env,
+        DATABASE_URL: disposableInitializerUrl,
+        STAFF_DATABASE_URL: disposableInitializerUrl,
+      },
+    },
+  );
   console.log(
-    'PASS catalog additive migration checks on isolated PostgreSQL 18.6; no persistent Docker volume or external database used.',
+    'PASS catalog additive migration and permission-initializer checks on isolated PostgreSQL 18.6; no persistent Docker volume or external database used.',
   );
 }
 

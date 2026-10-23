@@ -37,6 +37,7 @@
     "catalog:contract:generate": "node docs/contracts/generate-R1-004-openapi.mjs",
     "catalog:contract:check": "node docs/contracts/generate-R1-004-openapi.mjs --check && node docs/contracts/check-R1-004.mjs",
     "catalog:contract:test": "node --test docs/contracts/check-R1-004.test.mjs",
+    "catalog:runtime:check": "pnpm --filter @stdu/api exec node scripts/run-r1-004b-migration-check.mjs",
     "client:generate": "node scripts/contracts.mjs generate-client"
   },
   "devDependencies": {
