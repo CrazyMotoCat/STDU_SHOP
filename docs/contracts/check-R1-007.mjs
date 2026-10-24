@@ -107,10 +107,12 @@ export function validateSupplierContract(contract) {
   assert.deepEqual(Object.keys(model.tables).sort(), [
     'ProductMatchProposal',
     'Supplier',
+    'SupplierCommandIdempotency',
     'SupplierOffer',
     'SupplierOfferRevision',
     'SupplierRevision',
   ]);
+  assert.equal(Object.keys(model.tables).length, 6);
   assert.deepEqual(
     Object.keys(rbac.permissions).sort(),
     [...supplierPermissionCodes].sort(),
@@ -139,6 +141,82 @@ export function validateSupplierContract(contract) {
   assert.match(modelMarkdown, /never a `SellerLegalEntity`/);
   assert.match(modelMarkdown, /public catalog\/quotation DTOs/i);
   assert.match(modelMarkdown, /SupplierOffer.currentMatchProposalId/);
+  assert.match(model.rules.supplierTaxIdentity.pair, /both NULL|both.*null/i);
+  assert.match(
+    model.rules.supplierTaxIdentity.RU,
+    /10 or 12.*leading zeroes.*checksum/i,
+  );
+  assert.match(
+    model.rules.supplierTaxIdentity.RU,
+    /first-check weights \[7,2,4,10,3,5,9,4,6,8\].*second-check weights \[3,7,2,4,10,3,5,9,4,6,8\]/,
+  );
+  assert.match(
+    model.rules.supplierTaxIdentity.foreign,
+    /NFC.*outer ASCII U\+0020.*do not apply RU/i,
+  );
+  assert.match(
+    model.rules.supplierTaxIdentity.activeUniqueness,
+    /partial unique.*ACTIVE/i,
+  );
+  assert.match(
+    model.rules.supplierTaxIdentity.archivedReRegistration,
+    /new ACTIVE.*new ID.*never/i,
+  );
+  assert.ok(
+    model.tables.Supplier.uniqueIndexes.some(
+      (index) =>
+        index.where.includes("state='ACTIVE'") &&
+        index.columns.join(',') === 'taxJurisdiction,taxIdentifier',
+    ),
+    'supplier tax identity must be unique only among ACTIVE rows',
+  );
+  assert.equal(
+    openapi.components.parameters.IdempotencyKey.schema.minLength,
+    8,
+  );
+  assert.equal(
+    openapi.components.parameters.IdempotencyKey.schema.maxLength,
+    128,
+  );
+  assert.match(
+    model.tables.SupplierOfferRevision.fields.manufacturerName,
+    /varchar\(200\)/,
+  );
+  assert.match(
+    model.tables.ProductMatchProposal.deletePolicy,
+    /new proposal ID after rejection or unlink/i,
+  );
+  assert.ok(
+    model.tables.ProductMatchProposal.uniqueIndexes.some(
+      (index) =>
+        index.where.includes("state='PENDING'") &&
+        index.columns.join(',') === 'offerId,offerRevisionId,proposedProductId',
+    ),
+    'only active PENDING proposal tuples must be unique',
+  );
+  assert.deepEqual(model.tables.SupplierCommandIdempotency.unique, [
+    ['actorStaffUserId', 'scope', 'idempotencyKey'],
+  ]);
+  assert.match(
+    model.rules.idempotency.scope,
+    /exact opaque Idempotency-Key.*8-128/i,
+  );
+  assert.match(
+    model.tables.SupplierCommandIdempotency.fields.idempotencyKey,
+    /COLLATE "C"/,
+  );
+  assert.match(
+    model.tables.SupplierCommandIdempotency.retention,
+    /indefinitely/i,
+  );
+  assert.match(
+    model.rules.idempotency.canonicalRequestHash,
+    /SHA-256.*RFC 8785/i,
+  );
+  assert.match(
+    model.rules.idempotency.versionConflict,
+    /exact retry returns same 409.*new key/i,
+  );
   assert.match(stateMachine, /PENDING/);
   assert.match(stateMachine, /APPROVED/);
   assert.match(stateMachine, /REJECTED/);
@@ -260,6 +338,10 @@ export function validateSupplierContract(contract) {
         refs.includes('#/components/parameters/CsrfToken'),
         `${path} mutation needs CSRF`,
       );
+      assert.ok(
+        refs.includes('#/components/parameters/IdempotencyKey'),
+        `${path} mutation needs durable idempotency`,
+      );
       assert.equal(operation['x-csrf'], 'STAFF_BOUND');
       assert.ok(
         operation['x-audit'],
@@ -298,6 +380,68 @@ export function validateSupplierContract(contract) {
       .type[1],
     'null',
   );
+  for (const schemaName of [
+    'Supplier',
+    'CreateSupplier',
+    'UpdateSupplier',
+    'SupplierRevision',
+  ]) {
+    const schema = openapi.components.schemas[schemaName];
+    if (schemaName === 'Supplier') {
+      assert.ok(schema.required.includes('taxIdentifier'));
+      assert.ok(schema.required.includes('taxJurisdiction'));
+    }
+    assert.ok(
+      schema.allOf.some(
+        (condition) =>
+          condition['$ref'] === '#/components/schemas/TaxIdentityConstraint',
+      ),
+      `${schemaName} must conditionally validate Russian tax identifier format`,
+    );
+  }
+  const taxIdentityConstraint =
+    openapi.components.schemas.TaxIdentityConstraint;
+  assert.deepEqual(taxIdentityConstraint.dependentRequired.taxIdentifier, [
+    'taxJurisdiction',
+  ]);
+  assert.deepEqual(taxIdentityConstraint.dependentRequired.taxJurisdiction, [
+    'taxIdentifier',
+  ]);
+  assert.equal(
+    taxIdentityConstraint.then.properties.taxIdentifier.pattern,
+    '^(?:[0-9]{10}|[0-9]{12})$',
+  );
+  assert.equal(
+    openapi.components.schemas.IdentityFields.properties.manufacturerName
+      .maxLength,
+    200,
+  );
+  assert.equal(
+    openapi.components.schemas.MatchCandidate.properties.manufacturerName
+      .maxLength,
+    200,
+  );
+  assert.match(
+    openapi['x-idempotency-contract'].transaction,
+    /commit together/i,
+  );
+  assert.match(
+    openapi['x-tax-identity-validation'].RU,
+    /weighted sum mod 11.*mod 10/i,
+  );
+  assert.match(
+    openapi['x-idempotency-contract'].concurrent,
+    /waits and replays/i,
+  );
+  assert.match(
+    openapi.components.responses.Conflict.description,
+    /no partial domain mutation.*409.*idempotency response.*without a success AuditEvent/i,
+  );
+  assert.match(openapi['x-idempotency-contract'].retention, /indefinitely/i);
+  assert.match(
+    openapi['x-idempotency-contract'].keyScope,
+    /actorStaffUserId.*R1-007.*8-128/i,
+  );
 
   for (const event of [
     'supplier.created',
@@ -315,6 +459,20 @@ export function validateSupplierContract(contract) {
   }
   assert.match(audit.changesValuePolicy, /purchase amount\/currency/);
   assert.match(matrix, /SUP-01[\s\S]*SUP-17/);
+  for (const id of [
+    'SUP-19',
+    'SUP-20',
+    'SUP-21',
+    'SUP-22',
+    'SUP-23',
+    'SUP-24',
+    'SUP-25',
+    'SUP-26',
+    'SUP-27',
+    'SUP-28',
+  ]) {
+    assert.ok(matrix.includes(id), `missing regression scenario ${id}`);
+  }
   assert.match(matrix, /E2E-05/);
   for (const id of [
     'OD-007A-01',
@@ -323,6 +481,7 @@ export function validateSupplierContract(contract) {
     'OD-007A-04',
     'OD-007A-05',
     'OD-007A-06',
+    'OD-007A-07',
   ]) {
     assert.ok(decisions.includes(id), `missing owner decision ${id}`);
   }
@@ -344,7 +503,7 @@ export function validateSupplierContract(contract) {
   assert.match(ui, /No select-all, batch action/i);
   assert.match(
     openapi.paths['/v1/staff/supplier-offers'].get['x-invariants'].join(' '),
-    /price sort orders currency groups first and price only within each currency/i,
+    /currency groups sort by ISO code.*sortDirection changes exact numeric order only within each group.*null cost last.*offerId ascending/i,
   );
 
   return {

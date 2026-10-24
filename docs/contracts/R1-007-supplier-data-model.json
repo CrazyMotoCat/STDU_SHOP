@@ -12,7 +12,7 @@
     "time": "UTC timestamptz(6)",
     "delete": "No hard delete; ON DELETE/UPDATE RESTRICT; archive preserves history",
     "money": "Exact PostgreSQL NUMERIC/Prisma Decimal; canonical decimal string on wire; never binary float; currency required when purchaseCost is present; no default currency or FX conversion",
-    "supplier": "Supplier is an external counterparty and is not SellerLegalEntity; no automatic name/identifier merge; tax-id uniqueness awaits OD-007A-01",
+    "supplier": "Supplier is an external counterparty and is not SellerLegalEntity; no automatic name/identifier merge; canonical tax identity is jurisdiction-scoped and unique only among ACTIVE suppliers per OD-007A-01; archive preserves history and permits a distinct new registration.",
     "offerRevision": "Every accepted content edit appends an immutable complete revision; currentRevisionId points to latest revision; source facts are nullable and never inferred",
     "identity": {
       "fields": [
@@ -27,12 +27,28 @@
       "unknownModification": "UNKNOWN never matches NULL CatalogProduct.modification; CONFIRMED_NONE is an explicit human statement and may match NULL",
       "automaticMatch": "Exact candidate only; no name similarity, supplierPartNumber substitution, analogues or auto-association"
     },
-    "matchProposal": "PENDING -> APPROVED|REJECTED; decision is terminal; an approved proposal is historical and only the SupplierOffer.currentMatchProposalId pointer identifies selected association",
+    "matchProposal": "Proposal decisions are immutable; a partial unique index permits at most one PENDING row per (offerId, offerRevisionId, proposedProductId), while REJECTED and APPROVED historical rows do not block a new proposal ID after rejection or unlink; same idempotency key replays its saved result; no automatic pointer restoration",
     "currentMatch": "Effective only while current offer and CatalogProduct tuples both still equal the approved identity snapshots; otherwise derived REVIEW_REQUIRED and never usable for costing",
     "freshness": "Explicit expiresAt wins; otherwise sourceObservedAt ?? recordedAt plus owner-approved configured window; no configured window means UNKNOWN",
     "concurrency": "Root/proposal expectedVersion compare-and-swap; offer/product rows locked and identity revalidated in same transaction as decision and success AuditEvent",
     "audit": "Success domain mutation and AuditEvent share one PostgreSQL transaction; audit payload excludes raw contact, note, source URL, purchase amount, credentials and request body",
-    "visibility": "Staff-only endpoints and no-store responses; no supplier fields or cost in Public DTOs"
+    "visibility": "Staff-only endpoints and no-store responses; no supplier fields or cost in Public DTOs",
+    "supplierTaxIdentity": {
+      "pair": "taxIdentifier and taxJurisdiction are both NULL or both non-NULL; jurisdiction is an uppercase valid ISO-3166-1 alpha-2 code",
+      "RU": "ASCII decimal string exactly 10 or 12 digits; preserve leading zeroes; validate the applicable Russian INN checksum: 10-digit weights [2,4,10,3,5,9,4,6,8], 12-digit first-check weights [7,2,4,10,3,5,9,4,6,8] applied to the first 10 digits, second-check weights [3,7,2,4,10,3,5,9,4,6,8] applied to the first 11 digits; each check digit equals (weighted sum mod 11) mod 10; do not trim or rewrite",
+      "foreign": "Unicode NFC then trim outer ASCII U+0020 only; preserve case, internal characters and leading zeroes; do not apply RU digit/length/checksum rules",
+      "activeUniqueness": "Partial unique index on (taxJurisdiction, taxIdentifier COLLATE C) where state=ACTIVE and taxIdentifier is not NULL",
+      "archivedReRegistration": "An identity held only by ARCHIVED suppliers may be created as a new ACTIVE Supplier with a new ID and independent history; never unarchive, merge or transfer history automatically"
+    },
+    "idempotency": {
+      "scope": "(actorStaffUserId, fixed scope R1-007, exact opaque Idempotency-Key string of 8-128 characters) across all supplier mutation routes",
+      "canonicalRequestHash": "SHA-256 of RFC 8785 canonical JSON containing API version, operationId, HTTP method, normalized path/query, authenticated actor ID and validated canonical DTO including expected versions; key is excluded from hash",
+      "transaction": "Serialize by PostgreSQL transaction-scoped advisory lock derived from exact actor/scope/key; domain write, successful AuditEvent, and completed sanitized HTTP status/body are committed atomically; the unique constraint is the durable backstop",
+      "concurrentRequests": "Same key requests wait for the first transaction; after commit same hash replays saved status/body and different hash returns 409 IDEMPOTENCY_KEY_REUSED; rollback permits one waiter to execute",
+      "restartRetry": "Completed records are durable in PostgreSQL and replay after API restart after authentication, CSRF/Origin, validation, and current permissions are rechecked",
+      "versionConflict": "Persist deterministic terminal OCC/domain 409 such as VERSION_CONFLICT without domain mutation or success audit; exact retry returns same 409; corrected expected version/payload requires a new key",
+      "retention": "Append-only and retained indefinitely in R1; no purge/expiry task"
+    }
   },
   "tables": {
     "Supplier": {
@@ -62,9 +78,20 @@
         "state in ACTIVE|ARCHIVED",
         "version > 0",
         "current root profile fields equal current SupplierRevision under deferred transaction guard",
-        "tax-identifier jurisdiction/uniqueness is subject to OD-007A-01"
+        "taxIdentifier and taxJurisdiction are both NULL or both non-NULL; taxJurisdiction is uppercase ISO-3166-1 alpha-2",
+        "RU taxIdentifier is exactly 10 or 12 ASCII digits as text with valid applicable INN checksum; leading zeroes are preserved and no trimming occurs",
+        "non-RU taxIdentifier is Unicode NFC with only outer ASCII U+0020 trimmed; no RU digit, length or checksum rule is applied",
+        "duplicate canonical (taxJurisdiction,taxIdentifier) conflicts only against ACTIVE suppliers; archived identity may be registered as a new supplier without merging history"
       ],
-      "deletePolicy": "No hard delete; archived records remain readable by permission"
+      "deletePolicy": "No hard delete; archived records remain readable by permission",
+      "uniqueIndexes": [
+        {
+          "name": "supplier_active_tax_identity_uq",
+          "columns": ["taxJurisdiction", "taxIdentifier"],
+          "collation": "C",
+          "where": "state='ACTIVE' AND taxIdentifier IS NOT NULL"
+        }
+      ]
     },
     "SupplierRevision": {
       "fields": {
@@ -88,7 +115,10 @@
         ["supplierId", "revisionNo"]
       ],
       "indexes": [["supplierId", "revisionNo DESC"]],
-      "checks": ["trimmed legalName length 1..240"],
+      "checks": [
+        "trimmed legalName length 1..240",
+        "taxIdentifier and taxJurisdiction are both NULL or both non-NULL and snapshot uses canonical Supplier tax identity normalization/validation"
+      ],
       "immutability": "Append-only complete profile snapshots; no UPDATE/DELETE after transaction commit"
     },
     "SupplierOffer": {
@@ -122,7 +152,7 @@
         "offerName": "varchar(240) NULL",
         "sourceBrandText": "varchar(160) NULL",
         "brandId": "uuid NULL FK Brand RESTRICT",
-        "manufacturerName": "varchar(160) NULL",
+        "manufacturerName": "varchar(200) NULL",
         "originalPartNumber": "varchar(160) NULL",
         "modification": "varchar(160) NULL",
         "modificationEvidence": "text NOT NULL SPECIFIED|CONFIRMED_NONE|UNKNOWN",
@@ -174,13 +204,11 @@
         "decisionComment": "varchar(1000) NULL",
         "version": "integer NOT NULL DEFAULT 1 CHECK > 0"
       },
-      "unique": [
-        ["id", "offerId"],
-        ["offerId", "offerRevisionId", "proposedProductId"]
-      ],
+      "unique": [["id", "offerId"]],
       "indexes": [
         ["state", "createdAt", "id"],
         ["offerId", "createdAt", "id"],
+        ["offerId", "offerRevisionId", "proposedProductId", "createdAt", "id"],
         ["proposedProductId", "createdAt", "id"]
       ],
       "checks": [
@@ -190,7 +218,37 @@
         "evidenceKind is STRICT_IDENTITY_EXACT",
         "version > 0"
       ],
-      "deletePolicy": "Append-only decision history; no delete or reversal; a replacement approved proposal moves the offer current pointer"
+      "deletePolicy": "Append-only decision history; no delete or reversal; at most one PENDING per offer/revision/product via partial unique index; terminal historical rows permit a new proposal ID after rejection or unlink; no automatic current-pointer restoration",
+      "uniqueIndexes": [
+        {
+          "name": "product_match_one_pending_pair_uq",
+          "columns": ["offerId", "offerRevisionId", "proposedProductId"],
+          "where": "state='PENDING'"
+        }
+      ]
+    },
+    "SupplierCommandIdempotency": {
+      "fields": {
+        "id": "uuid PK",
+        "actorStaffUserId": "uuid FK StaffUser RESTRICT",
+        "scope": "varchar(32) NOT NULL CHECK = 'R1-007'",
+        "idempotencyKey": "varchar(128) NOT NULL COLLATE \"C\"; exact header key string, case-sensitive",
+        "operationId": "varchar(100) NOT NULL",
+        "requestHash": "bytea(32) NOT NULL SHA-256 over RFC 8785 canonical request envelope",
+        "responseStatus": "smallint NOT NULL; successful 2xx or deterministic terminal domain/OCC 409",
+        "responseBody": "jsonb NOT NULL; exact sanitized mutation receipt/proposal response only, never request body, private supplier fields, source URL or purchase cost",
+        "completedAt": "timestamptz(6) NOT NULL"
+      },
+      "unique": [["actorStaffUserId", "scope", "idempotencyKey"]],
+      "indexes": [["actorStaffUserId", "completedAt DESC"]],
+      "checks": [
+        "scope = 'R1-007'",
+        "requestHash is exactly 32 bytes",
+        "responseStatus is 2xx or deterministic domain/OCC 409; validation/auth/transient failures are not stored"
+      ],
+      "transaction": "Acquire PostgreSQL transaction-scoped advisory lock derived from exact actor/scope/key; check hash, execute command and persist completed response in one transaction. Successful domain mutation and AuditEvent commit atomically with the result. A stored VERSION_CONFLICT has no domain mutation and no success audit.",
+      "retention": "Append-only, no hard delete, retained indefinitely in R1; no automatic expiry or purge job",
+      "visibility": "Internal command support only; no list/read API and no direct staff DTO"
     }
   },
   "excluded": [

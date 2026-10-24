@@ -16,7 +16,7 @@ This package extends the approved R1 requirements and FROZEN R1-002, R1-004 and 
 - [State machine](R1-007-supplier-state-machine.md).
 - [Audit registry](R1-007-supplier-audit-registry.json).
 - [Acceptance matrix](R1-007-test-matrix.md).
-- [Owner decisions OD-007A-01…06](../plans/R1-007A-owner-decisions.md).
+- [Owner decisions OD-007A-01…07](../plans/R1-007A-owner-decisions.md).
 - [R1-007B implementation outline](../plans/R1-007B-implementation-plan.md).
 
 ## Frozen boundaries carried forward
@@ -27,7 +27,10 @@ This package extends the approved R1 requirements and FROZEN R1-002, R1-004 and 
 - An exact candidate remains `PENDING` until a permitted employee approves it. Approval/rejection is per proposal; no batch operation exists.
 - Offers and their revisions are staff-only. Public DTOs and public price fields are unchanged.
 - No supplier site crawling, external fetch, parser, scheduler, Redis worker, mass update, purchase order, stock reservation or automatic product creation is included.
-- Supplier prices are exact decimal values with explicit currency when present. No currency, VAT, availability or delivery time is inferred. Cross-currency comparison is grouped by currency; no FX conversion or automatic supplier selection.
+- Supplier prices are exact decimal values with explicit currency when present. No currency, VAT, availability or delivery time is inferred. Cross-currency comparison is grouped by ISO currency code; price order is numeric only within each group and keyset pagination uses a deterministic full tie-break tuple. No FX conversion or automatic supplier selection.
+- ACTIVE supplier tax identities are unique by jurisdiction and canonical identifier; archived identities retain history but do not reserve a new ACTIVE registration. Re-registration creates a distinct supplier record and never merges history.
+- Every mutation has durable actor-scoped R1-007 idempotency with transactional response storage, conflict replay and indefinite retention. This introduces the sixth R1-007 table; import-specific R1-006 idempotency is not reused.
+- Product-match proposals retain immutable rejection/approval history, permit one PENDING row per offer/revision/product, and allow a new proposal ID after rejection or unlink. The offer still has only one current-match pointer.
 - Updating an offer never mutates a quotation revision. Future costing may consume only a current, valid, approved link and still requires the manager's explicit sourcing decision.
 
 ## Source traceability

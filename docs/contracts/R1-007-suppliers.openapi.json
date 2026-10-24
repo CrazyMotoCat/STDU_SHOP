@@ -40,12 +40,17 @@
   },
   "x-global-invariants": [
     "All paths in this document are staff-only; there are no public supplier paths.",
-    "Every mutation uses the frozen R1-002 staff cookie, exact configured Origin and staff-bound CSRF token; sensitive POSTs also require an Idempotency-Key.",
+    "Every mutation requires an Idempotency-Key string of 8-128 characters and uses the frozen R1-002 staff cookie, exact configured Origin and staff-bound CSRF token.",
     "All offer and match responses require supplier permissions; match views additionally require catalog.products.read and catalog.references.read.",
     "Catalog identity is the exact frozen R1-004 tuple (brandId, manufacturerName, originalPartNumber, modification) with its NFC/outer-U+0020-only normalization; no fuzzy candidate, analog, or auto-link exists.",
     "Money is a canonical decimal string, never a JSON number. Currency is explicit; no FX conversion, assumed VAT or default currency.",
     "All responses containing contact, purchase cost, internal notes, source or matching data are no-store and never enter PublicCatalogProduct or PublicQuotation DTOs.",
-    "No route creates a CatalogProduct, updates public price, changes a quotation, sends a supplier request, fetches a source URL or performs a bulk decision."
+    "No route creates a CatalogProduct, updates public price, changes a quotation, sends a supplier request, fetches a source URL or performs a bulk decision.",
+    "Idempotency scope is authenticated actorStaffUserId plus fixed R1-007 scope plus key across every mutation; RFC 8785 canonical request envelope is SHA-256 hashed and completed status/body is durably stored in SupplierCommandIdempotency in the same PostgreSQL transaction as a successful mutation and its AuditEvent.",
+    "PostgreSQL transaction-scoped actor/scope/key serialization makes same-key concurrent requests replay one saved result; identical retries survive API restart, hash mismatch is 409 IDEMPOTENCY_KEY_REUSED, and deterministic VERSION_CONFLICT is replayed until a corrected request uses a new key.",
+    "Idempotency results are re-authorized before replay, contain only sanitized mutation receipts/proposal responses, and are retained indefinitely; no cleanup runs in R1.",
+    "ProductMatchProposal has at most one PENDING record per offer/revision/product tuple; terminal REJECTED/APPROVED history permits a new proposal ID, while SupplierOffer has one current-match pointer and unlink never automatically restores an older proposal.",
+    "ACTIVE supplier tax identity is unique by canonical jurisdiction/identifier; archived history does not reserve that identity and re-registration creates a distinct Supplier ID without merging history."
   ],
   "paths": {
     "/v1/staff/suppliers": {
@@ -93,7 +98,9 @@
         "x-audit": "supplier.created",
         "x-invariants": [
           "Supplier is not SellerLegalEntity; no default legal or contact data is generated.",
-          "The first complete SupplierRevision, current profile projection and audit commit atomically; receipt returns revisionId only."
+          "The first complete SupplierRevision, current profile projection and audit commit atomically; receipt returns revisionId only.",
+          "Tax identifier and jurisdiction must be both null or both present. RU identifiers are checksum-valid 10/12 ASCII digits stored as strings with leading zeroes; foreign identifiers use NFC and outer U+0020 trim only.",
+          "Uniqueness applies to canonical tax identity among ACTIVE suppliers only. A pair found only on archived rows creates a new Supplier ID and history; no unarchive or merge occurs."
         ],
         "responses": {
           "201": { "$ref": "#/components/responses/SupplierMutation" },
@@ -266,7 +273,9 @@
         "x-csrf": "NONE",
         "x-audit": "none",
         "x-invariants": [
-          "Cross-currency rows are grouped and never FX-converted; price sort orders currency groups first and price only within each currency; no best-supplier recommendation or selection. Default ordering is observedAt DESC, id ASC."
+          "Cross-currency rows are grouped and never FX-converted; no best-supplier recommendation or selection.",
+          "For sortBy=purchaseCost, currency groups sort by ISO code with COLLATE C ascending (null currency last); sortDirection changes exact numeric order only within each group (null cost last); ties sort supplier legalName COLLATE C ascending then offerId ascending.",
+          "Price-sort cursor is keyset-based and bound to filters/sort/direction; it carries currency null-rank, currency, cost null-rank, exact canonical decimal string, supplierName, and offerId. Decimal values are never converted to float. Default ordering is observedAt DESC, offerId ASC."
         ],
         "responses": {
           "200": { "$ref": "#/components/responses/OfferList" },
@@ -505,7 +514,9 @@
         "x-csrf": "STAFF_BOUND",
         "x-audit": "supplier_match.proposed",
         "x-invariants": [
-          "The target product must be in the exact candidate response; proposal remains PENDING; current offer link is unchanged."
+          "The target product must be in the exact candidate response; proposal remains PENDING; current offer link is unchanged.",
+          "A partial unique index permits at most one PENDING proposal for (offerId, offerRevisionId, proposedProductId); REJECTED/APPROVED history does not block a new proposal ID after rejection or unlink.",
+          "Every new proposal has its own audit event. Same Idempotency-Key replays its persisted response; a new key is required for a new attempt. No automatic match or pointer restoration occurs."
         ],
         "responses": {
           "201": { "$ref": "#/components/responses/Proposal" },
@@ -680,7 +691,7 @@
         "in": "header",
         "required": true,
         "schema": { "type": "string", "minLength": 8, "maxLength": 128 },
-        "description": "Same key and canonical payload replays the original result; key reuse with a different payload returns IDEMPOTENCY_KEY_REUSED."
+        "description": "Required on every mutation. Exact key string is scoped by authenticated actor and fixed R1-007 scope; durable same-hash retries replay the stored response, while a different payload returns 409 IDEMPOTENCY_KEY_REUSED."
       },
       "Limit": {
         "name": "limit",
@@ -770,7 +781,8 @@
         "schema": {
           "type": "string",
           "enum": ["observedAt", "purchaseCost", "supplierName"],
-          "default": "observedAt"
+          "default": "observedAt",
+          "description": "purchaseCost sorts numeric amounts only within deterministic currency groups; see listSupplierOffers invariants."
         }
       },
       "OfferSortDirection": {
@@ -792,6 +804,26 @@
     },
     "schemas": {
       "RootState": { "type": "string", "enum": ["ACTIVE", "ARCHIVED"] },
+      "TaxIdentityConstraint": {
+        "type": "object",
+        "dependentRequired": {
+          "taxIdentifier": ["taxJurisdiction"],
+          "taxJurisdiction": ["taxIdentifier"]
+        },
+        "if": {
+          "required": ["taxJurisdiction"],
+          "properties": { "taxJurisdiction": { "const": "RU" } }
+        },
+        "then": {
+          "properties": {
+            "taxIdentifier": {
+              "type": "string",
+              "pattern": "^(?:[0-9]{10}|[0-9]{12})$",
+              "description": "RU INN digits; server also validates applicable checksum and preserves leading zeroes."
+            }
+          }
+        }
+      },
       "Freshness": {
         "type": "string",
         "enum": ["CURRENT", "STALE", "UNKNOWN"]
@@ -823,6 +855,8 @@
           "state",
           "version",
           "currentRevisionId",
+          "taxIdentifier",
+          "taxJurisdiction",
           "createdAt",
           "updatedAt"
         ],
@@ -853,7 +887,8 @@
           "currentRevisionId": { "type": "string", "format": "uuid" },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
-        }
+        },
+        "allOf": [{ "$ref": "#/components/schemas/TaxIdentityConstraint" }]
       },
       "CreateSupplier": {
         "type": "object",
@@ -880,7 +915,8 @@
             "maxLength": 2048
           },
           "internalNotes": { "type": ["string", "null"], "maxLength": 4000 }
-        }
+        },
+        "allOf": [{ "$ref": "#/components/schemas/TaxIdentityConstraint" }]
       },
       "UpdateSupplier": {
         "type": "object",
@@ -908,7 +944,8 @@
             "maxLength": 2048
           },
           "internalNotes": { "type": ["string", "null"], "maxLength": 4000 }
-        }
+        },
+        "allOf": [{ "$ref": "#/components/schemas/TaxIdentityConstraint" }]
       },
       "IdentityFields": {
         "type": "object",
@@ -922,7 +959,7 @@
         "properties": {
           "brandId": { "type": ["string", "null"], "format": "uuid" },
           "sourceBrandText": { "type": ["string", "null"], "maxLength": 160 },
-          "manufacturerName": { "type": ["string", "null"], "maxLength": 160 },
+          "manufacturerName": { "type": ["string", "null"], "maxLength": 200 },
           "originalPartNumber": {
             "type": ["string", "null"],
             "maxLength": 160
@@ -1062,7 +1099,8 @@
           "internalNotes": { "type": ["string", "null"], "maxLength": 4000 },
           "recordedAt": { "type": "string", "format": "date-time" },
           "recordedByStaffUserId": { "type": "string", "format": "uuid" }
-        }
+        },
+        "allOf": [{ "$ref": "#/components/schemas/TaxIdentityConstraint" }]
       },
       "OfferRevision": {
         "allOf": [
@@ -1148,7 +1186,7 @@
           "productVersion": { "type": "integer", "minimum": 1 },
           "brandId": { "type": "string", "format": "uuid" },
           "brandName": { "type": "string", "maxLength": 160 },
-          "manufacturerName": { "type": "string", "maxLength": 160 },
+          "manufacturerName": { "type": "string", "maxLength": 200 },
           "originalPartNumber": { "type": "string", "maxLength": 160 },
           "modification": { "type": ["string", "null"], "maxLength": 160 },
           "identityEvidenceKind": {
@@ -1474,7 +1512,7 @@
         }
       },
       "Conflict": {
-        "description": "OCC, identity, state, uniqueness or idempotency-key conflict; no partial mutation.",
+        "description": "OCC, identity, state, uniqueness or idempotency-key conflict; no partial domain mutation. A deterministic terminal OCC/domain 409 may persist its idempotency response in the same transaction without a success AuditEvent; hash-mismatch key reuse creates no new record.",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" }
@@ -1626,5 +1664,22 @@
         }
       }
     }
+  },
+  "x-idempotency-contract": {
+    "table": "SupplierCommandIdempotency (sixth R1-007 table; not the import-scoped R1-006 records)",
+    "keyScope": "(actorStaffUserId, fixed scope R1-007, exact Idempotency-Key string of 8-128 characters)",
+    "requestHash": "SHA-256(RFC 8785 canonical JSON of API version, operationId, HTTP method, normalized path/query, authenticated actor ID and validated canonical request DTO including expected versions; excludes key)",
+    "transaction": "PostgreSQL transaction-scoped advisory lock derived from exact scope tuple; successful domain change, AuditEvent and saved response commit together; deterministic terminal OCC/domain 409 stores a response without domain mutation or success AuditEvent",
+    "concurrent": "Same hash waits and replays; a different request hash for the existing tuple returns 409 IDEMPOTENCY_KEY_REUSED; the unique constraint is the durable backstop",
+    "restart": "Completed responses replay from PostgreSQL after restart, after auth, CSRF/Origin, schema and current permissions are rechecked",
+    "versionConflict": "Exact retry replays saved VERSION_CONFLICT; corrected expected version or payload requires a new key",
+    "response": "Persist exact status and sanitized response DTO only; no request body, contacts, notes, source URLs or purchase costs",
+    "retention": "Append-only, retained indefinitely in R1; no purge job"
+  },
+  "x-tax-identity-validation": {
+    "pair": "taxIdentifier and taxJurisdiction are both absent/null or both present; when present jurisdiction is an uppercase valid ISO-3166-1 alpha-2 code",
+    "RU": "For taxJurisdiction=RU require exactly 10 or 12 ASCII digits as a string, preserve leading zeroes, and validate check digits using weights [2,4,10,3,5,9,4,6,8] for 10 digits; [7,2,4,10,3,5,9,4,6,8] over the first 10 digits for the 12-digit first check; [3,7,2,4,10,3,5,9,4,6,8] over the first 11 digits for the second; check digit=(weighted sum mod 11) mod 10",
+    "nonRU": "Unicode NFC and trim outer ASCII U+0020 only; preserve case, internal characters and leading zeroes; no RU digit/length/checksum rule",
+    "uniqueness": "Canonical (taxJurisdiction,taxIdentifier) is unique only among ACTIVE suppliers; archived history does not block a new Supplier ID and is never merged"
   }
 }
