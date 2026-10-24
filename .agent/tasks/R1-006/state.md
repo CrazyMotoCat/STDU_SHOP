@@ -1,11 +1,11 @@
 # R1-006 checkpoint
 
 TASK: R1-006 Catalog CSV/XLSX Import (R1-006A contract + R1-006B implementation)
-STATUS: IN_PROGRESS
-PHASE: R1-006B final verification and Git delivery
-CHECKPOINT_STATUS: R1-006A is frozen and merged; R1-006B implementation and local gates pass; hosted CI and integration pending
-LAST_SAFE_COMMIT: a8960c4cc61909cb0ed2daed57c4874a456e9b2a
-BRANCH: codex/r1-006b-catalog-import
+STATUS: COMPLETE
+PHASE: R1-006B integrated and post-merge verified
+CHECKPOINT_STATUS: PR #14 MERGED; R1-006B main CI SUCCESS; frozen contract and production boundary preserved
+LAST_SAFE_COMMIT: 2a7c9d6e734e3dc2b90bfff41678aaadfe55914f (R1-006B integration)
+BRANCH: main
 
 ## R1-006B CURRENT STATUS (2026-10-24)
 
@@ -17,7 +17,10 @@ BRANCH: codex/r1-006b-catalog-import
 - Host environment uses Node 24.22.1 while repository pins 24.19.0; `uv` is not installed on the host. Python quality was executed through the repository's locked `services/ingestion/.venv`; exact pinned toolchain and full integration smokes remain delegated to hosted CI. The shared Compose smoke was not run locally to avoid touching shared ports/containers.
 - Hosted CI run `40079091825` on candidate `513035ce2d820e4273cca393d599c47bf2ada318` reached `pnpm test:r1-002b` and failed because that existing regression harness hard-coded two migration rows; the log confirms all three migrations applied successfully, and earlier CI steps passed. The harness now asserts the exact three migration names and all three new import tables while retaining the protected fixture and permission assertions.
 - After the harness correction, local `pnpm test:r1-002b` passed: 26 Vitest checks passed; T-25 was skipped because unrelated processes already occupied shared ports 3000/3001 and were left untouched. Fresh and populated migrations preserved the sentinel and all 11 R1-002/9 R1-004 fixtures.
-- Next: format/check and push the corrective commit, then wait for complete exact-HEAD hosted CI. Make the PR Ready/merge only after all required checks and repository rules succeed. Never apply production migrations or deploy.
+- Draft PR #14 was marked Ready and merged without bypassing GitHub rules. Feature head: `6d34038936614fce7afe2f8d6efc12b93e04aa67`; integration SHA: `2a7c9d6e734e3dc2b90bfff41678aaadfe55914f`.
+- Final pre-merge GitHub Actions run `40079416244` — SUCCESS on the exact PR head and tested merge candidate `86986c739b1e0b7a76c4086ba878903041b2be77`. Post-merge main run `40079952465` — SUCCESS on integration SHA `2a7c9d6e734e3dc2b90bfff41678aaadfe55914f`, including full quality gates, runtime/browser acceptance, five-service Compose smoke, three consecutive host lifecycle smokes, and cleanup.
+- Local `main` fast-forwarded cleanly to the integration SHA in the dedicated main worktree. Production migration/deployment and live permission grants were not performed.
+- Next: proceed only with the separately scoped R1-007 task; R1-006B is complete.
 
 The `COMPLETED` and `VERIFIED` sections below are historical R1-006A contract-delivery evidence; they do not describe R1-006B completion.
 
