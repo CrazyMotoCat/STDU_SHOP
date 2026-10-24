@@ -53,6 +53,14 @@ const r1_006Tables = [
   'catalog_import_row',
   'catalog_import_decision',
 ];
+const r1_007Tables = [
+  'supplier',
+  'supplier_revision',
+  'supplier_offer',
+  'supplier_offer_revision',
+  'product_match_proposal',
+  'supplier_command_idempotency',
+];
 const r1_002Permissions = [
   'staff.users.read',
   'staff.users.create',
@@ -80,6 +88,13 @@ const r1_004Permissions = [
   'catalog.products.relations.write',
   'catalog.products.media.write',
   'catalog.products.documents.write',
+];
+const r1_007Permissions = [
+  'suppliers.read',
+  'suppliers.write',
+  'suppliers.offers.read',
+  'suppliers.offers.write',
+  'suppliers.matches.decide',
 ];
 let pgStarted = false;
 let redisStarted = false;
@@ -466,43 +481,51 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
     `SELECT count(*)::integer AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
     [r1_006Tables],
   );
+  const supplierModels = await afterFirst.query(
+    `SELECT count(*)::integer AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
+    [r1_007Tables],
+  );
   const initial = await afterFirst.query(
     `SELECT (SELECT count(*) FROM staff_user)::int AS users,
        (SELECT count(*) FROM staff_session)::int AS sessions,
        (SELECT count(*) FROM permission)::int AS permissions,
        (SELECT count(*) FROM permission WHERE code=ANY($1::text[]))::int AS r1_002_permissions,
-       (SELECT count(*) FROM permission WHERE code=ANY($2::text[]))::int AS r1_004_permissions`,
-    [r1_002Permissions, r1_004Permissions],
+       (SELECT count(*) FROM permission WHERE code=ANY($2::text[]))::int AS r1_004_permissions,
+       (SELECT count(*) FROM permission WHERE code=ANY($3::text[]))::int AS r1_007_permissions`,
+    [r1_002Permissions, r1_004Permissions, r1_007Permissions],
   );
   await afterFirst.end();
   if (
-    before.rowCount !== 3 ||
+    before.rowCount !== 4 ||
     before.rows.map((row) => row.migration_name).join('\0') !==
       [
         '20261022120000_staff_identity',
         '20261024120000_catalog_domain',
         '20261024140000_catalog_import',
+        '20261025120000_supplier_domain',
       ].join('\0') ||
     sentinel.rows[0]?.payload !== 'must-survive-migration' ||
     models.rows[0]?.count !== 11 ||
     catalogModels.rows[0]?.count !== 9 ||
-    importModels.rows[0]?.count !== 3
+    importModels.rows[0]?.count !== 3 ||
+    supplierModels.rows[0]?.count !== 6
   )
     throw new Error(
-      'Fresh migration did not preserve sentinel or create the frozen R1-002/R1-004 and additive R1-006 entities.',
+      'Fresh migration did not preserve sentinel or create the frozen R1-002/R1-004 and additive R1-006/R1-007 entities.',
     );
   if (
     initial.rows[0]?.users !== 0 ||
     initial.rows[0]?.sessions !== 0 ||
-    initial.rows[0]?.permissions !== 24 ||
+    initial.rows[0]?.permissions !== 29 ||
     initial.rows[0]?.r1_002_permissions !== 12 ||
-    initial.rows[0]?.r1_004_permissions !== 12
+    initial.rows[0]?.r1_004_permissions !== 12 ||
+    initial.rows[0]?.r1_007_permissions !== 5
   )
     throw new Error(
-      'Fresh migration did not leave account/session data empty and preserve both frozen permission registries.',
+      'Fresh migration did not leave account/session data empty and preserve the frozen R1-002/R1-004 and additive R1-007 permission registries.',
     );
   console.log(
-    'PASS additive migrations: 11 R1-002 entities, 9 R1-004 catalog entities, 3 R1-006 import entities, 12 permissions in each frozen registry, no accounts/sessions, sentinel preserved.',
+    'PASS additive migrations: 11 R1-002 entities, 9 R1-004 catalog entities, 3 R1-006 import entities, 6 R1-007 supplier entities, frozen R1-002/R1-004 permissions plus 5 R1-007 permissions, no accounts/sessions, sentinel preserved.',
   );
 
   await verifyPopulatedRepeatMigration(ownerUrl, env);

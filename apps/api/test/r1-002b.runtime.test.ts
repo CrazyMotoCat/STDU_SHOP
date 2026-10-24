@@ -67,6 +67,13 @@ const catalogPermissions = [
   'catalog.products.media.write',
   'catalog.products.documents.write',
 ];
+const supplierPermissions = [
+  'suppliers.read',
+  'suppliers.write',
+  'suppliers.offers.read',
+  'suppliers.offers.write',
+  'suppliers.matches.decide',
+];
 const controlPermissions = allPermissions.slice(0, 8);
 const apiRoot = fileURLToPath(new URL('../', import.meta.url));
 const ttyShimUrl = pathToFileURL(
@@ -581,7 +588,7 @@ describe.skipIf(
     await ownerPg?.end();
   });
 
-  it('T-15/T-16/T-17: R1-002 API remains compatible with additive catalog schema and preserves migration fixtures', async () => {
+  it('T-15/T-16/T-17: R1-002 API remains compatible with additive catalog and supplier schemas and preserves migration fixtures', async () => {
     const models = await ownerPg.query(
       `SELECT count(*)::int AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
       [
@@ -605,8 +612,9 @@ describe.skipIf(
         (SELECT count(*) FROM staff_session)::int AS sessions,
         (SELECT count(*) FROM permission)::int AS permissions,
         (SELECT count(*) FROM permission WHERE code=ANY($1::text[]))::int AS r1_002_permissions,
-        (SELECT count(*) FROM permission WHERE code=ANY($2::text[]))::int AS r1_004_permissions`,
-      [allPermissions, catalogPermissions],
+        (SELECT count(*) FROM permission WHERE code=ANY($2::text[]))::int AS r1_004_permissions,
+        (SELECT count(*) FROM permission WHERE code=ANY($3::text[]))::int AS r1_007_permissions`,
+      [allPermissions, catalogPermissions, supplierPermissions],
     );
     const catalogModels = await ownerPg.query(
       `SELECT count(*)::int AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
@@ -624,17 +632,32 @@ describe.skipIf(
         ],
       ],
     );
+    const supplierModels = await ownerPg.query(
+      `SELECT count(*)::int AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
+      [
+        [
+          'supplier',
+          'supplier_revision',
+          'supplier_offer',
+          'supplier_offer_revision',
+          'product_match_proposal',
+          'supplier_command_idempotency',
+        ],
+      ],
+    );
     const sentinel = await ownerPg.query(
       "SELECT payload FROM fixture_sentinel.sentinel WHERE key='r1-002b'",
     );
     expect(models.rows[0]?.count).toBe(11);
     expect(catalogModels.rows[0]?.count).toBe(9);
+    expect(supplierModels.rows[0]?.count).toBe(6);
     expect(counts.rows[0]).toEqual({
       users: 0,
       sessions: 0,
-      permissions: 24,
+      permissions: 29,
       r1_002_permissions: 12,
       r1_004_permissions: 12,
+      r1_007_permissions: 5,
     });
     expect(sentinel.rows[0]?.payload).toBe('must-survive-migration');
   });

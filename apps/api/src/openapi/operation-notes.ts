@@ -273,4 +273,225 @@ export const STAFF_OPERATION_CONTRACT_NOTES = {
       'FORBIDDEN',
     ],
   },
+  listSuppliers: {
+    invariants: [
+      'Keyset cursor is opaque and bound to the supplier state filter; archived rows require an explicit state filter.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  createSupplier: {
+    invariants: [
+      'One transaction appends the immutable first profile revision, updates the current projection and writes the allowlisted audit event. Idempotency replay returns only the sanitized receipt.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  getSupplier: {
+    invariants: [
+      'Contacts, tax identifiers and internal notes are returned only with suppliers.read; no public DTO contains supplier fields.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  updateSupplier: {
+    invariants: [
+      'Expected-version CAS appends a complete immutable profile revision and changes the current projection and audit atomically.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  listSupplierRevisions: {
+    invariants: [
+      'Immutable profile revisions are private and keyset-paginated; global audit never receives contact/requisite/note values.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  archiveSupplier: {
+    invariants: [
+      'One-way OCC transition; existing offers and histories remain, and no child state is cascaded.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  listOffersForSupplier: {
+    invariants: [
+      'Offer read requires suppliers.read as well as suppliers.offers.read; freshness and effective match status are separately derived.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  listSupplierOffers: {
+    invariants: [
+      'Offer read requires suppliers.read; cursors bind filters and sort. Currency groups use COLLATE C and no cross-currency numeric ranking or FX conversion occurs.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  createSupplierOffer: {
+    invariants: [
+      'Active supplier required. The first immutable MANUAL offer revision and root commit with audit. No product, price or quotation is changed.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  getSupplierOffer: {
+    invariants: [
+      'Requires suppliers.read and suppliers.offers.read; purchase cost, provenance and matching facts never enter public DTOs.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  reviseSupplierOffer: {
+    invariants: [
+      'Expected-version CAS appends a complete immutable revision. Supplier price changes have no catalog or quotation side effect.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  archiveSupplierOffer: {
+    invariants: [
+      'One-way OCC state transition retains immutable revisions, decisions and current-match history.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  listSupplierOfferRevisions: {
+    invariants: [
+      'Requires suppliers.read and suppliers.offers.read; cost and provenance are returned only by this authorized staff history route.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  listExactSupplierMatchCandidates: {
+    invariants: [
+      'Requires supplier, offer, catalog-product and catalog-reference permissions. Candidate set uses only the exact normalized four-field R1-004 identity tuple; UNKNOWN modification never matches null.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  listSupplierMatchProposals: {
+    invariants: [
+      'Requires suppliers.read, suppliers.offers.read, catalog.products.read and catalog.references.read; proposals remain item-by-item with immutable decision history.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  createSupplierMatchProposal: {
+    invariants: [
+      'One exact candidate becomes one PENDING proposal; creation does not set the current pointer. Partial uniqueness prevents two active pending proposals for the pair.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  decideSupplierMatchProposal: {
+    invariants: [
+      'Locks offer, proposal and product, revalidates versions, pointer and exact snapshots, then writes a terminal decision, pointer when approved and audit in one transaction.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  unlinkSupplierOfferMatch: {
+    invariants: [
+      'Requires expected offer version and current pointer; clears only that pointer and never restores an older approved proposal.',
+      'Returns only the sanitized {id, version} offer mutation receipt so durable idempotency replay never stores or returns purchase cost; full Offer remains on its separately authorized read route.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  listSupplierAudit: {
+    invariants: [
+      'Requires audit.read plus suppliers.read; returns only allowlisted IDs, actor, time, action, reason and changed field names.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  listSupplierOfferAudit: {
+    invariants: [
+      'Requires audit.read, suppliers.read and suppliers.offers.read; no price, contact, source URL, notes or arbitrary AuditEvent changes are serialized.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID for unsafe',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
 } as const;

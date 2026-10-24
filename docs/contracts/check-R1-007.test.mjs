@@ -49,6 +49,31 @@ test('checker rejects changes to the owner-approved source checksums', () => {
   });
 });
 
+test('unlink replays only a sanitized receipt while offer reads stay private and complete', () => {
+  const offerRead =
+    baseline.openapi.paths['/v1/staff/supplier-offers/{offerId}'].get;
+  const unlink =
+    baseline.openapi.paths['/v1/staff/supplier-offers/{offerId}/match/unlink']
+      .post;
+  const receipt =
+    baseline.openapi.components.schemas.OfferUnlinkMutationReceipt.properties
+      .data;
+
+  assert.equal(offerRead.responses['200'].$ref, '#/components/responses/Offer');
+  assert.equal(
+    unlink.responses['200'].$ref,
+    '#/components/responses/OfferUnlinkMutation',
+  );
+  assert.deepEqual(receipt.required, ['id', 'version']);
+  assert.deepEqual(Object.keys(receipt.properties).sort(), ['id', 'version']);
+
+  rejects((contract) => {
+    contract.openapi.paths[
+      '/v1/staff/supplier-offers/{offerId}/match/unlink'
+    ].post.responses['200'].$ref = '#/components/responses/Offer';
+  });
+});
+
 test('checker rejects a public supplier route', () => {
   rejects((contract) => {
     contract.openapi.paths['/v1/public/supplier-offers'] = {

@@ -1,14 +1,14 @@
-# R1-007 checkpoint
+# R1-007B checkpoint
 
-- Task: R1-007A Supplier Domain Contract
-- Delivery mode: AUTO_MERGE (owner approved the exact contract source SHA and authorized finalization/integration)
-- Baseline: `1e3c24cdd04628180f600f28aab0f88c37f23eb8`
-- Work branch: `codex/r1-007a-supplier-contract`
-- Status: Product owner approved proposed R1-007A SHA `241b9c1a6d6e57b7ff1999e1aae46b66c33cb131` with OD-007A-01…07 on 2026-10-25. Contract artifacts matched that exact source SHA before status finalization; FROZEN 1.0.0 metadata and checksum manifest are recorded. PR #16 remains Draft pending final CI and integration.
-- CI stabilization: R1-006B test-only PR #17 merged at `0f3fd681ee16bc88490bde6f55e2031c63bc82af`; hosted Actions run 40108699130 passed on the synchronized branch. The target race test passed three isolated disposable PostgreSQL runs and the full R1-006B runtime suite passed once.
-- Frozen source checksums and post-freeze artifact checksums are recorded in `docs/contracts/R1-007-frozen-manifest.json`.
-- Frozen dependencies: R1-002 1.0.0, R1-004 1.0.0, R1-006A 1.0.0; their artifacts must remain unchanged.
-- Parallel R1-018A was integrated independently at `e2e77a01a55511d3224f79b8a946f5f2c5dafcd4`; its branch/worktree was not modified for this task.
-- Verified: checker and OpenAPI validation PASS; 21 contract regression tests PASS; OpenAPI TypeScript generation PASS; Prettier and `git diff --check` PASS. The required GitHub workflow now runs the frozen supplier checker and tests.
-- Next: publish the freeze package to PR #16, verify successful Actions for its exact HEAD, mark Ready and merge without bypassing GitHub rules. Then create R1-007B from freshly fetched `main`.
-- R1-007B: owner-approved to start only after R1-007A is integrated; no production migration, deployment or live permission grants.
+- Task: R1-007B Supplier Domain and Offers
+- Delivery mode: AUTO_MERGE under owner-approved FROZEN R1-007A 1.0.0 and the separately approved unlink-receipt clarification.
+- Baseline: `2e651b02d89b245e596e944aa72ca64f86561a5c`; branch: `codex/r1-007b-supplier-domain`.
+- Scope: six supplier tables, 20 staff operations, five default-deny supplier permissions, exact manual matching, durable idempotency/OCC/audit, and protected Staff UI. No production migration, deployment, or live permission grants. No R1-018A worktree/files were touched.
+- Owner-approved clarification: `OD-007A-07-CLARIFICATION-01`; unlink returns/replays only `{id,version}`. The supplier frozen manifest/checker records this exact clarification; approved source checksums and the other frozen contracts still validate.
+- Implementation: additive Prisma schema/migration; supplier NestJS service/controller and error/permission wiring; generated OpenAPI parity/checkers; durable isolated PostgreSQL/Redis HTTP acceptance; staff supplier pages. The R1-004B migration test harness now recognizes the five approved supplier permissions and still proves there are no automatic role grants.
+- Independent read-only backend, database, and security reviews: PASS. Database review verified migration constraints and consistent supplier/offer/product/proposal lock order; security review verified stale-session guards and permission revalidation before replay.
+- Local checks PASS: `pnpm toolchain:check`, `pnpm db:validate`, `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test` (45 Vitest passed, 54 skipped; 15 pytest passed), `pnpm build`, R1-002 contract check/tests (32), R1-004 contract check/tests (47), R1-007 checker/tests (22), frozen artifact lock (19), supplier OpenAPI contract check, and `git diff --check`.
+- Runtime checks PASS: `pnpm test:r1-007b` (11/11 HTTP/PostgreSQL cases on owned disposable project/loopback ports, sentinel preserved); `pnpm catalog:runtime:check` (fresh/populated PostgreSQL migration/permission checks and CATB-29 backup/restore passed). No shared Compose project, persistent volume, or host ports were used.
+- Draft PR #19 was created and attached at initial implementation SHA `4b5bc5a072a632ec0a403da3bfae2c0e71257adf`. Its first required CI run `40117275590` failed in the pre-existing R1-002B runtime harness because it hard-coded three migrations and 24 total permissions.
+- Compatibility correction: `run-r1-002b-runtime.mjs` and `r1-002b.runtime.test.ts` now assert four additive migrations, six R1-007 supplier tables, and five supplier permissions while preserving the original R1-002/R1-004 checks. Focused `pnpm test:r1-002b` now passes (26 passed, 1 browser-only skip because local shared ports 3000/3001 are occupied; those processes were not touched). New commit/CI for this correction is pending.
+- Next: run formatting/lint/diff checks, commit and push this task-owned harness correction to PR #19, inspect the new exact-head CI and resolve any failure. Keep PR Draft until all checks/reviews are clear; then mark ready and merge only after all Git Delivery Policy conditions pass. Update checkpoint with final PR/CI/main SHA after integration.

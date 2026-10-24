@@ -58,6 +58,7 @@ jobs:
         run: |
           node docs/contracts/check-R1-007.mjs
           node --test docs/contracts/check-R1-007.test.mjs
+          pnpm supplier:contract:check
       - name: R1-004B frozen contract trace
         run: node .agent/tasks/R1-004B/verify-contract-lock.mjs
       - name: R1-004B isolated schema and permission initializer runtime
@@ -71,6 +72,8 @@ jobs:
       - run: pnpm build
       - name: R1-006B disposable PostgreSQL, parser, HTTP and Staff UI acceptance
         run: pnpm test:r1-006b
+      - name: R1-007B disposable PostgreSQL, Redis and supplier HTTP acceptance
+        run: pnpm test:r1-007b
       - name: R1-003 public UI acceptance
         run: pnpm ui:smoke
       - name: R1-005 public catalog browser acceptance

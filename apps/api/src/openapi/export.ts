@@ -25,6 +25,7 @@ import {
 } from '../identity/guards.js';
 import { REGISTERED_PERMISSION_CODES } from '../permissions/policy.js';
 import { StaffController } from '../staff/staff.controller.js';
+import { SupplierStaffController } from '../suppliers/suppliers.controller.js';
 import { STAFF_OPERATION_CONTRACT_NOTES } from './operation-notes.js';
 import { STAFF_OPENAPI_ROOT_EXTENSIONS } from './root-extensions.js';
 
@@ -77,14 +78,21 @@ function routeMethod(handler: object) {
   return name;
 }
 
-function inventoryRoutes(document: OpenAPIObject) {
+function inventoryRoutes(
+  document: OpenAPIObject,
+  controllers: Array<{ prototype: object; name: string }> = [
+    AuthController,
+    StaffController,
+  ],
+  expectedCount = 23,
+) {
   const registered: {
     path: string;
     method: string;
     operationId: string;
     policy: StaffPolicy;
   }[] = [];
-  for (const controller of [AuthController, StaffController]) {
+  for (const controller of controllers) {
     const classGuards =
       (Reflect.getMetadata(GUARDS_METADATA, controller) as
         unknown[] | undefined) ?? [];
@@ -162,12 +170,12 @@ function inventoryRoutes(document: OpenAPIObject) {
       });
     }
   }
-  if (registered.length !== 23)
+  if (registered.length !== expectedCount)
     throw new Error(
-      `Expected 23 Staff API routes, found ${registered.length}.`,
+      `Expected ${expectedCount} Staff API routes, found ${registered.length}.`,
     );
   const ids = new Set(registered.map(({ operationId }) => operationId));
-  if (ids.size !== 23)
+  if (ids.size !== expectedCount)
     throw new Error('Duplicate Staff API operationId found.');
   return registered;
 }
@@ -267,7 +275,11 @@ function finalizeDocument(document: OpenAPIObject) {
   };
 
   for (const path of Object.keys(document.paths))
-    if (!path.startsWith('/v1/staff') || path.startsWith('/v1/staff/catalog'))
+    if (
+      !path.startsWith('/v1/staff') ||
+      path.startsWith('/v1/staff/catalog') ||
+      path.startsWith('/v1/staff/supplier')
+    )
       delete document.paths[path];
   inventoryRoutes(document);
   for (const [path, pathItem] of Object.entries(document.paths)) {
@@ -362,4 +374,14 @@ export async function createStaffOpenApi() {
 
 export async function createCatalogRuntimeOpenApi() {
   return createNestOpenApiDocument();
+}
+
+export async function createSupplierRuntimeOpenApi() {
+  const document = await createNestOpenApiDocument();
+  for (const path of Object.keys(document.paths))
+    if (!path.startsWith('/v1/staff/supplier')) delete document.paths[path];
+  inventoryRoutes(document, [SupplierStaffController], 20);
+  for (const schema of Object.values(document.components?.schemas ?? {}))
+    normalizeSchema(schema);
+  return document;
 }
