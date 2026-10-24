@@ -107,7 +107,6 @@ export async function CatalogListingPage({
             ? `Опубликованные товары и дочерние разделы: ${currentCategory.name}.`
             : 'Электротехническое оборудование для комплектации проектов и инженерных решений.'
         }
-        meta={currentCategory ? `CAT / ${currentCategory.slug}` : 'PUBLIC / R1'}
         visual={!currentCategory}
       />
       {categoryNames.length ? (
@@ -132,17 +131,19 @@ export async function CatalogListingPage({
       ) : null}
       <main id="main" className={styles.content}>
         {categories.ok ? (
-          <CategoryCollection
-            categories={categories.data.data}
-            path={path.map(({ slug }) => slug)}
-            nextCursor={categories.data.meta.nextCursor}
-            searchParams={searchParams}
-            heading={
-              currentCategory
-                ? `Разделы: ${currentCategory.name}`
-                : 'Категории оборудования'
-            }
-          />
+          categories.data.data.length > 0 || categories.data.meta.nextCursor ? (
+            <CategoryCollection
+              categories={categories.data.data}
+              path={path.map(({ slug }) => slug)}
+              nextCursor={categories.data.meta.nextCursor}
+              searchParams={searchParams}
+              heading={
+                currentCategory
+                  ? `Разделы: ${currentCategory.name}`
+                  : 'Категории оборудования'
+              }
+            />
+          ) : null
         ) : (
           <CatalogError
             kind={

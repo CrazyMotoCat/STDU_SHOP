@@ -55,7 +55,6 @@ export function CatalogHero({
             />
             <div className={styles.heroVisualCaption}>
               <span>ИНЖЕНЕРНОЕ ОБОРУДОВАНИЕ</span>
-              <strong>Предметная иллюстрация</strong>
             </div>
             {meta ? (
               <span className={styles.heroVisualMeta}>{meta}</span>
@@ -376,7 +375,15 @@ export function ProductCollection({
       </div>
     );
   return (
-    <div className={styles.productGrid}>
+    <div
+      className={`${styles.productGrid} ${
+        products.length === 1
+          ? styles.productGridSingle
+          : products.length === 2
+            ? styles.productGridDouble
+            : ''
+      }`}
+    >
       {products.map((product) => (
         <ProductTile key={product.slug} product={product} />
       ))}
