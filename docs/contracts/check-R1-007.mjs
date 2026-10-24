@@ -70,11 +70,11 @@ const frozenArtifactSha256 = {
   'docs/contracts/R1-007-supplier-state-machine.md':
     '7a0f0b06b889587c3b944044f69959dbbe578769255651bd86c230f113bddb99',
   'docs/contracts/R1-007-suppliers.openapi.json':
-    'e24519d5eb33f3710922e16fd5e079cf986fc202bd5c4ce3e6e2a56fd0008bcd',
+    'a63f4a219500077c1f6d34ee24e97731adfbdd3f67fd9235f58814271ae9dd42',
   'docs/contracts/R1-007-test-matrix.md':
     '68a325f48fb9fabd150fccf4a9e275ce3e640304ee55d92abc746e4a30edd03d',
   'docs/plans/R1-007A-owner-decisions.md':
-    'af4147ea0a07d93af3ea9a997602223f184a35f363d1474f190e5e1d60d552f7',
+    '82714da65815324e75e290eca14d9b1cc288d83e072ce5ac6a8a6dd467a0f5c5',
   'docs/plans/R1-007B-implementation-plan.md':
     '4fa4b20d747ab6536de3e6060089d048f3dfdec0d283a358743ec4f858b36df6',
 };
@@ -225,6 +225,18 @@ export function validateSupplierContract(contract) {
     'OD-007A-06',
     'OD-007A-07',
   ]);
+  assert.deepEqual(frozenManifest.ownerApprovedClarifications, [
+    {
+      id: 'OD-007A-07-CLARIFICATION-01',
+      approvedOn: '2026-10-25',
+      sourceHead: approvedSourceHead,
+      decision: 'Change unlink response to receipt',
+      operationId: 'unlinkSupplierOfferMatch',
+      responseSchema: 'OfferUnlinkMutationReceipt',
+      scope:
+        'Only the unlink mutation response and its exact durable idempotency replay; no table, permission, lifecycle, audit or other operation changes.',
+    },
+  ]);
   assert.deepEqual(
     Object.keys(frozenManifest.frozenArtifactSha256).sort(),
     [...frozenArtifactPaths].sort(),
@@ -252,6 +264,10 @@ export function validateSupplierContract(contract) {
   assert.match(matrix, /^# R1-007 Contract Acceptance Matrix — FROZEN 1\.0\.0/);
   assert.match(ui, /^# R1-007 Supplier Staff UI — FROZEN 1\.0\.0/);
   assert.match(implementationPlan, /FROZEN R1-007A 1\.0\.0/);
+  assert.match(
+    decisions,
+    /OD-007A-07-CLARIFICATION-01[\s\S]*?OfferUnlinkMutationReceipt \{ id, version \}/,
+  );
   assert.deepEqual(model.extends, [
     'FROZEN R1-002 1.0.0',
     'FROZEN R1-004 1.0.0',
@@ -398,6 +414,34 @@ export function validateSupplierContract(contract) {
     'profile history API must return complete snapshots including explicit null fields',
   );
   assert.ok(openapi.paths['/v1/staff/suppliers/{supplierId}/revisions']?.get);
+  assert.equal(
+    openapi.paths['/v1/staff/supplier-offers/{offerId}/match/unlink'].post
+      .responses['200']['$ref'],
+    '#/components/responses/OfferUnlinkMutation',
+  );
+  assert.equal(
+    openapi.paths['/v1/staff/supplier-offers/{offerId}'].get.responses['200'][
+      '$ref'
+    ],
+    '#/components/responses/Offer',
+  );
+  assert.deepEqual(
+    openapi.components.schemas.OfferUnlinkMutationReceipt.properties.data
+      .required,
+    ['id', 'version'],
+  );
+  assert.equal(
+    openapi.components.schemas.OfferUnlinkMutationReceipt.properties.data
+      .properties.purchaseCost,
+    undefined,
+  );
+  assert.deepEqual(
+    Object.keys(
+      openapi.components.schemas.OfferUnlinkMutationReceipt.properties.data
+        .properties,
+    ).sort(),
+    ['id', 'version'],
+  );
   assert.equal(
     openapi.paths['/v1/staff/suppliers/{supplierId}/revisions'].get[
       'x-permission'

@@ -20,6 +20,10 @@ async function main() {
     '.local/contracts/generated-staff.openapi.json',
   );
   const frozen = resolve(root, 'docs/contracts/R1-002-staff.openapi.json');
+  const additivePermissions = resolve(
+    root,
+    'docs/contracts/R1-007-supplier-rbac-matrix.json',
+  );
   const client = resolve(root, 'packages/staff-client/src/schema.d.ts');
   await run('pnpm', [
     'exec',
@@ -28,7 +32,12 @@ async function main() {
     frozen,
     generated,
   ]);
-  await run('node', ['scripts/compare-openapi.mjs', frozen, generated]);
+  await run('node', [
+    'scripts/compare-openapi.mjs',
+    frozen,
+    generated,
+    additivePermissions,
+  ]);
   if (action === 'generate-client') {
     await run('pnpm', [
       'exec',

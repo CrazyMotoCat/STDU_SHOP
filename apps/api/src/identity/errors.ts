@@ -39,6 +39,10 @@ export const ERROR_CODES = [
   'IDEMPOTENCY_KEY_REUSED',
   'IMPORT_ROW_CONFLICT',
   'INGESTION_UNAVAILABLE',
+  'SUPPLIER_IDENTITY_CONFLICT',
+  'IDENTITY_CHANGED',
+  'MATCH_ALREADY_PENDING',
+  'INCOMPLETE_IDENTITY',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -86,6 +90,10 @@ const statusByCode: Record<ErrorCode, number> = {
   IDEMPOTENCY_KEY_REUSED: 409,
   IMPORT_ROW_CONFLICT: 409,
   INGESTION_UNAVAILABLE: 503,
+  SUPPLIER_IDENTITY_CONFLICT: 409,
+  IDENTITY_CHANGED: 409,
+  MATCH_ALREADY_PENDING: 409,
+  INCOMPLETE_IDENTITY: 422,
 };
 
 const messages: Record<ErrorCode, string> = {
@@ -127,6 +135,14 @@ const messages: Record<ErrorCode, string> = {
   IDEMPOTENCY_KEY_REUSED: 'The idempotency key was used for another request.',
   IMPORT_ROW_CONFLICT: 'The import row changed; reload it and try again.',
   INGESTION_UNAVAILABLE: 'The bounded file parser is unavailable.',
+  SUPPLIER_IDENTITY_CONFLICT:
+    'An active supplier already uses this tax identity.',
+  IDENTITY_CHANGED:
+    'The supplier or catalog identity changed; refresh and review it again.',
+  MATCH_ALREADY_PENDING:
+    'A pending proposal already exists for this offer and product.',
+  INCOMPLETE_IDENTITY:
+    'The offer does not contain sufficient exact identity evidence.',
 };
 
 export class StaffError extends HttpException {
