@@ -2,9 +2,9 @@
 
 TASK: R1-006 Catalog CSV/XLSX Import
 STATUS: REVIEW_REQUIRED
-PHASE: R1-006A contract review corrections
-CHECKPOINT_STATUS: AWAITING_OWNER_APPROVAL (PR #12 remains Draft; no merge or R1-006B)
-LAST_SAFE_COMMIT: 7a9bd5ec94e072716c99c15846c28c540e21fbaf
+PHASE: R1-006A CI formatting correction and approval handoff
+CHECKPOINT_STATUS: FINAL_SHA_CI_AND_OWNER_APPROVAL_REQUIRED (PR #12 remains Draft)
+LAST_SAFE_COMMIT: 66c2a35d06f3e50e77fe7de2e390906677e0ebe7
 BRANCH: codex/r1-006a-import-contract
 
 ## COMPLETED
@@ -18,7 +18,8 @@ BRANCH: codex/r1-006a-import-contract
 - Completed the R1-006A proposal across three DB entities, eight staff operations, raw source preview, private bounded parser interface, mapping, idempotency, manual row decisions, audit and tests. Added owner decisions OD-006A-01…05. No R1-002/R1-004 artifact, business code, migration, API implementation or permission registry was changed.
 - Corrected R1-006A after technical review: removed CSV options from mapping schema, added per-sheet fixed ACTIVE category/brand semantics, narrowed raw-import visibility and reference reads, aligned conflict persistence/409/audit/rollback/retry behavior, and specified NDJSON terminal/truncation behavior plus OD-006A-01…05 clarifications.
 - Added focused contract regression coverage. No application code, migrations, frozen RBAC/API artifacts, or business decisions #1–108 changed.
-- Committed the consolidated contract correction package as `7a9bd5ec94e072716c99c15846c28c540e21fbaf` and pushed it with checkpoint updates to existing Draft PR #12. GitHub reports PR #12 open, Draft, unmerged, and at branch HEAD `c7e1905b1cca32f86bac46f5b0458496d31d3c7a`; its body now requests approval of the corrected OD-006A-01…05 package.
+- Committed the consolidated R1-006A contract correction package as `7a9bd5ec94e072716c99c15846c28c540e21fbaf` and updated existing Draft PR #12. At resume, PR #12 was open, Draft, unmerged, and at HEAD `66c2a35d06f3e50e77fe7de2e390906677e0ebe7`.
+- Confirmed GitHub Actions run `40065800880` failed at `pnpm format:check`; local Prettier reproduced the failure on `docs/contracts/R1-006-test-matrix.md`. Applied Prettier-only formatting and verified normalized matrix text is unchanged.
 
 ## VERIFIED
 
@@ -35,14 +36,18 @@ BRANCH: codex/r1-006a-import-contract
 - `pnpm catalog:contract:check` — PASS; FROZEN R1-004 artifacts consistent (31 operations: 28 staff + 3 public).
 - `pnpm catalog:contract:test` — PASS, 47/47.
 - pnpm emitted a non-blocking engine warning: repository requests Node 24.19.0; this host ran Node 24.22.1 / pnpm 11.25.0.
-- Full runtime CI was not run or awaited, per the explicit contract-only scope; application code did not change.
+- The required final CI for the formatting-fix HEAD has not run yet; do not claim it green until the exact-SHA GitHub Actions run reports SUCCESS. Application code did not change.
+- `pnpm format:check` after formatting — PASS.
+- `node --test docs/contracts/check-R1-006-contract.test.mjs` — PASS, 6/6.
+- `pnpm contract:check` / `pnpm contract:test` — PASS / 7/7; `pnpm catalog:contract:check` / `pnpm catalog:contract:test` — PASS / 47/47.
+- OpenAPI TypeScript generation and `tsc --noEmit --skipLibCheck` — PASS. R1-002 and R1-004 frozen contracts remain unchanged.
 - Final correction checks: `node --test docs/contracts/check-R1-006-contract.test.mjs` PASS (6/6); Prettier PASS; JSON parse/counts PASS (8 operations, 3 entities); SwaggerParser PASS; generated OpenAPI TypeScript and `tsc --noEmit --skipLibCheck` PASS.
 - Frozen regression checks: `pnpm contract:check` PASS; `pnpm contract:test` PASS (7/7); `pnpm catalog:contract:check` PASS; `pnpm catalog:contract:test` PASS (47/47); `git diff --cached --check` PASS before commit.
 - No runtime CI or independent review was started, per task scope (contract-only changes).
 
 ## UNCOMMITTED
 
-The seven contract/test files are committed in `7a9bd5ec94e072716c99c15846c28c540e21fbaf`; checkpoint bookkeeping is committed and pushed. Worktree was clean after push; no other task-owned files are changed.
+No application code, migrations, RBAC or frozen contract files changed. The only R1-006A correction after the review candidate is Prettier formatting in `docs/contracts/R1-006-test-matrix.md`; this checkpoint records the exact-SHA CI and owner-approval gates.
 
 ## DECISIONS
 
@@ -57,7 +62,7 @@ The seven contract/test files are committed in `7a9bd5ec94e072716c99c15846c28c54
 
 ## NEXT_ACTION
 
-Await owner approval of the exact corrected PR #12 HEAD and OD-006A-01…05. Keep PR Draft/unmerged; do not implement R1-006B or migrations.
+Verify that the one GitHub Actions batch for the final PR #12 HEAD reports SUCCESS, then request explicit owner approval of that exact SHA. Keep PR Draft/unmerged; do not implement R1-006B or migrations.
 
 ## DO_NOT_REPEAT
 
