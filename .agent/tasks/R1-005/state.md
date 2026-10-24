@@ -4,7 +4,7 @@ TASK: R1-005
 STATUS: IN_PROGRESS
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE_WITH_CHECKPOINT
-PHASE: implementation and final local verification complete; ready for commit/PR
+PHASE: first hosted CI exposed a web image workspace-copy gap; Docker build fix verified locally
 UPDATED_AT: 2026-10-24
 BRANCH: codex/r1-005-public-catalog
 BASELINE_MAIN: e0da526fa411aab99fe7334ab50088941ea4082f
@@ -13,7 +13,7 @@ PARALLEL_WRITES: none; protect PR #10 branch/worktree and home page/shared style
 RESUME_SAFE: YES
 REPOSITORY_STATE: DIRTY_EXPECTED
 LAST_SAFE_COMMIT: e0da526fa411aab99fe7334ab50088941ea4082f
-NEXT_ACTION: stage explicit R1-005 paths; inspect staged diff; commit/push branch; open R1-005 PR; run exact-HEAD GitHub CI
+NEXT_ACTION: record CI failure/fix, commit and push Dockerfile correction; rerun exact-HEAD GitHub CI
 DO_NOT_REPEAT: frozen R1-004 checker/runtime suite and browser smoke unless code changes invalidate them
 
 ## Scope
@@ -42,14 +42,15 @@ Implement public SSR catalog, category and product routes using only the three f
 - Frozen catalog: OpenAPI reproducibility/check, 47 contract tests, generated client reproducibility, live Nest route inventory — PASS.
 - `pnpm catalog:runtime:check` — PASS on task-owned ephemeral PostgreSQL 18.6 and Redis; fresh/populated migrations, preserved R1-002 fixtures, backup/restore, initializer and 12 CATB HTTP/PostgreSQL tests passed. No persistent volume or working database was used.
 - Final worktree rerun: `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm toolchain:check`, `pnpm db:validate`, `pnpm catalog:contract:check`, `pnpm catalog:contract:test`, `pnpm catalog:client:check`, `pnpm catalog:route:check`, `pnpm catalog:ui:smoke`, and `git diff --check` — PASS.
+- Initial exact-head hosted CI run `40059663787` failed in the existing Compose build during `pnpm smoke`: the web Dockerfile copied the new web manifest but omitted `packages/catalog-client`, causing image-build TypeScript module-resolution errors. Added the workspace package manifest and source to the web build stage. `docker build --tag stdu-r1-005-web-build-check --file apps/web/Dockerfile .` — PASS after this correction.
 - `pnpm catalog:ui:smoke` — PASS with an isolated API fixture adapter; search, brand, empty state, category BFS/path, invalid technical scope, explicit `false`, repeated filter, view preservation, product details/relations, 404, desktop/mobile overflow and screenshot capture passed. Shutdown exceeded its 10-second grace period and used the 5-second bounded forced stop on the task-owned Next job boundary only; the owned port was confirmed released.
 - Full Vitest: 44 passed, 39 skipped; ingestion pytest: 5 passed. Contract tests: 47 passed.
 - Screenshots: `artifacts/verification/R1-005/` (catalog, category/table, product; desktop/mobile).
 
 ## Outstanding
 
-- Final staged-diff review, commit and push.
-- Create PR, verify exact-head GitHub Actions and merge only after all required checks and repository rules pass.
+- Commit and push the Dockerfile correction; rerun full exact-head GitHub Actions and inspect Compose/host smoke results.
+- Keep PR #11 open until all required checks and repository rules pass; merge only after that.
 - Do not edit or integrate the still-Draft PR #10. Follow-up integration points after its merge: equipment navigation link to `/catalog`, shared header catalog search, and homepage equipment/search links.
 - Contract gap for later owner decision: public API has no exact-category filterable AttributeDefinition facets or complete public brand listing; list cards omit technical values. This UI therefore accepts a manually entered attribute code, derives brand suggestions only from the loaded page and shows technical values on detail pages. No FROZEN contract change is included.
 
