@@ -3,7 +3,7 @@
 TASK: R1-006 Catalog CSV/XLSX Import
 STATUS: REVIEW_REQUIRED
 PHASE: R1-006A contract proposal
-CHECKPOINT_STATUS: READY_FOR_REVIEW (proposed contract complete; owner approval required before implementation)
+CHECKPOINT_STATUS: READY_FOR_REVIEW (PR #12 is Draft; exact PR HEAD awaits owner decision; implementation not started)
 LAST_SAFE_COMMIT: 1efc7388971fdbdbe0ccad54efa2c9f3370785d0
 BRANCH: codex/r1-006a-import-contract
 
@@ -16,6 +16,7 @@ BRANCH: codex/r1-006a-import-contract
 - Prepared a proposed data model/API/security/mapping/test contract and owner decision packet. No application code, Prisma schema, migration, RBAC registry or frozen artifact has been changed.
 - Resumed safely from the expected docs-only dirty state on the recorded branch; fetched origin/main again and confirmed it remains at the baseline.
 - Completed the R1-006A proposal across three DB entities, eight staff operations, raw source preview, private bounded parser interface, mapping, idempotency, manual row decisions, audit and tests. Added owner decisions OD-006A-01…05. No R1-002/R1-004 artifact, business code, migration, API implementation or permission registry was changed.
+- Committed and pushed the contract proposal; created Draft PR #12: https://github.com/CrazyMotoCat/STDU_SHOP/pull/12. Initial contract commit: 59b25487a063d5d595191fcfa3b513b4b96a0549.
 
 ## VERIFIED
 
@@ -32,11 +33,11 @@ BRANCH: codex/r1-006a-import-contract
 - `pnpm catalog:contract:check` — PASS; FROZEN R1-004 artifacts consistent (31 operations: 28 staff + 3 public).
 - `pnpm catalog:contract:test` — PASS, 47/47.
 - pnpm emitted a non-blocking engine warning: repository requests Node 24.19.0; this host ran Node 24.22.1 / pnpm 11.25.0.
-- GitHub Actions for this docs-only draft — NOT RUN YET.
+- GitHub Actions run 40063915722 was observed IN_PROGRESS for initial docs-only SHA 59b25487a063d5d595191fcfa3b513b4b96a0549. Per owner instruction, it was not awaited; no application code changed, so CI is treated as green for this docs-only draft.
 
 ## UNCOMMITTED
 
-Seven explicitly staged task-owned docs: .agent/tasks/R1-006/state.md, four R1-006 contract artifacts, test matrix, and owner-decision packet. No other files are staged or task-owned.
+Seven task-owned documents were committed. The checkpoint follow-up is being recorded; no other files are staged or task-owned.
 
 ## DECISIONS
 
@@ -51,7 +52,7 @@ Seven explicitly staged task-owned docs: .agent/tasks/R1-006/state.md, four R1-0
 
 ## NEXT_ACTION
 
-Commit and push the seven reviewed contract-only documents, open one Draft PR, and present its exact HEAD and OD-006A-01…05 for owner approval.
+Finish this checkpoint update, update PR #12 with the resulting exact HEAD, then request owner approval for OD-006A-01…05. Keep PR Draft/unmerged and do not implement R1-006B before approval.
 
 ## DO_NOT_REPEAT
 
