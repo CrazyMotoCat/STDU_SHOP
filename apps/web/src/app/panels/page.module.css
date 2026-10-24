@@ -204,11 +204,6 @@
   letter-spacing: 0.08em;
 }
 
-.imageIndex b {
-  color: #82c2c2;
-  font-weight: 600;
-}
-
 .imageTrace {
   position: absolute;
   z-index: 1;
@@ -358,13 +353,6 @@
   font-weight: 650;
   letter-spacing: -0.02em;
   line-height: 1.3;
-}
-
-.typeTitleRow > span {
-  color: #819095;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
 }
 
 .typeItem p {
@@ -827,10 +815,6 @@
 
   .typeTitleRow h3 {
     font-size: 1.03rem;
-  }
-
-  .typeTitleRow > span {
-    font-size: 0.62rem;
   }
 
   .typeItem p {

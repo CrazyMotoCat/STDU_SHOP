@@ -30,6 +30,7 @@
 .heroGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  grid-template-areas: 'figure copy';
   min-height: 38rem;
   overflow: hidden;
   border: 1px solid #d1dfe0;
@@ -39,6 +40,7 @@
 }
 
 .heroFigure {
+  grid-area: figure;
   position: relative;
   display: flex;
   min-width: 0;
@@ -103,12 +105,6 @@
   background: #72b8b9;
 }
 
-.imageReadout b {
-  margin-left: auto;
-  color: #8dc7c5;
-  font-weight: 500;
-}
-
 .imageCorner {
   position: absolute;
   z-index: 1;
@@ -139,6 +135,7 @@
 }
 
 .heroCopy {
+  grid-area: copy;
   position: relative;
   display: flex;
   min-width: 0;
@@ -378,15 +375,6 @@
 
 .serviceCardTop svg circle {
   fill: #177a83;
-}
-
-.serviceCode {
-  align-self: flex-end;
-  color: #8a999d;
-  font-family: var(--font-mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
 }
 
 .serviceCard h3 {
@@ -792,10 +780,6 @@
     padding-inline: 1rem;
   }
 
-  .serviceCode {
-    display: none;
-  }
-
   .toolboxLayout {
     gap: 2.5rem;
   }
@@ -812,6 +796,9 @@
 
   .heroGrid {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'copy'
+      'figure';
     min-height: 0;
   }
 
@@ -844,7 +831,7 @@
   }
 
   .heroFoot {
-    margin-top: 1.45rem;
+    display: none;
   }
 
   .sectionHeading {

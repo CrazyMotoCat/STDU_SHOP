@@ -16,28 +16,24 @@ const panelTypes = [
     title: 'Автоматизация и управление',
     description:
       'Компоновка контроллеров, аппаратов защиты и цепей управления в соответствии с задачей объекта.',
-    code: 'CTRL',
   },
   {
     index: '02',
     title: 'Мониторинг и диспетчеризация',
     description:
       'Инженерная проработка сигналов и связи для наблюдения за оборудованием и процессами.',
-    code: 'DATA',
   },
   {
     index: '03',
     title: 'Силовые и распределительные',
     description:
       'Распределение питания и защита цепей согласно исходной схеме и параметрам объекта.',
-    code: 'PWR',
   },
   {
     index: '04',
     title: 'Управление инженерными системами',
     description:
       'Шкафы для вентиляции, насосных установок, отопления и других систем здания или производства.',
-    code: 'HVAC',
   },
 ] as const;
 
@@ -143,7 +139,7 @@ export default function PanelsPage() {
                     src="/images/engineering/cabinet-industrial.webp"
                   />
                   <span aria-hidden="true" className={styles.imageIndex}>
-                    PANEL SYSTEMS <b>01</b>
+                    Шкаф управления
                   </span>
                   <svg
                     aria-hidden="true"
@@ -205,7 +201,6 @@ export default function PanelsPage() {
                     <div>
                       <div className={styles.typeTitleRow}>
                         <h3>{type.title}</h3>
-                        <span>{type.code}</span>
                       </div>
                       <p>{type.description}</p>
                     </div>
@@ -265,7 +260,7 @@ export default function PanelsPage() {
                 </p>
               </div>
               <span aria-hidden="true" className={styles.customArrow}>
-                INDIVIDUAL / SPEC
+                По техническому заданию
               </span>
             </aside>
           </Container>

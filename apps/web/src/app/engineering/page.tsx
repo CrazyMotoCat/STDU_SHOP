@@ -13,7 +13,6 @@ export const metadata: Metadata = {
 const serviceGroups = [
   {
     index: '01',
-    code: 'DESIGN',
     title: 'Проектирование',
     intro: 'Сформировать понятное техническое решение до начала реализации.',
     services: [
@@ -25,7 +24,6 @@ const serviceGroups = [
   },
   {
     index: '02',
-    code: 'CONTROL',
     title: 'Программирование',
     intro: 'Реализовать согласованную логику управления и взаимодействия.',
     services: [
@@ -35,7 +33,6 @@ const serviceGroups = [
   },
   {
     index: '03',
-    code: 'COMMISSIONING',
     title: 'Испытания и ПНР',
     intro:
       'Проверить решение и выполнить пусконаладочные работы в границах проекта.',
@@ -66,35 +63,6 @@ export default function EngineeringPage() {
               ]}
             />
             <div className={styles.heroGrid}>
-              <figure className={styles.heroFigure}>
-                <div className={styles.heroImageFrame}>
-                  <Image
-                    alt="Открытый шкаф диспетчеризации с контроллерами и релейными модулями из материала Wiren Board"
-                    className={styles.heroImage}
-                    fill
-                    priority
-                    sizes="(max-width: 800px) 100vw, 55vw"
-                    src="/images/engineering/cabinet-dispatch.webp"
-                  />
-                  <div aria-hidden="true" className={styles.imageReadout}>
-                    <span>FIELD REFERENCE</span>
-                    <i />
-                    <b>AUTOMATION / 02</b>
-                  </div>
-                  <div aria-hidden="true" className={styles.imageCorner} />
-                </div>
-                <figcaption className={styles.photoCaption}>
-                  <span>Шкаф диспетчеризации · фото из статьи Wiren Board</span>
-                  <a
-                    href="https://habr.com/ru/companies/wirenboard/articles/992886/"
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Источник ↗
-                  </a>
-                </figcaption>
-              </figure>
-
               <div className={styles.heroCopy}>
                 <p className={styles.eyebrow}>ИНЖЕНЕРНЫЕ УСЛУГИ</p>
                 <h1 id="engineering-title">
@@ -125,6 +93,34 @@ export default function EngineeringPage() {
                   <span>ИНЖЕНЕРНЫЕ СИСТЕМЫ</span>
                 </div>
               </div>
+
+              <figure className={styles.heroFigure}>
+                <div className={styles.heroImageFrame}>
+                  <Image
+                    alt="Открытый шкаф диспетчеризации с контроллерами и релейными модулями из материала Wiren Board"
+                    className={styles.heroImage}
+                    fill
+                    priority
+                    sizes="(max-width: 800px) 100vw, 55vw"
+                    src="/images/engineering/cabinet-dispatch.webp"
+                  />
+                  <div aria-hidden="true" className={styles.imageReadout}>
+                    <span>Система автоматизации</span>
+                    <i />
+                  </div>
+                  <div aria-hidden="true" className={styles.imageCorner} />
+                </div>
+                <figcaption className={styles.photoCaption}>
+                  <span>Шкаф диспетчеризации · фото из статьи Wiren Board</span>
+                  <a
+                    href="https://habr.com/ru/companies/wirenboard/articles/992886/"
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Источник ↗
+                  </a>
+                </figcaption>
+              </figure>
             </div>
           </Container>
         </section>
@@ -177,7 +173,6 @@ export default function EngineeringPage() {
                         </>
                       )}
                     </svg>
-                    <span className={styles.serviceCode}>{group.code}</span>
                   </div>
                   <h3>{group.title}</h3>
                   <p className={styles.serviceIntro}>{group.intro}</p>
