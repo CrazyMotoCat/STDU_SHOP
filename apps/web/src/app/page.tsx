@@ -266,6 +266,25 @@ export default function Home() {
 
         <Section className="closing-section" tone="dark">
           <Container className="closing-section__inner">
+            <svg
+              aria-hidden="true"
+              className="closing-section__circuit"
+              viewBox="0 0 420 120"
+              fill="none"
+            >
+              <g stroke="currentColor" strokeWidth="1">
+                <path d="M0 60h80m64 0h66m64 0h66m64 0h16M32 50v20m-6-15h12m-12 10h12" />
+                <rect x="80" y="22" width="64" height="76" rx="4" />
+                <rect x="210" y="22" width="64" height="76" rx="4" />
+                <rect x="340" y="22" width="64" height="76" rx="4" />
+                <path d="M94 38h36m-36 44h36m94-44h36m-36 44h36m94-44h36m-36 44h36M106 48v24m12-24v24m118-24v24m12-24v24m112-24h24m-24 8h24m-24 8h24" />
+                <path d="M8 8h20M8 8v20m404 64v20h-20" opacity="0.5" />
+              </g>
+              <g fill="currentColor">
+                <circle cx="177" cy="60" r="2.5" />
+                <circle cx="307" cy="60" r="2.5" />
+              </g>
+            </svg>
             <div>
               <p className="eyebrow">GRAPHITE &amp; PETROL</p>
               <h2>Инженерная ясность начинается с исходных данных.</h2>

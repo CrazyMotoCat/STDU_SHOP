@@ -43,14 +43,14 @@ function MaterialReference({ stageId }: { stageId: StageId }) {
               alt="Автоматический выключатель КЭАЗ OptiDin"
               width={364}
               height={751}
-              sizes="90px"
+              sizes="(max-width: 760px) 60px, 120px"
             />
             <Image
               src="/images/engineering/relay-wirenboard.webp"
               alt="Релейный модуль Wiren Board WB-MR6C"
               width={420}
               height={378}
-              sizes="90px"
+              sizes="(max-width: 760px) 60px, 120px"
             />
           </>
         ) : stageId === 'panel' ? (
@@ -59,7 +59,7 @@ function MaterialReference({ stageId }: { stageId: StageId }) {
             alt="Реальная сборка щита с клеммами и модулями Wiren Board"
             width={640}
             height={640}
-            sizes="180px"
+            sizes="(max-width: 760px) 125px, 240px"
           />
         ) : (
           <Image
@@ -67,7 +67,7 @@ function MaterialReference({ stageId }: { stageId: StageId }) {
             alt="Промышленный контроллер Wiren Board 8M"
             width={640}
             height={438}
-            sizes="180px"
+            sizes="(max-width: 760px) 125px, 240px"
           />
         )}
       </div>
