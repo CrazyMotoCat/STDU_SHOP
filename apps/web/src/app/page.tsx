@@ -1,4 +1,7 @@
+import Image from 'next/image';
+import './home.css';
 import { PublicLayout } from '../components/layouts/page-layouts';
+import { CatalogSearch } from '../components/site/catalog-search';
 import { SwitchgearIllustration } from '../components/site/switchgear-illustration';
 import { EngineeringMotionShowcase } from '../components/visual/engineering-motion-showcase';
 import {
@@ -6,7 +9,6 @@ import {
   Breadcrumbs,
   Button,
   Container,
-  SearchInput,
   Section,
   ServiceCard,
   Status,
@@ -17,59 +19,85 @@ const directions = [
     id: 'equipment',
     index: '01',
     title: 'Оборудование',
-    description:
-      'Электротехнические компоненты и оборудование для промышленных систем.',
+    description: 'Точная идентификация компонентов для промышленных систем.',
+    visual: 'equipment',
   },
   {
     id: 'panels',
     index: '02',
     title: 'Изготовление электрощитов',
-    description:
-      'Типовые шкафы и индивидуальные решения с инженерной проработкой.',
+    description: 'Типовые и индивидуальные шкафы с инженерной проработкой.',
+    visual: 'panel',
   },
   {
     id: 'engineering',
     index: '03',
     title: 'Проектирование и программирование',
     description:
-      'Проектирование систем управления и программирование оборудования.',
+      'Инженерная проработка решений для управления промышленными процессами.',
+    visual: 'engineering',
   },
 ] as const;
 
-const details = [
-  {
-    id: 'equipment',
-    number: '01',
-    eyebrow: 'Оборудование',
-    title: 'Технический выбор начинается с исходных данных',
-    description:
-      'Будущий каталог будет строиться вокруг характеристик, документации и точной идентификации оборудования.',
-    note: 'Каталог и поиск пока недоступны.',
-  },
-  {
-    id: 'panels',
-    number: '02',
-    eyebrow: 'Электрощиты',
-    title: 'Типовые решения и проектирование под задачу',
-    description:
-      'Интерфейс предусматривает место для типовых шкафов, исходных спецификаций и ручной инженерной проверки изменений.',
-    note: 'Раздел электрощитов пока готовится.',
-  },
-  {
-    id: 'engineering',
-    number: '03',
-    eyebrow: 'Инжиниринг',
-    title: 'Проектирование и программирование систем',
-    description:
-      'Направление объединит инженерную проработку, проектирование и программирование в рамках утверждённого объёма платформы.',
-    note: 'Информация и сервисы подключаются поэтапно.',
-  },
-] as const;
+function DirectionVisual({
+  type,
+}: {
+  type: (typeof directions)[number]['visual'];
+}) {
+  if (type === 'panel') {
+    return (
+      <span className="direction-media direction-media--panel">
+        <Image
+          src="/images/engineering/cabinet-industrial.webp"
+          alt=""
+          fill
+          sizes="(max-width: 760px) 100vw, 440px"
+        />
+        <span className="direction-media__caption">Фото: ОВЕН</span>
+      </span>
+    );
+  }
+
+  if (type === 'engineering') {
+    return (
+      <span className="direction-media direction-media--engineering">
+        <Image
+          src="/images/engineering/ai-relay-detail-concept.webp"
+          alt=""
+          fill
+          sizes="(max-width: 760px) 100vw, 440px"
+        />
+        <span className="direction-media__caption">
+          AI-концепт · по референсу WB
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="direction-media direction-media--equipment">
+      <Image
+        src="/images/engineering/breaker-iek.webp"
+        alt=""
+        width={480}
+        height={477}
+        sizes="(max-width: 760px) 140px, 200px"
+      />
+      <Image
+        src="/images/engineering/power-meanwell-hdr60.webp"
+        alt=""
+        width={395}
+        height={624}
+        sizes="(max-width: 760px) 110px, 170px"
+      />
+    </span>
+  );
+}
 
 export default function Home() {
   return (
     <PublicLayout>
-      <main id="main" tabIndex={-1}>
+      <main className="home-page" id="main" tabIndex={-1}>
         <Section aria-labelledby="hero-title" className="hero-section">
           <Container className="hero-grid">
             <div className="hero-copy">
@@ -78,7 +106,7 @@ export default function Home() {
                 items={[{ label: 'Главная' }]}
               />
               <Badge className="hero-badge" tone="accent">
-                Оборудование · электрощиты · инженерия
+                Электротехнические решения
               </Badge>
               <h1 id="hero-title">
                 Инженерная точность
@@ -89,17 +117,48 @@ export default function Home() {
                 Промышленное электротехническое оборудование, проектирование
                 электрощитов и программирование систем управления.
               </p>
+            </div>
 
+            <div className="hero-visual hero-visual--photo">
+              <figure className="hero-reference">
+                <div className="hero-reference__image">
+                  <Image
+                    src="/images/engineering/cabinet-dispatch.webp"
+                    alt="Реальный шкаф диспетчеризации: контроллер Wiren Board, аппараты защиты, блок питания и реле на DIN-рейках"
+                    width={1200}
+                    height={1178}
+                    sizes="(max-width: 760px) 100vw, 50vw"
+                    preload
+                  />
+                  <span className="hero-reference__label">
+                    Системы управления
+                  </span>
+                </div>
+                <figcaption className="hero-reference__caption">
+                  <div>
+                    <strong>Инженерия в каждой связи.</strong>
+                    <a
+                      href="https://habr.com/ru/companies/wirenboard/articles/992886/"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Пример компоновки · фото Wiren Board ↗
+                    </a>
+                  </div>
+                  <div className="hero-reference__scheme">
+                    <SwitchgearIllustration />
+                    <span>Условная схема</span>
+                  </div>
+                </figcaption>
+              </figure>
+            </div>
+
+            <div className="hero-tools-area">
               <div
                 className="hero-tools"
-                aria-label="Будущие возможности платформы"
+                aria-label="Поиск оборудования и сервисы платформы"
               >
-                <SearchInput
-                  aria-describedby="unavailable-actions"
-                  disabled
-                  label="Поиск по каталогу — пока недоступен"
-                  placeholder="Поиск по каталогу"
-                />
+                <CatalogSearch label="Поиск оборудования на главной" />
                 <div className="hero-tools__actions">
                   <Button
                     aria-describedby="unavailable-actions"
@@ -119,26 +178,21 @@ export default function Home() {
                 </div>
               </div>
               <p className="visually-hidden" id="unavailable-actions">
-                Поиск, загрузка файлов и отправка коммерческих запросов пока
+                Загрузка файлов и отправка коммерческих запросов пока
                 недоступны. Подключение этих сервисов запланировано на следующих
                 этапах разработки.
               </p>
-              <Status className="hero-status" label="Сервисы готовятся">
-                Поиск, загрузка спецификации и запрос коммерческого предложения
-                пока недоступны.
+              <Status
+                className="hero-status"
+                label="КП и файлы пока недоступны"
+              >
+                Загрузка спецификации и запрос КП появятся после запуска
+                соответствующих сервисов.
               </Status>
               <a className="hero-scroll-link" href="#directions">
                 <span aria-hidden="true">↓</span>
                 Посмотреть направления
               </a>
-            </div>
-
-            <div className="hero-visual">
-              <SwitchgearIllustration />
-              <div className="hero-visual__index" aria-hidden="true">
-                <span>ЭЛЕКТРОТЕХНИЧЕСКИЕ СИСТЕМЫ</span>
-                <span>STDU / 01</span>
-              </div>
             </div>
           </Container>
           <div className="hero-section__rule" aria-hidden="true" />
@@ -154,23 +208,28 @@ export default function Home() {
             <div className="section-heading">
               <div>
                 <p className="eyebrow">ОСНОВНЫЕ НАПРАВЛЕНИЯ</p>
-                <h2 id="directions-title">
-                  Три направления. Одна инженерная логика.
-                </h2>
+                <h2 id="directions-title">Три направления. Единая логика.</h2>
               </div>
               <p>
-                Структура платформы объединяет поставку оборудования,
-                электрощитовое направление и инжиниринг.
+                Единый подход опирается на точные исходные данные и инженерную
+                проработку.
               </p>
             </div>
             <div className="service-grid">
               {directions.map((direction) => (
                 <ServiceCard
+                  className="service-card--direction service-card--photo"
                   description={direction.description}
-                  href={`#${direction.id}`}
+                  href={
+                    direction.id === 'equipment'
+                      ? '/catalog'
+                      : `#${direction.id}`
+                  }
+                  id={direction.id}
                   index={direction.index}
                   key={direction.id}
                   title={direction.title}
+                  visual={<DirectionVisual type={direction.visual} />}
                 />
               ))}
             </div>
@@ -182,53 +241,72 @@ export default function Home() {
             <div className="section-heading section-heading--compact">
               <div>
                 <p className="eyebrow">СТРУКТУРА ПЛАТФОРМЫ</p>
-                <h2 id="overview-title">От компонента — к системе.</h2>
+                <h2 id="overview-title">Инженерная схема.</h2>
               </div>
               <p>
-                Разделы будут открываться по мере готовности соответствующих
-                сервисов. Сейчас доступен обзор их назначения.
+                Схема показывает, как компоненты, компоновка шкафа и управление
+                связаны в одном решении.
               </p>
             </div>
 
             <EngineeringMotionShowcase />
 
-            <div className="direction-details">
-              {details.map((detail) => (
-                <article
-                  aria-labelledby={`${detail.id}-title`}
-                  className="direction-detail"
-                  id={detail.id}
-                  key={detail.id}
-                >
-                  <div className="direction-detail__index" aria-hidden="true">
-                    {detail.number}
-                  </div>
-                  <div className="direction-detail__body">
-                    <p className="eyebrow">{detail.eyebrow}</p>
-                    <h3 id={`${detail.id}-title`}>{detail.title}</h3>
-                    <p>{detail.description}</p>
-                  </div>
-                  <div className="direction-detail__status">
-                    <Badge tone="unavailable">Раздел готовится</Badge>
-                    <span>{detail.note}</span>
-                  </div>
-                </article>
-              ))}
+            <div className="engineering-principle">
+              <span className="engineering-principle__label">
+                ИНЖЕНЕРНЫЙ ПОДХОД
+              </span>
+              <p>
+                Техническое решение формируется по исходной документации и
+                проходит проверку инженером.
+              </p>
             </div>
           </Container>
         </Section>
 
         <Section className="closing-section" tone="dark">
+          <Image
+            className="closing-section__photo"
+            src="/images/engineering/ai-workshop-concept.webp"
+            alt=""
+            fill
+            sizes="100vw"
+          />
           <Container className="closing-section__inner">
+            <svg
+              aria-hidden="true"
+              className="closing-section__circuit"
+              viewBox="0 0 420 120"
+              fill="none"
+            >
+              <g stroke="currentColor" strokeWidth="1">
+                <path d="M0 60h80m64 0h66m64 0h66m64 0h16M32 50v20m-6-15h12m-12 10h12" />
+                <rect x="80" y="22" width="64" height="76" rx="4" />
+                <rect x="210" y="22" width="64" height="76" rx="4" />
+                <rect x="340" y="22" width="64" height="76" rx="4" />
+                <path d="M94 38h36m-36 44h36m94-44h36m-36 44h36m94-44h36m-36 44h36M106 48v24m12-24v24m118-24v24m12-24v24m112-24h24m-24 8h24m-24 8h24" />
+                <path d="M8 8h20M8 8v20m404 64v20h-20" opacity="0.5" />
+              </g>
+              <g fill="currentColor">
+                <circle cx="177" cy="60" r="2.5" />
+                <circle cx="307" cy="60" r="2.5" />
+              </g>
+            </svg>
             <div>
               <p className="eyebrow">GRAPHITE &amp; PETROL</p>
-              <h2>Технические решения требуют ясной структуры.</h2>
+              <h2>Инженерная ясность начинается с исходных данных.</h2>
             </div>
             <p>
-              STDU SHOP — основа для последовательной работы с оборудованием,
-              щитами и инженерными проектами.
+              STDU SHOP — платформа для последовательной инженерной проработки.
             </p>
           </Container>
+          <a
+            className="closing-section__source"
+            href="https://owen.ru/project/avtomatizaciya_varochnogo_kotla_na_pticepererabatyvayushchem_proizvodstve"
+            target="_blank"
+            rel="noreferrer"
+          >
+            AI-концепт среды · исходный референс ОВЕН ↗
+          </a>
         </Section>
       </main>
     </PublicLayout>

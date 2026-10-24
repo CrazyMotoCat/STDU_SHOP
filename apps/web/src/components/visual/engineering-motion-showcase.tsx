@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useId, useRef, useState } from 'react';
 
 const stages = [
@@ -31,29 +32,103 @@ const stages = [
 
 type StageId = (typeof stages)[number]['id'];
 
+function MaterialReference({ stageId }: { stageId: StageId }) {
+  return (
+    <div className={`engineering-reference engineering-reference--${stageId}`}>
+      <div className="engineering-reference__media">
+        {stageId === 'equipment' ? (
+          <>
+            <Image
+              src="/images/engineering/breaker-keaz-optidin.webp"
+              alt="Автоматический выключатель КЭАЗ OptiDin"
+              width={364}
+              height={751}
+              sizes="(max-width: 760px) 76px, 152px"
+            />
+            <Image
+              src="/images/engineering/relay-wirenboard.webp"
+              alt="Релейный модуль Wiren Board WB-MR6C"
+              width={420}
+              height={378}
+              sizes="(max-width: 760px) 76px, 152px"
+            />
+          </>
+        ) : stageId === 'panel' ? (
+          <Image
+            src="/images/engineering/panel-assembly.webp"
+            alt="Реальная сборка щита с клеммами и модулями Wiren Board"
+            width={640}
+            height={640}
+            sizes="(max-width: 760px) 125px, 240px"
+          />
+        ) : (
+          <Image
+            src="/images/engineering/controller-wirenboard.webp"
+            alt="Промышленный контроллер Wiren Board 8M"
+            width={640}
+            height={438}
+            sizes="(max-width: 760px) 125px, 240px"
+          />
+        )}
+      </div>
+      <div className="engineering-reference__copy">
+        <span>
+          {stageId === 'equipment'
+            ? 'КОМПОНЕНТЫ'
+            : stageId === 'panel'
+              ? 'КОМПОНОВКА'
+              : 'УПРАВЛЕНИЕ'}
+        </span>
+        <p>
+          {stageId === 'equipment'
+            ? 'Защита и коммутация'
+            : stageId === 'panel'
+              ? 'Модули и клеммы'
+              : 'Контроллер и интерфейсы'}
+        </p>
+        {stageId === 'panel' ? (
+          <a
+            href="https://wirenboard.com/ru/pages/comfort-life-piter-kvartira/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Фото: Wiren Board ↗
+          </a>
+        ) : (
+          <small>
+            {stageId === 'equipment'
+              ? 'КЭАЗ OptiDin · WB-MR6C'
+              : 'Wiren Board 8M'}
+          </small>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function EngineeringMotionShowcase() {
   const [activeId, setActiveId] = useState<StageId>('equipment');
   const instanceId = useId().replaceAll(':', '');
   const drawingRef = useRef<SVGSVGElement>(null);
   const [decorationVisible, setDecorationVisible] = useState(false);
+  const [drawingInView, setDrawingInView] = useState(false);
 
   useEffect(() => {
     const drawing = drawingRef.current;
     if (!drawing) return;
 
-    if (
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-      !('IntersectionObserver' in window)
-    ) {
+    if (!('IntersectionObserver' in window)) {
       setDecorationVisible(true);
+      setDrawingInView(true);
       return;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
+        const visible = entries.some((entry) => entry.isIntersecting);
+        setDrawingInView(visible);
+        if (visible) {
           setDecorationVisible(true);
-          observer.disconnect();
         }
       },
       { rootMargin: '0px 0px -8% 0px' },
@@ -72,15 +147,10 @@ export function EngineeringMotionShowcase() {
     <div className="engineering-showcase">
       <div className="engineering-showcase__layout">
         <div className="engineering-showcase__copy">
-          <p className="eyebrow">ИНЖЕНЕРНЫЕ НАПРАВЛЕНИЯ</p>
           <h3 className="engineering-showcase__title">Выберите этап</h3>
-          <p className="engineering-showcase__intro">
-            Один инженерный процесс: от выбора оборудования до структуры
-            электрощита и системы управления.
-          </p>
 
           <div
-            aria-label="Состояния инженерной схемы"
+            aria-label="Этапы инженерной схемы"
             className="engineering-showcase__choices"
             role="group"
           >
@@ -92,12 +162,6 @@ export function EngineeringMotionShowcase() {
                 onClick={() => setActiveId(stage.id)}
                 type="button"
               >
-                <span
-                  aria-hidden="true"
-                  className="engineering-showcase__choice-index"
-                >
-                  {stage.index}
-                </span>
                 <span>{stage.label}</span>
               </button>
             ))}
@@ -112,8 +176,8 @@ export function EngineeringMotionShowcase() {
               className="engineering-showcase__summary-content"
               key={activeId}
             >
-              <span className="engineering-showcase__summary-index">
-                {activeStage.index} / 03
+              <span className="engineering-showcase__sequence">
+                ЭТАП {activeStage.index} ИЗ 03
               </span>
               <p className="engineering-showcase__summary-title">
                 {activeStage.title}
@@ -121,8 +185,9 @@ export function EngineeringMotionShowcase() {
               <p>{activeStage.description}</p>
             </div>
           </div>
+          <MaterialReference stageId={activeId} />
           <p className="engineering-showcase__note">
-            Иллюстрация направлений работы, не конфигуратор и не подключённая
+            Демонстрационная схема: это не конфигуратор и не подключённая
             система.
           </p>
         </div>
@@ -132,15 +197,16 @@ export function EngineeringMotionShowcase() {
             aria-labelledby={`${titleId} ${descriptionId}`}
             className="engineering-showcase__drawing"
             data-revealed={decorationVisible}
+            data-in-view={drawingInView}
             ref={drawingRef}
             fill="none"
             role="img"
             viewBox="0 0 760 440"
           >
-            <title id={titleId}>Схема инженерных направлений</title>
+            <title id={titleId}>Схема инженерного решения</title>
             <desc id={descriptionId}>
-              Оригинальная техническая иллюстрация компонентов, шкафа и системы
-              управления. Это статическая демонстрационная схема.
+              Оригинальная условная инженерная схема компонентов, шкафа и
+              системы управления.
             </desc>
             <defs>
               <pattern
@@ -168,38 +234,15 @@ export function EngineeringMotionShowcase() {
             <rect height="440" width="760" fill={`url(#${gridId})`} />
             <circle cx="608" cy="94" r="150" fill={`url(#${glowId})`} />
             <path
+              className="engineering-showcase__frame-mark"
+              d="M36 75V42H92M668 42H724V75M36 365V398H92M668 398H724V365"
+            />
+            <path
               className="engineering-showcase__decor-line"
               d="M36 398H724"
               stroke="var(--showcase-frame)"
               strokeWidth="1"
             />
-            <path
-              d="M36 48H724"
-              stroke="var(--showcase-frame)"
-              strokeWidth="1"
-            />
-            <text
-              fill="var(--showcase-caption)"
-              fontFamily="var(--font-mono)"
-              fontSize="10"
-              letterSpacing="1.2"
-              x="42"
-              y="34"
-            >
-              ENGINEERING / OVERVIEW
-            </text>
-            <text
-              fill="var(--showcase-caption)"
-              fontFamily="var(--font-mono)"
-              fontSize="10"
-              letterSpacing="1.2"
-              textAnchor="end"
-              x="718"
-              y="34"
-            >
-              {activeStage.index} / 03
-            </text>
-
             <g
               aria-hidden="true"
               className="engineering-showcase__stage"
@@ -208,6 +251,21 @@ export function EngineeringMotionShowcase() {
               <path
                 className="engineering-showcase__connection"
                 d="M174 218H236M324 218H386M474 218H536"
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__equipment-signal--1"
+                d="M174 218H236"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__equipment-signal--2"
+                d="M324 218H386"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__equipment-signal--3"
+                d="M474 218H536"
+                pathLength={100}
               />
               {[174, 236, 324, 386, 474, 536].map((x) => (
                 <circle
@@ -330,29 +388,34 @@ export function EngineeringMotionShowcase() {
                 className="engineering-showcase__panel-wire engineering-showcase__panel-wire--accent"
                 d="M271 305H450"
               />
+              <path
+                className="engineering-showcase__panel-wire engineering-showcase__panel-wire--signal"
+                d="M271 305H450"
+                pathLength={100}
+              />
               <g
-                className="engineering-showcase__device"
+                className="engineering-showcase__device engineering-showcase__device--signal-1"
                 transform="translate(267 160)"
               >
                 <rect height="52" rx="4" width="38" />
                 <path d="M19 8V25M11 30H27" />
               </g>
               <g
-                className="engineering-showcase__device"
+                className="engineering-showcase__device engineering-showcase__device--signal-2"
                 transform="translate(336 160)"
               >
                 <rect height="52" rx="4" width="38" />
                 <path d="M8 26C8 16 19 16 19 26S30 36 30 26" />
               </g>
               <g
-                className="engineering-showcase__device"
+                className="engineering-showcase__device engineering-showcase__device--signal-3"
                 transform="translate(405 160)"
               >
                 <rect height="52" rx="4" width="38" />
                 <path d="M8 13H30M8 23H30M8 33H25" />
               </g>
               <g
-                className="engineering-showcase__device engineering-showcase__device--wide"
+                className="engineering-showcase__device engineering-showcase__device--wide engineering-showcase__device--signal-4"
                 transform="translate(305 253)"
               >
                 <rect height="50" rx="4" width="98" />
@@ -386,8 +449,29 @@ export function EngineeringMotionShowcase() {
                 d="M210 145H300V204M210 292H300V236M460 204V145H550M460 236V292H550M380 270V328H270M380 328H500"
               />
               <path
-                className="engineering-showcase__connection engineering-showcase__connection--highlight"
+                className="engineering-showcase__connection engineering-showcase__connection--highlight engineering-showcase__connection--signal"
                 d="M210 145H300V204"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__signal-step--2"
+                d="M460 204V145H550"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__signal-step--3"
+                d="M460 236V292H550"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__signal-step--4"
+                d="M380 270V328H270"
+                pathLength={100}
+              />
+              <path
+                className="engineering-showcase__connection engineering-showcase__connection--signal engineering-showcase__signal-step--5"
+                d="M380 328H500"
+                pathLength={100}
               />
               <g
                 className="engineering-showcase__node-card"
@@ -462,10 +546,6 @@ export function EngineeringMotionShowcase() {
               </g>
             </g>
           </svg>
-          <figcaption className="engineering-showcase__caption">
-            <span>Схематичное представление направлений</span>
-            <span>{activeStage.index} / 03</span>
-          </figcaption>
         </figure>
       </div>
     </div>

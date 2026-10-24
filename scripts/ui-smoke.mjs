@@ -182,20 +182,29 @@ async function assertAccessibleMarkup(page) {
     );
   }
 
-  const showcaseCaption = await page
-    .locator('.engineering-showcase__caption')
-    .evaluate((caption) => ({
-      foreground: getComputedStyle(caption).color,
-      background: getComputedStyle(caption.parentElement).backgroundColor,
-    }));
-  const showcaseCaptionRatio = contrastRatio(
-    showcaseCaption.foreground,
-    showcaseCaption.background,
-  );
+  const showcaseNote = await page
+    .locator('.engineering-showcase__note')
+    .evaluate((note) => {
+      const section = note.closest('.overview-section');
+      const backgroundImage = section
+        ? getComputedStyle(section).backgroundImage
+        : '';
+      return {
+        foreground: getComputedStyle(note).color,
+        backgrounds: backgroundImage.match(/rgba?\([^)]*\)/g) ?? [],
+      };
+    });
   assert.ok(
-    showcaseCaptionRatio >= 4.5,
-    `Showcase caption contrast ${showcaseCaptionRatio.toFixed(2)} is below WCAG AA.`,
+    showcaseNote.backgrounds.length > 0,
+    'Showcase note must remain over its dark section background.',
   );
+  for (const background of showcaseNote.backgrounds) {
+    const ratio = contrastRatio(showcaseNote.foreground, background);
+    assert.ok(
+      ratio >= 4.5,
+      `Showcase note contrast ${ratio.toFixed(2)} is below WCAG AA.`,
+    );
+  }
 
   const brokenImages = await page.locator('svg[role="img"]').evaluateAll(
     (elements) =>
@@ -221,55 +230,78 @@ async function assertMenuKeyboardAndPointer(page) {
   const navigation = page.getByRole('navigation', {
     name: 'Основная навигация',
   });
-  const equipment = navigation.getByRole('button', {
+  const equipment = navigation.getByRole('link', {
     name: 'Оборудование',
     exact: true,
   });
-  await equipment.focus();
-  await page.keyboard.press('ArrowDown');
-  await page.waitForFunction(
-    () => document.activeElement?.getAttribute('data-menu-index') === '0',
-  );
-  assert.equal(await equipment.getAttribute('aria-expanded'), 'true');
-  await page.keyboard.press('ArrowDown');
-  assert.equal(
-    await page.evaluate(() =>
-      document.activeElement?.getAttribute('data-menu-index'),
-    ),
-    '1',
-  );
-  await page.keyboard.press('Home');
-  assert.equal(
-    await page.evaluate(() =>
-      document.activeElement?.getAttribute('data-menu-index'),
-    ),
-    '0',
-  );
-  await page.keyboard.press('ArrowUp');
-  assert.equal(
-    await page.evaluate(() =>
-      document.activeElement?.getAttribute('data-menu-index'),
-    ),
-    '1',
-  );
-  await page.keyboard.press('Home');
-  await page.keyboard.press('Escape');
-  assert.equal(await equipment.getAttribute('aria-expanded'), 'false');
-  await page.waitForFunction(() =>
-    document.activeElement?.matches('[data-menu-trigger="equipment"]'),
-  );
-  assert.equal(
-    await equipment.evaluate((node) => node === document.activeElement),
-    true,
-  );
+  assert.equal(await equipment.getAttribute('href'), '/catalog');
+  assert.equal(await equipment.getAttribute('aria-expanded'), null);
 
-  await equipment.hover();
-  assert.equal(await equipment.getAttribute('aria-expanded'), 'true');
+  for (const menuId of ['panels', 'engineering']) {
+    const trigger = navigation.locator(`[data-menu-trigger="${menuId}"]`);
+    await trigger.focus();
+    await page.keyboard.press('ArrowDown');
+    await page.waitForFunction(
+      (id) =>
+        document.activeElement?.getAttribute('data-menu-link') === id &&
+        document.activeElement?.getAttribute('data-menu-index') === '0',
+      menuId,
+    );
+    assert.equal(await trigger.getAttribute('aria-expanded'), 'true');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(
+      await page.evaluate(() =>
+        document.activeElement?.getAttribute('data-menu-index'),
+      ),
+      '1',
+    );
+    await page.keyboard.press('Home');
+    assert.equal(
+      await page.evaluate(() =>
+        document.activeElement?.getAttribute('data-menu-index'),
+      ),
+      '0',
+    );
+    await page.keyboard.press('ArrowUp');
+    assert.equal(
+      await page.evaluate(() =>
+        document.activeElement?.getAttribute('data-menu-index'),
+      ),
+      '1',
+    );
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Escape');
+    assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
+    await page.waitForFunction(
+      (id) => document.activeElement?.matches(`[data-menu-trigger="${id}"]`),
+      menuId,
+    );
+    assert.equal(
+      await trigger.evaluate((node) => node === document.activeElement),
+      true,
+    );
+  }
+
+  const panels = navigation.locator('[data-menu-trigger="panels"]');
+  await panels.hover();
+  assert.equal(await panels.getAttribute('aria-expanded'), 'true');
   await page.mouse.move(0, 0);
   await page.waitForFunction(
     () =>
       document
-        .querySelector('[data-menu-trigger="equipment"]')
+        .querySelector('[data-menu-trigger="panels"]')
+        ?.getAttribute('aria-expanded') === 'false',
+  );
+
+  // A mouse enters before it clicks. That click must leave the hovered menu
+  // open, while keyboard activation remains a toggle (covered above).
+  await panels.click();
+  assert.equal(await panels.getAttribute('aria-expanded'), 'true');
+  await page.mouse.move(0, 0);
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-menu-trigger="panels"]')
         ?.getAttribute('aria-expanded') === 'false',
   );
 }
@@ -291,10 +323,31 @@ async function assertMobileNavigation(browser, baseUrl) {
     });
     assert.equal(await navigation.isVisible(), true);
 
+    const equipment = navigation.getByRole('link', {
+      name: 'Оборудование',
+      exact: true,
+    });
+    assert.equal(await equipment.getAttribute('href'), '/catalog');
+    await toggle.focus();
+    await page.keyboard.press('Tab');
+    assert.equal(
+      await equipment.evaluate((node) => node === document.activeElement),
+      true,
+    );
+    await page.keyboard.press('Enter');
+    await page.waitForURL('**/catalog');
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await toggle.tap();
+    assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+
     const panels = page.getByRole('button', {
       name: 'Электрощиты',
       exact: true,
     });
+    await panels.tap();
+    assert.equal(await panels.getAttribute('aria-expanded'), 'true');
+    await panels.tap();
+    assert.equal(await panels.getAttribute('aria-expanded'), 'false');
     await panels.tap();
     assert.equal(await panels.getAttribute('aria-expanded'), 'true');
     await page.keyboard.press('Escape');
@@ -324,14 +377,22 @@ async function assertMobileNavigation(browser, baseUrl) {
 }
 
 async function assertDisabledFutureActions(page) {
-  const searches = page.getByRole('searchbox', {
-    name: 'Поиск по каталогу — пока недоступен',
+  const heroSearch = page.getByRole('searchbox', {
+    name: 'Поиск оборудования на главной',
+  });
+  const headerSearch = page.getByRole('searchbox', {
+    name: 'Поиск в каталоге из шапки',
   });
   const upload = page.getByRole('button', { name: 'Загрузить спецификацию' });
   const quote = page.getByRole('button', { name: 'Запросить КП' });
-  assert.ok((await searches.count()) >= 1);
-  for (const search of await searches.all())
-    assert.equal(await search.isDisabled(), true);
+  assert.equal(await heroSearch.isDisabled(), false);
+  assert.equal(await headerSearch.isDisabled(), false);
+  for (const search of [heroSearch, headerSearch]) {
+    const form = search.locator('xpath=ancestor::form');
+    assert.equal(await form.getAttribute('action'), '/catalog');
+    assert.equal(await form.getAttribute('method'), 'get');
+    assert.equal(await search.getAttribute('name'), 'q');
+  }
   assert.equal(await upload.isDisabled(), true);
   assert.equal(await quote.isDisabled(), true);
   assert.match(
@@ -339,7 +400,18 @@ async function assertDisabledFutureActions(page) {
     /пока\s+недоступны/i,
   );
   assert.equal(await page.locator('input[type="file"]').count(), 0);
-  assert.equal(await page.locator('form').count(), 0);
+  assert.equal(await page.locator('form[role="search"]').count(), 2);
+
+  await heroSearch.fill('автоматический выключатель');
+  await heroSearch.press('Enter');
+  await page.waitForURL(/\/catalog\?q=/);
+  assert.equal(
+    new URL(page.url()).searchParams.get('q'),
+    'автоматический выключатель',
+  );
+  await page.goto(new URL('/', page.url()).href, {
+    waitUntil: 'domcontentloaded',
+  });
 
   await quote.evaluate((button) => button.click());
   await upload.evaluate((button) => button.click());
@@ -356,14 +428,14 @@ async function assertServerRenderedShowcase(baseUrl) {
   const response = await fetch(baseUrl);
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /aria-label="Состояния инженерной схемы"/);
+  assert.match(html, /aria-label="Этапы инженерной схемы"/);
   assert.match(html, /aria-pressed="true"/);
-  assert.match(html, /Схема инженерных направлений/);
+  assert.match(html, /Схема инженерного решения/);
 }
 
 async function assertEngineeringShowcase(page) {
   const section = page.locator('.engineering-showcase');
-  const group = page.getByRole('group', { name: 'Состояния инженерной схемы' });
+  const group = page.getByRole('group', { name: 'Этапы инженерной схемы' });
   const buttons = group.getByRole('button');
   const expected = ['Оборудование', 'Электрощит', 'Инжиниринг'];
   assert.equal(await buttons.count(), expected.length);

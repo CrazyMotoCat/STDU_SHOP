@@ -1,0 +1,20 @@
+{
+  "purpose": "AI-assisted design concepts generated at owner's request. Equipment geometry and labels in generated derivatives are not verified. Not real STDU installations.",
+  "tool": "built-in image_gen",
+  "images": [
+    {
+      "file": "ai-workshop-concept.webp",
+      "reference_file": "cabinet-industrial.webp",
+      "source_page": "https://owen.ru/project/avtomatizaciya_varochnogo_kotla_na_pticepererabatyvayushchem_proizvodstve",
+      "rights_status": "AI_DERIVATIVE__SOURCE_RIGHTS_UNVERIFIED__DESIGN_MOCKUP_ONLY",
+      "prompt": "Use case: compositing. Asset type: wide premium industrial website background, 16:9 landscape photographic design concept. Input image 1 is the edit target: a real industrial control cabinet. Preserve the exact central cabinet, every apparatus, arrangement, wire, terminal, proportions and all visible equipment markings from the reference. Do not invent or replace any devices, logos, labels, model names or wiring. Expand the surrounding environment horizontally into a restrained high-end electrical engineering assembly workshop, brushed metal work surfaces, structural graphite wall panels, no people, no new identifiable equipment. Place the unchanged real cabinet in the right half, viewed frontally as in the reference; leave the left 45 percent quiet and dark for website typography. Soft directional daylight, cold silver and deep graphite navy, physically natural materials, credible restrained industrial photography. Background environment may be generated; the real cabinet must remain unchanged. No captions or overlaid text, no neon, no sci-fi, no fake telemetry, no awards or client logos. This is an AI-assisted design mockup, not evidence of an actual STDU project."
+    },
+    {
+      "file": "ai-relay-detail-concept.webp",
+      "reference_file": "cabinet-dispatch.webp",
+      "source_page": "https://habr.com/ru/companies/wirenboard/articles/992886/",
+      "rights_status": "AI_DERIVATIVE__SOURCE_RIGHTS_UNVERIFIED__DESIGN_MOCKUP_ONLY",
+      "prompt": "Use case: lighting-weather. Asset type: wide detailed industrial photographic design concept, 16:9 landscape, supporting visual for premium engineering website. Input image 1 is the edit target: real open dispatch cabinet. Keep the exact photographed equipment and existing wire connections and labels intact, no invented machinery or models. Create a more carefully lit horizontal close-up composition centered on the DIN rails, actual relay modules and wire ferrules already visible in the reference. Preserve physical proportions and markings; crop the existing scene instead of inventing unseen sides or new hardware. Soft neutral studio side lighting with subdued graphite shadows and a restrained petrol atmosphere outside the equipment, realistic metal texture. Composition: actual equipment occupies the right two thirds, quiet dark negative space on the left. No people, added lettering, fake brand names, glowing cables, dashboards, or synthetic fantasy devices. This is an AI-assisted photographic design mockup, not a claimed real installation."
+    }
+  ]
+}
