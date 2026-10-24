@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { PERMISSION_CODES } from '../permissions/policy.js';
+import { REGISTERED_PERMISSION_CODES } from '../permissions/policy.js';
 import {
   ArrayMaxSize,
   ArrayUnique,
@@ -141,14 +141,14 @@ export class PatchRoleDto {
 export class ReplaceRolePermissionsDto {
   @ApiProperty({
     type: 'array',
-    items: { type: 'string', enum: [...PERMISSION_CODES] },
+    items: { type: 'string', enum: [...REGISTERED_PERMISSION_CODES] },
     maxItems: 100,
     uniqueItems: true,
   })
   @IsArray()
   @ArrayMaxSize(100)
   @ArrayUnique()
-  @IsEnum(PERMISSION_CODES, { each: true })
+  @IsEnum(REGISTERED_PERMISSION_CODES, { each: true })
   permissions!: string[];
 
   @ApiProperty({

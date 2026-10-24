@@ -6228,7 +6228,19 @@
           "sellers.read",
           "sellers.write",
           "audit.read",
-          "files.metadata.read"
+          "files.metadata.read",
+          "catalog.references.read",
+          "catalog.products.read",
+          "catalog.products.write",
+          "catalog.products.submit",
+          "catalog.products.publish",
+          "catalog.products.archive",
+          "catalog.categories.write",
+          "catalog.brands.write",
+          "catalog.attributes.write",
+          "catalog.products.relations.write",
+          "catalog.products.media.write",
+          "catalog.products.documents.write"
         ]
       },
       "Login": {

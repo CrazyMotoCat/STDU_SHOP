@@ -1,0 +1,80 @@
+{
+  "formatVersion": 1,
+  "task": "R1-004B",
+  "contractVersion": "1.0.0",
+  "createdOn": "2026-10-24",
+  "timezone": "Asia/Vladivostok",
+  "approvedSourceSha": "8ae4dd8cfd15e3722d97259818b238924851c963",
+  "frozenHeadSha": "0a749af35e422f55be050bd256ea1e8639193541",
+  "contractMergeSha": "24c9653780c7e8dc511dd5acf1706ecdb9e191eb",
+  "baselineMainSha": "ab7f5a25a7d36d2d722e36effb8c9fecb848c88a",
+  "integrationCi": {
+    "run": 39970886845,
+    "head": "24c9653780c7e8dc511dd5acf1706ecdb9e191eb",
+    "conclusion": "success"
+  },
+  "protectedArtifacts": {
+    "catalog": {
+      "docs/contracts/R1-004-catalog-data-model.json": "6d2a5e6cd727d088e21ef085e50c136104e8b052a4d55babaef2402769c9ab93",
+      "docs/contracts/R1-004-catalog-data-model.md": "a27065f112b53f4b13d1bee6ab2b67e134267b4969b2602d0635710e7dfa6f35",
+      "docs/contracts/R1-004-catalog-rbac-matrix.json": "8a35f36aa08396130c2eb3fa3d15197afa000af41d71a9c4b11ca0a30bc64bd8",
+      "docs/contracts/R1-004-catalog-rbac-matrix.md": "adfadb8318526ba63bd094ab813866a830e78fa4c58fa1b0c9e0230c3d7fa348",
+      "docs/contracts/R1-004-catalog-audit-registry.json": "1865daeee75c9ba47f689a04f0d3980e2a294553e093c223fd63a3dcb7f9df68",
+      "docs/contracts/R1-004-catalog.openapi.json": "3ce7148acbb15008f3d8ae23242bcb1c8ffa863d115d3eac6252219c02d51639",
+      "docs/contracts/R1-004B-test-matrix.md": "3f01cf0da5414826d8751ee44e5de2e9d07e17796a9d62ec20a3859a9adbf3ba",
+      "docs/plans/R1-004A-contract-decisions.md": "7e552554ec07aec09c8f045150c85039116aa657021773915502adc135363e34",
+      "docs/plans/R1-004B-implementation-plan.md": "eb5a5ad510ca8c83d7ac2e6f2866f61bcf555ac8d3f3d39b1771a9df036e03ed"
+    },
+    "staff": {
+      "docs/contracts/R1-002-data-model.json": "3eb0011271657519ac819317cea062374d20492c9187cb9f5a9afaa06e69255b",
+      "docs/contracts/R1-002-staff-data-model.md": "049103729ff3e653b0d35dcc91e75cad1b63cf4324cd813cb312434e723cf52b",
+      "docs/contracts/R1-002-rbac-matrix.json": "513bf1e965645a4d5d888275aca9fdd33c9c2a335d42bee683c2375170ec3d07",
+      "docs/contracts/R1-002-rbac-matrix.md": "1fb244776582c900cc709fc96af31b3b90cb305a4d2dd2c685dd294fca9ee605",
+      "docs/contracts/R1-002-auth-security.md": "a0243ce921a3d52f50b193db5f785480464fa72ce0d20803fda91acfd3540cd7",
+      "docs/contracts/R1-002-audit-registry.json": "25ba8a3878978dc935f70bc015a732b486085f5661cfe1a5468f490bc3ee62a0",
+      "docs/contracts/R1-002-staff.openapi.json": "1667f77e46c28de2a5f088a688fd10178e07e6895c409a3e0d3a9f93f0798f94",
+      "docs/contracts/R1-002-test-matrix.md": "547f724e7a007cb095fa49ab117bfa1180d277683e18c0d83196e19697311735"
+    },
+    "decisions": {
+      "docs/spec/01_DECISION_REGISTER.md": "50657c45420a202ef902f28605aebdc9fa5dc8855447149e6fc41be117adf434",
+      "docs/spec/decision_registry.csv": "65760a46aa93e4b9b327bdbd2e0e9d62bc1dc4acc8e09aea615d466a0fe723f0"
+    }
+  },
+  "databaseBaseline": {
+    "modelNames": [
+      "StaffUser",
+      "Role",
+      "Permission",
+      "UserRole",
+      "RolePermission",
+      "StaffSession",
+      "SellerLegalEntity",
+      "AuditEvent",
+      "FileObject",
+      "FileVersion",
+      "FileLink"
+    ],
+    "files": {
+      "apps/api/prisma/schema.prisma": "4896027c8bb4d53be7e5a1cc15a0f08f9ca784e0a680265316a3fb535f9fb679",
+      "apps/api/prisma/migrations/20261022120000_staff_identity/migration.sql": "888211c75a62475642500ee345157018a39452cd501d19fe5998398cb2399ebe"
+    },
+    "workingDatabaseInspection": "NOT_PERFORMED; verify applied state only in isolated runtime fixtures before catalog migration"
+  },
+  "authorization": {
+    "productionOperations": false,
+    "realPermissionAssignments": false,
+    "operatorExecutionOnWorkingDatabase": false,
+    "destructiveOperations": false,
+    "permissionInitializationTestScope": "TASK_OWNED_ISOLATED_TEST_DATABASE_ONLY"
+  },
+  "ownerApprovedExtensions": [
+    {
+      "task": "R1-004B",
+      "scope": "Add the 12 frozen R1-004 catalog permission codes to the existing staff permission-list, current-permissions and role-permission OpenAPI schemas so ordinary R1-002 RBAC delegation can grant catalog access.",
+      "preservedInvariant": "The protected R1-002 full-admin and control-admin permission sets remain exactly unchanged.",
+      "approval": "Product owner approved the additive permission enum extension during R1-004B execution on 2026-10-24 (Asia/Vladivostok)."
+    }
+  ],
+  "hashAlgorithm": "SHA-256",
+  "textNormalization": "UTF-8 LF (CRLF normalized to LF)"
+}

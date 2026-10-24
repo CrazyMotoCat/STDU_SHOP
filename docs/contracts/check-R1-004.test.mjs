@@ -145,6 +145,17 @@ test('checker rejects a missing required future runtime acceptance scenario', ()
   });
 });
 
+for (const id of ['CATB-36', 'CATB-37', 'CATB-38']) {
+  test(`checker requires ${id} in the frozen runtime acceptance matrix`, () => {
+    rejects((c) => {
+      c.matrix = c.matrix
+        .split('\n')
+        .filter((line) => !line.includes(id))
+        .join('\n');
+    });
+  });
+}
+
 test('checker rejects a product PATCH without explicit base revision', () => {
   rejects((c) => {
     c.openapi.components.schemas.PatchCatalogProductDraft.required = [

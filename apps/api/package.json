@@ -18,7 +18,8 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "openapi:export": "node ../../scripts/openapi-export.mjs",
     "staff:bootstrap": "node ../../scripts/staff-access.mjs bootstrap",
-    "staff:recover": "node ../../scripts/staff-access.mjs recover"
+    "staff:recover": "node ../../scripts/staff-access.mjs recover",
+    "catalog:permissions:initialize": "node ../../scripts/catalog-permissions.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",
