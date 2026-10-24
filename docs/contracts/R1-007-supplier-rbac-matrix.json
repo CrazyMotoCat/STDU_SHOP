@@ -1,0 +1,45 @@
+{
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "extends": "FROZEN R1-002 1.0.0 and FROZEN R1-004 1.0.0; no prior artifact is edited",
+  "permissions": {
+    "suppliers.read": "Read supplier names, contacts, requisites and state; staff-only.",
+    "suppliers.write": "Create, edit and archive suppliers; no offer or match authority.",
+    "suppliers.offers.read": "Read offer revisions, acquisition costs, freshness and match history; staff-only.",
+    "suppliers.offers.write": "Create, revise and archive offers; cannot approve or unlink a product match.",
+    "suppliers.matches.decide": "Create one match proposal, approve/reject one proposal, or explicitly unlink one current match."
+  },
+  "actionRequirements": {
+    "supplierRead": ["suppliers.read"],
+    "supplierWrite": ["suppliers.write"],
+    "offerRead": ["suppliers.offers.read", "suppliers.read"],
+    "offerWrite": ["suppliers.offers.write"],
+    "matchCandidates": [
+      "suppliers.offers.read",
+      "suppliers.read",
+      "catalog.products.read",
+      "catalog.references.read"
+    ],
+    "matchCreateOrDecision": [
+      "suppliers.offers.read",
+      "suppliers.read",
+      "suppliers.matches.decide",
+      "catalog.products.read",
+      "catalog.references.read"
+    ],
+    "auditReadSupplier": ["suppliers.read", "audit.read"],
+    "auditReadOffer": ["suppliers.offers.read", "suppliers.read", "audit.read"]
+  },
+  "rules": [
+    "Every new supplier permission is default-deny and only declared here; no wildcard or role-name checks.",
+    "R1-002 and R1-004 role templates are not expanded automatically. No RolePermission/UserRole grant is seeded or performed by this contract.",
+    "Normal R1-002 configurable RBAC remains the only grant path; the additive PermissionCode integration is OD-007A-06 and must be approved before implementation.",
+    "Offer read is intentionally separate from supplier read: acquisition costs and source history require both effective permissions for offer details/comparison.",
+    "Match actions require offer read, supplier read, the new decision permission, and both frozen catalog product/reference read permissions. A match permission alone never reveals offer or catalog data.",
+    "Audit details require audit.read plus the corresponding supplier/offer read permission; audit.read alone does not reveal restricted supplier objects.",
+    "No public endpoint, public DTO or unauthenticated cache contains supplier contact, offer, acquisition cost, provenance or match data."
+  ],
+  "defaultDeny": true,
+  "changesFrozenProtectedAdminSet": false,
+  "automaticRoleGrants": false
+}

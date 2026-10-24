@@ -1,0 +1,111 @@
+{
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "extends": "FROZEN R1-002 AuditEvent; append-only, same-transaction writes",
+  "changesValuePolicy": "Audit stores actor, time, action, entity IDs, bounded reason codes, outcome, expected/result versions and sorted changed-field names. It never stores full contact data, internal notes, purchase amount/currency, source URL, raw evidence, request body, cookie, token or secret. Restricted revision/proposal rows hold domain data and require supplier permissions.",
+  "events": {
+    "supplier.created": {
+      "entity": "Supplier",
+      "fields": ["supplierId", "revisionId", "actorId", "version"],
+      "reasonRequired": false
+    },
+    "supplier.changed": {
+      "entity": "Supplier",
+      "fields": [
+        "supplierId",
+        "revisionId",
+        "actorId",
+        "version",
+        "changedFieldNames"
+      ],
+      "reasonRequired": false
+    },
+    "supplier.archived": {
+      "entity": "Supplier",
+      "fields": ["supplierId", "actorId", "version", "reasonCode"],
+      "reasonRequired": true
+    },
+    "supplier_offer.created": {
+      "entity": "SupplierOffer",
+      "fields": ["supplierId", "offerId", "revisionId", "actorId", "version"],
+      "reasonRequired": false
+    },
+    "supplier_offer.revised": {
+      "entity": "SupplierOffer",
+      "fields": [
+        "supplierId",
+        "offerId",
+        "revisionId",
+        "actorId",
+        "version",
+        "changedFieldNames"
+      ],
+      "reasonRequired": false
+    },
+    "supplier_offer.archived": {
+      "entity": "SupplierOffer",
+      "fields": ["supplierId", "offerId", "actorId", "version", "reasonCode"],
+      "reasonRequired": true
+    },
+    "supplier_match.proposed": {
+      "entity": "ProductMatchProposal",
+      "fields": [
+        "supplierId",
+        "offerId",
+        "proposalId",
+        "productId",
+        "identityEvidenceKind",
+        "actorId",
+        "version"
+      ],
+      "reasonRequired": false
+    },
+    "supplier_match.approved": {
+      "entity": "ProductMatchProposal",
+      "fields": [
+        "supplierId",
+        "offerId",
+        "proposalId",
+        "productId",
+        "actorId",
+        "version",
+        "outcome",
+        "reasonCode"
+      ],
+      "reasonRequired": true
+    },
+    "supplier_match.rejected": {
+      "entity": "ProductMatchProposal",
+      "fields": [
+        "supplierId",
+        "offerId",
+        "proposalId",
+        "productId",
+        "actorId",
+        "version",
+        "outcome",
+        "reasonCode"
+      ],
+      "reasonRequired": true
+    },
+    "supplier_match.unlinked": {
+      "entity": "SupplierOffer",
+      "fields": [
+        "supplierId",
+        "offerId",
+        "previousProposalId",
+        "actorId",
+        "version",
+        "reasonCode"
+      ],
+      "reasonRequired": true
+    },
+    "supplier.audit.read": {
+      "entity": "Supplier|SupplierOffer",
+      "fields": ["entityId", "actorId", "requestId"],
+      "reasonRequired": false
+    }
+  },
+  "atomicity": "An accepted entity/revision/pointer mutation and its success event commit or roll back together. Failed OCC/identity/policy checks do not write a success event. Security-denial telemetry follows the frozen R1-002 policy and never includes request secrets.",
+  "history": "Immutable supplier profile revisions are read through suppliers.read. Immutable offer revisions and match proposals are read through object-level suppliers.offers.read plus suppliers.read. Audit read additionally requires frozen audit.read."
+}
