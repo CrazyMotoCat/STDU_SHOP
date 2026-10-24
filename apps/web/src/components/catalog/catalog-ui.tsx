@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { components } from '@stdu/catalog-client/schema';
@@ -21,12 +22,14 @@ export function CatalogHero({
   title,
   description,
   meta,
+  visual = false,
   titleAs = 'h1',
 }: {
   eyebrow: string;
   title: string;
   description: string;
   meta?: string;
+  visual?: boolean;
   titleAs?: 'h1' | 'p';
 }) {
   const Title = titleAs;
@@ -40,13 +43,33 @@ export function CatalogHero({
           </Title>
           <p className={styles.heroDescription}>{description}</p>
         </div>
-        <div className={styles.heroAside}>
-          <span className={styles.heroAsideMark} aria-hidden="true">
-            STDU / CAT
-          </span>
-          <p>Подбор оборудования по точной идентификации и параметрам.</p>
-          {meta ? <span className={styles.heroMeta}>{meta}</span> : null}
-        </div>
+        {visual ? (
+          <div className={styles.heroVisual}>
+            <Image
+              alt="Пример промышленного шкафа управления — иллюстрация каталога"
+              className={styles.heroImage}
+              fill
+              priority
+              sizes="(max-width: 760px) 100vw, 35vw"
+              src="/images/engineering/cabinet-industrial.webp"
+            />
+            <div className={styles.heroVisualCaption}>
+              <span>ИНЖЕНЕРНОЕ ОБОРУДОВАНИЕ</span>
+              <strong>Предметная иллюстрация</strong>
+            </div>
+            {meta ? (
+              <span className={styles.heroVisualMeta}>{meta}</span>
+            ) : null}
+          </div>
+        ) : (
+          <div className={styles.heroAside}>
+            <span className={styles.heroAsideMark} aria-hidden="true">
+              STDU / CAT
+            </span>
+            <p>Подбор оборудования по точной идентификации и параметрам.</p>
+            {meta ? <span className={styles.heroMeta}>{meta}</span> : null}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -105,9 +128,7 @@ export function CategoryCollection({
           <p className={styles.eyebrow}>НАВИГАЦИЯ ПО КАТАЛОГУ</p>
           <h2 id="category-heading">{heading}</h2>
         </div>
-        <span className={styles.sectionIndex}>
-          {String(categories.length).padStart(2, '0')} / страница
-        </span>
+        <span className={styles.sectionIndex}>РАЗДЕЛЫ КАТАЛОГА</span>
       </div>
       {categories.length ? (
         <ul className={styles.categoryGrid}>
@@ -119,6 +140,15 @@ export function CategoryCollection({
               >
                 <span className={styles.categoryNumber}>
                   {String(index + 1).padStart(2, '0')}
+                </span>
+                <span className={styles.categoryVisual} aria-hidden="true">
+                  <svg fill="none" viewBox="0 0 72 48">
+                    <path d="M4 24h18m28 0h18M22 12v24m28-24v24M22 12h28m-28 24h28" />
+                    <rect height="16" rx="2" width="14" x="29" y="16" />
+                    <circle cx="4" cy="24" r="2" />
+                    <circle cx="68" cy="24" r="2" />
+                    <path d="M36 20v8m-4-4h8" />
+                  </svg>
                 </span>
                 <span className={styles.categoryName}>{category.name}</span>
                 <span className={styles.categoryArrow} aria-hidden="true">
@@ -168,19 +198,18 @@ export function ProductImage({
       aria-label={
         state === 'loading'
           ? `Загрузка изображения: ${label}`
-          : `Изображение товара недоступно: ${label}`
+          : `Публичная фотография товара не подключена: ${label}`
       }
       aria-busy={state === 'loading'}
     >
       <svg aria-hidden="true" viewBox="0 0 64 64" fill="none">
-        <rect x="11" y="13" width="42" height="38" rx="3" />
-        <circle cx="23" cy="25" r="4" />
-        <path d="m15 45 12-12 8 8 5-5 9 9M16 54l32-44" />
+        <path d="M13 14h12M13 14v12m38-12H39m12 0v12M13 50h12m-12 0V38m38 12H39m12 0V38" />
+        <path d="M19 32h8l5-8 8 16 5-8h1" />
+        <circle cx="19" cy="32" r="2" />
+        <circle cx="45" cy="32" r="2" />
       </svg>
       <span>
-        {state === 'loading'
-          ? 'Загрузка изображения'
-          : 'Фотография не предоставлена'}
+        {state === 'loading' ? 'Загрузка изображения' : 'Фото не подключено'}
       </span>
     </div>
   );
@@ -406,79 +435,103 @@ export function ProductSearchForm({
       {[...hiddenParams.entries()].map(([key, value], index) => (
         <input key={`${key}-${index}`} type="hidden" name={key} value={value} />
       ))}
-      <label className={styles.field}>
-        <span>Поиск по каталогу</span>
-        <input
-          aria-label="Поиск по каталогу"
-          maxLength={128}
-          name="q"
-          placeholder="Название, артикул, бренд, параметр"
-          type="search"
-          defaultValue={query.q ?? ''}
-        />
-      </label>
-      <label className={styles.field}>
-        <span>Бренд</span>
-        <input
-          aria-label="Slug бренда"
-          autoComplete="off"
-          list="catalog-brand-options"
-          maxLength={120}
-          name="brandSlug"
-          placeholder="Выберите или введите slug"
-          defaultValue={query.brandSlug ?? ''}
-        />
-        <datalist id="catalog-brand-options">
-          {brands.map((brand) => (
-            <option key={brand.slug} value={brand.slug} label={brand.name} />
-          ))}
-        </datalist>
-        <small>Список собран по загруженной странице товаров.</small>
-      </label>
-      {categorySlug ? (
+      <div className={styles.searchPrimary}>
         <label className={styles.field}>
-          <span>Область категории</span>
-          {lockedToCategory ? (
-            <>
-              <input type="hidden" name="includeDescendants" value="false" />
-              <span className={styles.lockedScope}>
-                Только «{pathLabel ?? categorySlug}» — требуется для технических
-                фильтров
-              </span>
-            </>
-          ) : (
-            <select
-              name="includeDescendants"
-              defaultValue={includeDescendants ? 'true' : 'false'}
-            >
-              <option value="true">Категория и вложенные разделы</option>
-              <option value="false">Только эта категория</option>
-            </select>
-          )}
+          <span>Поиск по каталогу</span>
+          <input
+            aria-label="Поиск по каталогу"
+            maxLength={128}
+            name="q"
+            placeholder="Название, артикул, бренд, параметр"
+            type="search"
+            defaultValue={query.q ?? ''}
+          />
         </label>
-      ) : null}
-      <div className={styles.fieldRow}>
-        <label className={styles.field}>
-          <span>Сортировка</span>
-          <select name="sort" defaultValue={sort}>
-            <option value="name_asc">Название: А → Я</option>
-            <option value="name_desc">Название: Я → А</option>
-            <option value="brand_asc">Бренд: А → Я</option>
-            <option value="part_number_asc">Артикул: А → Я</option>
-          </select>
-        </label>
-        <label className={styles.field}>
-          <span>На странице</span>
-          <select name="pageSize" defaultValue={String(query.pageSize ?? 24)}>
-            <option value="24">24</option>
-            <option value="48">48</option>
-            <option value="100">100</option>
-          </select>
-        </label>
+        <button className={styles.applyButton} type="submit">
+          Применить параметры <span aria-hidden="true">→</span>
+        </button>
       </div>
-      <button className={styles.applyButton} type="submit">
-        Применить параметры <span aria-hidden="true">→</span>
-      </button>
+      <details
+        className={styles.searchOptions}
+        open={Boolean(query.brandSlug || categorySlug)}
+      >
+        <summary>
+          <span>Настройки выдачи</span>
+          <span className={styles.detailsToggle} aria-hidden="true" />
+        </summary>
+        <div className={styles.searchOptionsGrid}>
+          <label className={styles.field}>
+            <span>Бренд</span>
+            <input
+              aria-label="Slug бренда"
+              autoComplete="off"
+              list="catalog-brand-options"
+              maxLength={120}
+              name="brandSlug"
+              placeholder="Выберите или введите slug"
+              defaultValue={query.brandSlug ?? ''}
+            />
+            <datalist id="catalog-brand-options">
+              {brands.map((brand) => (
+                <option
+                  key={brand.slug}
+                  value={brand.slug}
+                  label={brand.name}
+                />
+              ))}
+            </datalist>
+            <small>Список собран по загруженной странице товаров.</small>
+          </label>
+          {categorySlug ? (
+            <label className={styles.field}>
+              <span>Область категории</span>
+              {lockedToCategory ? (
+                <>
+                  <input
+                    type="hidden"
+                    name="includeDescendants"
+                    value="false"
+                  />
+                  <span className={styles.lockedScope}>
+                    Только «{pathLabel ?? categorySlug}» — требуется для
+                    технических фильтров
+                  </span>
+                </>
+              ) : (
+                <select
+                  name="includeDescendants"
+                  defaultValue={includeDescendants ? 'true' : 'false'}
+                >
+                  <option value="true">Категория и вложенные разделы</option>
+                  <option value="false">Только эта категория</option>
+                </select>
+              )}
+            </label>
+          ) : null}
+          <div className={styles.fieldRow}>
+            <label className={styles.field}>
+              <span>Сортировка</span>
+              <select name="sort" defaultValue={sort}>
+                <option value="name_asc">Название: А → Я</option>
+                <option value="name_desc">Название: Я → А</option>
+                <option value="brand_asc">Бренд: А → Я</option>
+                <option value="part_number_asc">Артикул: А → Я</option>
+              </select>
+            </label>
+            <label className={styles.field}>
+              <span>На странице</span>
+              <select
+                name="pageSize"
+                defaultValue={String(query.pageSize ?? 24)}
+              >
+                <option value="24">24</option>
+                <option value="48">48</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </details>
       <p className={styles.formNote}>
         Поиск — буквальное совпадение без исправления опечаток.
       </p>
@@ -762,15 +815,6 @@ export function CatalogResults({
 export function ProductDetailView({ product }: { product: PublicProduct }) {
   return (
     <>
-      <CatalogHero
-        eyebrow="ПУБЛИЧНАЯ КАРТОЧКА ОБОРУДОВАНИЯ"
-        title="Карточка оборудования"
-        description={
-          product.summary ?? 'Опубликованная техническая информация о товаре.'
-        }
-        meta={product.originalPartNumber ?? `SKU / ${product.slug}`}
-        titleAs="p"
-      />
       <CatalogBreadcrumbs
         items={[
           { label: 'Каталог', href: '/catalog' },
@@ -789,8 +833,7 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
           >
             <ProductImage label={product.displayName} />
             <p className={styles.mediaNote}>
-              Фото и документы появятся после утверждения безопасной публичной
-              доставки файлов.
+              Публичные фото и документы не подключены.
             </p>
           </section>
           <section aria-label="Идентификация товара">

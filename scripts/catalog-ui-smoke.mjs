@@ -12,7 +12,7 @@ import { withProcesses } from './process-lifecycle.mjs';
 const web = resolve(root, 'apps/web');
 const requireWeb = createRequire(resolve(web, 'package.json'));
 const nextCli = requireWeb.resolve('next/dist/bin/next');
-const artifacts = resolve(root, 'artifacts/verification/R1-005');
+const artifacts = resolve(root, 'artifacts/verification/R1-005V-01');
 const categories = [
   { slug: 'switchgear', name: 'Низковольтное оборудование', sortOrder: 10 },
   { slug: 'automation', name: 'Промышленная автоматика', sortOrder: 20 },
@@ -358,6 +358,13 @@ async function main() {
             .getByRole('heading', { name: 'Автоматические выключатели' })
             .first()
             .waitFor();
+          await captureAndCheck(
+            page,
+            page.url(),
+            'category-desktop',
+            1440,
+            1000,
+          );
           await page.goto(`${categoryUrl}&filter=rated_current%3Aeq%3A100`, {
             waitUntil: 'networkidle',
           });
@@ -375,6 +382,7 @@ async function main() {
             .getByRole('heading', { name: 'Автоматические выключатели' })
             .first()
             .waitFor();
+          await page.getByText('Расширенные технические фильтры').click();
           const filterForm = page.getByRole('region', {
             name: 'Технический фильтр',
           });

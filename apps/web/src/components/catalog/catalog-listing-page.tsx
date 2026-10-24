@@ -108,6 +108,7 @@ export async function CatalogListingPage({
             : 'Электротехническое оборудование для комплектации проектов и инженерных решений.'
         }
         meta={currentCategory ? `CAT / ${currentCategory.slug}` : 'PUBLIC / R1'}
+        visual={!currentCategory}
       />
       {categoryNames.length ? (
         <CatalogBreadcrumbs
@@ -130,9 +131,31 @@ export async function CatalogListingPage({
         />
       ) : null}
       <main id="main" className={styles.content}>
+        {categories.ok ? (
+          <CategoryCollection
+            categories={categories.data.data}
+            path={path.map(({ slug }) => slug)}
+            nextCursor={categories.data.meta.nextCursor}
+            searchParams={searchParams}
+            heading={
+              currentCategory
+                ? `Разделы: ${currentCategory.name}`
+                : 'Категории оборудования'
+            }
+          />
+        ) : (
+          <CatalogError
+            kind={
+              categories.kind === 'validation' ? 'validation' : 'unavailable'
+            }
+          />
+        )}
         <div className={styles.browseBand}>
           <aside className={styles.filterPanel} aria-label="Параметры каталога">
-            <h2>Поиск и фильтры</h2>
+            <div className={styles.filterPanelHeading}>
+              <p className={styles.eyebrow}>БЫСТРЫЙ ПОДБОР</p>
+              <h2>Поиск и фильтры</h2>
+            </div>
             <ProductSearchForm
               action={pathname}
               searchParams={searchParams}
@@ -142,52 +165,42 @@ export async function CatalogListingPage({
               pathLabel={categoryLabel}
               lockedToCategory={filterValues.length > 0}
             />
-            {filterCategory ? (
-              <TechnicalFilterForm
-                action={pathname}
-                categorySlug={filterCategory}
-                pathLabel={categoryLabel}
-                initialFilters={filterValues}
-                preservedQuery={new URLSearchParams(
-                  Object.entries(searchParams).flatMap(([key, value]) =>
-                    value === undefined
-                      ? []
-                      : (Array.isArray(value) ? value : [value]).map(
-                          (item) => [key, item] as [string, string],
-                        ),
-                  ),
-                ).toString()}
-              />
-            ) : (
-              <p className={styles.inlineNote}>
-                Для технических фильтров сначала откройте точную категорию.
-                Список определений параметров публичный API пока не
-                предоставляет.
-              </p>
-            )}
+            <details
+              className={styles.advancedFilters}
+              open={filterValues.length > 0}
+            >
+              <summary>
+                <span>Расширенные технические фильтры</span>
+                <span className={styles.detailsToggle} aria-hidden="true" />
+              </summary>
+              <div className={styles.advancedFiltersContent}>
+                {filterCategory ? (
+                  <TechnicalFilterForm
+                    action={pathname}
+                    categorySlug={filterCategory}
+                    pathLabel={categoryLabel}
+                    initialFilters={filterValues}
+                    preservedQuery={new URLSearchParams(
+                      Object.entries(searchParams).flatMap(([key, value]) =>
+                        value === undefined
+                          ? []
+                          : (Array.isArray(value) ? value : [value]).map(
+                              (item) => [key, item] as [string, string],
+                            ),
+                      ),
+                    ).toString()}
+                  />
+                ) : (
+                  <p className={styles.inlineNote}>
+                    Откройте точную категорию, чтобы задать фильтр по
+                    опубликованной характеристике. Справочник атрибутов появится
+                    после подключения публичных фасетов.
+                  </p>
+                )}
+              </div>
+            </details>
           </aside>
           <div>
-            {categories.ok ? (
-              <CategoryCollection
-                categories={categories.data.data}
-                path={path.map(({ slug }) => slug)}
-                nextCursor={categories.data.meta.nextCursor}
-                searchParams={searchParams}
-                heading={
-                  currentCategory
-                    ? `Разделы: ${currentCategory.name}`
-                    : 'Категории оборудования'
-                }
-              />
-            ) : (
-              <CatalogError
-                kind={
-                  categories.kind === 'validation'
-                    ? 'validation'
-                    : 'unavailable'
-                }
-              />
-            )}
             {products.ok ? (
               <CatalogResults
                 products={products.data.data}
