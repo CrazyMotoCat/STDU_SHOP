@@ -96,13 +96,13 @@ describe('R1-003 UI foundation server rendering', () => {
     const html = renderToStaticMarkup(
       <ServiceCard
         description="Описание направления."
-        href="#equipment"
+        href="/catalog"
         index="01"
         title="Оборудование"
       />,
     );
 
-    expect(html).toContain('<a class="service-card" href="#equipment">');
+    expect(html).toContain('<a class="service-card" href="/catalog">');
     expect(html).toContain('Оборудование');
     expect(html).not.toContain('<button');
   });
@@ -113,7 +113,18 @@ describe('R1-003 UI foundation server rendering', () => {
     expect(html).toContain('aria-label="Основная навигация"');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('aria-label="Открыть меню"');
-    expect(html).toContain('aria-controls="mega-panel-equipment"');
+    expect(html).toContain(
+      '<a class="site-nav__trigger" href="/catalog">Оборудование</a>',
+    );
+    expect(html).not.toContain('aria-controls="mega-panel-equipment"');
+    expect(html).toContain('data-menu-trigger="panels"');
+    expect(html).toContain('aria-controls="mega-panel-panels"');
+    expect(html).toContain('id="mega-panel-panels"');
+    expect(html).toContain('data-menu-trigger="engineering"');
+    expect(html).toContain('aria-controls="mega-panel-engineering"');
+    expect(html).toContain('id="mega-panel-engineering"');
+    expect(html).toContain('aria-controls="primary-navigation"');
+    expect(html).toContain('id="primary-navigation"');
     expect(html).toContain('disabled=""');
   });
 });

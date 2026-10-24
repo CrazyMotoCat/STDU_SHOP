@@ -1,25 +1,26 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button, Container, SearchInput } from '../ui/primitives';
+import { Button, Container } from '../ui/primitives';
+import { CatalogSearch } from './catalog-search';
 
 const directions = [
   {
     id: 'equipment',
     label: 'Оборудование',
-    href: '#equipment',
+    href: '/catalog',
     description: 'Промышленные электротехнические компоненты.',
   },
   {
     id: 'panels',
     label: 'Электрощиты',
-    href: '#panels',
+    href: '/#panels',
     description: 'Типовые и индивидуальные шкафы управления.',
   },
   {
     id: 'engineering',
     label: 'Проектирование',
-    href: '#engineering',
+    href: '/#engineering',
     description: 'Проектирование и программирование систем.',
   },
 ] as const;
@@ -31,6 +32,7 @@ export function SiteHeader() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const menuLinkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const hoverOpenedMenuRef = useRef<string | null>(null);
 
   useEffect(() => {
     function closeOnOutsidePointer(event: PointerEvent) {
@@ -96,7 +98,10 @@ export function SiteHeader() {
   }
 
   function handlePointerLeave(event: React.PointerEvent<HTMLElement>) {
-    if (event.pointerType === 'mouse') setOpenMenu(null);
+    if (event.pointerType === 'mouse') {
+      hoverOpenedMenuRef.current = null;
+      setOpenMenu(null);
+    }
   }
 
   return (
@@ -107,11 +112,15 @@ export function SiteHeader() {
       ref={headerRef}
     >
       <span className="visually-hidden" id="service-availability">
-        Поиск и отправка запросов пока недоступны.
+        Отправка запросов КП пока недоступна.
       </span>
       <div className="site-header__top">
         <Container className="site-header__top-inner">
-          <a className="brand" href="#main" aria-label="STDU SHOP — на главную">
+          <a
+            className="brand"
+            href="/#main"
+            aria-label="STDU SHOP — на главную"
+          >
             <span className="brand__mark" aria-hidden="true">
               S
             </span>
@@ -155,6 +164,29 @@ export function SiteHeader() {
           >
             <ul className="site-nav__list">
               {directions.map((direction) => {
+                if (direction.id === 'equipment') {
+                  return (
+                    <li
+                      className="site-nav__item"
+                      key={direction.id}
+                      onPointerEnter={() => {
+                        hoverOpenedMenuRef.current = null;
+                        setOpenMenu(null);
+                      }}
+                    >
+                      <a
+                        className="site-nav__trigger"
+                        href={direction.href}
+                        onClick={() => {
+                          setOpenMenu(null);
+                          setMobileOpen(false);
+                        }}
+                      >
+                        {direction.label}
+                      </a>
+                    </li>
+                  );
+                }
                 const expanded = openMenu === direction.id;
                 const panelId = `mega-panel-${direction.id}`;
                 return (
@@ -162,8 +194,10 @@ export function SiteHeader() {
                     className="site-nav__item"
                     key={direction.id}
                     onPointerEnter={(event) => {
-                      if (event.pointerType === 'mouse')
+                      if (event.pointerType === 'mouse') {
+                        hoverOpenedMenuRef.current = direction.id;
                         setOpenMenu(direction.id);
+                      }
                     }}
                   >
                     <button
@@ -171,9 +205,15 @@ export function SiteHeader() {
                       aria-expanded={expanded}
                       className="site-nav__trigger"
                       data-menu-trigger={direction.id}
-                      onClick={() =>
-                        setOpenMenu(expanded ? null : direction.id)
-                      }
+                      onClick={(event) => {
+                        const wasOpenedByHover =
+                          event.detail > 0 &&
+                          hoverOpenedMenuRef.current === direction.id;
+                        hoverOpenedMenuRef.current = null;
+                        setOpenMenu(
+                          expanded && !wasOpenedByHover ? null : direction.id,
+                        );
+                      }}
                       ref={(node) => {
                         triggerRefs.current[direction.id] = node;
                       }}
@@ -237,12 +277,7 @@ export function SiteHeader() {
           </nav>
 
           <div className="site-header__actions">
-            <SearchInput
-              aria-describedby="service-availability"
-              disabled
-              label="Поиск по каталогу — пока недоступен"
-              placeholder="Поиск по каталогу"
-            />
+            <CatalogSearch label="Поиск в каталоге из шапки" />
             <Button
               aria-describedby="service-availability"
               className="header-quote-button"
