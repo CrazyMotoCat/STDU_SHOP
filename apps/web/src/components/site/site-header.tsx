@@ -32,6 +32,7 @@ export function SiteHeader() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const menuLinkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const hoverOpenedMenuRef = useRef<string | null>(null);
 
   useEffect(() => {
     function closeOnOutsidePointer(event: PointerEvent) {
@@ -97,7 +98,10 @@ export function SiteHeader() {
   }
 
   function handlePointerLeave(event: React.PointerEvent<HTMLElement>) {
-    if (event.pointerType === 'mouse') setOpenMenu(null);
+    if (event.pointerType === 'mouse') {
+      hoverOpenedMenuRef.current = null;
+      setOpenMenu(null);
+    }
   }
 
   return (
@@ -165,7 +169,10 @@ export function SiteHeader() {
                     <li
                       className="site-nav__item"
                       key={direction.id}
-                      onPointerEnter={() => setOpenMenu(null)}
+                      onPointerEnter={() => {
+                        hoverOpenedMenuRef.current = null;
+                        setOpenMenu(null);
+                      }}
                     >
                       <a
                         className="site-nav__trigger"
@@ -187,8 +194,10 @@ export function SiteHeader() {
                     className="site-nav__item"
                     key={direction.id}
                     onPointerEnter={(event) => {
-                      if (event.pointerType === 'mouse')
+                      if (event.pointerType === 'mouse') {
+                        hoverOpenedMenuRef.current = direction.id;
                         setOpenMenu(direction.id);
+                      }
                     }}
                   >
                     <button
@@ -196,9 +205,15 @@ export function SiteHeader() {
                       aria-expanded={expanded}
                       className="site-nav__trigger"
                       data-menu-trigger={direction.id}
-                      onClick={() =>
-                        setOpenMenu(expanded ? null : direction.id)
-                      }
+                      onClick={(event) => {
+                        const wasOpenedByHover =
+                          event.detail > 0 &&
+                          hoverOpenedMenuRef.current === direction.id;
+                        hoverOpenedMenuRef.current = null;
+                        setOpenMenu(
+                          expanded && !wasOpenedByHover ? null : direction.id,
+                        );
+                      }}
                       ref={(node) => {
                         triggerRefs.current[direction.id] = node;
                       }}

@@ -43,14 +43,14 @@ function MaterialReference({ stageId }: { stageId: StageId }) {
               alt="Автоматический выключатель КЭАЗ OptiDin"
               width={364}
               height={751}
-              sizes="(max-width: 760px) 60px, 120px"
+              sizes="(max-width: 760px) 76px, 152px"
             />
             <Image
               src="/images/engineering/relay-wirenboard.webp"
               alt="Релейный модуль Wiren Board WB-MR6C"
               width={420}
               height={378}
-              sizes="(max-width: 760px) 60px, 120px"
+              sizes="(max-width: 760px) 76px, 152px"
             />
           </>
         ) : stageId === 'panel' ? (
