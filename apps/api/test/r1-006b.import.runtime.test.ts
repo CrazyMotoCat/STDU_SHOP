@@ -1357,18 +1357,23 @@ describe('R1-006B disposable PostgreSQL + HTTP + Staff UI', () => {
         signalUpdate = resolveWait;
       });
       let updatePid = 0;
-      const makePublic = ownerDb.$transaction(async (tx) => {
-        const [backend] = await tx.$queryRaw<{ pid: number }[]>`
-          SELECT pg_backend_pid()::integer AS pid
-        `;
-        assert(backend);
-        updatePid = backend.pid;
-        signalUpdate();
-        await tx.fileObject.update({
-          where: { id: fileObjectId },
-          data: { visibility: 'PUBLIC' },
-        });
-      });
+      const makePublicResult = ownerDb
+        .$transaction(async (tx) => {
+          const [backend] = await tx.$queryRaw<{ pid: number }[]>`
+            SELECT pg_backend_pid()::integer AS pid
+          `;
+          assert(backend);
+          updatePid = backend.pid;
+          signalUpdate();
+          await tx.fileObject.update({
+            where: { id: fileObjectId },
+            data: { visibility: 'PUBLIC' },
+          });
+        })
+        .then(
+          () => ({ status: 'fulfilled' as const }),
+          (error: unknown) => ({ status: 'rejected' as const, error }),
+        );
       await updateStarted;
       let blockerObservationError: unknown;
       try {
@@ -1379,15 +1384,16 @@ describe('R1-006B disposable PostgreSQL + HTTP + Staff UI', () => {
         resolveRelease();
       }
       await createRun;
-      if (blockerObservationError) {
-        await makePublic.catch(() => undefined);
-        throw blockerObservationError;
+      const publicUpdateResult = await makePublicResult;
+      if (publicUpdateResult.status !== 'rejected') {
+        assert.fail('The PUBLIC visibility update unexpectedly succeeded.');
       }
-      await assert.rejects(
-        makePublic,
-        (error: unknown) =>
-          error instanceof Error &&
-          error.message.includes('IMPORT_SOURCE_FILE_MUST_REMAIN_PRIVATE'),
+      assert(
+        publicUpdateResult.error instanceof Error &&
+          publicUpdateResult.error.message.includes(
+            'IMPORT_SOURCE_FILE_MUST_REMAIN_PRIVATE',
+          ),
+        `The PUBLIC update failed for an unexpected reason: ${String(publicUpdateResult.error)}`,
       );
       assert(updatePid > 0);
       assert.equal(
@@ -1399,11 +1405,14 @@ describe('R1-006B disposable PostgreSQL + HTTP + Staff UI', () => {
         )?.visibility,
         'PRIVATE',
       );
-      assert(
-        await ownerDb.catalogImportRun.findUnique({
-          where: { id: importRunId },
-        }),
-      );
+      const createdRun = await db.catalogImportRun.findUnique({
+        where: { id: importRunId },
+        select: { state: true },
+      });
+      assert.equal(createdRun?.state, 'SOURCE_READY');
+      if (blockerObservationError) {
+        throw blockerObservationError;
+      }
     },
     30_000,
   );
