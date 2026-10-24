@@ -67,6 +67,8 @@ jobs:
       - run: pnpm build
       - name: R1-003 public UI acceptance
         run: pnpm ui:smoke
+      - name: R1-005 public catalog browser acceptance
+        run: pnpm catalog:ui:smoke
       - name: Five-service integration and dependency failures
         run: pnpm smoke
       - name: Stop full Compose before host mode
