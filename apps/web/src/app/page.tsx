@@ -21,6 +21,7 @@ const directions = [
     title: 'Оборудование',
     description: 'Точная идентификация компонентов для промышленных систем.',
     visual: 'equipment',
+    href: '/catalog',
   },
   {
     id: 'panels',
@@ -28,6 +29,7 @@ const directions = [
     title: 'Изготовление электрощитов',
     description: 'Типовые и индивидуальные шкафы с инженерной проработкой.',
     visual: 'panel',
+    href: '/panels',
   },
   {
     id: 'engineering',
@@ -36,6 +38,7 @@ const directions = [
     description:
       'Инженерная проработка решений для управления промышленными процессами.',
     visual: 'engineering',
+    href: '/engineering',
   },
 ] as const;
 
@@ -220,11 +223,7 @@ export default function Home() {
                 <ServiceCard
                   className="service-card--direction service-card--photo"
                   description={direction.description}
-                  href={
-                    direction.id === 'equipment'
-                      ? '/catalog'
-                      : `#${direction.id}`
-                  }
+                  href={direction.href}
                   id={direction.id}
                   index={direction.index}
                   key={direction.id}

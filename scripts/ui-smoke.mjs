@@ -237,8 +237,18 @@ async function assertMenuKeyboardAndPointer(page) {
   assert.equal(await equipment.getAttribute('href'), '/catalog');
   assert.equal(await equipment.getAttribute('aria-expanded'), null);
 
+  const menuTargets = {
+    panels: { route: '/panels', anchor: '/panels#panel-types' },
+    engineering: {
+      route: '/engineering',
+      anchor: '/engineering#engineering-process',
+    },
+  };
+
   for (const menuId of ['panels', 'engineering']) {
+    const target = menuTargets[menuId];
     const trigger = navigation.locator(`[data-menu-trigger="${menuId}"]`);
+    const menu = navigation.locator(`#mega-panel-${menuId}`);
     await trigger.focus();
     await page.keyboard.press('ArrowDown');
     await page.waitForFunction(
@@ -248,6 +258,16 @@ async function assertMenuKeyboardAndPointer(page) {
       menuId,
     );
     assert.equal(await trigger.getAttribute('aria-expanded'), 'true');
+    assert.equal(
+      await menu
+        .getByRole('link', { name: 'Перейти к разделу' })
+        .getAttribute('href'),
+      target.route,
+    );
+    assert.equal(
+      await menu.getByRole('link').nth(1).getAttribute('href'),
+      target.anchor,
+    );
     await page.keyboard.press('ArrowDown');
     assert.equal(
       await page.evaluate(() =>
@@ -366,14 +386,101 @@ async function assertMobileNavigation(browser, baseUrl) {
       true,
     );
 
-    await toggle.tap();
-    await panels.tap();
-    await page.getByRole('link', { name: 'Перейти к разделу' }).tap();
-    assert.equal(new URL(page.url()).hash, '#panels');
-    assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+    const mobileDestinations = [
+      {
+        menu: 'Электрощиты',
+        link: 'Перейти к разделу',
+        href: '/panels',
+        pathname: '/panels',
+        hash: '',
+      },
+      {
+        menu: 'Электрощиты',
+        link: 'Типы решений',
+        href: '/panels#panel-types',
+        pathname: '/panels',
+        hash: '#panel-types',
+      },
+      {
+        menu: 'Проектирование',
+        link: 'Перейти к разделу',
+        href: '/engineering',
+        pathname: '/engineering',
+        hash: '',
+      },
+      {
+        menu: 'Проектирование',
+        link: 'Рабочий процесс',
+        href: '/engineering#engineering-process',
+        pathname: '/engineering',
+        hash: '#engineering-process',
+      },
+    ];
+    for (const destination of mobileDestinations) {
+      await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+      await toggle.tap();
+      const trigger = navigation.getByRole('button', {
+        name: destination.menu,
+        exact: true,
+      });
+      await trigger.tap();
+      const link = navigation.getByRole('link', {
+        name: destination.link,
+        exact: true,
+      });
+      assert.equal(await link.getAttribute('href'), destination.href);
+      await link.tap();
+      await page.waitForURL(`**${destination.href}`);
+      assert.equal(new URL(page.url()).pathname, destination.pathname);
+      assert.equal(new URL(page.url()).hash, destination.hash);
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+      if (destination.hash)
+        await page.locator(destination.hash).waitFor({ state: 'attached' });
+    }
   } finally {
     await context.close();
   }
+}
+
+async function assertEngineeringMobileHero(page, baseUrl) {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(new URL('/engineering', baseUrl).href, {
+    waitUntil: 'domcontentloaded',
+  });
+  const layout = await page.evaluate(() => {
+    const heading = document.querySelector('#engineering-title');
+    const description = heading?.nextElementSibling;
+    const actions = description?.nextElementSibling;
+    const image = document.querySelector(
+      'figure img[alt^="Открытый шкаф диспетчеризации"]',
+    );
+    const figure = image?.closest('figure');
+    if (!heading || !description || !actions || !figure)
+      throw new Error('Engineering mobile hero is missing a required element.');
+    const order = [heading, description, actions, figure];
+    return {
+      documentOrder: order.every(
+        (element, index) =>
+          index === order.length - 1 ||
+          Boolean(
+            element.compareDocumentPosition(order[index + 1]) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+          ),
+      ),
+      tops: order.map((element) => element.getBoundingClientRect().top),
+    };
+  });
+  assert.equal(
+    layout.documentOrder,
+    true,
+    'Mobile hero reading order changed.',
+  );
+  assert.ok(
+    layout.tops.every(
+      (top, index) => index === 0 || top > layout.tops[index - 1],
+    ),
+    `Mobile hero visual order is incorrect: ${layout.tops.join(', ')}`,
+  );
 }
 
 async function assertDisabledFutureActions(page) {
@@ -700,6 +807,7 @@ async function main() {
 
         await assertMenuKeyboardAndPointer(page);
         await assertMobileNavigation(browser, baseUrl);
+        await assertEngineeringMobileHero(page, baseUrl);
         await assertShowcaseTouch(browser, baseUrl);
         await captureAndCheckViewports(page, baseUrl);
 

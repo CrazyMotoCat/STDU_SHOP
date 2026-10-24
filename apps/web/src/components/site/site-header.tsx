@@ -14,14 +14,18 @@ const directions = [
   {
     id: 'panels',
     label: 'Электрощиты',
-    href: '/#panels',
-    description: 'Типовые и индивидуальные шкафы управления.',
+    href: '/panels',
+    secondaryHref: '/panels#panel-types',
+    secondaryLabel: 'Типы решений',
+    description: 'Типовые направления и индивидуальные шкафы управления.',
   },
   {
     id: 'engineering',
     label: 'Проектирование',
-    href: '/#engineering',
-    description: 'Проектирование и программирование систем.',
+    href: '/engineering',
+    secondaryHref: '/engineering#engineering-process',
+    secondaryLabel: 'Рабочий процесс',
+    description: 'Проектирование, программирование и пусконаладка.',
   },
 ] as const;
 
@@ -255,7 +259,7 @@ export function SiteHeader() {
                         className="mega-panel__secondary-link"
                         data-menu-index="1"
                         data-menu-link={direction.id}
-                        href="#platform-status"
+                        href={direction.secondaryHref}
                         onClick={() => {
                           setOpenMenu(null);
                           setMobileOpen(false);
@@ -264,10 +268,10 @@ export function SiteHeader() {
                           menuLinkRefs.current[`${direction.id}-1`] = node;
                         }}
                       >
-                        О статусе платформы
+                        {direction.secondaryLabel}
                       </a>
                       <p className="mega-panel__note">
-                        Информация и сервисы подключаются поэтапно.
+                        Состав работ зависит от задачи и технического задания.
                       </p>
                     </div>
                   </li>
