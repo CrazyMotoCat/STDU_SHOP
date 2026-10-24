@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import './home.css';
 import { PublicLayout } from '../components/layouts/page-layouts';
 import { SwitchgearIllustration } from '../components/site/switchgear-illustration';
 import { EngineeringMotionShowcase } from '../components/visual/engineering-motion-showcase';
@@ -50,7 +51,7 @@ function DirectionVisual({
           src="/images/engineering/cabinet-industrial.webp"
           alt=""
           fill
-          sizes="(max-width: 760px) 128px, 400px"
+          sizes="(max-width: 760px) 100vw, 440px"
         />
         <span className="direction-media__caption">Фото: ОВЕН</span>
       </span>
@@ -60,19 +61,15 @@ function DirectionVisual({
   if (type === 'engineering') {
     return (
       <span className="direction-media direction-media--engineering">
-        <svg aria-hidden="true" fill="none" viewBox="0 0 340 160">
-          <path d="M24 35H110V80H230V126H316M24 126H85V80M230 80V35H316" />
-          <circle cx="24" cy="35" r="4" />
-          <circle cx="316" cy="126" r="4" />
-          <circle cx="316" cy="35" r="4" />
-        </svg>
         <Image
-          src="/images/engineering/controller-owen.webp"
+          src="/images/engineering/ai-relay-detail-concept.webp"
           alt=""
-          width={398}
-          height={426}
-          sizes="(max-width: 760px) 110px, 190px"
+          fill
+          sizes="(max-width: 760px) 100vw, 440px"
         />
+        <span className="direction-media__caption">
+          AI-концепт · по референсу WB
+        </span>
       </span>
     );
   }
@@ -84,14 +81,14 @@ function DirectionVisual({
         alt=""
         width={480}
         height={477}
-        sizes="(max-width: 760px) 75px, 160px"
+        sizes="(max-width: 760px) 140px, 200px"
       />
       <Image
         src="/images/engineering/power-meanwell-hdr60.webp"
         alt=""
         width={395}
         height={624}
-        sizes="(max-width: 760px) 60px, 135px"
+        sizes="(max-width: 760px) 110px, 170px"
       />
     </span>
   );
@@ -100,7 +97,7 @@ function DirectionVisual({
 export default function Home() {
   return (
     <PublicLayout>
-      <main id="main" tabIndex={-1}>
+      <main className="home-page" id="main" tabIndex={-1}>
         <Section aria-labelledby="hero-title" className="hero-section">
           <Container className="hero-grid">
             <div className="hero-copy">
@@ -265,6 +262,13 @@ export default function Home() {
         </Section>
 
         <Section className="closing-section" tone="dark">
+          <Image
+            className="closing-section__photo"
+            src="/images/engineering/ai-workshop-concept.webp"
+            alt=""
+            fill
+            sizes="100vw"
+          />
           <Container className="closing-section__inner">
             <svg
               aria-hidden="true"
@@ -293,6 +297,14 @@ export default function Home() {
               STDU SHOP — платформа для последовательной инженерной проработки.
             </p>
           </Container>
+          <a
+            className="closing-section__source"
+            href="https://owen.ru/project/avtomatizaciya_varochnogo_kotla_na_pticepererabatyvayushchem_proizvodstve"
+            target="_blank"
+            rel="noreferrer"
+          >
+            AI-концепт среды · исходный референс ОВЕН ↗
+          </a>
         </Section>
       </main>
     </PublicLayout>
