@@ -39,7 +39,7 @@ function MaterialReference({ stageId }: { stageId: StageId }) {
         {stageId === 'equipment' ? (
           <>
             <Image
-              src="/images/engineering/breaker-keaz.webp"
+              src="/images/engineering/breaker-keaz-optidin.webp"
               alt="Автоматический выключатель КЭАЗ OptiDin"
               width={364}
               height={751}

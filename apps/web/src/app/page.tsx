@@ -87,7 +87,7 @@ function DirectionVisual({
         sizes="(max-width: 760px) 75px, 160px"
       />
       <Image
-        src="/images/engineering/power-meanwell.webp"
+        src="/images/engineering/power-meanwell-hdr60.webp"
         alt=""
         width={395}
         height={624}
