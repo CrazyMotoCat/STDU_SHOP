@@ -29,8 +29,24 @@ function rejects(change) {
   assert.throws(() => validateSupplierContract(changed));
 }
 
-test('R1-007A proposed supplier contract is internally consistent', () => {
+test('FROZEN R1-007A supplier contract is internally consistent', () => {
   assert.doesNotThrow(() => validateSupplierContract(baseline));
+});
+
+test('checker rejects a frozen-artifact checksum mismatch', () => {
+  rejects((contract) => {
+    contract.frozenManifest.frozenArtifactSha256[
+      'docs/contracts/R1-007-suppliers.openapi.json'
+    ] = '0'.repeat(64);
+  });
+});
+
+test('checker rejects changes to the owner-approved source checksums', () => {
+  rejects((contract) => {
+    contract.frozenManifest.approvedSourceSha256[
+      'docs/contracts/R1-007-supplier-data-model.json'
+    ] = '0'.repeat(64);
+  });
 });
 
 test('checker rejects a public supplier route', () => {

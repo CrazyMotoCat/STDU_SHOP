@@ -1,4 +1,4 @@
-# R1-007 Supplier Data Model — Proposed 0.1.0
+# R1-007 Supplier Data Model — FROZEN 1.0.0
 
 ## Scope and ownership
 

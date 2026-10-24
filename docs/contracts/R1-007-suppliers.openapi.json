@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "STDU R1-007 Supplier Staff API",
-    "version": "0.1.0-proposed",
-    "description": "Proposed staff-only manual Supplier and SupplierOffer API. No supplier crawling, public supplier surface, public purchase price, automatic product link, purchase order or stock workflow."
+    "version": "1.0.0",
+    "description": "Frozen staff-only manual Supplier and SupplierOffer API. No supplier crawling, public supplier surface, public purchase price, automatic product link, purchase order or stock workflow."
   },
   "servers": [
     {
@@ -18,8 +18,8 @@
     }
   ],
   "security": [{ "staffCookie": [] }],
-  "x-contract-status": "PROPOSED / REVIEW_REQUIRED",
-  "x-contract-version": "0.1.0-proposed",
+  "x-contract-status": "FROZEN 1.0.0",
+  "x-contract-version": "1.0.0",
   "x-baseline": "1e3c24cdd04628180f600f28aab0f88c37f23eb8",
   "x-frozen-contracts": ["R1-002 1.0.0", "R1-004 1.0.0", "R1-006A 1.0.0"],
   "x-staff-response-headers": {

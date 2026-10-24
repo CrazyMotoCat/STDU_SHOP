@@ -1,6 +1,6 @@
 {
-  "status": "PROPOSED",
-  "version": "0.1.0-proposed",
+  "status": "FROZEN",
+  "version": "1.0.0",
   "extends": "FROZEN R1-002 AuditEvent; append-only, same-transaction writes",
   "changesValuePolicy": "Audit stores actor, time, action, entity IDs, bounded reason codes, outcome, expected/result versions and sorted changed-field names. It never stores full contact data, internal notes, purchase amount/currency, source URL, raw evidence, request body, cookie, token or secret. Restricted revision/proposal rows hold domain data and require supplier permissions.",
   "events": {

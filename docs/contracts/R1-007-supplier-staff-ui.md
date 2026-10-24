@@ -1,4 +1,4 @@
-# R1-007 Supplier Staff UI — Proposed 0.1.0
+# R1-007 Supplier Staff UI — FROZEN 1.0.0
 
 All routes below are protected staff pages. Server-side RBAC is authoritative; hidden controls are not an access check. A denied employee never receives the restricted supplier DTO from the API.
 

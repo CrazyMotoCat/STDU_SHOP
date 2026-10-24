@@ -54,6 +54,10 @@ jobs:
         run: |
           pnpm catalog:contract:check
           pnpm catalog:contract:test
+      - name: Frozen R1-007 supplier contract consistency
+        run: |
+          node docs/contracts/check-R1-007.mjs
+          node --test docs/contracts/check-R1-007.test.mjs
       - name: R1-004B frozen contract trace
         run: node .agent/tasks/R1-004B/verify-contract-lock.mjs
       - name: R1-004B isolated schema and permission initializer runtime

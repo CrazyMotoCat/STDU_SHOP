@@ -1,10 +1,11 @@
-# R1-007A Owner Decisions — Proposed 0.1.0
+# R1-007A Owner Decisions — FROZEN 1.0.0
 
-**Status:** PROPOSED / REVIEW_REQUIRED
+**Status:** FROZEN
 **Baseline:** `1e3c24cdd04628180f600f28aab0f88c37f23eb8`
+**Owner approval:** approved on 2026-10-25 against proposed contract SHA `241b9c1a6d6e57b7ff1999e1aae46b66c33cb131` for OD-007A-01…07. The reviewed contract artifacts had no diff from that source SHA before status finalization. See [the frozen checksum manifest](../contracts/R1-007-frozen-manifest.json).
 **Decision scope:** only supplier identity, offer freshness, strict identity evidence, current-link correction, product eligibility, additive permissions, and supplier-command idempotency required by R1-007. Approved decisions #1–108 and frozen R1-002/R1-004/R1-006A are not changed.
 
-The contract package is reviewable without answering a serial interview. The owner may approve all recommendations together or return one list of `OD-007A-##` changes.
+The contract package was approved as a complete set of OD-007A-01…07 at the exact proposed source SHA recorded below; the approval authorizes metadata-only finalization as FROZEN 1.0.0.
 
 ## OD-007A-01 — Supplier identity and duplicates
 
@@ -58,6 +59,8 @@ The contract package is reviewable without answering a serial interview. The own
 **Alternative:** retain idempotency only in process memory or reuse import-specific tables. These options cannot safely replay Supplier mutations after restart or provide a single consistent scope across routes.
 **Effect:** this adds one explicit domain-support table (six total R1-007 tables), not a new service or permission bypass. Indefinite retention provides unbounded retry protection but requires disk-growth monitoring; any future purge policy needs an owner-approved contract update and a minimum retention guarantee.
 
-## Owner approval text
+## Owner approval record
 
-> Утверждаю пакет R1-007A Supplier Domain Contract версии 0.1.0-proposed на SHA `<точный SHA>` по OD-007A-01…07. Если утверждаются только отдельные решения или требуются изменения, укажу их ID и формулировку. Это утверждение разрешает зафиксировать пакет FROZEN 1.0.0 и начать R1-007B после интеграции контракта; оно не разрешает production migration, production deployment или реальные выдачи permissions.
+> Утверждаю пакет R1-007A Supplier Domain Contract версии 0.1.0-proposed на SHA `241b9c1a6d6e57b7ff1999e1aae46b66c33cb131`, включая OD-007A-01…07. Принимаю шесть таблиц, включая SupplierCommandIdempotency, 20 staff API-операций и пять предлагаемых permissions.
+
+This approval covers the contract content only. It does not authorize bypassing required CI, production migrations, deployment or real permission grants. It authorizes freezing the unchanged approved contract as FROZEN 1.0.0 and starting R1-007B after integration.

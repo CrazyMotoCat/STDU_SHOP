@@ -1,6 +1,6 @@
 {
-  "status": "PROPOSED",
-  "version": "0.1.0-proposed",
+  "status": "FROZEN",
+  "version": "1.0.0",
   "baseline": "1e3c24cdd04628180f600f28aab0f88c37f23eb8",
   "extends": [
     "FROZEN R1-002 1.0.0",

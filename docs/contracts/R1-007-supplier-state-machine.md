@@ -1,4 +1,4 @@
-# R1-007 Supplier State Machine — Proposed 0.1.0
+# R1-007 Supplier State Machine — FROZEN 1.0.0
 
 ## Supplier
 

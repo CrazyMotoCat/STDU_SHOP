@@ -1,0 +1,54 @@
+{
+  "contract": "R1-007A Supplier Domain Contract",
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "approval": {
+    "approvedOn": "2026-10-25",
+    "sourceHead": "241b9c1a6d6e57b7ff1999e1aae46b66c33cb131",
+    "decisionIds": [
+      "OD-007A-01",
+      "OD-007A-02",
+      "OD-007A-03",
+      "OD-007A-04",
+      "OD-007A-05",
+      "OD-007A-06",
+      "OD-007A-07"
+    ],
+    "statement": "Утверждаю пакет R1-007A Supplier Domain Contract версии 0.1.0-proposed на SHA `241b9c1a6d6e57b7ff1999e1aae46b66c33cb131`, включая OD-007A-01…07. Принимаю шесть таблиц, включая SupplierCommandIdempotency, 20 staff API-операций и пять предлагаемых permissions.",
+    "scope": "Contract content approval; no CI bypass, production migration, deployment or live permission grants. Freeze metadata and checksums may be recorded; R1-007B implementation is authorized only after contract integration."
+  },
+  "approvedSourceSha256": {
+    "docs/contracts/R1-007-supplier-audit-registry.json": "6b1ea4548ca140d07365b0a96e773814a03c6126e26cbf0f39646b710d985ae3",
+    "docs/contracts/R1-007-supplier-data-model.json": "bdf6996267deaf4609c5512d09ed89b0215fdfd2b95d3a7cb6c9c124186421e6",
+    "docs/contracts/R1-007-supplier-data-model.md": "619ec96c513574ffd79d2ca390db3843b8b509a68190ac8ca72140ade6413713",
+    "docs/contracts/R1-007-supplier-domain-contract.md": "5b6cf4566607cdf06dfe665caf2bdce9f7b14982877711e03d7314f1968be6df",
+    "docs/contracts/R1-007-supplier-rbac-matrix.json": "2a06950c4f96cf6386da45d6ecc0f2e5f082f840ccd543f9f781ad6c4d500fbc",
+    "docs/contracts/R1-007-supplier-rbac-matrix.md": "1f699dc896621e44f902dcc4b5adb01167ea4cff23ee245f00e4feb218938ca0",
+    "docs/contracts/R1-007-supplier-staff-ui.md": "908ce8ab84f9528df79c4a85a17864db4a2f9f2fbf29664dad0afdf9e8fcd3ac",
+    "docs/contracts/R1-007-supplier-state-machine.md": "6ad94dd0e2ca7f19ffbd50b64f70e39c1ff8767a221f669f9e32be3e282cfa32",
+    "docs/contracts/R1-007-suppliers.openapi.json": "1dbc1d0a9b03ba2ed20d00f86f0a58ad5b23ccbdb79134d35c55e5d427582dae",
+    "docs/contracts/R1-007-test-matrix.md": "24ad53f1167615a7fb7be3bf5c6c80c1e8603f325f4d17e4878173882e5ccace",
+    "docs/contracts/check-R1-007.mjs": "4771d725507b0fb2c5b3d28f09598c987c20b7149bb9bcdf8d9d723f7f26834a",
+    "docs/contracts/check-R1-007.test.mjs": "f7b04f48460b6f5500140d8f358a79c6a3cab360c40639ee219cb9d83b928b63",
+    "docs/plans/R1-007A-owner-decisions.md": "ac82a810b76c4850b025c8f1daa72200793cea6123006db2802eaf7af3d6f12c",
+    "docs/plans/R1-007B-implementation-plan.md": "ae913d06d31e5a3ed30600dd615eea54bf542a73503aabfd5832a554c29bd912"
+  },
+  "frozenArtifactSha256": {
+    "docs/contracts/R1-007-supplier-audit-registry.json": "56a6f3407b91193f5efa799e116fa49b84eb8e4b8a1663f21df73a29fe1e4d54",
+    "docs/contracts/R1-007-supplier-data-model.json": "4e1ea6099fbf49b0ed5d0dfc89ae932eff568a92574a457962cac1ad1b3351f8",
+    "docs/contracts/R1-007-supplier-data-model.md": "79871718321011723b985c3ab9d1c223924daa42d251b03e9d1335282ca72383",
+    "docs/contracts/R1-007-supplier-domain-contract.md": "f6da918b10cc14ed6eabe16f9ff1c03dcc9fe5870005bc5b3796a9fcf9fc82db",
+    "docs/contracts/R1-007-supplier-rbac-matrix.json": "1fd4a7e895404cec32ad2d73f2ec775f081aa80fe045a9c3f39b74f1f1895062",
+    "docs/contracts/R1-007-supplier-rbac-matrix.md": "59de5822482dd75bc8ad51a89edd99e7b52caa308f249a7fe0abceef8be21a1d",
+    "docs/contracts/R1-007-supplier-staff-ui.md": "2ad718445c72a9197017d3f4e98d500541572bd7803ba3915fedb965914d6ea2",
+    "docs/contracts/R1-007-supplier-state-machine.md": "7a0f0b06b889587c3b944044f69959dbbe578769255651bd86c230f113bddb99",
+    "docs/contracts/R1-007-suppliers.openapi.json": "e24519d5eb33f3710922e16fd5e079cf986fc202bd5c4ce3e6e2a56fd0008bcd",
+    "docs/contracts/R1-007-test-matrix.md": "68a325f48fb9fabd150fccf4a9e275ce3e640304ee55d92abc746e4a30edd03d",
+    "docs/plans/R1-007A-owner-decisions.md": "af4147ea0a07d93af3ea9a997602223f184a35f363d1474f190e5e1d60d552f7",
+    "docs/plans/R1-007B-implementation-plan.md": "4fa4b20d747ab6536de3e6060089d048f3dfdec0d283a358743ec4f858b36df6"
+  },
+  "finalization": {
+    "contractContentChanged": false,
+    "description": "Only status/version, owner approval provenance, and verification/checksum metadata were finalized after approval. Supplier schema, permission matrix, API operations, state transitions, security requirements and business rules were not changed."
+  }
+}

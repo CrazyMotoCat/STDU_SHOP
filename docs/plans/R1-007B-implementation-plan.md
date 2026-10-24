@@ -1,6 +1,6 @@
-# R1-007B — Implementation Outline (after owner approval)
+# R1-007B — Implementation Outline for FROZEN R1-007A 1.0.0
 
-This outline is conditional on owner approval of R1-007A and integration of the FROZEN contract. It authorizes no production migration/deployment by itself.
+This outline follows owner approval of R1-007A on SHA `241b9c1a6d6e57b7ff1999e1aae46b66c33cb131`. It authorizes implementation after contract integration, but no production migration/deployment or live permission grant.
 
 1. Extend the runtime Permission registry additively; keep frozen R1-002/004/006A artifacts and protected-admin set unchanged. Do not grant permissions automatically.
 2. Add Prisma/PostgreSQL supplier roots, immutable offer revisions, proposal history, current-match pointer and integrity/index constraints; migration must be additive and non-destructive.

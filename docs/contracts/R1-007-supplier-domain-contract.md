@@ -1,11 +1,11 @@
 # R1-007A — Supplier Domain Contract
 
-**Status:** PROPOSED / REVIEW_REQUIRED
-**Contract version:** `0.1.0-proposed`
+**Status:** FROZEN
+**Contract version:** `1.0.0`
 **Baseline:** `1e3c24cdd04628180f600f28aab0f88c37f23eb8`
 **Scope:** internal supplier registry, manually recorded supplier offers, strict catalog-match proposals, one-at-a-time staff decisions, comparison and audit.
 
-This package extends the approved R1 requirements and FROZEN R1-002, R1-004 and R1-006A without editing their artifacts. It does not authorize migrations or application code. Owner decisions below are the only proposed business-rule choices still requiring explicit approval.
+This package extends the approved R1 requirements and FROZEN R1-002, R1-004 and R1-006A without editing their artifacts. OD-007A-01…07 are owner-approved and frozen at version 1.0.0. This contract authorizes R1-007B implementation after integration, but does not authorize production migrations, deployment or live permission grants. Approval provenance and SHA-256 checksums are recorded in [the frozen manifest](R1-007-frozen-manifest.json).
 
 ## Contract artifacts
 
@@ -47,4 +47,4 @@ This package extends the approved R1 requirements and FROZEN R1-002, R1-004 and 
 
 ## Contract checks
 
-Run `node docs/contracts/check-R1-007.mjs` and `node --test docs/contracts/check-R1-007.test.mjs`. These checks validate this proposed package only. They do not imply runtime implementation or approval.
+Run `node docs/contracts/check-R1-007.mjs` and `node --test docs/contracts/check-R1-007.test.mjs`. These checks validate the frozen contract and its approval/checksum manifest. They do not imply runtime implementation or authorize production operations.
