@@ -69,7 +69,7 @@
           "required": false,
           "maxBytes": 2097152,
           "schemaVersion": 1,
-          "description": "Per-sheet header/column/reference maps; CSV options are immutable run fields."
+          "description": "Per-sheet header/column/reference maps plus optional fixedCategoryId and fixedBrandId. Fixed IDs must reference ACTIVE entities; CSV options are immutable run fields and are not part of mapping."
         },
         "parserVersion": {
           "type": "varchar(32)",
@@ -276,6 +276,12 @@
           "required": true,
           "enum": ["APPLIED", "REJECTED", "HELD", "CONFLICT"]
         },
+        "conflictCode": {
+          "type": "varchar(40)",
+          "required": false,
+          "enum": ["IMPORT_ROW_CONFLICT", "IDENTITY_CONFLICT", null],
+          "description": "Persisted HTTP 409 code for outcome=CONFLICT; null for all other outcomes."
+        },
         "targetProductId": {
           "type": "uuid",
           "required": false,
@@ -326,9 +332,11 @@
       "checks": [
         "action/outcome in declared enums",
         "mappingVersion >= 0",
-        "reasonCode in declared enum when present"
+        "reasonCode in declared enum when present",
+        "outcome=CONFLICT requires a DENIED catalog.import.row.decided AuditEvent and null targetProductId/resultRevisionId",
+        "outcome=CONFLICT iff conflictCode is IMPORT_ROW_CONFLICT or IDENTITY_CONFLICT; all other outcomes require conflictCode null"
       ],
-      "immutability": "append-only for runtime DB role."
+      "immutability": "Append-only; at most one decision per (rowId,idempotencyKey). Same-key/same-hash retry returns the stored result without a duplicate decision or audit event."
     }
   },
   "invariants": [
@@ -337,6 +345,13 @@
     "CatalogImportRun uploaderStaffUserId must equal the referenced PRIVATE FileObject ownerStaffUserId.",
     "Each row decision is a separate command and accepts at most one row.",
     "ImportRun source SHA/size/MIME/name are read from the immutable referenced FileVersion; no duplicate mutable metadata is stored.",
-    "CatalogImportRun and CatalogImportRow are never physically deleted by API."
+    "CatalogImportRun and CatalogImportRow are never physically deleted by API.",
+    "CatalogImportRun uploaderStaffUserId defines default visibility; catalog.products.read alone never grants access to another staff user's raw import rows.",
+    "Cross-owner reads require an ACTIVE actor whose effective permission union contains all FROZEN R1-002 controlAdminRequiredPermissions plus catalog.products.read; cross-owner mapping/preview/decisions additionally require catalog.products.write and catalog.references.read. Role names do not grant either scope.",
+    "Mapping, preview and row decisions require catalog.references.read when resolving or revalidating Brand, Category or AttributeDefinition references; no reference is created automatically.",
+    "For ACCEPT_CREATE/ACCEPT_REVISION conflicts, catalog mutation rolls back first; row candidateState=CONFLICT, one decision outcome=CONFLICT and one DENIED AuditEvent are then committed atomically. Audit failure rolls back the conflict record transaction.",
+    "A same-key/same-hash retry returns the stored decision result without a second decision or audit event; same-key/different-hash returns IDEMPOTENCY_KEY_REUSED without a new decision.",
+    "Cross-owner access is recorded in catalog.import.cross_owner.accessed without raw cells, filenames, file bytes, or storage keys.",
+    "A fixedCategoryId excludes categoryId column/reference mappings and requires every attribute mapping on that sheet to use the same categoryId; fixedBrandId excludes brandId column/reference mappings."
   ]
 }

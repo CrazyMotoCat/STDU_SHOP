@@ -129,6 +129,16 @@
         "expectedRowVersion",
         "expectedProductVersion"
       ]
+    },
+    "catalog.import.cross_owner.accessed": {
+      "entityTypes": ["CatalogImportRun", "CatalogImportRow"],
+      "outcomes": {
+        "SUCCESS": ["READ", "MUTATION"],
+        "DENIED": ["AUTH_REQUIRED", "FORBIDDEN", "NOT_FOUND"],
+        "FAILURE": ["AUDIT_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["runId", "rowId", "ownerStaffUserId", "accessKind"],
+      "changesValueEnums": { "accessKind": ["READ", "MUTATION"] }
     }
   }
 }

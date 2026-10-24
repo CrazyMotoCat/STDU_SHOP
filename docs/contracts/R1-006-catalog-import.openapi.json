@@ -11,6 +11,36 @@
     "X-Content-Type-Options": "nosniff",
     "X-Request-Id": "server-generated UUID, also present in meta.requestId/error.requestId"
   },
+  "x-import-authorization": {
+    "ownerKey": "CatalogImportRun.uploaderStaffUserId",
+    "defaultListScope": "authenticated caller only",
+    "ownerRead": ["catalog.products.read"],
+    "ownerWrite": ["catalog.products.read", "catalog.products.write"],
+    "referenceRead": "Mapping, preview and row decisions additionally require catalog.references.read to resolve/revalidate ACTIVE Brand, Category and AttributeDefinition records.",
+    "crossOwnerRead": {
+      "status": "ACTIVE",
+      "requiredFrozenSet": "all FROZEN R1-002 controlAdminRequiredPermissions",
+      "evaluation": "effective union over the active staff user's assigned roles; never infer from role name",
+      "additionalPermissions": ["catalog.products.read"],
+      "roleNameAloneGrantsAccess": false,
+      "denial": "404",
+      "auditAction": "catalog.import.cross_owner.accessed"
+    },
+    "crossOwnerMutation": {
+      "status": "ACTIVE",
+      "requiredFrozenSet": "all FROZEN R1-002 controlAdminRequiredPermissions",
+      "evaluation": "effective union over the active staff user's assigned roles; never infer from role name",
+      "additionalPermissions": [
+        "catalog.products.read",
+        "catalog.products.write",
+        "catalog.references.read"
+      ],
+      "roleNameAloneGrantsAccess": false,
+      "denial": "404",
+      "auditAction": "catalog.import.cross_owner.accessed",
+      "mayMapPreviewAndDecideOtherRows": true
+    }
+  },
   "servers": [{ "url": "/" }],
   "tags": [{ "name": "catalog-import-staff" }],
   "security": [{ "staffCookie": [] }],
@@ -81,10 +111,13 @@
         "operationId": "listCatalogImports",
         "summary": "List bounded staff catalog import runs",
         "x-permission": "catalog.products.read",
-        "x-audit": "none",
+        "x-audit": "conditional catalog.import.cross_owner.accessed for cross-owner listing",
+        "x-owner-scope": "own uploader runs by default; ownerStaffUserId may select another uploader only under x-import-authorization.crossOwnerRead",
+        "x-cross-owner-audit": "catalog.import.cross_owner.accessed",
         "parameters": [
           { "$ref": "#/components/parameters/PageSize" },
-          { "$ref": "#/components/parameters/Cursor" }
+          { "$ref": "#/components/parameters/Cursor" },
+          { "$ref": "#/components/parameters/OwnerStaffUserId" }
         ],
         "responses": {
           "200": {
@@ -108,7 +141,9 @@
         "operationId": "getCatalogImport",
         "summary": "Read run summary and immutable source provenance",
         "x-permission": "catalog.products.read",
-        "x-audit": "none",
+        "x-audit": "conditional catalog.import.cross_owner.accessed for cross-owner read; denied cross-owner lookup is DENIED",
+        "x-owner-scope": "uploader-only; cross-owner exception per x-import-authorization.crossOwnerRead",
+        "x-cross-owner-audit": "catalog.import.cross_owner.accessed",
         "parameters": [{ "$ref": "#/components/parameters/RunId" }],
         "responses": {
           "200": {
@@ -131,9 +166,14 @@
         "operationId": "setCatalogImportMapping",
         "summary": "Set or correct explicit column/reference mappings before any row is terminal",
         "x-permission": "catalog.products.write",
-        "x-additional-permissions": ["catalog.products.read"],
+        "x-additional-permissions": [
+          "catalog.products.read",
+          "catalog.references.read"
+        ],
         "x-csrf": true,
         "x-audit": "catalog.import.mapping.changed",
+        "x-owner-scope": "uploader-only; cross-owner exception per x-import-authorization.crossOwnerMutation",
+        "x-cross-owner-audit": "catalog.import.cross_owner.accessed in the same transaction as mapping.changed",
         "parameters": [
           { "$ref": "#/components/parameters/RunId" },
           { "$ref": "#/components/parameters/Origin" },
@@ -170,9 +210,14 @@
         "operationId": "previewOrResumeCatalogImport",
         "summary": "Apply saved mapping to stored raw rows or resume an incomplete preview",
         "x-permission": "catalog.products.write",
-        "x-additional-permissions": ["catalog.products.read"],
+        "x-additional-permissions": [
+          "catalog.products.read",
+          "catalog.references.read"
+        ],
         "x-csrf": true,
         "x-audit": "catalog.import.preview.completed",
+        "x-owner-scope": "uploader-only; cross-owner exception per x-import-authorization.crossOwnerMutation",
+        "x-cross-owner-audit": "catalog.import.cross_owner.accessed in the same transaction as preview.completed",
         "parameters": [
           { "$ref": "#/components/parameters/RunId" },
           { "$ref": "#/components/parameters/Origin" },
@@ -202,7 +247,9 @@
         "operationId": "listCatalogImportRows",
         "summary": "Read raw source rows before mapping and normalized preview after mapping",
         "x-permission": "catalog.products.read",
-        "x-audit": "none",
+        "x-audit": "conditional catalog.import.cross_owner.accessed for cross-owner read; denied cross-owner lookup is DENIED",
+        "x-owner-scope": "uploader-only; cross-owner exception per x-import-authorization.crossOwnerRead",
+        "x-cross-owner-audit": "catalog.import.cross_owner.accessed",
         "parameters": [
           { "$ref": "#/components/parameters/RunId" },
           { "$ref": "#/components/parameters/PageSize" },
@@ -231,9 +278,27 @@
         "operationId": "decideCatalogImportRow",
         "summary": "Decide one row and create/prepare a draft only",
         "x-permission": "catalog.products.write",
-        "x-additional-permissions": ["catalog.products.read"],
+        "x-additional-permissions": [
+          "catalog.products.read",
+          "catalog.references.read"
+        ],
         "x-csrf": true,
         "x-audit": "catalog.import.row.decided",
+        "x-owner-scope": "uploader-only; cross-owner exception per x-import-authorization.crossOwnerMutation",
+        "x-cross-owner-audit": "catalog.import.cross_owner.accessed in the same transaction as row.decided",
+        "x-conflict-semantics": {
+          "httpStatus": 409,
+          "codes": ["IMPORT_ROW_CONFLICT", "IDENTITY_CONFLICT"],
+          "candidateState": "CONFLICT",
+          "decisionOutcome": "CONFLICT",
+          "decisionConflictCode": "the same exact 409 code is persisted for idempotent replay",
+          "auditOutcome": "DENIED",
+          "successAudit": false,
+          "catalogMutation": "rolled back before the conflict record transaction",
+          "conflictRecordTransaction": "Atomically persists row CONFLICT, one CatalogImportDecision outcome CONFLICT with conflictCode, and one catalog.import.row.decided denial AuditEvent linked by auditEventId.",
+          "sameKeySameHashReplay": "Return the stored 409 outcome and conflictCode without inserting another decision or audit event.",
+          "sameKeyDifferentHash": "Return 409 IDEMPOTENCY_KEY_REUSED without inserting another decision."
+        },
         "parameters": [
           { "$ref": "#/components/parameters/RunId" },
           { "$ref": "#/components/parameters/RowId" },
@@ -266,7 +331,14 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" },
+          "409": {
+            "description": "For ACCEPT_CREATE/ACCEPT_REVISION domain conflict: after catalog mutation rollback, atomically commit row candidateState=CONFLICT, one decision outcome=CONFLICT with persisted conflictCode and one DENIED decision AuditEvent; then return 409 with that code. Same-key/same-hash replay returns the stored conflict without duplicate decision or audit. VERSION_CONFLICT for a stale request version leaves row and decision history unchanged.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
           "503": { "$ref": "#/components/responses/Unavailable" }
         }
       }
@@ -277,7 +349,9 @@
         "operationId": "getCatalogImportRowHistory",
         "summary": "Read append-only decisions for one row",
         "x-permission": "catalog.products.read",
-        "x-audit": "none",
+        "x-audit": "conditional catalog.import.cross_owner.accessed for cross-owner read; denied cross-owner lookup is DENIED",
+        "x-owner-scope": "uploader-only; cross-owner exception per x-import-authorization.crossOwnerRead",
+        "x-cross-owner-audit": "catalog.import.cross_owner.accessed",
         "parameters": [
           { "$ref": "#/components/parameters/RunId" },
           { "$ref": "#/components/parameters/RowId" },
@@ -364,6 +438,13 @@
           "maxLength": 256,
           "pattern": "^[A-Za-z0-9_-]+$"
         }
+      },
+      "OwnerStaffUserId": {
+        "name": "ownerStaffUserId",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string", "format": "uuid" },
+        "description": "Optional owner filter. Omitted means the authenticated caller only; selecting another uploader requires x-import-authorization.crossOwnerRead."
       },
       "IdempotencyKey": {
         "name": "Idempotency-Key",
@@ -695,6 +776,7 @@
       },
       "ImportMappingRequest": {
         "type": "object",
+        "description": "CSV encoding and delimiter are fixed at upload and cannot be changed in this request. Each sheet has independent fixed/category/brand and attribute mappings; a fixed reference conflicts with any same-target column or explicit reference mapping.",
         "required": [
           "expectedVersion",
           "mappingSchemaVersion",
@@ -722,6 +804,16 @@
                   "maximum": 19
                 },
                 "headerRowNumber": { "type": "integer", "minimum": 1 },
+                "fixedCategoryId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Optional per-sheet fixed ACTIVE Category ID. When set, categoryId column/reference mapping is forbidden."
+                },
+                "fixedBrandId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Optional per-sheet fixed ACTIVE Brand ID. When set, brandId column/reference mapping is forbidden."
+                },
                 "columnMappings": {
                   "type": "array",
                   "maxItems": 128,
@@ -777,22 +869,7 @@
               },
               "additionalProperties": false,
               "uniqueItems": true,
-              "description": "sheetIndex must be unique; scalar target mappings are unique; attribute mappings are category-specific and may reuse a source column only for different category/definition pairs."
-            },
-            "csvOptions": {
-              "type": ["object", "null"],
-              "description": "Required for CSV; null for XLSX.",
-              "properties": {
-                "encoding": {
-                  "type": "string",
-                  "enum": ["UTF-8", "WINDOWS-1251"]
-                },
-                "delimiter": {
-                  "type": ["string", "null"],
-                  "enum": [",", ";", "\t", null]
-                }
-              },
-              "additionalProperties": false
+              "description": "sheetIndex is unique. A sheet may use fixedCategoryId instead of categoryId column/reference mappings and fixedBrandId instead of brandId column/reference mappings; setting a fixed value and any mapping for the same target is rejected with 400 VALIDATION_ERROR. Fixed references must be ACTIVE. Different sheets may use different fixed references. With fixedCategoryId, attribute mappings must use that exact categoryId. Attribute mappings remain bound to exact categoryId and attributeDefinitionId pairs; no code-based inheritance."
             }
           }
         },
@@ -828,6 +905,7 @@
           "rowId",
           "action",
           "outcome",
+          "conflictCode",
           "mappingVersion",
           "createdAt"
         ],
@@ -841,6 +919,11 @@
           "outcome": {
             "type": "string",
             "enum": ["APPLIED", "REJECTED", "HELD", "CONFLICT"]
+          },
+          "conflictCode": {
+            "type": ["string", "null"],
+            "enum": ["IMPORT_ROW_CONFLICT", "IDENTITY_CONFLICT", null],
+            "description": "Persisted 409 code for outcome=CONFLICT; null otherwise."
           },
           "mappingVersion": { "type": "integer", "minimum": 0 },
           "targetProductId": { "type": ["string", "null"], "format": "uuid" },
@@ -857,7 +940,8 @@
           },
           "createdAt": { "type": "string", "format": "date-time" }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "For accepted domain commands that conflict, outcome=CONFLICT and conflictCode are persisted with row candidateState=CONFLICT and a linked DENIED AuditEvent; the HTTP response is 409 with the stored conflictCode. Same-key/same-hash replay returns the same code without duplicate decision/audit. It is not a success audit or catalog mutation."
       },
       "ImportRunResponse": {
         "type": "object",
