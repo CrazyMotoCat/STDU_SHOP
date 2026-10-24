@@ -2,9 +2,9 @@
 
 TASK: R1-006 Catalog CSV/XLSX Import
 STATUS: REVIEW_REQUIRED
-PHASE: R1-006A contract proposal
-CHECKPOINT_STATUS: READY_FOR_REVIEW (PR #12 is Draft; owner approval required before implementation)
-LAST_SAFE_COMMIT: 1efc7388971fdbdbe0ccad54efa2c9f3370785d0
+PHASE: R1-006A contract review corrections
+CHECKPOINT_STATUS: AWAITING_OWNER_APPROVAL (PR #12 remains Draft; no merge or R1-006B)
+LAST_SAFE_COMMIT: 7a9bd5ec94e072716c99c15846c28c540e21fbaf
 BRANCH: codex/r1-006a-import-contract
 
 ## COMPLETED
@@ -16,7 +16,9 @@ BRANCH: codex/r1-006a-import-contract
 - Prepared a proposed data model/API/security/mapping/test contract and owner decision packet. No application code, Prisma schema, migration, RBAC registry or frozen artifact has been changed.
 - Resumed safely from the expected docs-only dirty state on the recorded branch; fetched origin/main again and confirmed it remains at the baseline.
 - Completed the R1-006A proposal across three DB entities, eight staff operations, raw source preview, private bounded parser interface, mapping, idempotency, manual row decisions, audit and tests. Added owner decisions OD-006A-01…05. No R1-002/R1-004 artifact, business code, migration, API implementation or permission registry was changed.
-- Committed and pushed the contract proposal; created Draft PR #12: https://github.com/CrazyMotoCat/STDU_SHOP/pull/12. The current exact review target is the PR head shown on GitHub; contract content is in the first task commit and the latest commit records only this checkpoint.
+- Corrected R1-006A after technical review: removed CSV options from mapping schema, added per-sheet fixed ACTIVE category/brand semantics, narrowed raw-import visibility and reference reads, aligned conflict persistence/409/audit/rollback/retry behavior, and specified NDJSON terminal/truncation behavior plus OD-006A-01…05 clarifications.
+- Added focused contract regression coverage. No application code, migrations, frozen RBAC/API artifacts, or business decisions #1–108 changed.
+- Committed the consolidated contract correction package as `7a9bd5ec94e072716c99c15846c28c540e21fbaf`; pushed to existing Draft PR #12. The PR must remain Draft/unmerged pending owner approval of this exact HEAD.
 
 ## VERIFIED
 
@@ -34,25 +36,28 @@ BRANCH: codex/r1-006a-import-contract
 - `pnpm catalog:contract:test` — PASS, 47/47.
 - pnpm emitted a non-blocking engine warning: repository requests Node 24.19.0; this host ran Node 24.22.1 / pnpm 11.25.0.
 - GitHub Actions was observed running/pending for docs-only commits. Per owner instruction it was not awaited; no application code changed, so CI is treated as green for this docs-only draft. The final checkpoint-only commit also requires no application rerun.
+- Final correction checks: `node --test docs/contracts/check-R1-006-contract.test.mjs` PASS (6/6); Prettier PASS; JSON parse/counts PASS (8 operations, 3 entities); SwaggerParser PASS; generated OpenAPI TypeScript and `tsc --noEmit --skipLibCheck` PASS.
+- Frozen regression checks: `pnpm contract:check` PASS; `pnpm contract:test` PASS (7/7); `pnpm catalog:contract:check` PASS; `pnpm catalog:contract:test` PASS (47/47); `git diff --cached --check` PASS before commit.
+- No runtime CI or independent review was started, per task scope (contract-only changes).
 
 ## UNCOMMITTED
 
-All seven task-owned documents are committed; worktree is intended clean after this checkpoint commit. No other files are task-owned.
+The seven contract/test files are committed in `7a9bd5ec94e072716c99c15846c28c540e21fbaf`; this checkpoint is the only pending bookkeeping change. No other task-owned files are changed.
 
 ## DECISIONS
 
 - Do not alter FROZEN R1-002/R1-004 or decisions #1–108.
 - No import implementation until owner approves exact contract SHA.
-- Owner decisions OD-006A-01…05 are in docs/plans/R1-006A-owner-decisions.md.
+- Updated owner decisions OD-006A-01…05 are in docs/plans/R1-006A-owner-decisions.md; owner approval of the exact final PR HEAD is still required.
 - Proposed delivery is REVIEW_REQUIRED; one Draft PR, no merge.
 
 ## BLOCKERS
 
-- Owner approval is required for OD-006A-01…05, including parser-only use of UNCHECKED file bytes, category/attribute mapping behavior, permission reuse, resource/encoding limits and retention.
+- Owner approval is required for corrected OD-006A-01…05 and the complete R1-006A contract at the exact final PR #12 HEAD.
 
 ## NEXT_ACTION
 
-Await owner review of the exact current PR #12 HEAD and OD-006A-01…05. Keep PR Draft/unmerged; do not implement R1-006B before approval.
+Push the checkpoint bookkeeping commit, verify PR #12 points to the final branch HEAD and remains Draft/unmerged, then present the exact SHA and approval statement. Stop for owner approval; do not implement R1-006B or migrations.
 
 ## DO_NOT_REPEAT
 
