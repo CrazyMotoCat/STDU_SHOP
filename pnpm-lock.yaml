@@ -105,6 +105,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@stdu/catalog-client':
+        specifier: workspace:*
+        version: link:../../packages/catalog-client
       next:
         specifier: 16.4.2
         version: 16.4.2(@types/node@24.10.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

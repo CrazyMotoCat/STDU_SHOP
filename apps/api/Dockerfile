@@ -4,6 +4,7 @@ RUN npm install --global pnpm@11.25.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
+COPY packages/catalog-client/package.json packages/catalog-client/package.json
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 RUN --mount=type=cache,id=stdu-pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
