@@ -38,10 +38,13 @@ Proposed minimal future contract (requires separate owner approval): one bounded
 | `pnpm catalog:ui:smoke` | PASS — isolated synthetic API adapter, 15 public product calls, browser interactions, true 404, responsive overflow and owned port release |
 | `git diff --check` | PASS |
 | `docker build --tag stdu-r1-005-web-build-check --file apps/web/Dockerfile .` | PASS after adding `packages/catalog-client` to the Docker build stage |
+| `docker build --tag stdu-r1-005-api-build-check --file apps/api/Dockerfile .` | PASS after adding the catalog-client workspace manifest to the API install stage |
 
 ## Hosted CI failure and correction
 
 The first exact-head GitHub Actions run (`40059663787`, head `454328c1cdc7a8e4fb4fd000bc2e01d757427b3c`) passed the new catalog browser acceptance, then failed in the existing five-service Compose build. Its web Dockerfile had copied `apps/web/package.json` but not the new local `@stdu/catalog-client` workspace package, so the container build could not resolve `@stdu/catalog-client/schema`. The fix copies the catalog-client manifest before frozen pnpm install and its source before the web build. The corrected Docker image built locally; the full exact-head CI must be rerun after the fix.
+
+The next exact-head run (`40060077086`, head `4effba8f773cd5c4c97b1fe501b634b422a8fd82`) confirmed the web image now typechecks, but failed in the parallel API image's `pnpm --filter @stdu/api deploy --prod --legacy /runtime`: deploy validates workspace references and `apps/api/Dockerfile` had not copied the catalog-client manifest. Added its manifest to the API install stage. Both web and API images have now built locally; the full CI must run again on the updated commit.
 
 The final local rerun was performed in the task worktree on 2026-10-24 after extracting the persistent `/catalog` shell into `apps/web/src/app/catalog/layout.tsx`. The browser smoke's graceful shutdown exceeded its 10-second grace period and then forced termination of the task-owned Next job boundary within the configured 5-second limit; it verified the owned port was released. No process was selected by name or port, and no external service or volume was stopped or deleted. `pnpm` printed its existing engine warning because this shell reported Node v24.22.1 while the package declares 24.19.0; `pnpm toolchain:check` itself passed and reported the pinned Node 24.19.0 toolchain.
 
@@ -61,4 +64,4 @@ PR #10 remains Draft and untouched. After it merges, connect the header’s equi
 
 ## Pending delivery
 
-Record the final implementation SHA, PR URL, successful exact-head GitHub Actions result, final merge SHA and post-integration CI here after delivery. PR #11 is open at `454328c1cdc7a8e4fb4fd000bc2e01d757427b3c`; CI run `40059663787` failed in the Compose web image build as described above. The fix is locally verified and awaits a new commit, push and full CI run. No production migration, deployment, permission grant or merge of PR #10 is authorized by this task.
+Record the final implementation SHA, PR URL, successful exact-head GitHub Actions result, final merge SHA and post-integration CI here after delivery. PR #11 is open at `4effba8f773cd5c4c97b1fe501b634b422a8fd82`; runs `40059663787` and `40060077086` exposed the web build and API deploy manifest gaps described above. Both Dockerfile fixes are locally verified and await a commit, push and another full CI run. No production migration, deployment, permission grant or merge of PR #10 is authorized by this task.
