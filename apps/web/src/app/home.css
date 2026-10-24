@@ -653,14 +653,15 @@
   }
 
   .home-page .closing-section__photo {
-    object-position: 64% 50%;
+    object-position: 72% 50%;
   }
 
   .home-page .closing-section::before {
     background: linear-gradient(
       90deg,
-      rgb(16 34 47 / 93%),
-      rgb(16 34 47 / 68%)
+      rgb(16 34 47 / 94%) 0%,
+      rgb(16 34 47 / 80%) 48%,
+      rgb(16 34 47 / 40%) 100%
     );
   }
 

@@ -683,6 +683,7 @@ svg {
   font-size: var(--text-sm);
   font-weight: 700;
   text-align: left;
+  text-decoration: none;
 }
 
 .site-nav__trigger svg {
@@ -789,6 +790,50 @@ svg {
 
 .header-quote-button {
   white-space: nowrap;
+}
+
+.catalog-search {
+  position: relative;
+  min-width: 0;
+}
+
+.site-header__actions .catalog-search {
+  width: clamp(12rem, 19vw, 17rem);
+}
+
+.catalog-search .search-field {
+  width: 100%;
+  padding-right: 3.5rem;
+}
+
+.catalog-search__submit {
+  position: absolute;
+  inset: 0.3rem 0.3rem 0.3rem auto;
+  display: grid;
+  width: 2.6rem;
+  place-items: center;
+  border: 1px solid var(--color-dark-petrol);
+  border-radius: 3px;
+  background: var(--color-dark-petrol);
+  color: #fff;
+  cursor: pointer;
+}
+
+.catalog-search__submit svg {
+  width: 1.2rem;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.catalog-search__submit:hover {
+  background: var(--color-accent-hover);
+}
+
+.catalog-search__submit:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 /* Hero and custom technical illustration. */
@@ -1355,6 +1400,11 @@ svg {
   }
 
   .site-header__actions .search-field {
+    width: auto;
+    flex: 1 1 auto;
+  }
+
+  .site-header__actions .catalog-search {
     width: auto;
     flex: 1 1 auto;
   }

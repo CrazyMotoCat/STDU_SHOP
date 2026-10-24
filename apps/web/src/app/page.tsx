@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import './home.css';
 import { PublicLayout } from '../components/layouts/page-layouts';
+import { CatalogSearch } from '../components/site/catalog-search';
 import { SwitchgearIllustration } from '../components/site/switchgear-illustration';
 import { EngineeringMotionShowcase } from '../components/visual/engineering-motion-showcase';
 import {
@@ -8,7 +9,6 @@ import {
   Breadcrumbs,
   Button,
   Container,
-  SearchInput,
   Section,
   ServiceCard,
   Status,
@@ -156,14 +156,9 @@ export default function Home() {
             <div className="hero-tools-area">
               <div
                 className="hero-tools"
-                aria-label="Будущие возможности платформы"
+                aria-label="Поиск оборудования и сервисы платформы"
               >
-                <SearchInput
-                  aria-describedby="unavailable-actions"
-                  disabled
-                  label="Поиск по каталогу — пока недоступен"
-                  placeholder="Поиск по каталогу"
-                />
+                <CatalogSearch label="Поиск оборудования на главной" />
                 <div className="hero-tools__actions">
                   <Button
                     aria-describedby="unavailable-actions"
@@ -183,12 +178,15 @@ export default function Home() {
                 </div>
               </div>
               <p className="visually-hidden" id="unavailable-actions">
-                Поиск, загрузка файлов и отправка коммерческих запросов пока
+                Загрузка файлов и отправка коммерческих запросов пока
                 недоступны. Подключение этих сервисов запланировано на следующих
                 этапах разработки.
               </p>
-              <Status className="hero-status" label="Сервисы пока недоступны">
-                Поиск, загрузка спецификации и запрос КП появятся после запуска
+              <Status
+                className="hero-status"
+                label="КП и файлы пока недоступны"
+              >
+                Загрузка спецификации и запрос КП появятся после запуска
                 соответствующих сервисов.
               </Status>
               <a className="hero-scroll-link" href="#directions">
@@ -222,7 +220,11 @@ export default function Home() {
                 <ServiceCard
                   className="service-card--direction service-card--photo"
                   description={direction.description}
-                  href={`#${direction.id}`}
+                  href={
+                    direction.id === 'equipment'
+                      ? '/catalog'
+                      : `#${direction.id}`
+                  }
                   id={direction.id}
                   index={direction.index}
                   key={direction.id}
