@@ -228,12 +228,12 @@ export class CatalogService {
     const cursor = decodeCursor(cursorValue);
     const after = cursor
       ? Prisma.sql`(created_at, id) > (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
-      : Prisma.empty;
+      : Prisma.sql`TRUE`;
     const rows = await this.db.$queryRaw<CategoryRow[]>`
       SELECT id::text AS id, parent_id::text AS "parentId", slug, name,
         description, state, sort_order AS "sortOrder", version,
         to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "createdAtCursor"
-      FROM category WHERE ${after || Prisma.sql`TRUE`}
+      FROM category WHERE ${after}
       ORDER BY created_at ASC, id ASC LIMIT ${limit + 1}
     `;
     const hasMore = rows.length > limit;

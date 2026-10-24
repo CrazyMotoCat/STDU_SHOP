@@ -19,7 +19,12 @@ export async function createApiApp() {
       origin: config.allowedOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Origin', 'X-CSRF-Token'],
+      allowedHeaders: [
+        'Content-Type',
+        'Origin',
+        'X-CSRF-Token',
+        'Idempotency-Key',
+      ],
       exposedHeaders: ['X-Request-Id', 'Retry-After'],
       maxAge: 600,
     });

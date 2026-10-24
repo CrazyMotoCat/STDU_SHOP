@@ -33,6 +33,8 @@ model StaffUser {
   createdProductMedia       ProductMedia[]           @relation("ProductMediaCreator")
   createdProductDocuments   ProductDocumentVersion[] @relation("ProductDocumentCreator")
   createdProductRelations   ProductRelation[]        @relation("ProductRelationCreator")
+  uploadedCatalogImports    CatalogImportRun[]       @relation("CatalogImportUploader")
+  decidedCatalogImports     CatalogImportDecision[]  @relation("CatalogImportDecisionActor")
 
   @@index([state, id], map: "staff_user_state_id_idx")
   @@map("staff_user")
@@ -142,6 +144,7 @@ model AuditEvent {
   sourceHash   Bytes?     @map("source_hash") @db.ByteA
   changes      Json       @default("{}") @db.JsonB
   actor        StaffUser? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  catalogImportDecisions CatalogImportDecision[] @relation("CatalogImportDecisionAudit")
 
   @@index([occurredAt(sort: Desc), id(sort: Desc)], map: "audit_event_occurred_id_idx")
   @@index([actorUserId, occurredAt(sort: Desc)], map: "audit_event_actor_occurred_idx")
@@ -162,7 +165,9 @@ model FileObject {
   owner           StaffUser   @relation(fields: [ownerStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   versions        FileVersion[]
   links           FileLink[]
+  catalogImportRuns CatalogImportRun[] @relation("CatalogImportSourceObject")
 
+  @@unique([id, ownerStaffUserId], map: "file_object_id_owner_key")
   @@index([ownerStaffUserId, state, id], map: "file_object_owner_state_id_idx")
   @@map("file_object")
 }
@@ -184,6 +189,7 @@ model FileVersion {
   links            FileLink[]
   productMedia     ProductMedia[]
   productDocuments ProductDocumentVersion[]
+  catalogImportRuns CatalogImportRun[] @relation("CatalogImportSourceVersion")
 
   @@unique([fileObjectId, number], map: "file_version_object_number_key")
   @@unique([id, fileObjectId], map: "file_version_id_object_key")
@@ -289,6 +295,8 @@ model CatalogProduct {
   publishedRevision      CatalogProductRevision?  @relation("ProductPublishedRevision", fields: [publishedRevisionId, id], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
   pendingRevision        CatalogProductRevision?  @relation("ProductPendingRevision", fields: [pendingRevisionId, id], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
   currentDraftRevision   CatalogProductRevision?  @relation("ProductDraftRevision", fields: [currentDraftRevisionId, id], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
+  catalogImportRows      CatalogImportRow[]        @relation("CatalogImportMatchedProduct")
+  catalogImportDecisions CatalogImportDecision[]   @relation("CatalogImportDecisionTarget")
 
   @@index([publicationState, updatedAt, id], map: "catalog_product_state_updated_id_idx")
   @@index([brandId, publicationState, id], map: "catalog_product_brand_state_id_idx")
@@ -322,6 +330,8 @@ model CatalogProductRevision {
   decidedAt                  DateTime?                @map("decided_at") @db.Timestamptz(6)
   decision                   String?                  @db.Text
   decisionReason             String?                  @map("decision_reason") @db.VarChar(1000)
+  expectedCatalogImportRows CatalogImportRow[] @relation("CatalogImportExpectedRevision")
+  catalogImportDecisionResults CatalogImportDecision[] @relation("CatalogImportDecisionResultRevision")
   publishedAt                DateTime?                @map("published_at") @db.Timestamptz(6)
   product                    CatalogProduct           @relation("CatalogProductRevisions", fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   sourceRevision             CatalogProductRevision?  @relation("RevisionSource", fields: [sourceRevisionId, productId], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
@@ -348,6 +358,91 @@ model CatalogProductRevision {
   @@index([state, createdAt, id], map: "catalog_product_revision_state_created_id_idx")
   @@index([categoryId, state, productId], map: "catalog_product_revision_category_state_product_idx")
   @@map("catalog_product_revision")
+}
+
+model CatalogImportRun {
+  id                   String             @id @db.Uuid
+  uploaderStaffUserId  String             @map("uploader_staff_user_id") @db.Uuid
+  sourceFileObjectId   String             @map("source_file_object_id") @db.Uuid
+  sourceFileVersionId  String             @map("source_file_version_id") @db.Uuid
+  sourceFormat         String             @map("source_format") @db.Text
+  sourceEncoding       String?            @map("source_encoding") @db.Text
+  sourceDelimiter      String?            @map("source_delimiter") @db.Text
+  state                String             @db.Text
+  mapping              Json?              @db.JsonB
+  parserVersion        String             @map("parser_version") @db.VarChar(32)
+  sourceParseIssues    Json               @default("[]") @map("source_parse_issues") @db.JsonB
+  mappingVersion       Int                @default(0) @map("mapping_version")
+  uploadIdempotencyKey String             @map("upload_idempotency_key") @db.Uuid
+  uploadRequestHash    Bytes              @map("upload_request_hash") @db.ByteA
+  version              Int                @default(1)
+  createdAt            DateTime           @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime           @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  uploader             StaffUser          @relation("CatalogImportUploader", fields: [uploaderStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sourceFileObject     FileObject         @relation("CatalogImportSourceObject", fields: [sourceFileObjectId, uploaderStaffUserId], references: [id, ownerStaffUserId], onDelete: Restrict, onUpdate: Restrict)
+  sourceFileVersion    FileVersion        @relation("CatalogImportSourceVersion", fields: [sourceFileVersionId, sourceFileObjectId], references: [id, fileObjectId], onDelete: Restrict, onUpdate: Restrict)
+  rows                 CatalogImportRow[]
+
+  @@unique([uploaderStaffUserId, uploadIdempotencyKey], map: "catalog_import_run_uploader_key_key")
+  @@index([uploaderStaffUserId, createdAt, id], map: "catalog_import_run_owner_created_id_idx")
+  @@index([state, updatedAt, id], map: "catalog_import_run_state_updated_id_idx")
+  @@map("catalog_import_run")
+}
+
+model CatalogImportRow {
+  id                        String                  @id @db.Uuid
+  importRunId               String                  @map("import_run_id") @db.Uuid
+  sheetIndex                Int                     @map("sheet_index")
+  sheetName                 String?                 @map("sheet_name") @db.VarChar(128)
+  sourceRowNumber           Int                     @map("source_row_number")
+  sourceCells               Json                    @map("source_cells") @db.JsonB
+  normalizedCandidate       Json                    @default("{}") @map("normalized_candidate") @db.JsonB
+  validationIssues          Json                    @default("[]") @map("validation_issues") @db.JsonB
+  warnings                  Json                    @default("[]") @db.JsonB
+  candidateState            String                  @map("candidate_state") @db.Text
+  matchedProductId          String?                 @map("matched_product_id") @db.Uuid
+  expectedProductVersion    Int?                    @map("expected_product_version")
+  expectedCurrentRevisionId String?                 @map("expected_current_revision_id") @db.Uuid
+  version                   Int                     @default(1)
+  createdAt                 DateTime                @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime                @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  importRun                 CatalogImportRun        @relation(fields: [importRunId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  matchedProduct            CatalogProduct?         @relation("CatalogImportMatchedProduct", fields: [matchedProductId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  expectedCurrentRevision   CatalogProductRevision? @relation("CatalogImportExpectedRevision", fields: [expectedCurrentRevisionId, matchedProductId], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
+  decisions                 CatalogImportDecision[]
+
+  @@unique([importRunId, sheetIndex, sourceRowNumber], map: "catalog_import_row_source_coordinate_key")
+  @@index([candidateState, updatedAt, id], map: "catalog_import_row_state_updated_id_idx")
+  @@index([matchedProductId, id], map: "catalog_import_row_product_id_idx")
+  @@map("catalog_import_row")
+}
+
+model CatalogImportDecision {
+  id                 String                  @id @db.Uuid
+  rowId              String                  @map("row_id") @db.Uuid
+  actorStaffUserId   String                  @map("actor_staff_user_id") @db.Uuid
+  idempotencyKey     String                  @map("idempotency_key") @db.Uuid
+  requestHash        Bytes                   @map("request_hash") @db.ByteA
+  expectedRowVersion Int                     @map("expected_row_version")
+  mappingVersion     Int                     @map("mapping_version")
+  action             String                  @db.Text
+  outcome            String                  @db.Text
+  conflictCode       String?                 @map("conflict_code") @db.VarChar(40)
+  targetProductId    String?                 @map("target_product_id") @db.Uuid
+  resultRevisionId   String?                 @map("result_revision_id") @db.Uuid
+  auditEventId       String                  @unique(map: "catalog_import_decision_audit_event_key") @map("audit_event_id") @db.Uuid
+  reasonCode         String?                 @map("reason_code") @db.VarChar(40)
+  createdAt          DateTime                @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  row                CatalogImportRow        @relation(fields: [rowId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor              StaffUser               @relation("CatalogImportDecisionActor", fields: [actorStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  targetProduct      CatalogProduct?         @relation("CatalogImportDecisionTarget", fields: [targetProductId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  resultRevision     CatalogProductRevision? @relation("CatalogImportDecisionResultRevision", fields: [resultRevisionId, targetProductId], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
+  auditEvent         AuditEvent              @relation("CatalogImportDecisionAudit", fields: [auditEventId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([rowId, idempotencyKey], map: "catalog_import_decision_row_key_key")
+  @@index([rowId, createdAt, id], map: "catalog_import_decision_row_created_id_idx")
+  @@index([actorStaffUserId, createdAt, id], map: "catalog_import_decision_actor_created_id_idx")
+  @@map("catalog_import_decision")
 }
 
 model ProductAttributeValue {

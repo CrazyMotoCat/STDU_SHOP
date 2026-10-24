@@ -546,6 +546,7 @@ async function applyMigrationState(port, database, baseSql, populated) {
     [
       ['20261022120000_staff_identity', true],
       ['20261024120000_catalog_domain', true],
+      ['20261024140000_catalog_import', true],
     ],
   );
 

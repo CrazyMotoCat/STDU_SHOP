@@ -61,6 +61,7 @@ services:
       PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:-}
       TRUSTED_PROXY_ADDRESS: ${TRUSTED_PROXY_ADDRESS:-}
       FILE_STORAGE_ROOT: /data/files
+      INGESTION_INTERNAL_URL: http://ingestion:8000
     ports: ['127.0.0.1:3001:3001']
     volumes: [private-files:/data/files]
     networks: [backend]

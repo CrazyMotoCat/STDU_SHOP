@@ -146,6 +146,18 @@ interface RevisionSeed {
   attributes: InputAttribute[];
 }
 
+export interface ImportCatalogCandidate {
+  categoryId: string;
+  brandId?: string | null;
+  displayName: string;
+  summary?: string | null;
+  description?: string | null;
+  manufacturerName?: string | null;
+  originalPartNumber?: string | null;
+  modification?: string | null;
+  attributes: InputAttribute[];
+}
+
 function validation(field: string, code: string): StaffError {
   return new StaffError('VALIDATION_ERROR', [{ field, code }]);
 }
@@ -542,6 +554,230 @@ export class CatalogProductService {
       },
     );
     return this.mutation(request, result);
+  }
+
+  /**
+   * Internal R1-006 command hook. The import service owns the enclosing row,
+   * decision, import-audit and product transaction; this method rechecks the
+   * catalog permission and executes the same locked reference/snapshot rules.
+   */
+  async createImportProductDraft(
+    tx: Prisma.TransactionClient,
+    actor: StaffPrincipal,
+    requestId: string,
+    slugValue: string,
+    input: ImportCatalogCandidate,
+  ) {
+    await assertCurrentActor(tx, actor, 'catalog.products.write');
+    const slug = slugValue;
+    if (!SLUG.test(slug) || slug.length > 160)
+      throw validation('slug', 'INVALID_SLUG');
+    const productId = randomUUID();
+    const revisionId = randomUUID();
+    const categoryId = uuid(input.categoryId, 'categoryId');
+    const brandId = input.brandId ? uuid(input.brandId, 'brandId') : null;
+    const seed: RevisionSeed = {
+      categoryId,
+      brandId,
+      displayName: clean(input.displayName, 240, 'displayName')!,
+      summary:
+        input.summary == null ? null : clean(input.summary, 500, 'summary'),
+      description:
+        input.description == null
+          ? null
+          : clean(input.description, 12000, 'description'),
+      manufacturerName:
+        input.manufacturerName == null
+          ? null
+          : normalizeIdentity(input.manufacturerName, 200, 'manufacturerName'),
+      originalPartNumber:
+        input.originalPartNumber == null
+          ? null
+          : normalizeIdentity(
+              input.originalPartNumber,
+              160,
+              'originalPartNumber',
+            ),
+      modification:
+        input.modification == null
+          ? null
+          : normalizeIdentity(input.modification, 160, 'modification'),
+      attributes: input.attributes,
+    };
+    const references = await this.lockReferences(
+      tx,
+      brandId,
+      categoryId,
+      seed.attributes.map(({ attributeDefinitionId }) => attributeDefinitionId),
+    );
+    if (
+      references.category?.state !== 'ACTIVE' ||
+      (brandId && references.brand?.state !== 'ACTIVE')
+    )
+      throw new StaffError('REFERENCE_IN_USE');
+    this.validateAttributeInputs(
+      seed.attributes,
+      references.attributes,
+      categoryId,
+    );
+    await tx.catalogProduct.create({
+      data: {
+        id: productId,
+        slug,
+        publicationState: 'DRAFT',
+        brandId,
+        manufacturerName: seed.manufacturerName,
+        originalPartNumber: seed.originalPartNumber,
+        modification: seed.modification,
+        currentDraftRevisionId: revisionId,
+      },
+    });
+    await this.insertRevision(tx, {
+      id: revisionId,
+      productId,
+      revisionNo: 1,
+      sourceRevisionId: null,
+      seed,
+      brand: references.brand,
+      category: references.category,
+      actorId: actor.id,
+    });
+    await this.insertAttributes(
+      tx,
+      revisionId,
+      categoryId,
+      seed.attributes,
+      references.attributes,
+      actor.id,
+    );
+    try {
+      await createAuditEvent(tx, {
+        actorKind: 'STAFF',
+        actorUserId: actor.id,
+        action: 'catalog.product.created',
+        entityType: 'CatalogProduct',
+        entityId: productId,
+        outcome: 'SUCCESS',
+        reasonCode: null,
+        requestId,
+        changes: {
+          revisionId,
+          changedFields: [
+            'attributes',
+            'brandId',
+            'categoryId',
+            'description',
+            'displayName',
+            'manufacturerName',
+            'modification',
+            'originalPartNumber',
+            'slug',
+            'summary',
+          ],
+          version: 1,
+          changeSource: 'CREATE',
+        },
+      });
+    } catch {
+      throw new StaffError('AUDIT_UNAVAILABLE');
+    }
+    return { productId, revisionId, version: 1 };
+  }
+
+  async createImportProductRevision(
+    tx: Prisma.TransactionClient,
+    actor: StaffPrincipal,
+    requestId: string,
+    input: {
+      productId: string;
+      expectedProductVersion: number;
+      expectedCurrentRevisionId: string;
+      candidate: ImportCatalogCandidate;
+    },
+  ) {
+    await assertCurrentActor(tx, actor, 'catalog.products.write');
+    const productId = uuid(input.productId, 'productId');
+    await this.lockProductRoots(tx, [productId]);
+    const root = await this.lockedProduct(tx, productId);
+    if (
+      !root ||
+      root.publicationState === 'ARCHIVED' ||
+      root.version !== input.expectedProductVersion ||
+      root.pendingRevisionId
+    )
+      throw new StaffError('VERSION_CONFLICT');
+    const draftBase = await this.resolveDraftBase(tx, root);
+    const base = draftBase.revision;
+    if (base.id !== input.expectedCurrentRevisionId)
+      throw new StaffError('VERSION_CONFLICT');
+    if (!['DRAFT', 'PUBLISHED', 'RETURNED', 'REJECTED'].includes(base.state))
+      throw new StaffError('INVALID_STATE_TRANSITION');
+    const mapped = input.candidate;
+    const previous = this.seedFromRevision(base, base.attributeValues);
+    const attributesById = new Map(
+      previous.attributes.map((attribute) => [
+        attribute.attributeDefinitionId,
+        attribute,
+      ]),
+    );
+    for (const attribute of mapped.attributes)
+      attributesById.set(attribute.attributeDefinitionId, attribute);
+    const seed: RevisionSeed = {
+      categoryId: mapped.categoryId,
+      displayName: mapped.displayName,
+      summary: mapped.summary === undefined ? previous.summary : mapped.summary,
+      description:
+        mapped.description === undefined
+          ? previous.description
+          : mapped.description,
+      manufacturerName:
+        mapped.manufacturerName === undefined
+          ? previous.manufacturerName
+          : mapped.manufacturerName,
+      originalPartNumber:
+        mapped.originalPartNumber === undefined
+          ? previous.originalPartNumber
+          : mapped.originalPartNumber,
+      modification:
+        mapped.modification === undefined
+          ? previous.modification
+          : mapped.modification,
+      brandId: mapped.brandId === undefined ? previous.brandId : mapped.brandId,
+      attributes:
+        mapped.categoryId === previous.categoryId
+          ? [...attributesById.values()]
+          : mapped.attributes,
+    };
+    const result = await this.appendDraft(tx, root, base, actor, {
+      seedOverride: seed,
+    });
+    const changedFields = this.changedProductFields(seed, base);
+    try {
+      await createAuditEvent(tx, {
+        actorKind: 'STAFF',
+        actorUserId: actor.id,
+        action: 'catalog.product.revision.created',
+        entityType: 'CatalogProduct',
+        entityId: productId,
+        outcome: 'SUCCESS',
+        reasonCode: null,
+        requestId,
+        changes: {
+          revisionId: result.revisionId,
+          sourceRevisionId: base.id,
+          changedFields,
+          version: root.version + 1,
+          changeSource: 'PATCH',
+        },
+      });
+    } catch {
+      throw new StaffError('AUDIT_UNAVAILABLE');
+    }
+    return {
+      productId,
+      revisionId: result.revisionId,
+      version: root.version + 1,
+    };
   }
 
   async getProduct(request: StaffRequest, productIdValue: string) {
@@ -2243,9 +2479,12 @@ export class CatalogProductService {
       replaceRelations?: ReplaceCatalogProductRelationsDto['relations'];
       replaceMedia?: CatalogProductMediaInputDto[];
       replaceDocuments?: CatalogProductDocumentInputDto[];
+      seedOverride?: RevisionSeed;
     },
   ) {
-    const seed = this.seedFromRevision(base, base.attributeValues);
+    const seed =
+      replacement.seedOverride ??
+      this.seedFromRevision(base, base.attributeValues);
     const refs = await this.lockReferences(
       tx,
       seed.brandId,
@@ -2433,6 +2672,10 @@ export class CatalogProductService {
         FROM file_version v
         JOIN file_object o ON o.id=v.file_object_id
         WHERE v.id=${fileVersionId}::uuid AND o.state='ACTIVE'
+          AND NOT EXISTS (
+            SELECT 1 FROM catalog_import_run import_run
+            WHERE import_run.source_file_version_id=v.id
+          )
           AND (
             o.owner_staff_user_id=${actor.id}::uuid
             OR (o.visibility='INTERNAL'
