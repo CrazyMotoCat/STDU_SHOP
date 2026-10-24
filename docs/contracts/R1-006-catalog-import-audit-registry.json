@@ -1,6 +1,6 @@
 {
-  "status": "PROPOSED",
-  "version": "0.1.0-proposed",
+  "status": "FROZEN",
+  "version": "1.0.0",
   "extends": "FROZEN R1-002 1.0.0 and FROZEN R1-004 1.0.0; append-only",
   "entityTypes": ["CatalogImportRun", "CatalogImportRow"],
   "changesValuePolicy": "Only UUIDs, source format, SHA-256, size, coordinates, mapping hash/version, enumerated state/action/outcome/reason codes and bounded integer counts. Never raw/normalized cells, full mapping, file bytes/name/path/storage key, credentials, or supplier/pricing data.",

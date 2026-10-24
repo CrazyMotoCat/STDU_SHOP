@@ -1,0 +1,39 @@
+{
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "contract": "R1-006 Catalog CSV/XLSX Import",
+  "ownerApproval": {
+    "proposalVersion": "0.1.0-proposed",
+    "approvedHeadSha": "dab9e7902b3798c21376ce8bb91c965a67c80b2a",
+    "recordedOn": "2026-10-24",
+    "decisions": [
+      "OD-006A-01",
+      "OD-006A-02",
+      "OD-006A-03",
+      "OD-006A-04",
+      "OD-006A-05"
+    ]
+  },
+  "integration": {
+    "mainSyncSha": "581cef81f7db7eb6141bdeeee6a997ab6c185339",
+    "approvedArtifactsVerifiedBeforeFreeze": true,
+    "approvedArtifactSha256": {
+      "docs/contracts/R1-006-catalog-import-audit-registry.json": "aa7c4c4ab7cf56fa11e8620917918885a597869fd9cbdb89e67019694d9e9248",
+      "docs/contracts/R1-006-catalog-import-contract.md": "89eb10f5f5174ba6adba2e53e53dbf2d426be146d745332de7e91065e77bddc6",
+      "docs/contracts/R1-006-catalog-import-data-model.json": "b47b75f707af7403b7d1b71edd6feb32b670993685eda2958363697879f1912e",
+      "docs/contracts/R1-006-catalog-import.openapi.json": "36d126d54be4baa4366c7bc44dc087a5797ca4cb671e3c75ad5599fd026521a1",
+      "docs/contracts/R1-006-test-matrix.md": "6a85ca0082d8b87ead9f445067763040cd33f2517f0d1db88b6f62db1e8f1beb",
+      "docs/contracts/check-R1-006-contract.test.mjs": "752efe85ea8d03609094f8551fc2200b4f0f456e14c894dc28470fe6750f0fc1",
+      "docs/plans/R1-006A-owner-decisions.md": "9f9151b31bd67a660ed0410c7d3ed65e57adc3c75f5ca3a6e7896f1c927594b5"
+    }
+  },
+  "frozenArtifactSha256": {
+    "docs/contracts/R1-006-catalog-import-audit-registry.json": "6380caa12d420c2789ef2ffbc220a5beeb4083a3ec5fda850de45faff6fe3b82",
+    "docs/contracts/R1-006-catalog-import-contract.md": "53839123f31693dde2581f3b4413dc9a3db78a3659cb6b66119e04c9a917c07a",
+    "docs/contracts/R1-006-catalog-import-data-model.json": "be4817879ec640ae237cfa9f2ba0616fe42cbf87501220c52e165a3c80ad8ca2",
+    "docs/contracts/R1-006-catalog-import.openapi.json": "f1c1f9003394d1500f2ceb8671bb44d362f22323923c6078ae6965782099e348",
+    "docs/contracts/R1-006-test-matrix.md": "0ca768410eda2d9a3394e28dafbb01cc2ee1a9c5c16e52d8c13c267a1658dc17",
+    "docs/contracts/check-R1-006-contract.test.mjs": "18d6fcbc590f2ef0fa848a70207afbccd4cda36677f4247e8282096610bfbe87",
+    "docs/plans/R1-006A-owner-decisions.md": "0b27501641bfef045b74d96c58eee4c093efb1aedb91129e9970f824170eee2f"
+  }
+}

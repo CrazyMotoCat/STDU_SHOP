@@ -1,10 +1,10 @@
 # R1-006 checkpoint
 
 TASK: R1-006 Catalog CSV/XLSX Import
-STATUS: REVIEW_REQUIRED
-PHASE: R1-006A CI formatting correction and approval handoff
-CHECKPOINT_STATUS: FINAL_SHA_CI_AND_OWNER_APPROVAL_REQUIRED (PR #12 remains Draft)
-LAST_SAFE_COMMIT: 66c2a35d06f3e50e77fe7de2e390906677e0ebe7
+STATUS: IN_PROGRESS
+PHASE: R1-006A frozen contract delivery; R1-006B implementation pending
+CHECKPOINT_STATUS: OWNER_APPROVED; FROZEN metadata and checksums verified; final CI and merge pending
+LAST_SAFE_COMMIT: 8e43baf3d2b16ec46475dbf7f8c17563e183b88f
 BRANCH: codex/r1-006a-import-contract
 
 ## COMPLETED
@@ -20,6 +20,10 @@ BRANCH: codex/r1-006a-import-contract
 - Added focused contract regression coverage. No application code, migrations, frozen RBAC/API artifacts, or business decisions #1–108 changed.
 - Committed the consolidated R1-006A contract correction package as `7a9bd5ec94e072716c99c15846c28c540e21fbaf` and updated existing Draft PR #12. At resume, PR #12 was open, Draft, unmerged, and at HEAD `66c2a35d06f3e50e77fe7de2e390906677e0ebe7`.
 - Confirmed GitHub Actions run `40065800880` failed at `pnpm format:check`; local Prettier reproduced the failure on `docs/contracts/R1-006-test-matrix.md`. Applied Prettier-only formatting and verified normalized matrix text is unchanged.
+- Owner approved R1-006A proposal version 0.1.0-proposed on exact SHA `dab9e7902b3798c21376ce8bb91c965a67c80b2a`, including OD-006A-01…05.
+- Merged `origin/main` `581cef81f7db7eb6141bdeeee6a997ab6c185339` into this branch as `8e43baf3d2b16ec46475dbf7f8c17563e183b88f`. SHA-256 of all seven approved artifacts matched before and after main integration.
+- GitHub Actions run `40068352830` on pre-freeze SHA `dab9e7902b3798c21376ce8bb91c965a67c80b2a` — SUCCESS; final freeze/integration candidate still requires checks.
+- Recorded owner approval and FROZEN 1.0.0 metadata. Added a checksum manifest that pins the exact approved pre-freeze hashes and the resulting frozen artifact hashes; contract checker enforces both sets and OD IDs.
 
 ## VERIFIED
 
@@ -36,33 +40,33 @@ BRANCH: codex/r1-006a-import-contract
 - `pnpm catalog:contract:check` — PASS; FROZEN R1-004 artifacts consistent (31 operations: 28 staff + 3 public).
 - `pnpm catalog:contract:test` — PASS, 47/47.
 - pnpm emitted a non-blocking engine warning: repository requests Node 24.19.0; this host ran Node 24.22.1 / pnpm 11.25.0.
-- The required final CI for the formatting-fix HEAD has not run yet; do not claim it green until the exact-SHA GitHub Actions run reports SUCCESS. Application code did not change.
-- `pnpm format:check` after formatting — PASS.
-- `node --test docs/contracts/check-R1-006-contract.test.mjs` — PASS, 6/6.
-- `pnpm contract:check` / `pnpm contract:test` — PASS / 7/7; `pnpm catalog:contract:check` / `pnpm catalog:contract:test` — PASS / 47/47.
-- OpenAPI TypeScript generation and `tsc --noEmit --skipLibCheck` — PASS. R1-002 and R1-004 frozen contracts remain unchanged.
-- Final correction checks: `node --test docs/contracts/check-R1-006-contract.test.mjs` PASS (6/6); Prettier PASS; JSON parse/counts PASS (8 operations, 3 entities); SwaggerParser PASS; generated OpenAPI TypeScript and `tsc --noEmit --skipLibCheck` PASS.
-- Frozen regression checks: `pnpm contract:check` PASS; `pnpm contract:test` PASS (7/7); `pnpm catalog:contract:check` PASS; `pnpm catalog:contract:test` PASS (47/47); `git diff --cached --check` PASS before commit.
-- No runtime CI or independent review was started, per task scope (contract-only changes).
+- Final post-freeze CI is pending; do not claim merge readiness until the exact candidate checks report SUCCESS. Application code has not changed.
+- `node --test docs/contracts/check-R1-006-contract.test.mjs` — PASS, 7/7; includes approved and frozen checksum verification.
+- `pnpm format:check` — PASS; `git diff --check` — PASS.
+- `pnpm contract:check` / `pnpm contract:test` — PASS / 7/7; frozen R1-002 OpenAPI and generated client remain reproducible.
+- `pnpm catalog:contract:check` / `pnpm catalog:contract:test` — PASS / 47/47; frozen R1-004 OpenAPI remains reproducible.
+- R1-006 SwaggerParser validation, OpenAPI TypeScript generation and `tsc --noEmit --skipLibCheck` — PASS.
+- Exact pre-freeze approved SHA CI run `40068352830` — SUCCESS. Final frozen candidate CI remains required before merge.
+- Local toolchain warning only: repository requests Node 24.19.0; this host runs Node 24.22.1 / pnpm 11.25.0.
 
-## UNCOMMITTED
+## SCOPE
 
-No application code, migrations, RBAC or frozen contract files changed. The only R1-006A correction after the review candidate is Prettier formatting in `docs/contracts/R1-006-test-matrix.md`; this checkpoint records the exact-SHA CI and owner-approval gates.
+R1-006A may change only FROZEN/version/provenance metadata and its checksum manifest after verifying approved content. Do not change R1-002/R1-004, decisions #1–108, R1-006 semantics, production data or Docker environment.
 
 ## DECISIONS
 
 - Do not alter FROZEN R1-002/R1-004 or decisions #1–108.
-- No import implementation until owner approves exact contract SHA.
-- Updated owner decisions OD-006A-01…05 are in docs/plans/R1-006A-owner-decisions.md; owner approval of the exact final PR HEAD is still required.
-- Proposed delivery is REVIEW_REQUIRED; one Draft PR, no merge.
+- R1-006A owner approval is recorded for proposal SHA `dab9e7902b3798c21376ce8bb91c965a67c80b2a`; metadata finalization does not alter the approved decisions or semantics.
+- R1-006B implementation may begin only after PR #12 is confirmed merged.
+- Production migration/deployment and real permission grants are not authorized.
 
 ## BLOCKERS
 
-- Owner approval is required for corrected OD-006A-01…05 and the complete R1-006A contract at the exact final PR #12 HEAD.
+- Exact-candidate GitHub CI and successful PR #12 merge remain required before starting R1-006B.
 
 ## NEXT_ACTION
 
-Verify that the one GitHub Actions batch for the final PR #12 HEAD reports SUCCESS, then request explicit owner approval of that exact SHA. Keep PR Draft/unmerged; do not implement R1-006B or migrations.
+Push the FROZEN 1.0.0 package, mark PR #12 Ready, and merge only after exact-candidate GitHub checks and repository rules pass. Then start R1-006B from updated main on a new branch using a separate Compose project and disposable database.
 
 ## DO_NOT_REPEAT
 

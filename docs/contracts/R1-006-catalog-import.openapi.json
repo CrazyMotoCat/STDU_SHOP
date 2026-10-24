@@ -2,10 +2,10 @@
   "openapi": "3.1.0",
   "info": {
     "title": "STDU_SHOP R1-006 Catalog Import Staff API",
-    "version": "0.1.0-proposed",
-    "description": "Proposed staff-only manual CSV/XLSX catalog import. No public import API, automatic publication, supplier crawling, or quote specification import."
+    "version": "1.0.0",
+    "description": "Frozen staff-only manual CSV/XLSX catalog import. No public import API, automatic publication, supplier crawling, or quote specification import."
   },
-  "x-contract-status": "PROPOSED",
+  "x-contract-status": "FROZEN",
   "x-staff-response-headers": {
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",

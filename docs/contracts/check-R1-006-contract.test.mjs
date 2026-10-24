@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,6 +24,78 @@ const dataModel = JSON.parse(
     'utf8',
   ),
 );
+const ownerDecisions = await readFile(
+  resolve(root, 'docs/plans/R1-006A-owner-decisions.md'),
+  'utf8',
+);
+const frozenManifest = JSON.parse(
+  await readFile(
+    resolve(root, 'docs/contracts/R1-006-frozen-manifest.json'),
+    'utf8',
+  ),
+);
+
+test('R1-006A is frozen at the owner-approved proposal with verified checksums', async () => {
+  const approvedSha = 'dab9e7902b3798c21376ce8bb91c965a67c80b2a';
+  assert.equal(audit.status, 'FROZEN');
+  assert.equal(audit.version, '1.0.0');
+  assert.equal(dataModel.status, 'FROZEN');
+  assert.equal(dataModel.version, '1.0.0');
+  assert.equal(openapi['x-contract-status'], 'FROZEN');
+  assert.equal(openapi.info.version, '1.0.0');
+  assert.match(ownerDecisions, new RegExp(approvedSha));
+  assert.equal(frozenManifest.status, 'FROZEN');
+  assert.equal(frozenManifest.version, '1.0.0');
+  assert.equal(frozenManifest.ownerApproval.approvedHeadSha, approvedSha);
+  assert.equal(frozenManifest.ownerApproval.proposalVersion, '0.1.0-proposed');
+  assert.equal(
+    frozenManifest.integration.mainSyncSha,
+    '581cef81f7db7eb6141bdeeee6a997ab6c185339',
+  );
+  assert.equal(
+    frozenManifest.integration.approvedArtifactsVerifiedBeforeFreeze,
+    true,
+  );
+  const approvedArtifactSha256 = {
+    'docs/contracts/R1-006-catalog-import-audit-registry.json':
+      'aa7c4c4ab7cf56fa11e8620917918885a597869fd9cbdb89e67019694d9e9248',
+    'docs/contracts/R1-006-catalog-import-contract.md':
+      '89eb10f5f5174ba6adba2e53e53dbf2d426be146d745332de7e91065e77bddc6',
+    'docs/contracts/R1-006-catalog-import-data-model.json':
+      'b47b75f707af7403b7d1b71edd6feb32b670993685eda2958363697879f1912e',
+    'docs/contracts/R1-006-catalog-import.openapi.json':
+      '36d126d54be4baa4366c7bc44dc087a5797ca4cb671e3c75ad5599fd026521a1',
+    'docs/contracts/R1-006-test-matrix.md':
+      '6a85ca0082d8b87ead9f445067763040cd33f2517f0d1db88b6f62db1e8f1beb',
+    'docs/contracts/check-R1-006-contract.test.mjs':
+      '752efe85ea8d03609094f8551fc2200b4f0f456e14c894dc28470fe6750f0fc1',
+    'docs/plans/R1-006A-owner-decisions.md':
+      '9f9151b31bd67a660ed0410c7d3ed65e57adc3c75f5ca3a6e7896f1c927594b5',
+  };
+  assert.deepEqual(
+    frozenManifest.integration.approvedArtifactSha256,
+    approvedArtifactSha256,
+  );
+  assert.deepEqual(frozenManifest.ownerApproval.decisions, [
+    'OD-006A-01',
+    'OD-006A-02',
+    'OD-006A-03',
+    'OD-006A-04',
+    'OD-006A-05',
+  ]);
+
+  assert.deepEqual(
+    Object.keys(frozenManifest.frozenArtifactSha256).sort(),
+    Object.keys(approvedArtifactSha256).sort(),
+  );
+  for (const [path, expectedHash] of Object.entries(
+    frozenManifest.frozenArtifactSha256,
+  )) {
+    const bytes = await readFile(resolve(root, path));
+    const actualHash = createHash('sha256').update(bytes).digest('hex');
+    assert.equal(actualHash, expectedHash, `checksum mismatch for ${path}`);
+  }
+});
 
 function operation(operationId) {
   for (const path of Object.values(openapi.paths)) {
@@ -202,7 +275,7 @@ test('ACCEPT conflict aligns HTTP, row, decision, audit, rollback and retry sema
   );
 });
 
-test('internal parser framing and retention gates are present in the proposed contract', async () => {
+test('internal parser framing and retention gates are present in the frozen contract', async () => {
   const contract = await readFile(
     resolve(root, 'docs/contracts/R1-006-catalog-import-contract.md'),
     'utf8',
