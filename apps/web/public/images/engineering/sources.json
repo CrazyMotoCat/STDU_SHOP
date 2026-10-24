@@ -1,0 +1,122 @@
+{
+  "purpose": "R1-003V-03 visual mockup. Publication rights have not been cleared.",
+  "images": [
+    {
+      "file": "cabinet-dispatch.webp",
+      "width": 1200,
+      "height": 1178,
+      "source_id": "CAB-006",
+      "brand": "Wiren Board на Хабре",
+      "model": "Шкаф диспетчеризации / WB8",
+      "source_page": "https://habr.com/ru/companies/wirenboard/articles/992886/",
+      "source_image_url": "https://habrastorage.org/getpro/habr/upload_files/311/c76/0f2/311c760f2068200508c19664a81896ee.jpeg",
+      "original_sha256": "7655eb916f941a7bd7b2db7477f1d610ca2e6903701bbf1d8b1c5dcb5373f225",
+      "rights_status": "UNVERIFIED__DESIGN_MOCKUP_ONLY",
+      "note": "Source photograph, not a STDU project or a stock/availability claim."
+    },
+    {
+      "file": "cabinet-industrial.webp",
+      "width": 720,
+      "height": 956,
+      "source_id": "CAB-004",
+      "brand": "ОВЕН",
+      "model": "Шкаф управления",
+      "source_page": "https://owen.ru/project/avtomatizaciya_varochnogo_kotla_na_pticepererabatyvayushchem_proizvodstve",
+      "source_image_url": "https://owen.ru/uploads/540/aniw2-0vrwxnl6on4batbpkups214bra_cor.jpg",
+      "original_sha256": "c842e38696259a7f2e444c14ab9a33b4e6c0d922b0b647cc059732469c4b2133",
+      "rights_status": "UNVERIFIED__DESIGN_MOCKUP_ONLY",
+      "note": "Source photograph, not a STDU project or a stock/availability claim."
+    },
+    {
+      "file": "panel-assembly.webp",
+      "width": 640,
+      "height": 640,
+      "source_id": "CAB-002",
+      "brand": "Wiren Board",
+      "model": "Шкаф автоматизации / WB7",
+      "source_page": "https://wirenboard.com/ru/pages/comfort-life-piter-kvartira/",
+      "source_image_url": "https://wirenboard.com/statics/content/content/64d29e8db6685.jpg",
+      "original_sha256": "2607ff38dd561c8d786574ab88f481a9db4c4ee5dda24307165c534655b3b4d0",
+      "rights_status": "UNVERIFIED__DESIGN_MOCKUP_ONLY",
+      "note": "Source photograph, not a STDU project or a stock/availability claim."
+    },
+    {
+      "file": "breaker-iek.webp",
+      "width": 480,
+      "height": 477,
+      "source_id": "IEK-001",
+      "brand": "IEK",
+      "model": "BA47-29",
+      "source_page": "https://atlantsnab.ru/catalog/modulnye-avtomaticheskie-vyklyuchateli/",
+      "source_image_url": "https://atlantsnab.ru/upload/dev/1b3/fr11syoxezkmojsbnbpitvvaobh9x4e8/5720413b23a525ec08ae57eabb86c6f2.png",
+      "original_sha256": "2f55e0a0c7b8f3cc8be7e5a0eeede5329e9248c83045974937a5ffd7f04ca752",
+      "rights_status": "UNVERIFIED__DESIGN_MOCKUP_ONLY",
+      "note": "Authentic product reference; no partnership or availability claim."
+    },
+    {
+      "file": "power-meanwell.webp",
+      "width": 395,
+      "height": 624,
+      "source_id": "MW-001",
+      "brand": "Mean Well",
+      "model": "HDR-60-24",
+      "source_page": "https://elektronikadomowa.pl/zasilacz-na-szyne-din-mean-well-hdr-60-24-24v-60w-2-5a-21-6v29v-p-4274.html",
+      "source_image_url": "https://elektronikadomowa.pl/images/produkt_2020/HDR-60-24.1.png",
+      "original_sha256": "e72df89b35e2e91b0d1cbaeef97b7146db4433a273f3209f6ff3c52245579973",
+      "rights_status": "UNVERIFIED__DESIGN_MOCKUP_ONLY",
+      "note": "Authentic product reference; no partnership or availability claim."
+    },
+    {
+      "file": "breaker-keaz.webp",
+      "width": 364,
+      "height": 751,
+      "source_id": "KEAZ-001",
+      "brand": "КЭАЗ",
+      "model": "OptiDin BM63",
+      "source_page": "https://www.vseinstrumenti.ru/product/avtomaticheskij-modulnyj-vyklyuchatel-keaz-1p-c-6a-10ka-optidin-vm63-1c6-10-uhl3-249252-8024510/",
+      "source_image_url": "https://cdn.vseinstrumenti.ru/images/goods/elektrika-i-svet/ustrojstva-zaschity-kontrolya-i-upravleniya/8024510/1200x800/93119090.jpg",
+      "original_sha256": "a515435352bff40e2523908f7ef8fb0ca62b29a1c448ba9cabdd9c08c0ba78c6",
+      "rights_status": "UNVERIFIED__DESIGN_MOCKUP_ONLY",
+      "note": "Authentic product reference; no partnership or availability claim."
+    },
+    {
+      "file": "relay-wirenboard.webp",
+      "width": 420,
+      "height": 378,
+      "source_id": "WB-002",
+      "brand": "Wiren Board",
+      "model": "WB-MR6C v.3",
+      "source_page": "https://wirenboard.com/ru/product/WB-MR6C_v3/",
+      "source_image_url": "https://wirenboard.com/storage/source/1/T3PKQoMj7UAHTjOpneaNx2NGBax5ugdO.png",
+      "original_sha256": "db531120c5c7b5750fc34a43e46c1bb4185d136d3be9f9bfbb5a64747958c86d",
+      "rights_status": "UNVERIFIED__DESIGN_MOCKUP_ONLY",
+      "note": "Authentic product reference; no partnership or availability claim."
+    },
+    {
+      "file": "controller-owen.webp",
+      "width": 398,
+      "height": 426,
+      "source_id": "OW-001",
+      "brand": "ОВЕН",
+      "model": "ПЛК210",
+      "source_page": "https://owen.ru/product/plk210",
+      "source_image_url": "https://owen.ru/thumbs/181/plk210_v1___19f2cddc-1108x600-d.png",
+      "original_sha256": "8e3d1cec453d2e19290a45c4b2c83e157684328ac4254b0907cd42ef8fe550be",
+      "rights_status": "UNVERIFIED__DESIGN_MOCKUP_ONLY",
+      "note": "Authentic product reference; no partnership or availability claim."
+    },
+    {
+      "file": "controller-wirenboard.webp",
+      "width": 640,
+      "height": 438,
+      "source_id": "WBV2-002",
+      "brand": "Wiren Board",
+      "model": "wiren-board-8M",
+      "source_page": "https://wirenboard.com/ru/product/wiren-board-8M/",
+      "source_image_url": "https://wirenboard.com/_ipx/w_1104&f_webp&q_80/ru/catalog/wiren-board-8m/cover.png",
+      "original_sha256": "8432bdee86f820a688821852b6513e6043bacb6bfd81fca2f601743a2f0e7056",
+      "rights_status": "UNVERIFIED__DESIGN_MOCKUP_ONLY",
+      "note": "Authentic product reference; no partnership or availability claim."
+    }
+  ]
+}

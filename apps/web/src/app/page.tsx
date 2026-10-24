@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { PublicLayout } from '../components/layouts/page-layouts';
 import { SwitchgearIllustration } from '../components/site/switchgear-illustration';
 import { EngineeringMotionShowcase } from '../components/visual/engineering-motion-showcase';
@@ -42,109 +43,57 @@ function DirectionVisual({
 }: {
   type: (typeof directions)[number]['visual'];
 }) {
-  if (type === 'equipment') {
+  if (type === 'panel') {
     return (
-      <svg fill="none" viewBox="0 0 112 68">
-        <path className="direction-visual__line" d="M20 47H93" />
-        <path className="direction-visual__rail" d="M23 44H90V48H23V44Z" />
-        <rect
-          className="direction-visual__module"
-          height="29"
-          rx="2"
-          width="18"
-          x="26"
-          y="13"
+      <span className="direction-media direction-media--panel">
+        <Image
+          src="/images/engineering/cabinet-industrial.webp"
+          alt=""
+          fill
+          sizes="(max-width: 760px) 128px, 400px"
         />
-        <rect
-          className="direction-visual__module"
-          height="29"
-          rx="2"
-          width="18"
-          x="48"
-          y="13"
-        />
-        <rect
-          className="direction-visual__module"
-          height="29"
-          rx="2"
-          width="18"
-          x="70"
-          y="13"
-        />
-        <path
-          className="direction-visual__accent"
-          d="M35 24V33M57 24V33M79 24V33"
-        />
-        <path
-          className="direction-visual__line"
-          d="M30 18H40M52 18H62M74 18H84"
-        />
-        <circle className="direction-visual__node" cx="35" cy="39" r="1.6" />
-        <circle className="direction-visual__node" cx="57" cy="39" r="1.6" />
-        <circle className="direction-visual__node" cx="79" cy="39" r="1.6" />
-      </svg>
+        <span className="direction-media__caption">Фото: ОВЕН</span>
+      </span>
     );
   }
 
-  if (type === 'panel') {
+  if (type === 'engineering') {
     return (
-      <svg fill="none" viewBox="0 0 112 68">
-        <path
-          className="direction-visual__side"
-          d="M74 11 91 18V56L74 62V11Z"
+      <span className="direction-media direction-media--engineering">
+        <svg aria-hidden="true" fill="none" viewBox="0 0 340 160">
+          <path d="M24 35H110V80H230V126H316M24 126H85V80M230 80V35H316" />
+          <circle cx="24" cy="35" r="4" />
+          <circle cx="316" cy="126" r="4" />
+          <circle cx="316" cy="35" r="4" />
+        </svg>
+        <Image
+          src="/images/engineering/controller-owen.webp"
+          alt=""
+          width={398}
+          height={426}
+          sizes="(max-width: 760px) 110px, 190px"
         />
-        <path className="direction-visual__outline" d="M22 11H74V62H22V11Z" />
-        <path
-          className="direction-visual__line"
-          d="M29 18H67V54H29V18ZM35 26H61M35 44H61"
-        />
-        <path
-          className="direction-visual__accent"
-          d="M38 26V35M48 26V35M58 26V35M38 35H58"
-        />
-        <path className="direction-visual__line" d="M68 33H71V42H68" />
-        <circle className="direction-visual__node" cx="83" cy="22" r="2.5" />
-      </svg>
+      </span>
     );
   }
 
   return (
-    <svg fill="none" viewBox="0 0 112 68">
-      <path
-        className="direction-visual__line"
-        d="M27 22H49V45H67M49 22H78M27 45H37"
+    <span className="direction-media direction-media--equipment">
+      <Image
+        src="/images/engineering/breaker-iek.webp"
+        alt=""
+        width={480}
+        height={477}
+        sizes="(max-width: 760px) 75px, 160px"
       />
-      <rect
-        className="direction-visual__module"
-        height="16"
-        rx="3"
-        width="22"
-        x="12"
-        y="14"
+      <Image
+        src="/images/engineering/power-meanwell.webp"
+        alt=""
+        width={395}
+        height={624}
+        sizes="(max-width: 760px) 60px, 135px"
       />
-      <rect
-        className="direction-visual__module"
-        height="18"
-        rx="3"
-        width="24"
-        x="37"
-        y="36"
-      />
-      <rect
-        className="direction-visual__module"
-        height="16"
-        rx="3"
-        width="22"
-        x="78"
-        y="14"
-      />
-      <path
-        className="direction-visual__accent"
-        d="M18 22H28M44 45H54M84 22H94"
-      />
-      <circle className="direction-visual__node" cx="49" cy="22" r="3" />
-      <circle className="direction-visual__node" cx="67" cy="45" r="3" />
-    </svg>
+    </span>
   );
 }
 
@@ -173,8 +122,38 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="hero-visual">
-              <SwitchgearIllustration />
+            <div className="hero-visual hero-visual--photo">
+              <figure className="hero-reference">
+                <div className="hero-reference__image">
+                  <Image
+                    src="/images/engineering/cabinet-dispatch.webp"
+                    alt="Реальный шкаф диспетчеризации: контроллер Wiren Board, аппараты защиты, блок питания и реле на DIN-рейках"
+                    width={1200}
+                    height={1178}
+                    sizes="(max-width: 760px) 100vw, 50vw"
+                    preload
+                  />
+                  <span className="hero-reference__label">
+                    Системы управления
+                  </span>
+                </div>
+                <figcaption className="hero-reference__caption">
+                  <div>
+                    <strong>Инженерия в каждой связи.</strong>
+                    <a
+                      href="https://habr.com/ru/companies/wirenboard/articles/992886/"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Пример компоновки · фото Wiren Board ↗
+                    </a>
+                  </div>
+                  <div className="hero-reference__scheme">
+                    <SwitchgearIllustration />
+                    <span>Условная схема</span>
+                  </div>
+                </figcaption>
+              </figure>
             </div>
 
             <div className="hero-tools-area">
@@ -244,7 +223,7 @@ export default function Home() {
             <div className="service-grid">
               {directions.map((direction) => (
                 <ServiceCard
-                  className="service-card--direction"
+                  className="service-card--direction service-card--photo"
                   description={direction.description}
                   href={`#${direction.id}`}
                   id={direction.id}

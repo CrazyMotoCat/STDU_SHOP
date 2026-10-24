@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useId, useRef, useState } from 'react';
 
 const stages = [
@@ -30,6 +31,80 @@ const stages = [
 ] as const;
 
 type StageId = (typeof stages)[number]['id'];
+
+function MaterialReference({ stageId }: { stageId: StageId }) {
+  return (
+    <div className={`engineering-reference engineering-reference--${stageId}`}>
+      <div className="engineering-reference__media">
+        {stageId === 'equipment' ? (
+          <>
+            <Image
+              src="/images/engineering/breaker-keaz.webp"
+              alt="Автоматический выключатель КЭАЗ OptiDin"
+              width={364}
+              height={751}
+              sizes="90px"
+            />
+            <Image
+              src="/images/engineering/relay-wirenboard.webp"
+              alt="Релейный модуль Wiren Board WB-MR6C"
+              width={420}
+              height={378}
+              sizes="90px"
+            />
+          </>
+        ) : stageId === 'panel' ? (
+          <Image
+            src="/images/engineering/panel-assembly.webp"
+            alt="Реальная сборка щита с клеммами и модулями Wiren Board"
+            width={640}
+            height={640}
+            sizes="180px"
+          />
+        ) : (
+          <Image
+            src="/images/engineering/controller-wirenboard.webp"
+            alt="Промышленный контроллер Wiren Board 8M"
+            width={640}
+            height={438}
+            sizes="180px"
+          />
+        )}
+      </div>
+      <div className="engineering-reference__copy">
+        <span>
+          {stageId === 'equipment'
+            ? 'КОМПОНЕНТЫ'
+            : stageId === 'panel'
+              ? 'КОМПОНОВКА'
+              : 'УПРАВЛЕНИЕ'}
+        </span>
+        <p>
+          {stageId === 'equipment'
+            ? 'Защита и коммутация'
+            : stageId === 'panel'
+              ? 'Модули и клеммы'
+              : 'Контроллер и интерфейсы'}
+        </p>
+        {stageId === 'panel' ? (
+          <a
+            href="https://wirenboard.com/ru/pages/comfort-life-piter-kvartira/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Фото: Wiren Board ↗
+          </a>
+        ) : (
+          <small>
+            {stageId === 'equipment'
+              ? 'КЭАЗ OptiDin · WB-MR6C'
+              : 'Wiren Board 8M'}
+          </small>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function EngineeringMotionShowcase() {
   const [activeId, setActiveId] = useState<StageId>('equipment');
@@ -110,6 +185,7 @@ export function EngineeringMotionShowcase() {
               <p>{activeStage.description}</p>
             </div>
           </div>
+          <MaterialReference stageId={activeId} />
           <p className="engineering-showcase__note">
             Демонстрационная схема: это не конфигуратор и не подключённая
             система.
