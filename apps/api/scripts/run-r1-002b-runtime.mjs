@@ -48,6 +48,11 @@ const r1_004Tables = [
   'product_document_version',
   'product_relation',
 ];
+const r1_006Tables = [
+  'catalog_import_run',
+  'catalog_import_row',
+  'catalog_import_decision',
+];
 const r1_002Permissions = [
   'staff.users.read',
   'staff.users.create',
@@ -457,6 +462,10 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
     `SELECT count(*)::integer AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
     [r1_004Tables],
   );
+  const importModels = await afterFirst.query(
+    `SELECT count(*)::integer AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
+    [r1_006Tables],
+  );
   const initial = await afterFirst.query(
     `SELECT (SELECT count(*) FROM staff_user)::int AS users,
        (SELECT count(*) FROM staff_session)::int AS sessions,
@@ -467,13 +476,20 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
   );
   await afterFirst.end();
   if (
-    before.rowCount !== 2 ||
+    before.rowCount !== 3 ||
+    before.rows.map((row) => row.migration_name).join('\0') !==
+      [
+        '20261022120000_staff_identity',
+        '20261024120000_catalog_domain',
+        '20261024140000_catalog_import',
+      ].join('\0') ||
     sentinel.rows[0]?.payload !== 'must-survive-migration' ||
     models.rows[0]?.count !== 11 ||
-    catalogModels.rows[0]?.count !== 9
+    catalogModels.rows[0]?.count !== 9 ||
+    importModels.rows[0]?.count !== 3
   )
     throw new Error(
-      'Fresh migration did not preserve sentinel or create the frozen R1-002 and additive R1-004 entities.',
+      'Fresh migration did not preserve sentinel or create the frozen R1-002/R1-004 and additive R1-006 entities.',
     );
   if (
     initial.rows[0]?.users !== 0 ||
@@ -486,7 +502,7 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
       'Fresh migration did not leave account/session data empty and preserve both frozen permission registries.',
     );
   console.log(
-    'PASS additive migrations: 11 R1-002 entities, 9 catalog entities, 12 permissions in each frozen registry, no accounts/sessions, sentinel preserved.',
+    'PASS additive migrations: 11 R1-002 entities, 9 R1-004 catalog entities, 3 R1-006 import entities, 12 permissions in each frozen registry, no accounts/sessions, sentinel preserved.',
   );
 
   await verifyPopulatedRepeatMigration(ownerUrl, env);
