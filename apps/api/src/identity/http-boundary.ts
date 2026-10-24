@@ -30,7 +30,16 @@ export class HttpBoundaryFilter implements ExceptionFilter {
       return;
     }
 
-    const error = exception instanceof StaffError ? exception : null;
+    const multerCode =
+      exception && typeof exception === 'object' && 'code' in exception
+        ? (exception as { code?: unknown }).code
+        : null;
+    const error =
+      exception instanceof StaffError
+        ? exception
+        : multerCode === 'LIMIT_FILE_SIZE'
+          ? new StaffError('FILE_TOO_LARGE')
+          : null;
     const code = error?.code ?? 'INTERNAL_ERROR';
     const status = error?.getStatus() ?? 500;
     if (error?.retryAfter)

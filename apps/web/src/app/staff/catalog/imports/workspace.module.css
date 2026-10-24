@@ -1,0 +1,267 @@
+.shell {
+  width: min(82rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2.5rem 0 5rem;
+  color: #172838;
+}
+.header,
+.panelTitle,
+.rowHeading,
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.header {
+  margin-bottom: 1.5rem;
+}
+.header h1,
+.loginCard h1 {
+  margin: 0.25rem 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  letter-spacing: -0.04em;
+}
+.header p {
+  color: #52616d;
+}
+.eyebrow {
+  color: #177a83 !important;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+.panel,
+.loginCard {
+  background: #fff;
+  border: 1px solid #cbd6da;
+  border-radius: 0.8rem;
+  padding: 1.25rem;
+  box-shadow: 0 0.5rem 1.5rem rgb(14 27 44 / 5%);
+  margin-bottom: 1rem;
+}
+.panel h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.2rem;
+}
+.loginCard {
+  max-width: 34rem;
+  margin: 6rem auto;
+  padding: 2rem;
+}
+.loginCard > p:not(.eyebrow) {
+  color: #52616d;
+  line-height: 1.6;
+}
+.form,
+.uploadForm,
+.sheetCard label {
+  display: grid;
+  gap: 0.8rem;
+}
+.form label,
+.uploadForm label,
+.sheetCard label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.shell input,
+.shell select,
+.shell textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.6rem;
+  border: 1px solid #9cabb0;
+  border-radius: 0.4rem;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  color: #172838;
+  font: inherit;
+}
+.shell textarea,
+.shell pre {
+  font-family: Consolas, 'Cascadia Code', monospace;
+  font-size: 0.8rem;
+}
+.shell button {
+  min-height: 2.5rem;
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.55rem 0.85rem;
+  background: #177a83;
+  color: white;
+  font-weight: 750;
+  cursor: pointer;
+}
+.shell button:hover:not(:disabled) {
+  background: #105e66;
+}
+.shell button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.secondary {
+  background: #e6f1f2;
+  color: #173d47;
+}
+.secondary:hover:not(:disabled) {
+  background: #d2e6e8;
+}
+.danger {
+  background: #a63835;
+}
+.danger:hover:not(:disabled) {
+  background: #832d2b;
+}
+.uploadForm {
+  grid-template-columns: minmax(15rem, 2fr) repeat(2, minmax(9rem, 1fr)) auto;
+  align-items: end;
+}
+.columns {
+  display: grid;
+  grid-template-columns: minmax(17rem, 0.7fr) minmax(0, 1.3fr);
+  gap: 1rem;
+}
+.runList {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.runList button {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.3rem;
+  background: #f0f4f5;
+  color: #172838;
+}
+.runList button span,
+.muted {
+  color: #52616d;
+  font-size: 0.85rem;
+}
+.selectedRun {
+  outline: 2px solid #177a83;
+}
+.summary,
+.referenceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.8rem 0;
+}
+.summary span {
+  background: #f0f4f5;
+  padding: 0.65rem;
+  border-radius: 0.4rem;
+  font-weight: 700;
+}
+.sheetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: 1rem;
+}
+.sheetCard {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #d7e0e3;
+  border-radius: 0.6rem;
+  background: #fbfcfc;
+}
+.sheetCard h3 {
+  margin: 0 0 0.8rem;
+}
+.mapRow {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) minmax(10rem, 1.1fr);
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.55rem 0;
+}
+.mapRow > span {
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+}
+.mapRow input {
+  grid-column: 1 / -1;
+}
+.referenceGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+.rowCard {
+  padding: 1rem 0;
+  border-top: 1px solid #d7e0e3;
+}
+.state {
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  background: #e6f1f2;
+  color: #105e66;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.rowData {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.rowData pre {
+  max-height: 15rem;
+  overflow: auto;
+  padding: 0.75rem;
+  background: #f0f4f5;
+  border-radius: 0.4rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.error {
+  color: #a63835;
+  background: #fff1f0;
+  padding: 0.7rem;
+  border-radius: 0.4rem;
+}
+.notice {
+  color: #23664e;
+  background: #eef8f2;
+  padding: 0.7rem;
+  border-radius: 0.4rem;
+}
+@media (max-width: 850px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+  .uploadForm {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .shell {
+    width: min(100% - 1rem, 82rem);
+    padding-top: 1rem;
+  }
+  .header,
+  .panelTitle {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .uploadForm,
+  .rowData,
+  .summary,
+  .referenceGrid {
+    grid-template-columns: 1fr;
+  }
+  .mapRow {
+    grid-template-columns: 1fr;
+  }
+  .mapRow input {
+    grid-column: auto;
+  }
+}

@@ -31,6 +31,14 @@ export const ERROR_CODES = [
   'PUBLICATION_NOT_READY',
   'REFERENCE_IN_USE',
   'FILE_NOT_ACCESSIBLE',
+  'ENCODING_REQUIRED',
+  'INVALID_ENCODING',
+  'FILE_REJECTED',
+  'FILE_TOO_LARGE',
+  'IMPORT_LIMIT_EXCEEDED',
+  'IDEMPOTENCY_KEY_REUSED',
+  'IMPORT_ROW_CONFLICT',
+  'INGESTION_UNAVAILABLE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -70,6 +78,14 @@ const statusByCode: Record<ErrorCode, number> = {
   PUBLICATION_NOT_READY: 409,
   REFERENCE_IN_USE: 409,
   FILE_NOT_ACCESSIBLE: 404,
+  ENCODING_REQUIRED: 400,
+  INVALID_ENCODING: 400,
+  FILE_REJECTED: 400,
+  FILE_TOO_LARGE: 413,
+  IMPORT_LIMIT_EXCEEDED: 413,
+  IDEMPOTENCY_KEY_REUSED: 409,
+  IMPORT_ROW_CONFLICT: 409,
+  INGESTION_UNAVAILABLE: 503,
 };
 
 const messages: Record<ErrorCode, string> = {
@@ -103,6 +119,14 @@ const messages: Record<ErrorCode, string> = {
   PUBLICATION_NOT_READY: 'The product revision is not ready for publication.',
   REFERENCE_IN_USE: 'The catalog reference is still in use.',
   FILE_NOT_ACCESSIBLE: 'The file metadata is not accessible.',
+  ENCODING_REQUIRED: 'Select a supported CSV delimiter.',
+  INVALID_ENCODING: 'The file encoding is not supported.',
+  FILE_REJECTED: 'The file could not be parsed safely.',
+  FILE_TOO_LARGE: 'The file exceeds the upload limit.',
+  IMPORT_LIMIT_EXCEEDED: 'The file exceeds an import limit.',
+  IDEMPOTENCY_KEY_REUSED: 'The idempotency key was used for another request.',
+  IMPORT_ROW_CONFLICT: 'The import row changed; reload it and try again.',
+  INGESTION_UNAVAILABLE: 'The bounded file parser is unavailable.',
 };
 
 export class StaffError extends HttpException {

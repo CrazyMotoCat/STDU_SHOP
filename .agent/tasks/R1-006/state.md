@@ -1,11 +1,25 @@
 # R1-006 checkpoint
 
-TASK: R1-006 Catalog CSV/XLSX Import
+TASK: R1-006 Catalog CSV/XLSX Import (R1-006A contract + R1-006B implementation)
 STATUS: IN_PROGRESS
-PHASE: R1-006A frozen contract delivery; R1-006B implementation pending
-CHECKPOINT_STATUS: OWNER_APPROVED; FROZEN metadata and checksums verified; final CI and merge pending
-LAST_SAFE_COMMIT: 8e43baf3d2b16ec46475dbf7f8c17563e183b88f
-BRANCH: codex/r1-006a-import-contract
+PHASE: R1-006B final verification and Git delivery
+CHECKPOINT_STATUS: R1-006A is frozen and merged; R1-006B implementation and local gates pass; hosted CI and integration pending
+LAST_SAFE_COMMIT: a8960c4cc61909cb0ed2daed57c4874a456e9b2a
+BRANCH: codex/r1-006b-catalog-import
+
+## R1-006B CURRENT STATUS (2026-10-24)
+
+- R1-006A FROZEN contract remains unchanged. Feature branch started from merged R1-006A main commit `d097a751b24d4cc47c7ab4e589ff4eeb4044e916`; fetched and fast-forwarded to current `origin/main` `a8960c4cc61909cb0ed2daed57c4874a456e9b2a` (PR #13) before final checks. Public-catalog changes from PR #13 did not conflict with the import implementation.
+- Implemented the approved R1-006B vertical slice: private CSV/XLSX upload and storage, isolated FastAPI parsing, raw preview, per-sheet mapping with fixed ACTIVE category/brand, normalized/deduplicated candidates, per-row decisions, DRAFT-only create/revision, audit/RBAC/OCC/idempotency, and protected Staff UI. No automatic publication, batch acceptance, catalog/warehouse/order/production expansion, production migration/deployment, or live permission grant.
+- Approved slug fallback: generated from product display name plus UUID suffix, as explicitly selected by the owner; no change to frozen API contract.
+- Local verification on Windows: `pnpm test:r1-006b` PASS (dedicated disposable Compose project; no named volumes); `pnpm catalog:runtime:check` PASS (fresh/populated PostgreSQL, permission initializer, CATB runtime and dump/restore checks); `pnpm db:validate`, ESLint, Prettier, workspace typecheck/build, Vitest (45 passed, 43 skipped), Python Ruff/mypy (including Windows target)/pytest (15 passed), R1-002 and R1-004 contract gates, R1-006 frozen-contract tests (7/7) and OpenAPI type generation PASS; `git diff --check` PASS.
+- Independent backend, database, and security read-only re-reviews: PASS. Database review confirmed actor/reason-bound audit triggers, private source-file locking, schema-qualified trigger references, and Prisma/migration consistency. Security review confirmed owner-scoped import visibility, reference permission checks, and preservation of APPLIED/REJECTED rows on re-preview.
+- Host environment uses Node 24.22.1 while repository pins 24.19.0; `uv` is not installed on the host. Python quality was executed through the repository's locked `services/ingestion/.venv`; exact pinned toolchain and full integration smokes remain delegated to hosted CI. The shared Compose smoke was not run locally to avoid touching shared ports/containers.
+- Hosted CI run `40079091825` on candidate `513035ce2d820e4273cca393d599c47bf2ada318` reached `pnpm test:r1-002b` and failed because that existing regression harness hard-coded two migration rows; the log confirms all three migrations applied successfully, and earlier CI steps passed. The harness now asserts the exact three migration names and all three new import tables while retaining the protected fixture and permission assertions.
+- After the harness correction, local `pnpm test:r1-002b` passed: 26 Vitest checks passed; T-25 was skipped because unrelated processes already occupied shared ports 3000/3001 and were left untouched. Fresh and populated migrations preserved the sentinel and all 11 R1-002/9 R1-004 fixtures.
+- Next: format/check and push the corrective commit, then wait for complete exact-HEAD hosted CI. Make the PR Ready/merge only after all required checks and repository rules succeed. Never apply production migrations or deploy.
+
+The `COMPLETED` and `VERIFIED` sections below are historical R1-006A contract-delivery evidence; they do not describe R1-006B completion.
 
 ## COMPLETED
 

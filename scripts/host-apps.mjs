@@ -39,6 +39,8 @@ export function hostDefinitions({ smoke = false } = {}) {
         ...process.env,
         HOST: '127.0.0.1',
         PORT: '3001',
+        INGESTION_INTERNAL_URL:
+          process.env.INGESTION_INTERNAL_URL ?? 'http://127.0.0.1:8000',
       },
     },
     {

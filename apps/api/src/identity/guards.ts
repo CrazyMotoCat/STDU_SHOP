@@ -195,11 +195,14 @@ export class CsrfGuard implements CanActivate {
     const isLogin = request.path === '/v1/staff/auth/login';
     const rawContentType = request.headers['content-type'];
     const contentType = rawContentType?.split(';')[0]?.trim().toLowerCase();
+    const catalogImportUpload =
+      method === 'POST' && request.path === '/v1/staff/catalog/imports';
     const permitsEmptyContentType =
       method === 'DELETE' || request.path === '/v1/staff/auth/logout';
     if (
       (!permitsEmptyContentType || rawContentType !== undefined) &&
-      contentType !== 'application/json'
+      contentType !== 'application/json' &&
+      !(catalogImportUpload && contentType === 'multipart/form-data')
     )
       throw new StaffError('UNSUPPORTED_MEDIA_TYPE');
     if (isLogin) {
