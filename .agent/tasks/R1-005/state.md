@@ -1,19 +1,24 @@
 # R1-005 — public catalog frontend
 
 TASK: R1-005
-STATUS: IN_PROGRESS
+STATUS: COMPLETE
 DELIVERY_MODE: AUTO_MERGE
-CHECKPOINT_STATUS: SAFE_WITH_CHECKPOINT
-PHASE: second hosted CI exposed the matching API deploy workspace-manifest gap; both image builds verified locally
+CHECKPOINT_STATUS: MERGED
+PHASE: merged to main; merge-candidate CI passed; post-merge tree verified identical
 UPDATED_AT: 2026-10-24
-BRANCH: codex/r1-005-public-catalog
+BRANCH: main
 BASELINE_MAIN: e0da526fa411aab99fe7334ab50088941ea4082f
+IMPLEMENTATION_HEAD: fb0c721b805414c6474311e1a23adeeedacf4790
+PULL_REQUEST: https://github.com/CrazyMotoCat/STDU_SHOP/pull/11 (MERGED)
+MERGED_MAIN: fbda42393b2ee61e49b0af74c4c772484f1f00af
+CI_MERGE_CANDIDATE: ce8a0cd8b0cc328c48e68025b85c3d66e00613ec; run 40060531134 SUCCESS
+POST_MERGE_CI: run 40061431022 was in progress when checked; same tree as passing candidate, not awaited per owner instruction
 CONTRACTS_FROZEN: R1-004A Catalog Domain 1.0.0; no OpenAPI/schema changes authorized
 PARALLEL_WRITES: none; protect PR #10 branch/worktree and home page/shared styles/showcase files
 RESUME_SAFE: YES
-REPOSITORY_STATE: DIRTY_EXPECTED
-LAST_SAFE_COMMIT: e0da526fa411aab99fe7334ab50088941ea4082f
-NEXT_ACTION: record both Docker image findings/fixes, commit and push API Dockerfile correction; rerun exact-HEAD GitHub CI
+REPOSITORY_STATE: MERGED; final checkpoint is documentation-only
+LAST_SAFE_COMMIT: fbda42393b2ee61e49b0af74c4c772484f1f00af
+NEXT_ACTION: none for R1-005; navigation/search integration can follow separately after PR #10 is resolved
 DO_NOT_REPEAT: frozen R1-004 checker/runtime suite and browser smoke unless code changes invalidate them
 
 ## Scope
@@ -48,11 +53,10 @@ Implement public SSR catalog, category and product routes using only the three f
 - Full Vitest: 44 passed, 39 skipped; ingestion pytest: 5 passed. Contract tests: 47 passed.
 - Screenshots: `artifacts/verification/R1-005/` (catalog, category/table, product; desktop/mobile).
 
-## Outstanding
+## Follow-up boundaries
 
-- Commit and push the API Dockerfile correction; rerun full exact-head GitHub Actions and inspect Compose/host smoke results.
-- Keep PR #11 open until all required checks and repository rules pass; merge only after that.
-- Do not edit or integrate the still-Draft PR #10. Follow-up integration points after its merge: equipment navigation link to `/catalog`, shared header catalog search, and homepage equipment/search links.
+- R1-005 is complete; PR #11 is merged and the full CI suite passed on the merge candidate.
+- Do not edit or integrate the still-Draft PR #10. After it is resolved, a separately scoped follow-up may connect equipment navigation to `/catalog`, enable shared header search, and add homepage equipment/search links.
 - Contract gap for later owner decision: public API has no exact-category filterable AttributeDefinition facets or complete public brand listing; list cards omit technical values. This UI therefore accepts a manually entered attribute code, derives brand suggestions only from the loaded page and shows technical values on detail pages. No FROZEN contract change is included.
 
 ## Protected concurrent work
