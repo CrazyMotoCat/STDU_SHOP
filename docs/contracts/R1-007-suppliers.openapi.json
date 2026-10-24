@@ -1,0 +1,1630 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "STDU R1-007 Supplier Staff API",
+    "version": "0.1.0-proposed",
+    "description": "Proposed staff-only manual Supplier and SupplierOffer API. No supplier crawling, public supplier surface, public purchase price, automatic product link, purchase order or stock workflow."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Same-origin reverse proxy; no production domain is assumed."
+    }
+  ],
+  "tags": [
+    {
+      "name": "supplier-staff",
+      "description": "Session-authenticated staff supplier, offer and exact-match workflow."
+    }
+  ],
+  "security": [{ "staffCookie": [] }],
+  "x-contract-status": "PROPOSED / REVIEW_REQUIRED",
+  "x-contract-version": "0.1.0-proposed",
+  "x-baseline": "1e3c24cdd04628180f600f28aab0f88c37f23eb8",
+  "x-frozen-contracts": ["R1-002 1.0.0", "R1-004 1.0.0", "R1-006A 1.0.0"],
+  "x-staff-response-headers": {
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "X-Request-Id": "server-generated UUID in response and error envelope"
+  },
+  "x-permission-catalog-extension": {
+    "status": "requires owner approval OD-007A-06",
+    "codes": [
+      "suppliers.read",
+      "suppliers.write",
+      "suppliers.offers.read",
+      "suppliers.offers.write",
+      "suppliers.matches.decide"
+    ],
+    "integration": "Additive runtime/composed RBAC catalog only; do not edit frozen R1-002/R1-004/R1-006A artifacts, protected-admin permission set, role templates or grants."
+  },
+  "x-global-invariants": [
+    "All paths in this document are staff-only; there are no public supplier paths.",
+    "Every mutation uses the frozen R1-002 staff cookie, exact configured Origin and staff-bound CSRF token; sensitive POSTs also require an Idempotency-Key.",
+    "All offer and match responses require supplier permissions; match views additionally require catalog.products.read and catalog.references.read.",
+    "Catalog identity is the exact frozen R1-004 tuple (brandId, manufacturerName, originalPartNumber, modification) with its NFC/outer-U+0020-only normalization; no fuzzy candidate, analog, or auto-link exists.",
+    "Money is a canonical decimal string, never a JSON number. Currency is explicit; no FX conversion, assumed VAT or default currency.",
+    "All responses containing contact, purchase cost, internal notes, source or matching data are no-store and never enter PublicCatalogProduct or PublicQuotation DTOs.",
+    "No route creates a CatalogProduct, updates public price, changes a quotation, sends a supplier request, fetches a source URL or performs a bulk decision."
+  ],
+  "paths": {
+    "/v1/staff/suppliers": {
+      "get": {
+        "operationId": "listSuppliers",
+        "tags": ["supplier-staff"],
+        "summary": "List suppliers visible to the staff user",
+        "parameters": [
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/Cursor" },
+          { "$ref": "#/components/parameters/SupplierStateFilter" }
+        ],
+        "x-permission": "suppliers.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-invariants": [
+          "Keyset pagination; archived rows are returned only when explicitly requested."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/SupplierList" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      },
+      "post": {
+        "operationId": "createSupplier",
+        "tags": ["supplier-staff"],
+        "summary": "Create one external supplier",
+        "parameters": [
+          { "$ref": "#/components/parameters/OriginHeader" },
+          { "$ref": "#/components/parameters/CsrfToken" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateSupplier" }
+            }
+          }
+        },
+        "x-permission": "suppliers.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "supplier.created",
+        "x-invariants": [
+          "Supplier is not SellerLegalEntity; no default legal or contact data is generated.",
+          "The first complete SupplierRevision, current profile projection and audit commit atomically; receipt returns revisionId only."
+        ],
+        "responses": {
+          "201": { "$ref": "#/components/responses/SupplierMutation" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/Unprocessable" }
+        }
+      }
+    },
+    "/v1/staff/suppliers/{supplierId}": {
+      "parameters": [{ "$ref": "#/components/parameters/SupplierId" }],
+      "get": {
+        "operationId": "getSupplier",
+        "tags": ["supplier-staff"],
+        "summary": "Read supplier details",
+        "x-permission": "suppliers.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-invariants": [
+          "Private contact, tax identifier and internal notes require staff RBAC."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/Supplier" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "operationId": "updateSupplier",
+        "tags": ["supplier-staff"],
+        "summary": "Update supplier details with OCC",
+        "parameters": [
+          { "$ref": "#/components/parameters/OriginHeader" },
+          { "$ref": "#/components/parameters/CsrfToken" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateSupplier" }
+            }
+          }
+        },
+        "x-permission": "suppliers.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "supplier.changed",
+        "x-invariants": [
+          "expectedVersion compare-and-swap; accepted profile change appends a complete immutable SupplierRevision and atomically updates projection, pointer and audit; receipt returns revisionId only.",
+          "State changes use archive endpoint."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/SupplierMutation" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/Unprocessable" }
+        }
+      }
+    },
+    "/v1/staff/suppliers/{supplierId}/revisions": {
+      "parameters": [
+        { "$ref": "#/components/parameters/SupplierId" },
+        { "$ref": "#/components/parameters/Limit" },
+        { "$ref": "#/components/parameters/Cursor" }
+      ],
+      "get": {
+        "operationId": "listSupplierRevisions",
+        "tags": ["supplier-staff"],
+        "summary": "Read immutable supplier profile history",
+        "x-permission": "suppliers.read",
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-invariants": [
+          "Profile snapshots contain historical contacts/requisites/notes and are staff-only; no such values are copied to global AuditEvent."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/SupplierRevisionList" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/v1/staff/suppliers/{supplierId}/archive": {
+      "parameters": [{ "$ref": "#/components/parameters/SupplierId" }],
+      "post": {
+        "operationId": "archiveSupplier",
+        "tags": ["supplier-staff"],
+        "summary": "Archive supplier without deleting offer history",
+        "parameters": [
+          { "$ref": "#/components/parameters/OriginHeader" },
+          { "$ref": "#/components/parameters/CsrfToken" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ArchiveRequest" }
+            }
+          }
+        },
+        "x-permission": "suppliers.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "supplier.archived",
+        "x-invariants": [
+          "One-way state change; does not cascade; archive removes offers from current comparison but preserves history."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/SupplierMutation" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/v1/staff/suppliers/{supplierId}/offers": {
+      "parameters": [{ "$ref": "#/components/parameters/SupplierId" }],
+      "get": {
+        "operationId": "listOffersForSupplier",
+        "tags": ["supplier-staff"],
+        "summary": "List a supplier's offers",
+        "parameters": [
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/Cursor" },
+          { "$ref": "#/components/parameters/FreshnessFilter" }
+        ],
+        "x-permission": "suppliers.offers.read",
+        "x-additional-permissions": ["suppliers.read"],
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-invariants": [
+          "Responses show stale/unknown freshness and current match validity separately."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/OfferList" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/v1/staff/supplier-offers": {
+      "get": {
+        "operationId": "listSupplierOffers",
+        "tags": ["supplier-staff"],
+        "summary": "Compare and filter supplier offers",
+        "parameters": [
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/Cursor" },
+          { "$ref": "#/components/parameters/SupplierIdFilter" },
+          { "$ref": "#/components/parameters/CatalogProductIdFilter" },
+          { "$ref": "#/components/parameters/OfferStateFilter" },
+          { "$ref": "#/components/parameters/FreshnessFilter" },
+          { "$ref": "#/components/parameters/MatchStatusFilter" },
+          { "$ref": "#/components/parameters/CurrencyFilter" },
+          { "$ref": "#/components/parameters/OfferSort" },
+          { "$ref": "#/components/parameters/OfferSortDirection" }
+        ],
+        "x-permission": "suppliers.offers.read",
+        "x-additional-permissions": ["suppliers.read"],
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-invariants": [
+          "Cross-currency rows are grouped and never FX-converted; price sort orders currency groups first and price only within each currency; no best-supplier recommendation or selection. Default ordering is observedAt DESC, id ASC."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/OfferList" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      },
+      "post": {
+        "operationId": "createSupplierOffer",
+        "tags": ["supplier-staff"],
+        "summary": "Create one manual supplier offer without an automatic catalog link",
+        "parameters": [
+          { "$ref": "#/components/parameters/OriginHeader" },
+          { "$ref": "#/components/parameters/CsrfToken" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateSupplierOffer" }
+            }
+          }
+        },
+        "x-permission": "suppliers.offers.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "supplier_offer.created",
+        "x-invariants": [
+          "Active supplier required; first immutable revision is created in the same transaction; currentMatchProposalId starts null. Mutation response contains only id, version and revisionId."
+        ],
+        "responses": {
+          "201": { "$ref": "#/components/responses/OfferMutation" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/Unprocessable" }
+        }
+      }
+    },
+    "/v1/staff/supplier-offers/{offerId}": {
+      "parameters": [{ "$ref": "#/components/parameters/OfferId" }],
+      "get": {
+        "operationId": "getSupplierOffer",
+        "tags": ["supplier-staff"],
+        "summary": "Read offer, current revision, and effective match",
+        "x-permission": "suppliers.offers.read",
+        "x-additional-permissions": ["suppliers.read"],
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-invariants": [
+          "Effective match is CURRENT only while current identities equal the approved snapshots; otherwise REVIEW_REQUIRED."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/Offer" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "patch": {
+        "operationId": "reviseSupplierOffer",
+        "tags": ["supplier-staff"],
+        "summary": "Append one immutable offer revision",
+        "parameters": [
+          { "$ref": "#/components/parameters/OriginHeader" },
+          { "$ref": "#/components/parameters/CsrfToken" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReviseSupplierOffer" }
+            }
+          }
+        },
+        "x-permission": "suppliers.offers.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "supplier_offer.revised",
+        "x-invariants": [
+          "expectedVersion compare-and-swap; full new snapshot appended; historical revision is never overwritten; price change has no CatalogProduct/Quotation side effect. Mutation response contains only id, version and revisionId."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/OfferMutation" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/Unprocessable" }
+        }
+      }
+    },
+    "/v1/staff/supplier-offers/{offerId}/archive": {
+      "parameters": [{ "$ref": "#/components/parameters/OfferId" }],
+      "post": {
+        "operationId": "archiveSupplierOffer",
+        "tags": ["supplier-staff"],
+        "summary": "Archive one offer while preserving its history",
+        "parameters": [
+          { "$ref": "#/components/parameters/OriginHeader" },
+          { "$ref": "#/components/parameters/CsrfToken" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ArchiveRequest" }
+            }
+          }
+        },
+        "x-permission": "suppliers.offers.write",
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "supplier_offer.archived",
+        "x-invariants": [
+          "One-way root transition; does not delete revisions or match decisions. Mutation response contains only id and version."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/OfferMutation" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/v1/staff/supplier-offers/{offerId}/revisions": {
+      "parameters": [{ "$ref": "#/components/parameters/OfferId" }],
+      "get": {
+        "operationId": "listSupplierOfferRevisions",
+        "tags": ["supplier-staff"],
+        "summary": "Read immutable offer history",
+        "parameters": [
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/Cursor" }
+        ],
+        "x-permission": "suppliers.offers.read",
+        "x-additional-permissions": ["suppliers.read"],
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-invariants": [
+          "All revisions are private and ordered newest first; no revision is deleted by stale/expiry/archive."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/RevisionList" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/v1/staff/supplier-offers/{offerId}/match-candidates": {
+      "parameters": [{ "$ref": "#/components/parameters/OfferId" }],
+      "get": {
+        "operationId": "listExactSupplierMatchCandidates",
+        "tags": ["supplier-staff"],
+        "summary": "Find exact identity candidates without linking them",
+        "x-permission": "suppliers.offers.read",
+        "x-additional-permissions": [
+          "suppliers.read",
+          "catalog.products.read",
+          "catalog.references.read"
+        ],
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-invariants": [
+          "Returns only complete exact frozen R1-004 identity tuples; incomplete identity returns no candidates and a reason code; text similarity is never used."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/CandidateList" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/v1/staff/supplier-match-proposals": {
+      "get": {
+        "operationId": "listSupplierMatchProposals",
+        "tags": ["supplier-staff"],
+        "summary": "List one-by-one match proposals for staff review",
+        "parameters": [
+          { "$ref": "#/components/parameters/Limit" },
+          { "$ref": "#/components/parameters/Cursor" },
+          { "$ref": "#/components/parameters/ProposalStateFilter" }
+        ],
+        "x-permission": "suppliers.offers.read",
+        "x-additional-permissions": [
+          "suppliers.read",
+          "catalog.products.read",
+          "catalog.references.read"
+        ],
+        "x-csrf": "NONE",
+        "x-audit": "none",
+        "x-invariants": [
+          "No bulk-decision route; each row preserves its own offer and catalog identity snapshots."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ProposalList" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/v1/staff/supplier-offers/{offerId}/match-proposals": {
+      "parameters": [{ "$ref": "#/components/parameters/OfferId" }],
+      "post": {
+        "operationId": "createSupplierMatchProposal",
+        "tags": ["supplier-staff"],
+        "summary": "Create a pending proposal for one exact candidate",
+        "parameters": [
+          { "$ref": "#/components/parameters/OriginHeader" },
+          { "$ref": "#/components/parameters/CsrfToken" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateMatchProposal" }
+            }
+          }
+        },
+        "x-permission": "suppliers.matches.decide",
+        "x-additional-permissions": [
+          "suppliers.offers.read",
+          "suppliers.read",
+          "catalog.products.read",
+          "catalog.references.read"
+        ],
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "supplier_match.proposed",
+        "x-invariants": [
+          "The target product must be in the exact candidate response; proposal remains PENDING; current offer link is unchanged."
+        ],
+        "responses": {
+          "201": { "$ref": "#/components/responses/Proposal" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/Unprocessable" }
+        }
+      }
+    },
+    "/v1/staff/supplier-match-proposals/{proposalId}/decision": {
+      "parameters": [{ "$ref": "#/components/parameters/ProposalId" }],
+      "post": {
+        "operationId": "decideSupplierMatchProposal",
+        "tags": ["supplier-staff"],
+        "summary": "Approve or reject one pending proposal",
+        "parameters": [
+          { "$ref": "#/components/parameters/OriginHeader" },
+          { "$ref": "#/components/parameters/CsrfToken" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DecideMatchProposal" }
+            }
+          }
+        },
+        "x-permission": "suppliers.matches.decide",
+        "x-additional-permissions": [
+          "suppliers.offers.read",
+          "suppliers.read",
+          "catalog.products.read",
+          "catalog.references.read"
+        ],
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "supplier_match.approved|supplier_match.rejected",
+        "x-invariants": [
+          "Locks offer, proposal and product; revalidates expected versions, exact current identity and expected current pointer; writes one terminal decision, pointer and success audit atomically. A terminal proposal cannot be changed. Approval may replace only the exact expected current pointer."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/Proposal" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/Unprocessable" }
+        }
+      }
+    },
+    "/v1/staff/supplier-offers/{offerId}/match/unlink": {
+      "parameters": [{ "$ref": "#/components/parameters/OfferId" }],
+      "post": {
+        "operationId": "unlinkSupplierOfferMatch",
+        "tags": ["supplier-staff"],
+        "summary": "Clear one current match with an audited reason",
+        "parameters": [
+          { "$ref": "#/components/parameters/OriginHeader" },
+          { "$ref": "#/components/parameters/CsrfToken" },
+          { "$ref": "#/components/parameters/IdempotencyKey" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UnlinkMatch" }
+            }
+          }
+        },
+        "x-permission": "suppliers.matches.decide",
+        "x-additional-permissions": [
+          "suppliers.offers.read",
+          "suppliers.read",
+          "catalog.products.read",
+          "catalog.references.read"
+        ],
+        "x-csrf": "STAFF_BOUND",
+        "x-audit": "supplier_match.unlinked",
+        "x-invariants": [
+          "Expected current proposal and offer version must match; proposal history is unchanged; unlink is never implicit."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/Offer" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/v1/staff/suppliers/{supplierId}/audit": {
+      "parameters": [
+        { "$ref": "#/components/parameters/SupplierId" },
+        { "$ref": "#/components/parameters/Limit" },
+        { "$ref": "#/components/parameters/Cursor" }
+      ],
+      "get": {
+        "operationId": "listSupplierAudit",
+        "tags": ["supplier-staff"],
+        "summary": "Read sanitized audit history for one supplier",
+        "x-permission": "suppliers.read",
+        "x-additional-permissions": ["audit.read"],
+        "x-csrf": "NONE",
+        "x-audit": "supplier.audit.read",
+        "x-invariants": [
+          "Audit DTO contains IDs, actor, time, action, bounded reason codes and changed-field names only; no contacts, notes, offer cost or raw provenance."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AuditList" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/v1/staff/supplier-offers/{offerId}/audit": {
+      "parameters": [
+        { "$ref": "#/components/parameters/OfferId" },
+        { "$ref": "#/components/parameters/Limit" },
+        { "$ref": "#/components/parameters/Cursor" }
+      ],
+      "get": {
+        "operationId": "listSupplierOfferAudit",
+        "tags": ["supplier-staff"],
+        "summary": "Read sanitized audit history for one offer",
+        "x-permission": "suppliers.offers.read",
+        "x-additional-permissions": ["suppliers.read", "audit.read"],
+        "x-csrf": "NONE",
+        "x-audit": "supplier.audit.read",
+        "x-invariants": [
+          "Audit DTO never returns raw cost, source URL, contact, note or request body; revision details use the separate offer-read route."
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/AuditList" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "staffCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-stdu_staff",
+        "description": "Exact frozen R1-002 opaque HttpOnly staff cookie; clients use credentials:include and never construct a token."
+      }
+    },
+    "parameters": {
+      "OriginHeader": {
+        "name": "Origin",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "description": "Must exactly match the configured trusted origin."
+      },
+      "CsrfToken": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "minLength": 32, "maxLength": 256 }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "minLength": 8, "maxLength": 128 },
+        "description": "Same key and canonical payload replays the original result; key reuse with a different payload returns IDEMPOTENCY_KEY_REUSED."
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 512,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      },
+      "SupplierId": {
+        "name": "supplierId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "OfferId": {
+        "name": "offerId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "ProposalId": {
+        "name": "proposalId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "SupplierIdFilter": {
+        "name": "supplierId",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "CatalogProductIdFilter": {
+        "name": "catalogProductId",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "SupplierStateFilter": {
+        "name": "state",
+        "in": "query",
+        "required": false,
+        "schema": { "$ref": "#/components/schemas/RootState" }
+      },
+      "OfferStateFilter": {
+        "name": "state",
+        "in": "query",
+        "required": false,
+        "schema": { "$ref": "#/components/schemas/RootState" }
+      },
+      "FreshnessFilter": {
+        "name": "freshness",
+        "in": "query",
+        "required": false,
+        "schema": { "$ref": "#/components/schemas/Freshness" }
+      },
+      "MatchStatusFilter": {
+        "name": "matchStatus",
+        "in": "query",
+        "required": false,
+        "schema": { "$ref": "#/components/schemas/MatchStatus" }
+      },
+      "CurrencyFilter": {
+        "name": "currency",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string", "pattern": "^[A-Z]{3}$" }
+      },
+      "OfferSort": {
+        "name": "sortBy",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": ["observedAt", "purchaseCost", "supplierName"],
+          "default": "observedAt"
+        }
+      },
+      "OfferSortDirection": {
+        "name": "sortDirection",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": ["ASC", "DESC"],
+          "default": "DESC"
+        }
+      },
+      "ProposalStateFilter": {
+        "name": "state",
+        "in": "query",
+        "required": false,
+        "schema": { "$ref": "#/components/schemas/ProposalState" }
+      }
+    },
+    "schemas": {
+      "RootState": { "type": "string", "enum": ["ACTIVE", "ARCHIVED"] },
+      "Freshness": {
+        "type": "string",
+        "enum": ["CURRENT", "STALE", "UNKNOWN"]
+      },
+      "MatchStatus": {
+        "type": "string",
+        "enum": ["CURRENT", "REVIEW_REQUIRED", "UNMATCHED"]
+      },
+      "ProposalState": {
+        "type": "string",
+        "enum": ["PENDING", "APPROVED", "REJECTED"]
+      },
+      "ModificationEvidence": {
+        "type": "string",
+        "enum": ["SPECIFIED", "CONFIRMED_NONE", "UNKNOWN"]
+      },
+      "PurchaseCost": {
+        "type": "string",
+        "maxLength": 64,
+        "pattern": "^(?:[1-9][0-9]*(?:\\.[0-9]*[1-9])?|0\\.[0-9]*[1-9])$",
+        "description": "Positive canonical base-10 decimal string, no exponent or trailing zero; never a JSON number."
+      },
+      "Supplier": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "legalName",
+          "state",
+          "version",
+          "currentRevisionId",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "legalName": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "shortName": { "type": ["string", "null"], "maxLength": 160 },
+          "taxIdentifier": { "type": ["string", "null"], "maxLength": 64 },
+          "taxJurisdiction": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Z]{2}$"
+          },
+          "contactName": { "type": ["string", "null"], "maxLength": 160 },
+          "email": {
+            "type": ["string", "null"],
+            "format": "email",
+            "maxLength": 254
+          },
+          "phone": { "type": ["string", "null"], "maxLength": 64 },
+          "website": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "internalNotes": { "type": ["string", "null"], "maxLength": 4000 },
+          "state": { "$ref": "#/components/schemas/RootState" },
+          "version": { "type": "integer", "minimum": 1 },
+          "currentRevisionId": { "type": "string", "format": "uuid" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateSupplier": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["legalName"],
+        "properties": {
+          "legalName": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "shortName": { "type": ["string", "null"], "maxLength": 160 },
+          "taxIdentifier": { "type": ["string", "null"], "maxLength": 64 },
+          "taxJurisdiction": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Z]{2}$"
+          },
+          "contactName": { "type": ["string", "null"], "maxLength": 160 },
+          "email": {
+            "type": ["string", "null"],
+            "format": "email",
+            "maxLength": 254
+          },
+          "phone": { "type": ["string", "null"], "maxLength": 64 },
+          "website": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "internalNotes": { "type": ["string", "null"], "maxLength": 4000 }
+        }
+      },
+      "UpdateSupplier": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion"],
+        "properties": {
+          "expectedVersion": { "type": "integer", "minimum": 1 },
+          "legalName": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "shortName": { "type": ["string", "null"], "maxLength": 160 },
+          "taxIdentifier": { "type": ["string", "null"], "maxLength": 64 },
+          "taxJurisdiction": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Z]{2}$"
+          },
+          "contactName": { "type": ["string", "null"], "maxLength": 160 },
+          "email": {
+            "type": ["string", "null"],
+            "format": "email",
+            "maxLength": 254
+          },
+          "phone": { "type": ["string", "null"], "maxLength": 64 },
+          "website": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "internalNotes": { "type": ["string", "null"], "maxLength": 4000 }
+        }
+      },
+      "IdentityFields": {
+        "type": "object",
+        "required": [
+          "brandId",
+          "manufacturerName",
+          "originalPartNumber",
+          "modification",
+          "modificationEvidence"
+        ],
+        "properties": {
+          "brandId": { "type": ["string", "null"], "format": "uuid" },
+          "sourceBrandText": { "type": ["string", "null"], "maxLength": 160 },
+          "manufacturerName": { "type": ["string", "null"], "maxLength": 160 },
+          "originalPartNumber": {
+            "type": ["string", "null"],
+            "maxLength": 160
+          },
+          "modification": { "type": ["string", "null"], "maxLength": 160 },
+          "modificationEvidence": {
+            "$ref": "#/components/schemas/ModificationEvidence"
+          }
+        }
+      },
+      "OfferRevisionFields": {
+        "allOf": [
+          { "$ref": "#/components/schemas/IdentityFields" },
+          {
+            "type": "object",
+            "properties": {
+              "supplierPartNumber": {
+                "type": ["string", "null"],
+                "maxLength": 160
+              },
+              "offerName": { "type": ["string", "null"], "maxLength": 240 },
+              "purchaseCost": {
+                "oneOf": [
+                  { "$ref": "#/components/schemas/PurchaseCost" },
+                  { "type": "null" }
+                ]
+              },
+              "currency": {
+                "type": ["string", "null"],
+                "pattern": "^[A-Z]{3}$"
+              },
+              "sourceVatText": { "type": ["string", "null"], "maxLength": 160 },
+              "availabilityText": {
+                "type": ["string", "null"],
+                "maxLength": 500
+              },
+              "leadTimeText": { "type": ["string", "null"], "maxLength": 160 },
+              "sourceObservedAt": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              },
+              "expiresAt": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              },
+              "sourceUrl": {
+                "type": ["string", "null"],
+                "format": "uri",
+                "pattern": "^https?://",
+                "maxLength": 2048
+              }
+            }
+          }
+        ]
+      },
+      "CreateSupplierOffer": {
+        "allOf": [
+          { "$ref": "#/components/schemas/OfferRevisionFields" },
+          {
+            "type": "object",
+            "required": ["supplierId"],
+            "properties": {
+              "supplierId": { "type": "string", "format": "uuid" }
+            }
+          }
+        ],
+        "unevaluatedProperties": false
+      },
+      "ReviseSupplierOffer": {
+        "allOf": [
+          { "$ref": "#/components/schemas/OfferRevisionFields" },
+          {
+            "type": "object",
+            "required": ["expectedVersion"],
+            "properties": {
+              "expectedVersion": { "type": "integer", "minimum": 1 }
+            }
+          }
+        ],
+        "unevaluatedProperties": false
+      },
+      "ArchiveRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expectedVersion", "reasonCode"],
+        "properties": {
+          "expectedVersion": { "type": "integer", "minimum": 1 },
+          "reasonCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "reason": { "type": ["string", "null"], "maxLength": 500 }
+        }
+      },
+      "SupplierRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "supplierId",
+          "revisionNo",
+          "legalName",
+          "shortName",
+          "taxIdentifier",
+          "taxJurisdiction",
+          "contactName",
+          "email",
+          "phone",
+          "website",
+          "internalNotes",
+          "recordedAt",
+          "recordedByStaffUserId"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "supplierId": { "type": "string", "format": "uuid" },
+          "revisionNo": { "type": "integer", "minimum": 1 },
+          "legalName": { "type": "string", "minLength": 1, "maxLength": 240 },
+          "shortName": { "type": ["string", "null"], "maxLength": 160 },
+          "taxIdentifier": { "type": ["string", "null"], "maxLength": 64 },
+          "taxJurisdiction": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Z]{2}$"
+          },
+          "contactName": { "type": ["string", "null"], "maxLength": 160 },
+          "email": {
+            "type": ["string", "null"],
+            "format": "email",
+            "maxLength": 254
+          },
+          "phone": { "type": ["string", "null"], "maxLength": 64 },
+          "website": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "internalNotes": { "type": ["string", "null"], "maxLength": 4000 },
+          "recordedAt": { "type": "string", "format": "date-time" },
+          "recordedByStaffUserId": { "type": "string", "format": "uuid" }
+        }
+      },
+      "OfferRevision": {
+        "allOf": [
+          { "$ref": "#/components/schemas/OfferRevisionFields" },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "revisionNo",
+              "origin",
+              "recordedAt",
+              "recordedByStaffUserId"
+            ],
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "revisionNo": { "type": "integer", "minimum": 1 },
+              "origin": { "type": "string", "enum": ["MANUAL"] },
+              "recordedAt": { "type": "string", "format": "date-time" },
+              "recordedByStaffUserId": { "type": "string", "format": "uuid" }
+            }
+          }
+        ],
+        "unevaluatedProperties": false
+      },
+      "SupplierOffer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "supplierId",
+          "supplierName",
+          "state",
+          "version",
+          "currentRevision",
+          "freshness",
+          "matchStatus",
+          "currentMatchProposalId"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "supplierId": { "type": "string", "format": "uuid" },
+          "supplierName": { "type": "string", "maxLength": 240 },
+          "catalogProductId": { "type": ["string", "null"], "format": "uuid" },
+          "state": { "$ref": "#/components/schemas/RootState" },
+          "version": { "type": "integer", "minimum": 1 },
+          "currentMatchProposalId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "currentRevision": { "$ref": "#/components/schemas/OfferRevision" },
+          "freshness": { "$ref": "#/components/schemas/Freshness" },
+          "matchStatus": { "$ref": "#/components/schemas/MatchStatus" }
+        }
+      },
+      "CreateMatchProposal": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "productId",
+          "expectedOfferVersion",
+          "expectedProductVersion"
+        ],
+        "properties": {
+          "productId": { "type": "string", "format": "uuid" },
+          "expectedOfferVersion": { "type": "integer", "minimum": 1 },
+          "expectedProductVersion": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "MatchCandidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "productId",
+          "productVersion",
+          "brandId",
+          "manufacturerName",
+          "originalPartNumber",
+          "modification",
+          "identityEvidenceKind"
+        ],
+        "properties": {
+          "productId": { "type": "string", "format": "uuid" },
+          "productVersion": { "type": "integer", "minimum": 1 },
+          "brandId": { "type": "string", "format": "uuid" },
+          "brandName": { "type": "string", "maxLength": 160 },
+          "manufacturerName": { "type": "string", "maxLength": 160 },
+          "originalPartNumber": { "type": "string", "maxLength": 160 },
+          "modification": { "type": ["string", "null"], "maxLength": 160 },
+          "identityEvidenceKind": {
+            "type": "string",
+            "const": "STRICT_IDENTITY_EXACT"
+          }
+        }
+      },
+      "Proposal": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "offerId",
+          "productId",
+          "state",
+          "evidenceKind",
+          "version",
+          "createdAt",
+          "currentForOffer"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "offerId": { "type": "string", "format": "uuid" },
+          "offerRevisionId": { "type": "string", "format": "uuid" },
+          "productId": { "type": "string", "format": "uuid" },
+          "state": { "$ref": "#/components/schemas/ProposalState" },
+          "evidenceKind": {
+            "type": "string",
+            "const": "STRICT_IDENTITY_EXACT"
+          },
+          "version": { "type": "integer", "minimum": 1 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "decidedAt": { "type": ["string", "null"], "format": "date-time" },
+          "decisionReasonCode": { "type": ["string", "null"], "maxLength": 64 },
+          "decisionComment": { "type": ["string", "null"], "maxLength": 1000 },
+          "currentForOffer": { "type": "boolean" }
+        }
+      },
+      "DecideMatchProposal": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision",
+          "expectedVersion",
+          "expectedOfferVersion",
+          "expectedProductVersion",
+          "expectedCurrentMatchProposalId",
+          "reasonCode"
+        ],
+        "properties": {
+          "decision": { "type": "string", "enum": ["APPROVE", "REJECT"] },
+          "expectedVersion": { "type": "integer", "minimum": 1 },
+          "expectedOfferVersion": { "type": "integer", "minimum": 1 },
+          "expectedProductVersion": { "type": "integer", "minimum": 1 },
+          "expectedCurrentMatchProposalId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "reasonCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        }
+      },
+      "UnlinkMatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expectedVersion",
+          "expectedCurrentMatchProposalId",
+          "reasonCode",
+          "reason"
+        ],
+        "properties": {
+          "expectedVersion": { "type": "integer", "minimum": 1 },
+          "expectedCurrentMatchProposalId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "reasonCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+          },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        }
+      },
+      "AuditEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "action",
+          "entityId",
+          "actorId",
+          "createdAt",
+          "changedFieldNames",
+          "reasonCode"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "action": { "type": "string", "maxLength": 80 },
+          "entityId": { "type": "string", "format": "uuid" },
+          "actorId": { "type": "string", "format": "uuid" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "changedFieldNames": {
+            "type": "array",
+            "maxItems": 32,
+            "items": { "type": "string", "maxLength": 80 }
+          },
+          "reasonCode": { "type": ["string", "null"], "maxLength": 64 }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId"],
+        "properties": {
+          "requestId": { "type": "string", "format": "uuid" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "nextCursor": { "type": ["string", "null"], "maxLength": 512 }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "requestId"],
+        "properties": {
+          "code": { "type": "string", "maxLength": 80 },
+          "message": { "type": "string", "maxLength": 500 },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 120 }
+            }
+          },
+          "requestId": { "type": "string", "format": "uuid" }
+        }
+      },
+      "SupplierListResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Supplier" }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "SupplierRevisionListResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SupplierRevision" }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "SupplierResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Supplier" },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "SupplierMutationReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version"],
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "version": { "type": "integer", "minimum": 1 },
+              "revisionId": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Present for create or profile edit; omitted for archive. No private profile values are returned."
+              }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "OfferListResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SupplierOffer" }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "OfferResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/SupplierOffer" },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "OfferMutationReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version"],
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "version": { "type": "integer", "minimum": 1 },
+              "revisionId": { "type": "string", "format": "uuid" }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "RevisionListResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/OfferRevision" }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "CandidateListResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["identityComplete", "candidates"],
+            "properties": {
+              "identityComplete": { "type": "boolean" },
+              "reasonCode": { "type": ["string", "null"], "maxLength": 64 },
+              "candidates": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/MatchCandidate" }
+              }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "ProposalListResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Proposal" }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "ProposalResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Proposal" },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "AuditListResponse": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AuditEvent" }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "No active staff session.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Permission, Origin or CSRF denied.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Unknown or inaccessible object.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Invalid DTO.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "OCC, identity, state, uniqueness or idempotency-key conflict; no partial mutation.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Unprocessable": {
+        "description": "Semantically incomplete or invalid source facts; no mutation.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "Staff action rate limited.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "SupplierList": {
+        "description": "Supplier page.",
+        "headers": {
+          "Cache-Control": {
+            "schema": { "type": "string", "const": "no-store" }
+          },
+          "X-Request-Id": { "schema": { "type": "string", "format": "uuid" } }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/SupplierListResponse" }
+          }
+        }
+      },
+      "SupplierRevisionList": {
+        "description": "Private immutable supplier profile revisions.",
+        "headers": {
+          "Cache-Control": {
+            "schema": { "type": "string", "const": "no-store" }
+          },
+          "X-Request-Id": { "schema": { "type": "string", "format": "uuid" } }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SupplierRevisionListResponse"
+            }
+          }
+        }
+      },
+      "Supplier": {
+        "description": "Supplier DTO.",
+        "headers": {
+          "Cache-Control": {
+            "schema": { "type": "string", "const": "no-store" }
+          },
+          "X-Request-Id": { "schema": { "type": "string", "format": "uuid" } }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/SupplierResponse" }
+          }
+        }
+      },
+      "SupplierMutation": {
+        "description": "Mutation receipt only; read-protected supplier details require suppliers.read.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/SupplierMutationReceipt" }
+          }
+        }
+      },
+      "OfferList": {
+        "description": "Private offer page.",
+        "headers": {
+          "Cache-Control": {
+            "schema": { "type": "string", "const": "no-store" }
+          },
+          "X-Request-Id": { "schema": { "type": "string", "format": "uuid" } }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/OfferListResponse" }
+          }
+        }
+      },
+      "Offer": {
+        "description": "Private offer DTO.",
+        "headers": {
+          "Cache-Control": {
+            "schema": { "type": "string", "const": "no-store" }
+          },
+          "X-Request-Id": { "schema": { "type": "string", "format": "uuid" } }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/OfferResponse" }
+          }
+        }
+      },
+      "OfferMutation": {
+        "description": "Mutation receipt only; purchase cost and supplier detail are not returned by write-only permission.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/OfferMutationReceipt" }
+          }
+        }
+      },
+      "RevisionList": {
+        "description": "Private immutable offer revisions.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/RevisionListResponse" }
+          }
+        }
+      },
+      "CandidateList": {
+        "description": "Exact candidates only; never an automatic link.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/CandidateListResponse" }
+          }
+        }
+      },
+      "ProposalList": {
+        "description": "Paged one-at-a-time decision queue.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ProposalListResponse" }
+          }
+        }
+      },
+      "Proposal": {
+        "description": "Proposal after a single create/decision command.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ProposalResponse" }
+          }
+        }
+      },
+      "AuditList": {
+        "description": "Sanitized audit history.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/AuditListResponse" }
+          }
+        }
+      }
+    }
+  }
+}

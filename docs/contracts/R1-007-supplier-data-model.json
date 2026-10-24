@@ -1,0 +1,206 @@
+{
+  "status": "PROPOSED",
+  "version": "0.1.0-proposed",
+  "baseline": "1e3c24cdd04628180f600f28aab0f88c37f23eb8",
+  "extends": [
+    "FROZEN R1-002 1.0.0",
+    "FROZEN R1-004 1.0.0",
+    "FROZEN R1-006A 1.0.0"
+  ],
+  "rules": {
+    "ids": "UUIDv4 CSPRNG",
+    "time": "UTC timestamptz(6)",
+    "delete": "No hard delete; ON DELETE/UPDATE RESTRICT; archive preserves history",
+    "money": "Exact PostgreSQL NUMERIC/Prisma Decimal; canonical decimal string on wire; never binary float; currency required when purchaseCost is present; no default currency or FX conversion",
+    "supplier": "Supplier is an external counterparty and is not SellerLegalEntity; no automatic name/identifier merge; tax-id uniqueness awaits OD-007A-01",
+    "offerRevision": "Every accepted content edit appends an immutable complete revision; currentRevisionId points to latest revision; source facts are nullable and never inferred",
+    "identity": {
+      "fields": [
+        "brandId",
+        "manufacturerName",
+        "originalPartNumber",
+        "modification"
+      ],
+      "brandId": "Explicit FK to an existing ACTIVE R1-004 Brand; not inferred from text",
+      "normalization": "Same frozen R1-004 normalization: Unicode NFC and trim only outer U+0020; preserve case, internal whitespace, punctuation and hyphens; compare text with PostgreSQL COLLATE C",
+      "modificationEvidence": ["SPECIFIED", "CONFIRMED_NONE", "UNKNOWN"],
+      "unknownModification": "UNKNOWN never matches NULL CatalogProduct.modification; CONFIRMED_NONE is an explicit human statement and may match NULL",
+      "automaticMatch": "Exact candidate only; no name similarity, supplierPartNumber substitution, analogues or auto-association"
+    },
+    "matchProposal": "PENDING -> APPROVED|REJECTED; decision is terminal; an approved proposal is historical and only the SupplierOffer.currentMatchProposalId pointer identifies selected association",
+    "currentMatch": "Effective only while current offer and CatalogProduct tuples both still equal the approved identity snapshots; otherwise derived REVIEW_REQUIRED and never usable for costing",
+    "freshness": "Explicit expiresAt wins; otherwise sourceObservedAt ?? recordedAt plus owner-approved configured window; no configured window means UNKNOWN",
+    "concurrency": "Root/proposal expectedVersion compare-and-swap; offer/product rows locked and identity revalidated in same transaction as decision and success AuditEvent",
+    "audit": "Success domain mutation and AuditEvent share one PostgreSQL transaction; audit payload excludes raw contact, note, source URL, purchase amount, credentials and request body",
+    "visibility": "Staff-only endpoints and no-store responses; no supplier fields or cost in Public DTOs"
+  },
+  "tables": {
+    "Supplier": {
+      "fields": {
+        "id": "uuid PK",
+        "legalName": "varchar(240) NOT NULL",
+        "shortName": "varchar(160) NULL",
+        "taxIdentifier": "varchar(64) NULL",
+        "taxJurisdiction": "varchar(2) NULL",
+        "contactName": "varchar(160) NULL",
+        "email": "varchar(254) NULL",
+        "phone": "varchar(64) NULL",
+        "website": "varchar(2048) NULL",
+        "internalNotes": "varchar(4000) NULL",
+        "state": "text NOT NULL ACTIVE|ARCHIVED",
+        "currentRevisionId": "uuid NOT NULL; composite FK (currentRevisionId, Supplier.id) -> SupplierRevision(id, supplierId), DEFERRABLE INITIALLY DEFERRED",
+        "version": "integer NOT NULL DEFAULT 1 CHECK > 0",
+        "createdByStaffUserId": "uuid FK StaffUser RESTRICT",
+        "updatedByStaffUserId": "uuid FK StaffUser RESTRICT",
+        "createdAt": "timestamptz(6) NOT NULL",
+        "updatedAt": "timestamptz(6) NOT NULL"
+      },
+      "unique": [["currentRevisionId"]],
+      "indexes": [["state", "updatedAt", "id"]],
+      "checks": [
+        "trimmed legalName length 1..240",
+        "state in ACTIVE|ARCHIVED",
+        "version > 0",
+        "current root profile fields equal current SupplierRevision under deferred transaction guard",
+        "tax-identifier jurisdiction/uniqueness is subject to OD-007A-01"
+      ],
+      "deletePolicy": "No hard delete; archived records remain readable by permission"
+    },
+    "SupplierRevision": {
+      "fields": {
+        "id": "uuid PK",
+        "supplierId": "uuid FK Supplier RESTRICT",
+        "revisionNo": "integer NOT NULL CHECK > 0",
+        "legalName": "varchar(240) NOT NULL",
+        "shortName": "varchar(160) NULL",
+        "taxIdentifier": "varchar(64) NULL",
+        "taxJurisdiction": "varchar(2) NULL",
+        "contactName": "varchar(160) NULL",
+        "email": "varchar(254) NULL",
+        "phone": "varchar(64) NULL",
+        "website": "varchar(2048) NULL",
+        "internalNotes": "varchar(4000) NULL",
+        "recordedAt": "timestamptz(6) NOT NULL",
+        "recordedByStaffUserId": "uuid FK StaffUser RESTRICT"
+      },
+      "unique": [
+        ["id", "supplierId"],
+        ["supplierId", "revisionNo"]
+      ],
+      "indexes": [["supplierId", "revisionNo DESC"]],
+      "checks": ["trimmed legalName length 1..240"],
+      "immutability": "Append-only complete profile snapshots; no UPDATE/DELETE after transaction commit"
+    },
+    "SupplierOffer": {
+      "fields": {
+        "id": "uuid PK",
+        "supplierId": "uuid FK Supplier RESTRICT",
+        "state": "text NOT NULL ACTIVE|ARCHIVED",
+        "currentRevisionId": "uuid NOT NULL; composite FK (currentRevisionId, SupplierOffer.id) -> SupplierOfferRevision(id, offerId), DEFERRABLE INITIALLY DEFERRED",
+        "currentMatchProposalId": "uuid NULL; composite FK (currentMatchProposalId, SupplierOffer.id) -> ProductMatchProposal(id, offerId), DEFERRABLE INITIALLY DEFERRED",
+        "version": "integer NOT NULL DEFAULT 1 CHECK > 0",
+        "createdByStaffUserId": "uuid FK StaffUser RESTRICT",
+        "updatedByStaffUserId": "uuid FK StaffUser RESTRICT",
+        "createdAt": "timestamptz(6) NOT NULL",
+        "updatedAt": "timestamptz(6) NOT NULL"
+      },
+      "primaryKey": ["id"],
+      "unique": [["currentMatchProposalId"]],
+      "indexes": [
+        ["supplierId", "state", "updatedAt", "id"],
+        ["state", "updatedAt", "id"]
+      ],
+      "checks": ["state in ACTIVE|ARCHIVED", "version > 0"],
+      "deletePolicy": "No hard delete; archive keeps revisions, matches and audit; no unique supplier/product/part-number constraint"
+    },
+    "SupplierOfferRevision": {
+      "fields": {
+        "id": "uuid PK",
+        "offerId": "uuid FK SupplierOffer RESTRICT",
+        "revisionNo": "integer NOT NULL CHECK > 0",
+        "supplierPartNumber": "varchar(160) NULL",
+        "offerName": "varchar(240) NULL",
+        "sourceBrandText": "varchar(160) NULL",
+        "brandId": "uuid NULL FK Brand RESTRICT",
+        "manufacturerName": "varchar(160) NULL",
+        "originalPartNumber": "varchar(160) NULL",
+        "modification": "varchar(160) NULL",
+        "modificationEvidence": "text NOT NULL SPECIFIED|CONFIRMED_NONE|UNKNOWN",
+        "purchaseCost": "numeric NULL CHECK > 0",
+        "currency": "varchar(3) NULL",
+        "sourceVatText": "varchar(160) NULL",
+        "availabilityText": "varchar(500) NULL",
+        "leadTimeText": "varchar(160) NULL",
+        "sourceObservedAt": "timestamptz(6) NULL",
+        "expiresAt": "timestamptz(6) NULL",
+        "sourceUrl": "varchar(2048) NULL; http(s) only; never fetched by server",
+        "origin": "text NOT NULL MANUAL",
+        "recordedAt": "timestamptz(6) NOT NULL",
+        "recordedByStaffUserId": "uuid FK StaffUser RESTRICT",
+        "createdAt": "timestamptz(6) NOT NULL"
+      },
+      "unique": [
+        ["id", "offerId"],
+        ["offerId", "revisionNo"]
+      ],
+      "indexes": [
+        ["offerId", "revisionNo DESC"],
+        ["brandId", "manufacturerName", "originalPartNumber", "modification"]
+      ],
+      "checks": [
+        "currency is NULL or matches ^[A-Z]{3}$",
+        "non-null purchaseCost requires non-null currency; currency can be present without cost",
+        "SPECIFIED requires non-empty modification",
+        "CONFIRMED_NONE and UNKNOWN require modification NULL",
+        "origin is MANUAL in R1-007"
+      ],
+      "immutability": "Append-only; no UPDATE/DELETE after transaction commit"
+    },
+    "ProductMatchProposal": {
+      "fields": {
+        "id": "uuid PK",
+        "offerId": "uuid FK SupplierOffer RESTRICT",
+        "offerRevisionId": "uuid composite FK SupplierOfferRevision(id, offerId) RESTRICT",
+        "proposedProductId": "uuid FK CatalogProduct RESTRICT",
+        "offerIdentitySnapshot": "jsonb with brandId, manufacturerName, originalPartNumber, modification, modificationEvidence",
+        "productIdentitySnapshot": "jsonb with brandId, manufacturerName, originalPartNumber, modification",
+        "evidenceKind": "text NOT NULL STRICT_IDENTITY_EXACT",
+        "state": "text NOT NULL PENDING|APPROVED|REJECTED",
+        "createdByStaffUserId": "uuid FK StaffUser RESTRICT",
+        "createdAt": "timestamptz(6) NOT NULL",
+        "decidedByStaffUserId": "uuid NULL FK StaffUser RESTRICT",
+        "decidedAt": "timestamptz(6) NULL",
+        "decisionReasonCode": "varchar(64) NULL",
+        "decisionComment": "varchar(1000) NULL",
+        "version": "integer NOT NULL DEFAULT 1 CHECK > 0"
+      },
+      "unique": [
+        ["id", "offerId"],
+        ["offerId", "offerRevisionId", "proposedProductId"]
+      ],
+      "indexes": [
+        ["state", "createdAt", "id"],
+        ["offerId", "createdAt", "id"],
+        ["proposedProductId", "createdAt", "id"]
+      ],
+      "checks": [
+        "PENDING has no decision fields",
+        "APPROVED|REJECTED have actor/time/reason",
+        "state in PENDING|APPROVED|REJECTED",
+        "evidenceKind is STRICT_IDENTITY_EXACT",
+        "version > 0"
+      ],
+      "deletePolicy": "Append-only decision history; no delete or reversal; a replacement approved proposal moves the offer current pointer"
+    }
+  },
+  "excluded": [
+    "SellerLegalEntity",
+    "SupplierSource",
+    "IngestionRun",
+    "purchase orders",
+    "warehouse/stock",
+    "scheduled jobs",
+    "public supplier APIs",
+    "catalog product creation"
+  ]
+}
