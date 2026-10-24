@@ -18,7 +18,7 @@ BRANCH: codex/r1-006a-import-contract
 - Completed the R1-006A proposal across three DB entities, eight staff operations, raw source preview, private bounded parser interface, mapping, idempotency, manual row decisions, audit and tests. Added owner decisions OD-006A-01…05. No R1-002/R1-004 artifact, business code, migration, API implementation or permission registry was changed.
 - Corrected R1-006A after technical review: removed CSV options from mapping schema, added per-sheet fixed ACTIVE category/brand semantics, narrowed raw-import visibility and reference reads, aligned conflict persistence/409/audit/rollback/retry behavior, and specified NDJSON terminal/truncation behavior plus OD-006A-01…05 clarifications.
 - Added focused contract regression coverage. No application code, migrations, frozen RBAC/API artifacts, or business decisions #1–108 changed.
-- Committed the consolidated contract correction package as `7a9bd5ec94e072716c99c15846c28c540e21fbaf`; pushed to existing Draft PR #12. The PR must remain Draft/unmerged pending owner approval of this exact HEAD.
+- Committed the consolidated contract correction package as `7a9bd5ec94e072716c99c15846c28c540e21fbaf` and pushed it with checkpoint updates to existing Draft PR #12. GitHub reports PR #12 open, Draft, unmerged, and at branch HEAD `c7e1905b1cca32f86bac46f5b0458496d31d3c7a`; its body now requests approval of the corrected OD-006A-01…05 package.
 
 ## VERIFIED
 
@@ -35,14 +35,14 @@ BRANCH: codex/r1-006a-import-contract
 - `pnpm catalog:contract:check` — PASS; FROZEN R1-004 artifacts consistent (31 operations: 28 staff + 3 public).
 - `pnpm catalog:contract:test` — PASS, 47/47.
 - pnpm emitted a non-blocking engine warning: repository requests Node 24.19.0; this host ran Node 24.22.1 / pnpm 11.25.0.
-- GitHub Actions was observed running/pending for docs-only commits. Per owner instruction it was not awaited; no application code changed, so CI is treated as green for this docs-only draft. The final checkpoint-only commit also requires no application rerun.
+- Full runtime CI was not run or awaited, per the explicit contract-only scope; application code did not change.
 - Final correction checks: `node --test docs/contracts/check-R1-006-contract.test.mjs` PASS (6/6); Prettier PASS; JSON parse/counts PASS (8 operations, 3 entities); SwaggerParser PASS; generated OpenAPI TypeScript and `tsc --noEmit --skipLibCheck` PASS.
 - Frozen regression checks: `pnpm contract:check` PASS; `pnpm contract:test` PASS (7/7); `pnpm catalog:contract:check` PASS; `pnpm catalog:contract:test` PASS (47/47); `git diff --cached --check` PASS before commit.
 - No runtime CI or independent review was started, per task scope (contract-only changes).
 
 ## UNCOMMITTED
 
-The seven contract/test files are committed in `7a9bd5ec94e072716c99c15846c28c540e21fbaf`; this checkpoint is the only pending bookkeeping change. No other task-owned files are changed.
+The seven contract/test files are committed in `7a9bd5ec94e072716c99c15846c28c540e21fbaf`; checkpoint bookkeeping is committed and pushed. Worktree was clean after push; no other task-owned files are changed.
 
 ## DECISIONS
 
@@ -57,7 +57,7 @@ The seven contract/test files are committed in `7a9bd5ec94e072716c99c15846c28c54
 
 ## NEXT_ACTION
 
-Push the checkpoint bookkeeping commit, verify PR #12 points to the final branch HEAD and remains Draft/unmerged, then present the exact SHA and approval statement. Stop for owner approval; do not implement R1-006B or migrations.
+Await owner approval of the exact corrected PR #12 HEAD and OD-006A-01…05. Keep PR Draft/unmerged; do not implement R1-006B or migrations.
 
 ## DO_NOT_REPEAT
 
