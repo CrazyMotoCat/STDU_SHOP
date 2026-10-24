@@ -1,0 +1,14 @@
+# R1-007 Supplier Staff UI — Proposed 0.1.0
+
+All routes below are protected staff pages. Server-side RBAC is authoritative; hidden controls are not an access check. A denied employee never receives the restricted supplier DTO from the API.
+
+| Route                           | Screen                                                                                                                                                                                                                                                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/staff/suppliers`              | Paginated supplier registry: legal/display name, state, and navigation to details. Offer counts are omitted unless a separately authorized count is added to a later contract. Requires `suppliers.read`.                                                                                                          |
+| `/staff/suppliers/[supplierId]` | Supplier contacts/requisites/internal notes, state, immutable profile history, offer list, immutable offer history and sanitized audit. Each tab/action checks its own permissions.                                                                                                                                |
+| `/staff/suppliers/offers`       | Dense comparison table with supplier, catalog item or unmatched state, supplier and original part numbers, manufacturer/brand/modification evidence, decimal cost/currency, source VAT text, availability, lead time, observed/expiry dates and current/stale/unknown freshness. Requires offer and supplier read. |
+| `/staff/suppliers/matches`      | Paginated PENDING proposal queue; one proposal at a time. Shows supplier offer identity next to the exact CatalogProduct identity tuple and evidence. Requires all proposal decision/read/reference permissions.                                                                                                   |
+
+The comparison table groups mixed currencies and has no FX conversion, “best supplier” badge, auto-sort recommendation, or procurement action. Stale and unknown-freshness rows are explicit. Public pages, public price DTOs and shared site navigation are out of scope.
+
+Match controls are single-row **Approve** / **Reject** actions with reason, expected versions and idempotency. No select-all, batch action, keyboard shortcut or implicit link creation. A separate audited **Unlink** action is available for a current association. Supplier UI uses Graphite & Petrol design tokens but avoids edits to global public styles and R1-018A-owned components.
