@@ -1,0 +1,144 @@
+{
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "extends": "FROZEN R1-002 1.0.0 and FROZEN R1-004 1.0.0; append-only",
+  "entityTypes": ["CatalogImportRun", "CatalogImportRow"],
+  "changesValuePolicy": "Only UUIDs, source format, SHA-256, size, coordinates, mapping hash/version, enumerated state/action/outcome/reason codes and bounded integer counts. Never raw/normalized cells, full mapping, file bytes/name/path/storage key, credentials, or supplier/pricing data.",
+  "actions": {
+    "catalog.import.created": {
+      "entityTypes": ["CatalogImportRun"],
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "VALIDATION_ERROR",
+          "FILE_REJECTED",
+          "FILE_TOO_LARGE",
+          "UNSUPPORTED_MEDIA_TYPE",
+          "IDEMPOTENCY_KEY_REUSED"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": [
+        "sourceSha256",
+        "sourceFormat",
+        "sizeBytes",
+        "state",
+        "parserVersion",
+        "parsedRowCount",
+        "sourceParseIssueCount"
+      ]
+    },
+    "catalog.import.mapping.changed": {
+      "entityTypes": ["CatalogImportRun"],
+      "outcomes": {
+        "SUCCESS": [null],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": [
+        "mappingVersion",
+        "mappingHash",
+        "mappedFieldCount",
+        "version"
+      ]
+    },
+    "catalog.import.preview.completed": {
+      "entityTypes": ["CatalogImportRun"],
+      "outcomes": {
+        "SUCCESS": ["PREVIEW_READY", "PREVIEW_PARTIAL"],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "INVALID_STATE_TRANSITION",
+          "IMPORT_LIMIT_EXCEEDED",
+          "ENCODING_REQUIRED",
+          "INVALID_ENCODING",
+          "FILE_REJECTED"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "INGESTION_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": [
+        "state",
+        "parsedRowCount",
+        "invalidRowCount",
+        "warningRowCount",
+        "parserVersion"
+      ]
+    },
+    "catalog.import.row.decided": {
+      "entityTypes": ["CatalogImportRow"],
+      "outcomes": {
+        "SUCCESS": ["APPLIED", "REJECTED", "HELD"],
+        "DENIED": [
+          "AUTH_REQUIRED",
+          "FORBIDDEN",
+          "ORIGIN_FORBIDDEN",
+          "CSRF_INVALID",
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "VERSION_CONFLICT",
+          "IMPORT_ROW_CONFLICT",
+          "IDENTITY_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "IDEMPOTENCY_KEY_REUSED"
+        ],
+        "FAILURE": [
+          "DEPENDENCY_UNAVAILABLE",
+          "AUDIT_UNAVAILABLE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "changesKeys": [
+        "runId",
+        "sheetIndex",
+        "sourceRowNumber",
+        "action",
+        "outcome",
+        "targetProductId",
+        "resultRevisionId",
+        "expectedRowVersion",
+        "expectedProductVersion"
+      ]
+    },
+    "catalog.import.cross_owner.accessed": {
+      "entityTypes": ["CatalogImportRun", "CatalogImportRow"],
+      "outcomes": {
+        "SUCCESS": ["READ", "MUTATION"],
+        "DENIED": ["AUTH_REQUIRED", "FORBIDDEN", "NOT_FOUND"],
+        "FAILURE": ["AUDIT_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "changesKeys": ["runId", "rowId", "ownerStaffUserId", "accessKind"],
+      "changesValueEnums": { "accessKind": ["READ", "MUTATION"] }
+    }
+  }
+}

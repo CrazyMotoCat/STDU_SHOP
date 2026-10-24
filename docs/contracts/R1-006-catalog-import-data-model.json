@@ -1,0 +1,357 @@
+{
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "basedOn": [
+    "FROZEN R1-002 1.0.0",
+    "FROZEN R1-004 1.0.0",
+    "ADR-001",
+    "ADR-004"
+  ],
+  "entities": {
+    "CatalogImportRun": {
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "required": true,
+          "default": "application UUIDv4 CSPRNG"
+        },
+        "uploaderStaffUserId": {
+          "type": "uuid",
+          "required": true,
+          "references": "StaffUser.id",
+          "onDelete": "RESTRICT"
+        },
+        "sourceFileObjectId": {
+          "type": "uuid",
+          "required": true,
+          "references": "FileObject.id",
+          "onDelete": "RESTRICT"
+        },
+        "sourceFileVersionId": {
+          "type": "uuid",
+          "required": true,
+          "references": "FileVersion.id",
+          "onDelete": "RESTRICT"
+        },
+        "sourceFormat": {
+          "type": "text",
+          "required": true,
+          "enum": ["CSV", "XLSX"]
+        },
+        "sourceEncoding": {
+          "type": "text",
+          "required": false,
+          "enum": ["UTF-8", "WINDOWS-1251", null],
+          "description": "Required for CSV after default/detection; null for XLSX."
+        },
+        "sourceDelimiter": {
+          "type": "text",
+          "required": false,
+          "enum": [",", ";", "\t", null],
+          "description": "Selected/detected CSV delimiter; null for XLSX."
+        },
+        "state": {
+          "type": "text",
+          "required": true,
+          "enum": [
+            "SOURCE_READY",
+            "SOURCE_PARTIAL",
+            "MAPPED",
+            "PREVIEWING",
+            "PREVIEW_READY",
+            "PREVIEW_PARTIAL",
+            "COMPLETED",
+            "COMPLETED_WITH_ISSUES"
+          ]
+        },
+        "mapping": {
+          "type": "jsonb",
+          "required": false,
+          "maxBytes": 2097152,
+          "schemaVersion": 1,
+          "description": "Per-sheet header/column/reference maps plus optional fixedCategoryId and fixedBrandId. Fixed IDs must reference ACTIVE entities; CSV options are immutable run fields and are not part of mapping."
+        },
+        "parserVersion": {
+          "type": "varchar(32)",
+          "required": true,
+          "description": "Version that generated the bounded raw source rows."
+        },
+        "sourceParseIssues": {
+          "type": "jsonb",
+          "required": true,
+          "default": [],
+          "maxBytes": 16384,
+          "schema": "bounded code/message diagnostics without file or cell content"
+        },
+        "mappingVersion": {
+          "type": "int32",
+          "required": true,
+          "default": 0,
+          "minimum": 0
+        },
+        "uploadIdempotencyKey": { "type": "uuid", "required": true },
+        "uploadRequestHash": { "type": "bytea", "required": true, "bytes": 32 },
+        "version": {
+          "type": "int32",
+          "required": true,
+          "default": 1,
+          "minimum": 1
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "required": true,
+          "default": "transaction_timestamp()"
+        },
+        "updatedAt": {
+          "type": "timestamptz(6)",
+          "required": true,
+          "default": "transaction_timestamp()"
+        }
+      },
+      "unique": [["uploaderStaffUserId", "uploadIdempotencyKey"]],
+      "compositeForeignKeys": [
+        {
+          "fields": ["sourceFileVersionId", "sourceFileObjectId"],
+          "references": "FileVersion(id,fileObjectId)",
+          "onDelete": "RESTRICT"
+        }
+      ],
+      "indexes": [
+        ["uploaderStaffUserId", "createdAt", "id"],
+        ["state", "updatedAt", "id"]
+      ],
+      "checks": [
+        "sourceFormat in CSV|XLSX",
+        "CSV sourceEncoding/sourceDelimiter are non-null and XLSX values are null",
+        "sourceParseIssues JSON byte limit enforced",
+        "state in declared enum",
+        "version > 0",
+        "mappingVersion >= 0"
+      ],
+      "immutability": "source file reference, source format, source parsing options, parser version and sourceParseIssues are immutable; mapping changes only before any APPLIED/REJECTED row; run is never physically deleted."
+    },
+    "CatalogImportRow": {
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "required": true,
+          "default": "application UUIDv4 CSPRNG"
+        },
+        "importRunId": {
+          "type": "uuid",
+          "required": true,
+          "references": "CatalogImportRun.id",
+          "onDelete": "RESTRICT"
+        },
+        "sheetIndex": { "type": "int32", "required": true, "minimum": 0 },
+        "sheetName": { "type": "varchar(128)", "required": false },
+        "sourceRowNumber": { "type": "int32", "required": true, "minimum": 1 },
+        "sourceCells": {
+          "type": "jsonb",
+          "required": true,
+          "maxBytes": 1048576,
+          "schema": "typed source cells including optional number format; max 128 columns and 4000 Unicode code points per stored cell"
+        },
+        "normalizedCandidate": {
+          "type": "jsonb",
+          "required": true,
+          "maxBytes": 65536,
+          "schema": "existing CatalogProduct + CatalogProductRevision candidate fields and typed ProductAttributeValue candidates"
+        },
+        "validationIssues": {
+          "type": "jsonb",
+          "required": true,
+          "maxBytes": 16384
+        },
+        "warnings": { "type": "jsonb", "required": true, "maxBytes": 16384 },
+        "candidateState": {
+          "type": "text",
+          "required": true,
+          "enum": [
+            "INVALID",
+            "NEEDS_MAPPING",
+            "HEADER",
+            "IGNORED",
+            "NEW",
+            "EXACT_MATCH",
+            "NO_DEDUP_KEY",
+            "DUPLICATE_IN_RUN",
+            "ARCHIVED_MATCH",
+            "CONFLICT",
+            "APPLIED",
+            "REJECTED",
+            "HELD"
+          ]
+        },
+        "matchedProductId": {
+          "type": "uuid",
+          "required": false,
+          "references": "CatalogProduct.id",
+          "onDelete": "RESTRICT"
+        },
+        "expectedProductVersion": {
+          "type": "int32",
+          "required": false,
+          "minimum": 1
+        },
+        "expectedCurrentRevisionId": {
+          "type": "uuid",
+          "required": false,
+          "references": "CatalogProductRevision.id",
+          "onDelete": "RESTRICT"
+        },
+        "version": {
+          "type": "int32",
+          "required": true,
+          "default": 1,
+          "minimum": 1
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "required": true,
+          "default": "transaction_timestamp()"
+        },
+        "updatedAt": {
+          "type": "timestamptz(6)",
+          "required": true,
+          "default": "transaction_timestamp()"
+        }
+      },
+      "unique": [["importRunId", "sheetIndex", "sourceRowNumber"]],
+      "compositeForeignKeys": [
+        {
+          "fields": ["expectedCurrentRevisionId", "matchedProductId"],
+          "references": "CatalogProductRevision(id,productId)",
+          "onDelete": "RESTRICT"
+        }
+      ],
+      "indexes": [
+        ["importRunId", "sheetIndex", "sourceRowNumber"],
+        ["candidateState", "updatedAt", "id"],
+        ["matchedProductId", "id"]
+      ],
+      "checks": [
+        "sheetIndex >= 0",
+        "sourceRowNumber > 0",
+        "version > 0",
+        "candidateState in declared enum",
+        "JSON byte limits enforced"
+      ],
+      "immutability": "source coordinates and sourceCells are immutable; current normalized/match/state values may change only in audited mapping/preview/decision transactions."
+    },
+    "CatalogImportDecision": {
+      "fields": {
+        "id": {
+          "type": "uuid",
+          "required": true,
+          "default": "application UUIDv4 CSPRNG"
+        },
+        "rowId": {
+          "type": "uuid",
+          "required": true,
+          "references": "CatalogImportRow.id",
+          "onDelete": "RESTRICT"
+        },
+        "actorStaffUserId": {
+          "type": "uuid",
+          "required": true,
+          "references": "StaffUser.id",
+          "onDelete": "RESTRICT"
+        },
+        "idempotencyKey": { "type": "uuid", "required": true },
+        "requestHash": { "type": "bytea", "required": true, "bytes": 32 },
+        "expectedRowVersion": {
+          "type": "int32",
+          "required": true,
+          "minimum": 1
+        },
+        "mappingVersion": { "type": "int32", "required": true, "minimum": 0 },
+        "action": {
+          "type": "text",
+          "required": true,
+          "enum": ["ACCEPT_CREATE", "ACCEPT_REVISION", "REJECT", "HOLD"]
+        },
+        "outcome": {
+          "type": "text",
+          "required": true,
+          "enum": ["APPLIED", "REJECTED", "HELD", "CONFLICT"]
+        },
+        "conflictCode": {
+          "type": "varchar(40)",
+          "required": false,
+          "enum": ["IMPORT_ROW_CONFLICT", "IDENTITY_CONFLICT", null],
+          "description": "Persisted HTTP 409 code for outcome=CONFLICT; null for all other outcomes."
+        },
+        "targetProductId": {
+          "type": "uuid",
+          "required": false,
+          "references": "CatalogProduct.id",
+          "onDelete": "RESTRICT"
+        },
+        "resultRevisionId": {
+          "type": "uuid",
+          "required": false,
+          "references": "CatalogProductRevision.id",
+          "onDelete": "RESTRICT"
+        },
+        "auditEventId": {
+          "type": "uuid",
+          "required": true,
+          "references": "AuditEvent.id",
+          "unique": true,
+          "onDelete": "RESTRICT"
+        },
+        "reasonCode": {
+          "type": "varchar(40)",
+          "required": false,
+          "enum": [
+            "DUPLICATE_REVIEWED",
+            "SOURCE_INCOMPLETE",
+            "DATA_CORRECTED",
+            "OTHER"
+          ]
+        },
+        "createdAt": {
+          "type": "timestamptz(6)",
+          "required": true,
+          "default": "transaction_timestamp()"
+        }
+      },
+      "unique": [["rowId", "idempotencyKey"]],
+      "compositeForeignKeys": [
+        {
+          "fields": ["resultRevisionId", "targetProductId"],
+          "references": "CatalogProductRevision(id,productId)",
+          "onDelete": "RESTRICT"
+        }
+      ],
+      "indexes": [
+        ["rowId", "createdAt", "id"],
+        ["actorStaffUserId", "createdAt", "id"]
+      ],
+      "checks": [
+        "action/outcome in declared enums",
+        "mappingVersion >= 0",
+        "reasonCode in declared enum when present",
+        "outcome=CONFLICT requires a DENIED catalog.import.row.decided AuditEvent and null targetProductId/resultRevisionId",
+        "outcome=CONFLICT iff conflictCode is IMPORT_ROW_CONFLICT or IDENTITY_CONFLICT; all other outcomes require conflictCode null"
+      ],
+      "immutability": "Append-only; at most one decision per (rowId,idempotencyKey). Same-key/same-hash retry returns the stored result without a duplicate decision or audit event."
+    }
+  },
+  "invariants": [
+    "No source file bytes, raw cell values, normalized product text, supplier prices, secrets, or storage keys are copied to AuditEvent.",
+    "A successful decision, CatalogProduct/CatalogProductRevision mutation, ImportRow update, CatalogImportDecision, and success AuditEvent share one PostgreSQL transaction.",
+    "CatalogImportRun uploaderStaffUserId must equal the referenced PRIVATE FileObject ownerStaffUserId.",
+    "Each row decision is a separate command and accepts at most one row.",
+    "ImportRun source SHA/size/MIME/name are read from the immutable referenced FileVersion; no duplicate mutable metadata is stored.",
+    "CatalogImportRun and CatalogImportRow are never physically deleted by API.",
+    "CatalogImportRun uploaderStaffUserId defines default visibility; catalog.products.read alone never grants access to another staff user's raw import rows.",
+    "Cross-owner reads require an ACTIVE actor whose effective permission union contains all FROZEN R1-002 controlAdminRequiredPermissions plus catalog.products.read; cross-owner mapping/preview/decisions additionally require catalog.products.write and catalog.references.read. Role names do not grant either scope.",
+    "Mapping, preview and row decisions require catalog.references.read when resolving or revalidating Brand, Category or AttributeDefinition references; no reference is created automatically.",
+    "For ACCEPT_CREATE/ACCEPT_REVISION conflicts, catalog mutation rolls back first; row candidateState=CONFLICT, one decision outcome=CONFLICT and one DENIED AuditEvent are then committed atomically. Audit failure rolls back the conflict record transaction.",
+    "A same-key/same-hash retry returns the stored decision result without a second decision or audit event; same-key/different-hash returns IDEMPOTENCY_KEY_REUSED without a new decision.",
+    "Cross-owner access is recorded in catalog.import.cross_owner.accessed without raw cells, filenames, file bytes, or storage keys.",
+    "A fixedCategoryId excludes categoryId column/reference mappings and requires every attribute mapping on that sheet to use the same categoryId; fixedBrandId excludes brandId column/reference mappings."
+  ]
+}
