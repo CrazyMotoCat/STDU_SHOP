@@ -1,0 +1,67 @@
+# R1-010 Public Attachment Security Policy — FROZEN 1.0.0
+
+## Trust boundary
+
+Every byte and filename supplied anonymously is untrusted, even after inquiry creation or HTTP success. R1-010 accepts and preserves originals only. It does not parse, render inline, execute, extract archives, OCR, or call FastAPI. R1-011 may parse a source only after an approved scanner state and its own bounded parser checks.
+
+## Identity and authorization
+
+The public form generates a 256-bit capability with Web Crypto when a file is selected and includes it as the `uploadCapability` field of the HTTPS Inquiry-creation JSON body. Creation has no capability header. The API stores only SHA-256(capability), bound to that Inquiry, with a recommended 24-hour expiry; neither success nor error responses echo it. For later upload-intent, byte-upload and cancel requests, the client sends the same capability only in `X-Inquiry-Upload-Capability` over HTTPS. It is never placed in a URL or cookie and is never logged, traced or audited. It authorizes only create/upload/cancel for attachment intents attached to that one Inquiry; it cannot read or enumerate any Inquiry, status, filename, metadata or bytes. UUIDs, publicReference and Idempotency-Key are not authorization credentials.
+
+Each intent is a one-file declaration with immutable inquiry binding, sanitized basename, declared MIME/size, optional expected digest, random UUID, 30-minute start expiry and state. Exact capability, intent, and path inquiry must all match. An upload stream may start only while the intent is ISSUED and unexpired. Starting a stream atomically changes it to RECEIVING and sets `receivingStartedAt` plus `receivingDeadlineAt` using the immutable profile captured on its parent Inquiry (15 minutes for MVP_SAFE; 60 minutes for ENGINEERING_DOCUMENTS). The start expiry does not abort an already RECEIVING stream; the stream must finish before its receiving deadline. If it does not, abort it, mark the intent FAILED, attach no document and clean only the exact owned temporary bytes. RECEIVING reservations remain counted against the Inquiry quota until completion, failure or that deadline, even if the intent's start expiry passes.
+
+Intent reservation and upload completion lock the Inquiry row and recheck completed documents using actual bytes plus ISSUED intents with future start expiry using declared bytes plus RECEIVING intents before their receiving deadline using declared bytes. This prevents concurrent intents or streams from exceeding the per-Inquiry file-count/byte quotas. A successful stream must not exceed declared size; actual persisted size is authoritative for the completed-file quota. One successful byte stream consumes the intent once; duplicate bytes with the same successful idempotency key replay its receipt, while a new key against a consumed intent returns 409. Cancel only changes ISSUED to CANCELLED. Retry uses a new intent and command key.
+
+## Intake and private storage
+
+NestJS is the only public upload endpoint. It streams to a random opaque object key under the configured private StoragePort quarantine namespace; no user-controlled path or content-derived key. Limits are enforced during the stream, not trusted from Content-Length or ZIP metadata. Verify declared extension, MIME and bounded signature/content checks together; reject mismatches, empty files, unsupported formats and over-limit data. Never unpack archives or execute content. Compute SHA-256 and actual byte count from the received stream. Preserve immutable originals; any replacement is a new document.
+
+The R1-002 FileObject/FileVersion/FileLink schema is staff-owned and cannot represent anonymous ownership. Do not make owner nullable, synthesize a staff owner, or write public inquiry rows into catalog-import tables. Reuse the existing private StoragePort implementation only; InquirySourceDocument provides typed inquiry ownership and download policy. Storage keys never enter DTOs.
+
+Upload bytes and PostgreSQL cannot share a transaction. Write the exact new private object first; then commit document metadata, intent consumption, AuditEvent and idempotency receipt atomically. If the transaction fails, delete only the exact newly written object when the StoragePort write receipt proves ownership. If cleanup fails, emit a bounded sanitized operations diagnostic and retain it in private quarantine for an ownership-checked sweeper. Never delete an object by shared path/name, port, or broad namespace. An upload failure leaves the Inquiry and previous attachments intact.
+
+An incomplete stream is never attached. Delete task-owned partial temporary bytes in the request cleanup path; stale temporary blobs left by process loss are eligible for the 24-hour ownership-checked cleanup recommendation. Expired intent metadata remains 30 days for diagnosis, then may be purged. The cleanup process must not touch Inquiry, AuditEvent or completed originals.
+
+## Quarantine and download
+
+On successful intake, state is QUARANTINED. Content sniffing and allowlist checks are not malware clearance. A configured scanner is the only actor allowed to set CLEAN or REJECTED; scanner errors remain SCAN_ERROR/quarantined. If no operational scanner exists, fail closed: no file download and no extraction, including by staff. Do not introduce an unapproved scanner service or claim a file is safe.
+
+Staff metadata view requires inquiry read scope plus inquiries.documents.read. Download additionally requires inquiries.documents.download and state CLEAN. NestJS resolves authorization against the stored Inquiry -> document relation before opening bytes. Response is streamed with Content-Disposition attachment, safe sanitized filename, Cache-Control no-store, X-Content-Type-Options nosniff and no public/static URL. Denied and missing objects have non-enumerating safe responses. Public users cannot download, list, inspect, cancel completed files or query document state.
+
+## Frozen upload profiles and practicality
+
+The canonical machine-readable proposal is [R1-010-inquiry-upload-profiles.json](R1-010-inquiry-upload-profiles.json). Profile selection is server-side configuration only, shared by all API replicas and persisted as immutable `Inquiry.uploadProfileCode`; the public request cannot select the larger profile. The schema hard ceiling is 50 MiB/file; runtime enforcement uses the selected profile.
+
+| Profile                           | Accepted formats | Per file | Files / Inquiry | Completed bytes / Inquiry | Source bytes / UTC day | Intent starts / source / hour | Receiving deadline |
+| --------------------------------- | ---------------- | -------: | --------------: | ------------------------: | ---------------------: | ----------------------------: | -----------------: |
+| MVP SAFE (default recommendation) | PDF, CSV, XLSX   |   10 MiB |               5 |                    25 MiB |                100 MiB |                            10 |             15 min |
+| ENGINEERING DOCUMENTS (opt-in)    | PDF, CSV, XLSX   |   50 MiB |              20 |                   250 MiB |                  1 GiB |                            40 |             60 min |
+
+Both profiles retain 5 Inquiry creations/15 minutes and 20/day per source, 2 MiB create JSON and 50 equipment lines. Intents expire for starting after 30 minutes; the separate active-stream deadline is 15 or 60 minutes by profile. Source daily quotas charge declared bytes atomically at accepted intent creation across all Inquiry IDs; same-key replay is not charged twice, and failure/cancel/expiry does not refund the day's budget. If a profile cap changes within a source's UTC-day bucket, the Redis counter keeps the lowest cap seen and never resets or widens before UTC rollover.
+
+The existing form in PR #18 accepts only PDF/CSV/XLSX, so both frozen profiles keep that allowlist. It currently keeps only local filename/size/type metadata, has no byte-size/count enforcement and its submit control is disabled; it is preview-only, not an upload client. MVP_SAFE's 100 MiB/source/day allows four full 25 MiB inquiries; ENGINEERING_DOCUMENTS' 1 GiB/source/day allows four full 250 MiB inquiries. These buckets use a trusted-network HMAC fingerprint, not a person or organization identity. Colleagues behind the same NAT/VPN share the cap and concurrency slots, so one busy office can receive 429 despite each caller being legitimate. No NAT bypass or new identity mechanism is introduced; monitor false throttles before raising limits.
+
+Uploads must use backpressured streams; the whole request/file is never buffered in memory. Frozen bounds: at most 1 MiB application byte buffer per active stream, four streams per API instance and two per source fingerprint (at most 4 MiB application payload buffer per instance, excluding socket/TLS/runtime/StoragePort/scanner overhead), plus a 60-second idle timeout. Excess streams are rejected before unbounded buffering. Any scanner must also have explicit memory/CPU/time limits. The existing private StoragePort must stream writes, enforce object bounds, delete only an exact owned temporary object and expose capacity monitoring; Redis uses the existing `RATE_LIMIT_KEY` with the Inquiry-specific HMAC namespace. If StoragePort, Redis or required operational capacity is unavailable, fail closed with a safe 503. Do not add a storage provider, scanner or secret in this contract.
+
+The 15-minute MVP and 60-minute engineering deadlines are recommendations, not measured claims. R1-010B runtime fixtures must cover exact and one-byte-over limits, file-count and aggregate reservations, a generated full-size streamed object, bounded memory/backpressure, four simultaneous streams, excess concurrency, shared-NAT quota, slow progress and an idle stream using an injected clock/short test timeout, scanner outcomes and StoragePort interruption. Avoid hour-long tests; exercise configured deadline semantics deterministically.
+
+## Formats deliberately deferred
+
+- **DOCX:** not in either profile. OOXML is a ZIP container with relationships and can include external targets or embedded objects; `.docx` alone is not a content verdict. A future proposal needs package/signature validation, malware scanning, explicit embedded/external-content policy and attachment-only safe download. DOCM/XLSM remain rejected.
+- **DWG/DXF:** not in either profile. Native CAD parsing/rendering adds complex untrusted parsers and may reference or embed external content. R1-010 does not inspect or render CAD. Customers can supply PDF plot/export plus CSV/XLSX schedules for intake; native CAD requires a separate approved validation and safe-handling stage.
+- **ZIP/7Z/RAR and other archives:** rejected and never unpacked. Nested files, path traversal, encrypted content and decompression bombs need a separate bounded extraction/scanning contract; limits based on the outer archive size are insufficient.
+- **PDF/XLSX/CSV:** these remain untrusted. PDFs may contain active content; XLSX is itself a compressed package with relationships/embedded content. Signature/MIME checks do not clear malware. No inline rendering, extraction or download is allowed unless the configured scanner returns CLEAN.
+
+R1-010 can preserve a standard cabinet inquiry accompanied by PDF drawings and CSV/XLSX schedules within the chosen bounds, but only when an operational scanner allows staff download. With no scanner, the documents stay QUARANTINED and staff cannot inspect them, so document-led fabrication cannot proceed. Native DWG/DXF/archive submissions are not supported. R1-010 is intake only and does not implement cabinet design, costing, quote approval or production.
+
+Create JSON request remains <=2 MiB and equipment lines <=50. Recommended cleanup of abandoned temporary bytes is 24 hours; expired intent metadata is retained 30 days; completed document retention remains blocked on privacy/legal approval. Originals remain immutable and private.
+
+Public rate limits use Redis and exact configured reverse-proxy trust. Derive ephemeral fingerprints with the existing R1-002 `RATE_LIMIT_KEY` and Inquiry-specific HMAC-SHA256 namespace `inquiry-source:v1:`; charge declared bytes by one Redis atomic operation when an upload intent is accepted, across all Inquiries for that source and UTC day. Do not add a secret, persist raw IP, trust arbitrary X-Forwarded-For or create a new source identity. Create limits and the per-profile upload limits above are configurable recommendations, not guarantees.
+
+## Open security risks requiring approval
+
+- No scanner is assumed available; launch requires an operational scanner or a separately approved restricted policy. Quarantine-only means download/extraction are unavailable.
+- Exact legal retention and deletion of uploaded PII is pending OD-010-02/03.
+- Profile selection, quotas, shared-NAT impact and representative fixtures are pending OD-010-03 and runtime validation before implementation is frozen.
+- No malware scanner is currently assumed. Even if PDF/XLSX/CSV intake is enabled, staff download and R1-011 extraction remain unavailable until a real configured scanner marks the exact object CLEAN.
+- Capability loss in the client prevents later uploads but never grants access to Inquiry data; any recovery/rotation flow would require a new security review and owner approval.

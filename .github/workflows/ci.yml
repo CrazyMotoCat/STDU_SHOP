@@ -59,6 +59,15 @@ jobs:
           node docs/contracts/check-R1-007.mjs
           node --test docs/contracts/check-R1-007.test.mjs
           pnpm supplier:contract:check
+      - name: Frozen R1-010 inquiry contract consistency
+        run: |
+          node docs/contracts/check-R1-010.mjs
+          node --test docs/contracts/check-R1-010.test.mjs
+          node scripts/validate-openapi.mjs docs/contracts/R1-010-inquiries.openapi.json
+          generated=$(mktemp --suffix=.d.ts)
+          trap 'rm -f "$generated"' EXIT
+          pnpm exec openapi-typescript docs/contracts/R1-010-inquiries.openapi.json --output "$generated"
+          pnpm exec openapi-typescript docs/contracts/R1-010-inquiries.openapi.json --output "$generated" --check
       - name: R1-004B frozen contract trace
         run: node .agent/tasks/R1-004B/verify-contract-lock.mjs
       - name: R1-004B isolated schema and permission initializer runtime

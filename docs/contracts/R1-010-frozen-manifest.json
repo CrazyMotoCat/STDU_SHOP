@@ -1,0 +1,50 @@
+{
+  "contract": "R1-010 Public Inquiry Domain Contract",
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "approval": {
+    "approvedOn": "2026-10-26",
+    "sourceHead": "68fb60f87c7821044939dd5d95f8e67e6bb73685",
+    "decisionIds": [
+      "OD-010-01",
+      "OD-010-02",
+      "OD-010-03",
+      "OD-010-04",
+      "OD-010-05"
+    ],
+    "statement": "Утверждаю R1-010 Public Inquiry Domain Contract версии 0.1.0-proposed на SHA 68fb60f87c7821044939dd5d95f8e67e6bb73685. Принимаю OD-010-01…05 в редакциях docs/plans/R1-010-owner-decisions.md.",
+    "scope": "Approval authorizes isolated R1-010B implementation after contract integration. It does not authorize production migrations, deployment, production personal-data collection, scanner provisioning or live permission grants."
+  },
+  "approvedSourceSha256": {
+    "docs/contracts/R1-010-attachment-security-policy.md": "594294459d5056206b8fa3e0193da803ab91e275b56c37a71a05c015b6a708d9",
+    "docs/contracts/R1-010-inquiries.openapi.json": "94905cf5296cb001dbb5276e7ac937b67faa487bb95d7d7a9ba7fd493b21849c",
+    "docs/contracts/R1-010-inquiry-audit-registry.json": "e7ee2a7d673f0152e4430014bc7b0ccffd75d886b39e932e7b30ed6cf7b33c4b",
+    "docs/contracts/R1-010-inquiry-data-model.json": "42d2e0c9fa077092cfc78ef9e457efc9aff6b454ed7b71d036d899b1c152830c",
+    "docs/contracts/R1-010-inquiry-domain-contract.md": "08ded8ab816c3fdef2493b805eabec27c058cb7a509b433230490608ca41ccde",
+    "docs/contracts/R1-010-inquiry-rbac-matrix.json": "6847ae6377ef697cebde124a14e94cd9ff6abc18d5ff05a74414230195c3ff80",
+    "docs/contracts/R1-010-inquiry-rbac-matrix.md": "797cb726aa39cb1441cd6f856ef5ba3bf98a84af9c87567b9950490d243b28c6",
+    "docs/contracts/R1-010-inquiry-state-machine.md": "f4011972e90121e94c7a557fd1375cf66bdc03c9bd44460e5eea90f37bde5bc3",
+    "docs/contracts/R1-010-inquiry-upload-profiles.json": "d7aec6852de5cf74d869b72dde9c8c77984207d3e1f75e5099bf3d7ba483040e",
+    "docs/contracts/R1-010-test-matrix.md": "7d893b339b13b51a1db0507abc8078ace09601e0d2b5c5c3de33679d1311126a",
+    "docs/plans/R1-010-owner-decisions.md": "e683064f2f1d7a4a905e580f75fd43ba5d0af5885bb660d1f2054ad9b0e2e413",
+    "docs/plans/R1-010B-implementation-plan.md": "173d7d2698ff9f5f1def1dbf15f641b575f517837ddddad4f1d4309ba200a942"
+  },
+  "frozenArtifactSha256": {
+    "docs/contracts/R1-010-attachment-security-policy.md": "f359efa22428fd69ca87a2291173157b13a751ff520c3e08bd934af8cce39aa2",
+    "docs/contracts/R1-010-inquiries.openapi.json": "eadb00d5d779da2eb9cf2f2e52ff18402ebf324e2e01790545f578023141df7d",
+    "docs/contracts/R1-010-inquiry-audit-registry.json": "6ca15b7fa48383c88740120e5d5acf888ca1e1720f584eddb6863a62c9162228",
+    "docs/contracts/R1-010-inquiry-data-model.json": "3700a586bcf5d4ce6e6937cd49def977aad8ed476949f9598b5adff0677b034f",
+    "docs/contracts/R1-010-inquiry-domain-contract.md": "f17088bc9eb35ad073a7146bf7c10bd55c9c7d96067ec2825f60e8e4fc84bf04",
+    "docs/contracts/R1-010-inquiry-rbac-matrix.json": "5b4f838ceb4db11e3bc659d0c6a5f493b37a33870236ca113a637b10346152e9",
+    "docs/contracts/R1-010-inquiry-rbac-matrix.md": "5fa5a8e7092d8058be2dc401be5c6354abd96bdaf30b8a4e0442a4962d5e8ffe",
+    "docs/contracts/R1-010-inquiry-state-machine.md": "53f48a3c0c16301d5f77c44dd38aaf03157c1d4ef0152f7f89922ae5f3b2dce5",
+    "docs/contracts/R1-010-inquiry-upload-profiles.json": "8d531544c9da7b6df8d8a87839c55d64e55094a12d3ed54de87cfdb22c3c8ff0",
+    "docs/contracts/R1-010-test-matrix.md": "a419ac553585c33e272b30357ccaf2fcddf9a2a1abae56097a258a87b32549be",
+    "docs/plans/R1-010-owner-decisions.md": "5d524c6dbe06e9402dbd9067c1471efcc391131d2f7f32b5429ef5c96a232b6b",
+    "docs/plans/R1-010B-implementation-plan.md": "6fc8b0b6e7b639bfaccdd754c755f95e3f1b7d9b160f12eedbea9a641d2b6551"
+  },
+  "finalization": {
+    "contractContentChanged": false,
+    "description": "Owner-approved content at sourceHead was finalized as FROZEN 1.0.0. Only contract status/version labels, approval provenance, reports, checkpoint and verification scaffolding changed. No schema, RBAC code, API route or DTO, upload limit, retention value, lifecycle rule or security behavior changed."
+  }
+}

@@ -1,4 +1,6 @@
+import type { Metadata } from 'next';
 import Image from 'next/image';
+import { getPublicPageRobots } from '../lib/seo';
 import './home.css';
 import { PublicLayout } from '../components/layouts/page-layouts';
 import { CatalogSearch } from '../components/site/catalog-search';
@@ -13,6 +15,10 @@ import {
   ServiceCard,
   Status,
 } from '../components/ui/primitives';
+
+export const metadata: Metadata = {
+  robots: getPublicPageRobots(),
+};
 
 const directions = [
   {
