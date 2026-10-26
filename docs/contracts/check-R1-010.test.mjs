@@ -98,7 +98,7 @@ test('owner-supplied and added security acceptance cases are traced', () => {
   assert.deepEqual(
     ids,
     Array.from(
-      { length: 35 },
+      { length: 41 },
       (_, i) => `REQB-${String(i + 1).padStart(2, '0')}`,
     ),
   );
@@ -115,15 +115,116 @@ test('staff mutation replay is blocked when current Inquiry scope is lost', () =
 
 test('transition DTO cannot carry an unpersisted internal note or close state', () => {
   rejects((contract) => {
-    contract.openapi.components.schemas.TransitionRequest.properties.internalNote =
+    contract.openapi.components.schemas.StaffWorkflowTransitionRequest.properties.internalNote =
       {
         type: 'string',
       };
   });
   rejects((contract) => {
-    contract.openapi.components.schemas.TransitionRequest.properties.reasonCode.enum.push(
-      'CLOSED_DUPLICATE',
+    contract.openapi.components.schemas.StaffWorkflowTransitionRequest.properties.reasonCode.enum.push(
+      'DUPLICATE',
     );
+  });
+});
+
+test('each early-close reason is a distinct audited regression scenario', () => {
+  const reasons = [
+    'DUPLICATE',
+    'CUSTOMER_WITHDRAWN',
+    'OUT_OF_SCOPE',
+    'SPAM',
+    'NOT_FEASIBLE',
+  ];
+  const closeSchema =
+    baseline.openapi.components.schemas.CloseInquiryWithoutQuoteRequest;
+  const closureAudit = baseline.audit.actions.find(
+    (entry) => entry.action === 'inquiry.closed_without_quote',
+  );
+  assert.deepEqual(
+    baseline.openapi.components.schemas.InquiryClosureReason.enum,
+    reasons,
+  );
+  assert.deepEqual(closeSchema['x-allowed-source-statuses'], [
+    'NEW',
+    'TRIAGE',
+    'NEEDS_CLARIFICATION',
+    'ENGINEERING_REVIEW',
+    'READY_FOR_QUOTE',
+  ]);
+  assert.deepEqual(closureAudit.outcomes.SUCCESS, reasons);
+  for (let index = 36; index <= 40; index += 1) {
+    assert.match(baseline.matrix, new RegExp(`\\| REQB-${index} \\|`));
+  }
+  for (const reason of reasons) {
+    rejects((contract) => {
+      contract.openapi.components.schemas.InquiryClosureReason.enum =
+        contract.openapi.components.schemas.InquiryClosureReason.enum.filter(
+          (candidate) => candidate !== reason,
+        );
+    });
+    rejects((contract) => {
+      contract.audit.actions.find(
+        (entry) => entry.action === 'inquiry.closed_without_quote',
+      ).outcomes.SUCCESS = contract.audit.actions
+        .find((entry) => entry.action === 'inquiry.closed_without_quote')
+        .outcomes.SUCCESS.filter((candidate) => candidate !== reason);
+    });
+  }
+});
+
+test('early close cannot be made generic, optional, reopened or applied after quote send', () => {
+  rejects((contract) => {
+    contract.openapi.components.schemas.CloseInquiryWithoutQuoteRequest.required =
+      ['toStatus'];
+  });
+  rejects((contract) => {
+    contract.openapi.components.schemas.CloseInquiryWithoutQuoteRequest.properties.toStatus.const =
+      'QUOTE_SENT';
+  });
+  rejects((contract) => {
+    contract.openapi.components.schemas.CloseInquiryWithoutQuoteRequest[
+      'x-allowed-source-statuses'
+    ].push('QUOTE_SENT');
+  });
+  rejects((contract) => {
+    contract.lifecycle = contract.lifecycle.replace(
+      'No path reopens CLOSED.',
+      'CLOSED may be reopened by staff.',
+    );
+  });
+});
+
+test('request DTO retains the preview form fields without weakening contact requirements', () => {
+  rejects((contract) => {
+    contract.openapi.components.schemas.ContactSnapshot.required = [];
+  });
+  rejects((contract) => {
+    contract.openapi.components.schemas.PanelsDetails.required = [
+      'requestType',
+    ];
+  });
+  rejects((contract) => {
+    contract.openapi.components.schemas.EngineeringDetails.required = [];
+  });
+  rejects((contract) => {
+    delete contract.openapi.components.schemas.CreateInquiryRequest.properties
+      .catalogProductContext;
+  });
+});
+
+test('upload profile boundaries and disallowed engineering formats stay explicit', () => {
+  rejects((contract) => {
+    contract.uploadProfiles.profiles.ENGINEERING_DOCUMENTS.maxFileBytes =
+      100 * 1024 * 1024;
+  });
+  rejects((contract) => {
+    contract.uploadProfiles.profiles.MVP_SAFE.formats.push('DOCX');
+  });
+  rejects((contract) => {
+    contract.uploadProfiles.excludedPendingSeparateReview =
+      contract.uploadProfiles.excludedPendingSeparateReview.filter(
+        (format) => format !== 'DWG',
+      );
   });
 });
 
@@ -195,8 +296,8 @@ test('audit actions declare reasons and only use the frozen AuditChanges keys', 
 test('quota counters cover cross-Inquiry concurrency and active stream expiry', () => {
   rejects((contract) => {
     contract.attachment = contract.attachment.replace(
-      'one Redis atomic operation enforces it across all Inquiries',
-      'one Redis operation per Inquiry',
+      'charge declared bytes by one Redis atomic operation when an upload intent is accepted',
+      'charge bytes per Inquiry without an atomic source counter',
     );
   });
   rejects((contract) => {

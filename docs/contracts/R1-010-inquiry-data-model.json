@@ -2,7 +2,7 @@
   "status": "PROPOSED",
   "version": "0.1.0-proposed",
   "task": "R1-010B-01",
-  "baseline": "6b9f03e67f51f8e201a04047afd282c71b1d335e",
+  "baseline": "4b358f16a90998fdae2d2981601e9ccf3bfdf7f0",
   "extends": [
     "FROZEN R1-002 1.0.0",
     "FROZEN R1-004 1.0.0",
@@ -27,8 +27,10 @@
         "channel": "literal PUBLIC_WEB for this contract",
         "kind": "enum EQUIPMENT|PANELS|ENGINEERING",
         "status": "enum NEW|TRIAGE|NEEDS_CLARIFICATION|ENGINEERING_REVIEW|READY_FOR_QUOTE|QUOTE_SENT|CLOSED",
-        "contactSnapshot": "jsonb <=16384 bytes; immutable submission-time snapshot of contact and optional region/deadline context; exact properties defined in OpenAPI",
+        "contactSnapshot": "jsonb <=16384 bytes; immutable submission-time snapshot of contact, optional region/deadline wording and optional customer comment; exact properties defined in OpenAPI",
+        "catalogProductContext": "varchar(120) nullable; untrusted product-card hint copied from the public form; never resolved, linked, matched or used as authority",
         "kindDetails": "jsonb <=32768 bytes; immutable strict version-1 union selected by kind",
+        "uploadProfileCode": "enum MVP_SAFE|ENGINEERING_DOCUMENTS; server-selected at creation, never client-supplied, immutable for this Inquiry",
         "uploadCapabilityHash": "bytea(32), nullable SHA-256 of client-generated 256-bit capability; never the raw capability",
         "uploadCapabilityExpiresAt": "timestamptz(6) nullable, recommended 24 hours after creation when capability exists",
         "assignedManagerUserId": "uuid nullable FK StaffUser.id ON DELETE RESTRICT",
@@ -48,11 +50,13 @@
       "checks": [
         "status and kind are declared enums",
         "kindDetails schema is selected by kind and version=1",
+        "uploadProfileCode is a declared server-side upload profile",
+        "catalogProductContext is NULL or <=120 characters and has no catalog FK",
         "uploadCapabilityHash is NULL or exactly 32 bytes",
         "uploadCapabilityHash and uploadCapabilityExpiresAt are both NULL or both present",
         "version > 0"
       ],
-      "immutability": "kind, publicReference, contactSnapshot, kindDetails and createdAt never change after creation; assignments/status/stageDueAt/version may change only through audited OCC commands; no physical delete API."
+      "immutability": "kind, publicReference, contactSnapshot, catalogProductContext, kindDetails, uploadProfileCode and createdAt never change after creation; assignments/status/stageDueAt/version may change only through audited OCC commands; no physical delete API."
     },
     "InquiryLine": {
       "primaryKey": ["id"],
@@ -64,7 +68,7 @@
         "originalSku": "varchar(160) nullable, preserved literally",
         "manufacturerName": "varchar(200) nullable, preserved literally",
         "modification": "varchar(200) nullable, preserved literally",
-        "quantityText": "varchar(80), validated positive decimal string without float conversion and preserved exactly",
+        "quantityText": "varchar(80), positive decimal text with dot or comma as the optional decimal separator and no grouping separator; validated without float conversion and preserved exactly",
         "unitText": "varchar(40), preserved literally",
         "notes": "varchar(4000) nullable, inert text",
         "catalogProductSlugContext": "varchar(160) nullable, untrusted URL context only; never an SKU match, link, or authorization fact",
@@ -74,7 +78,7 @@
       "indexes": [["inquiryId", "sequence"]],
       "checks": [
         "sequence >= 1",
-        "quantityText matches positive decimal grammar; no JS floating point"
+        "quantityText matches positive decimal grammar with optional dot/comma decimal separator and no grouping; preserve the original string and use no JS floating point"
       ],
       "applicationRules": [
         "Only EQUIPMENT inquiries may have InquiryLine rows; NestJS validates kind and lines in the create transaction."
@@ -145,7 +149,7 @@
         "expectedSha256": "bytea(32) nullable, client integrity hint only; actual digest is authoritative",
         "expiresAt": "timestamptz(6), recommended 30 minutes after creation",
         "receivingStartedAt": "timestamptz(6) nullable; set exactly once when an unexpired ISSUED intent becomes RECEIVING",
-        "receivingDeadlineAt": "timestamptz(6) nullable; receivingStartedAt + 15 minutes, independent of intent start expiry",
+        "receivingDeadlineAt": "timestamptz(6) nullable; receivingStartedAt plus the receiving duration captured from the parent Inquiry.uploadProfileCode (15 minutes MVP_SAFE; 60 minutes ENGINEERING_DOCUMENTS), independent of intent start expiry",
         "version": "int32 > 0",
         "createdAt": "timestamptz(6)",
         "updatedAt": "timestamptz(6)"
@@ -159,10 +163,10 @@
         "expectedSha256 NULL or 32 bytes",
         "state is a declared enum",
         "receivingStartedAt and receivingDeadlineAt are both NULL or both present; if a stream started, retain both timestamps in RECEIVING and terminal states",
-        "when state=RECEIVING, receivingDeadlineAt=receivingStartedAt+15 minutes",
+        "when state=RECEIVING, receivingDeadlineAt equals receivingStartedAt plus the deadline of the immutable parent Inquiry.uploadProfileCode",
         "version > 0"
       ],
-      "completionInvariant": "A byte stream may start only while state=ISSUED and clock_timestamp()<expiresAt; one transaction changes it to RECEIVING and sets receiving timestamps. Intent start expiry does not abort a started stream; receivingDeadlineAt bounds it to 15 minutes. At or after that deadline, abort, mark FAILED and attach no source document. The only transition to CONSUMED occurs in the transaction that inserts the unique InquirySourceDocument, AuditEvent and idempotency receipt. The composite FK enforces the same Inquiry; the unique uploadIntentId permits at most one source document.",
+      "completionInvariant": "A byte stream may start only while state=ISSUED and clock_timestamp()<expiresAt; one transaction changes it to RECEIVING and sets receiving timestamps. Intent start expiry does not abort a started stream; receivingDeadlineAt applies the receiving bound from the immutable parent Inquiry.uploadProfileCode. At or after that deadline, abort, mark FAILED and attach no source document. The only transition to CONSUMED occurs in the transaction that inserts the unique InquirySourceDocument, AuditEvent and idempotency receipt. The composite FK enforces the same Inquiry; the unique uploadIntentId permits at most one source document.",
       "immutability": "Intent binding and file declaration are immutable; state changes only by one-use upload/cancel/expiry/validation commands under row lock."
     },
     "InquiryCommandIdempotency": {
@@ -194,17 +198,17 @@
   },
   "rules": {
     "kindDetails": {
-      "EQUIPMENT": "No extra kind-specific object; deliveryRegion and desiredDeadline are optional fields in contactSnapshot. At least one InquiryLine is required.",
-      "PANELS": "Strict object: requestType PROJECT_READY|MODIFY_TYPICAL|DEVELOP_FROM_BRIEF; required cabinetPurpose and positive quantityText; optional requirements, requestedWork and description. Shared region/deadline context is in contactSnapshot. Preserve all submitted wording.",
-      "ENGINEERING": "Strict object: engineeringDirection, systemType, technicalTask, expectedDeliverables; optional sourceDocumentDescription. Shared region/deadline context is in contactSnapshot. Preserve all submitted wording."
+      "EQUIPMENT": "No extra kind-specific object; region, verbatim desiredDeadline wording and customerComment are optional fields in contactSnapshot. At least one InquiryLine is required.",
+      "PANELS": "Strict object: requestType PROJECT_READY|MODIFY_TYPICAL|DEVELOP_FROM_BRIEF and non-empty description/task are required; cabinetPurpose and positive quantity are optional; requirements is optional free text; requestedWork is an optional list; documentationAvailability is UNKNOWN|AVAILABLE|PARTIAL|NONE when supplied; notes are optional. Shared region, deadline wording and customer comment are in contactSnapshot. Preserve all submitted wording.",
+      "ENGINEERING": "Strict object: non-empty technicalTask/subject is required; engineeringDirection, systemType, expectedDeliverables/outcomes, sourceDocumentDescription, scope and notes are optional bounded text. Shared region, deadline wording and customer comment are in contactSnapshot. Preserve all submitted wording."
     },
     "audit": "Reuse existing R1-002 AuditEvent append-only table and actor model. Add only R1-010 entity/action registry entries; audit records actor/time/entity/result, never contact snapshots, inquiry line text, comment body, filename, byte, capability, IP or raw request.",
     "fileStorage": "Do not reuse R1-002 FileObject/FileVersion/FileLink rows: frozen R1-002 requires staff ownership and has no anonymous owner. Reuse only the configured private StoragePort implementation with a dedicated inquiry-quarantine namespace and InquirySourceDocument domain policy. Do not alter R1-002/R1-006 schemas.",
     "atomicity": "Inquiry, its lines, public receipt and inquiry.created audit commit atomically. Uploads happen later and independently; a failed upload never rolls back the Inquiry or prior documents. Each completed upload metadata, one-use intent consumption, idempotency result and audit commit atomically after private blob write; exact-write compensation is attempted on DB failure, otherwise a private orphan is flagged for bounded cleanup. No partial document becomes downloadable.",
     "retention": "Exact inquiry/contact/document retention requires OD-010-02/03. No production launch or automatic deletion policy may be inferred. Incomplete byte streams are deleted after 24 hours by an ownership-checked private storage sweeper; expired intent metadata is retained 30 days for diagnostics then purged. Completed InquirySourceDocument rows/bytes remain until owner-approved retention exists.",
     "idempotencyRetention": "Proposed 30 days; after expiration the client must never reuse a key. Cleanup deletes only expired rows after locking and does not touch inquiry, AuditEvent or source files.",
-    "limits": "Recommended initial bounds, pending OD-010-03: 5 files/inquiry; 10 MiB/file; 25 MiB total/inquiry; create JSON <=2 MiB; 50 equipment lines; bounded field lengths in OpenAPI.",
-    "uploadQuotaConcurrency": "Creating and starting/completing each upload intent locks the Inquiry aggregate and rechecks completed documents by actual bytes, unexpired ISSUED reservations by declared bytes, and RECEIVING reservations by declared bytes until completion/failure/deadline. This prevents concurrent intents/uploads from exceeding per-Inquiry max files or bytes. The 25 MiB/source/UTC-day budget is an atomic Redis counter charged once by declared bytes when an intent is accepted; same-key retry does not double-charge, failed/cancelled/expired intents are not refunded during that day, and the counter applies across all Inquiries for the same domain-separated source fingerprint."
+    "limits": "See the canonical proposed MVP_SAFE and ENGINEERING_DOCUMENTS profiles in R1-010-inquiry-upload-profiles.json. The server assigns one immutable uploadProfileCode to every Inquiry; clients cannot select a profile. OpenAPI carries the 50 MiB maximum schema ceiling while the selected profile enforces the lower runtime file/count/aggregate limits.",
+    "uploadQuotaConcurrency": "Creating and starting/completing each upload intent locks the Inquiry aggregate and rechecks completed documents by actual bytes, unexpired ISSUED reservations by declared bytes, and RECEIVING reservations by declared bytes until completion/failure/deadline against that Inquiry's immutable profile. The source/UTC-day budget is one atomic Redis counter across all Inquiry IDs for the HMAC source. It charges declared bytes once at accepted intent creation; retries do not double-charge and failed/cancelled/expired intents are not refunded. The bucket's effective cap is the lowest profile cap seen for that source/day; it is not reset, refunded or widened before UTC rollover."
   },
   "outOfScope": [
     "customer accounts or inquiry read/status endpoint",

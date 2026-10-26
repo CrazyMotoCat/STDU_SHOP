@@ -94,7 +94,7 @@
         "tags": ["Public inquiries"],
         "operationId": "uploadInquirySourceDocument",
         "summary": "Upload the bytes for one reserved intent",
-        "description": "Streams bytes into a private temporary object; the stream must start before the 30-minute intent expiry and finish within 15 minutes after start. Expiry does not interrupt a RECEIVING stream, but its deadline does. Enforces declared size and global limits while streaming, sniffs the allowlisted type and computes SHA-256, then commits one immutable QUARANTINED source document, intent consumption, idempotency receipt and audit. A failed upload never rolls back the Inquiry. Partial bytes are deleted or ownership-checked as a private orphan. Retry after a completed same-key request replays the safe receipt after current capability/intent authorization; a consumed intent cannot be used with a new key.",
+        "description": "Streams bytes into a private temporary object; the stream must start before the 30-minute intent expiry and finish within the receiving deadline captured from the Inquiry's server-selected upload profile (15 minutes MVP_SAFE; 60 minutes ENGINEERING_DOCUMENTS). The selected profile is not client-controlled. Expiry does not interrupt a RECEIVING stream, but its captured deadline does. Enforces the selected profile limits while streaming with bounded backpressure, sniffs the allowlisted type and computes SHA-256, then commits one immutable QUARANTINED source document, intent consumption, idempotency receipt and audit. A failed upload never rolls back the Inquiry. Partial bytes are deleted or ownership-checked as a private orphan. Retry after a completed same-key request replays the safe receipt after current capability/intent authorization; a consumed intent cannot be used with a new key.",
         "security": [{ "InquiryUploadCapability": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/InquiryId" },
@@ -359,7 +359,7 @@
         "tags": ["Staff inquiries"],
         "operationId": "transitionStaffInquiry",
         "summary": "Perform one allowed staff transition",
-        "description": "The staff target enum excludes QUOTE_SENT and CLOSED. The command accepts only a currently allowed state-machine edge; quote delivery/lifecycle owns those two statuses.",
+        "description": "The ordinary staff transition branch excludes QUOTE_SENT and CLOSED. A separate strict union branch permits pre-quote closure to CLOSED only from the five eligible states and with one of the five enumerated reasonCode values; it uses this same permission, If-Match, durable idempotency and transactional audit boundary. QUOTE_SENT remains exclusively owned by approved quote delivery; a QUOTE_SENT inquiry may close only through its later quote lifecycle.",
         "security": [{ "StaffSessionCookie": [] }],
         "parameters": [
           { "$ref": "#/components/parameters/InquiryId" },
@@ -660,7 +660,7 @@
           }
         ],
         "properties": {
-          "contactName": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "contactName": { "type": "string", "minLength": 1, "maxLength": 180 },
           "email": {
             "type": ["string", "null"],
             "format": "email",
@@ -675,7 +675,16 @@
             "description": "Must correspond to a supplied non-null email/phone channel."
           },
           "region": { "type": ["string", "null"], "maxLength": 120 },
-          "desiredDeadline": { "type": ["string", "null"], "format": "date" }
+          "desiredDeadline": {
+            "type": ["string", "null"],
+            "maxLength": 120,
+            "description": "Optional customer-entered deadline wording preserved verbatim; not parsed into an SLA or stage due date."
+          },
+          "customerComment": {
+            "type": ["string", "null"],
+            "maxLength": 3000,
+            "description": "Optional customer-entered note; immutable, private contact snapshot data."
+          }
         }
       },
       "EquipmentLine": {
@@ -689,9 +698,9 @@
           "modification": { "type": ["string", "null"], "maxLength": 200 },
           "quantity": {
             "type": "string",
-            "pattern": "^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,6})?$",
+            "pattern": "^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:[.,][0-9]{1,6})?$",
             "maxLength": 19,
-            "description": "Positive decimal string; never converted through binary floating point."
+            "description": "Positive decimal string with dot or comma as the optional decimal separator; no grouping separator. Preserved literally and never converted through binary floating point."
           },
           "unit": { "type": "string", "minLength": 1, "maxLength": 40 },
           "notes": { "type": ["string", "null"], "maxLength": 4000 },
@@ -705,66 +714,66 @@
       "PanelsDetails": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["requestType", "cabinetPurpose", "quantity"],
+        "required": ["requestType", "description"],
         "properties": {
           "requestType": {
             "type": "string",
             "enum": ["PROJECT_READY", "MODIFY_TYPICAL", "DEVELOP_FROM_BRIEF"]
           },
-          "cabinetPurpose": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
-          },
+          "cabinetPurpose": { "type": ["string", "null"], "maxLength": 2000 },
           "quantity": {
-            "type": "string",
-            "pattern": "^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,6})?$",
+            "type": ["string", "null"],
+            "pattern": "^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:[.,][0-9]{1,6})?$",
             "maxLength": 19
           },
           "requirements": {
-            "type": "array",
-            "maxItems": 100,
-            "items": { "type": "string", "maxLength": 2000 }
+            "type": ["string", "null"],
+            "maxLength": 8000,
+            "description": "Optional free-text requirements, preserved verbatim."
           },
           "requestedWork": {
             "type": "array",
             "maxItems": 50,
             "items": { "type": "string", "maxLength": 500 }
           },
-          "description": { "type": ["string", "null"], "maxLength": 8000 }
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "documentationAvailability": {
+            "type": ["string", "null"],
+            "enum": ["UNKNOWN", "AVAILABLE", "PARTIAL", "NONE", null]
+          },
+          "notes": { "type": ["string", "null"], "maxLength": 3000 }
         }
       },
       "EngineeringDetails": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "engineeringDirection",
-          "systemType",
-          "technicalTask",
-          "expectedDeliverables"
-        ],
+        "required": ["technicalTask"],
         "properties": {
           "engineeringDirection": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 120
+            "type": ["string", "null"],
+            "maxLength": 200
           },
-          "systemType": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "systemType": { "type": ["string", "null"], "maxLength": 200 },
           "technicalTask": {
             "type": "string",
             "minLength": 1,
             "maxLength": 8000
           },
           "expectedDeliverables": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 50,
-            "items": { "type": "string", "maxLength": 500 }
+            "type": ["string", "null"],
+            "maxLength": 1800,
+            "description": "Optional expected outcomes, preserved as customer wording."
           },
           "sourceDocumentDescription": {
             "type": ["string", "null"],
-            "maxLength": 2000
-          }
+            "maxLength": 1500
+          },
+          "scope": { "type": ["string", "null"], "maxLength": 2500 },
+          "notes": { "type": ["string", "null"], "maxLength": 2500 }
         }
       },
       "CreateInquiryRequest": {
@@ -774,6 +783,11 @@
         "properties": {
           "kind": { "$ref": "#/components/schemas/InquiryKind" },
           "contact": { "$ref": "#/components/schemas/ContactSnapshot" },
+          "catalogProductContext": {
+            "type": ["string", "null"],
+            "maxLength": 120,
+            "description": "Optional untrusted product-card URL hint from the request form. Preserve as context only; never resolve it to a product, link a record, authorize access, match an SKU, or use it in a quote."
+          },
           "uploadCapability": {
             "type": ["string", "null"],
             "pattern": "^[A-Za-z0-9_-]{43}$",
@@ -870,7 +884,12 @@
             "minLength": 3,
             "maxLength": 127
           },
-          "sizeBytes": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 52428800,
+            "description": "Schema hard ceiling is 50 MiB. The server enforces the smaller limit from the immutable server-selected Inquiry upload profile: 10 MiB/file for MVP_SAFE or 50 MiB/file for ENGINEERING_DOCUMENTS."
+          },
           "expectedSha256": {
             "type": ["string", "null"],
             "pattern": "^[a-fA-F0-9]{64}$"
@@ -955,6 +974,11 @@
             "type": "object",
             "properties": {
               "contact": { "$ref": "#/components/schemas/ContactSnapshot" },
+              "catalogProductContext": {
+                "type": ["string", "null"],
+                "maxLength": 120,
+                "description": "Untrusted context copied from the catalog CTA; informational only and never a product link or authorization fact."
+              },
               "kindDetails": { "type": "object" },
               "equipmentLines": {
                 "type": "array",
@@ -1031,9 +1055,16 @@
           "ENGINEERING_REVIEW",
           "READY_FOR_QUOTE"
         ],
-        "description": "Generic staff transitions cannot set NEW, QUOTE_SENT or CLOSED."
+        "description": "Ordinary staff transitions cannot set NEW, QUOTE_SENT or CLOSED; pre-quote CLOSED is a distinct strict TransitionRequest branch with a required closure reason."
       },
       "TransitionRequest": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/StaffWorkflowTransitionRequest" },
+          { "$ref": "#/components/schemas/CloseInquiryWithoutQuoteRequest" }
+        ],
+        "description": "Disjoint strict request variants. CLOSED is accepted only by CloseInquiryWithoutQuoteRequest and only from a pre-quote state."
+      },
+      "StaffWorkflowTransitionRequest": {
         "type": "object",
         "additionalProperties": false,
         "required": ["toStatus", "reasonCode"],
@@ -1051,6 +1082,35 @@
               "ENGINEERING_COMPLETE",
               "RETURN_TO_CLARIFICATION"
             ]
+          }
+        }
+      },
+      "InquiryClosureReason": {
+        "type": "string",
+        "enum": [
+          "DUPLICATE",
+          "CUSTOMER_WITHDRAWN",
+          "OUT_OF_SCOPE",
+          "SPAM",
+          "NOT_FEASIBLE"
+        ]
+      },
+      "CloseInquiryWithoutQuoteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["toStatus", "reasonCode"],
+        "description": "This request is accepted only while the locked Inquiry is NEW, TRIAGE, NEEDS_CLARIFICATION, ENGINEERING_REVIEW or READY_FOR_QUOTE. CLOSED is terminal; QUOTE_SENT is excluded.",
+        "x-allowed-source-statuses": [
+          "NEW",
+          "TRIAGE",
+          "NEEDS_CLARIFICATION",
+          "ENGINEERING_REVIEW",
+          "READY_FOR_QUOTE"
+        ],
+        "properties": {
+          "toStatus": { "type": "string", "const": "CLOSED" },
+          "reasonCode": {
+            "$ref": "#/components/schemas/InquiryClosureReason"
           }
         }
       },
@@ -1225,6 +1285,12 @@
     }
   },
   "x-contract-status": "PROPOSED",
+  "x-upload-profile-contract": {
+    "file": "R1-010-inquiry-upload-profiles.json",
+    "defaultProfile": "MVP_SAFE",
+    "profileSelection": "server-only and persisted per Inquiry; clients cannot select a profile",
+    "schemaHardCeilingBytes": 52428800
+  },
   "x-permissions": [
     "inquiries.read_assigned",
     "inquiries.read_all",
@@ -1255,13 +1321,14 @@
     "No public content is trusted for SKU matching, BOM, substitute or quote computation.",
     "Every mutation uses durable Idempotency-Key; staff state/assignment mutations use If-Match.",
     "Before replaying any staff mutation receipt, revalidate current session, CSRF/Origin, action permission and inquiry read scope; before public upload replay, revalidate live capability and intent binding.",
-    "Generic staff transitions cannot set QUOTE_SENT or CLOSED; QUOTE_SENT-to-CLOSED is only a later quote-lifecycle integration.",
+    "Ordinary staff transition requests cannot set QUOTE_SENT or CLOSED; the strict pre-quote close variant permits CLOSED only from NEW, TRIAGE, NEEDS_CLARIFICATION, ENGINEERING_REVIEW or READY_FOR_QUOTE with a mandatory enumerated reason. QUOTE_SENT-to-CLOSED remains only a later quote-lifecycle integration.",
     "Assignments cannot be cleared; setInquiryStageDeadline manages optional human-set current-stage due dates without SLA automation.",
     "Staff unsafe requests follow FROZEN R1-002 cookie, exact Origin and CSRF rules.",
     "Every public write validates exact configured Origin; no credentialed wildcard CORS.",
     "No source file download unless CLEAN and both document permissions plus inquiry scope pass.",
     "No external parser, malware result is never assumed, no automatic notification provider.",
-    "Public inquiry create JSON is limited to 2 MiB and at most 50 equipment lines; file bytes use independent streaming limits.",
-    "The per-source 25 MiB/day byte budget charges declared upload-intent bytes exactly once at accepted intent creation; one atomic Redis operation applies it across all Inquiries for the same domain-separated source fingerprint and UTC day."
+    "Public inquiry create JSON is limited to 2 MiB and at most 50 equipment lines; file bytes use the immutable server-selected profile in x-upload-profile-contract and are streamed with backpressure rather than buffered as whole bodies.",
+    "The per-source/UTC-day byte budget charges declared upload-intent bytes exactly once at accepted intent creation across all Inquiries for the HMAC source fingerprint. The atomic Redis bucket never resets, refunds or widens during that UTC day; when profile caps differ, the effective cap is the lowest cap seen for that source/day.",
+    "An optional catalogProductContext is preserved only as untrusted inquiry context; it never links, resolves, matches or authorizes a catalog product."
   ]
 }

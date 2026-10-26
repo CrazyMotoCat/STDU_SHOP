@@ -169,6 +169,33 @@
       "redactions": ["contactSnapshot", "comment body", "source content"]
     },
     {
+      "action": "inquiry.closed_without_quote",
+      "outcomes": {
+        "SUCCESS": [
+          "DUPLICATE",
+          "CUSTOMER_WITHDRAWN",
+          "OUT_OF_SCOPE",
+          "SPAM",
+          "NOT_FEASIBLE"
+        ],
+        "DENIED": [
+          "FORBIDDEN",
+          "AUTH_REQUIRED",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "actorKinds": ["STAFF"],
+      "entityType": "Inquiry",
+      "changesKeys": ["previousState", "state", "version", "changedFields"],
+      "redactions": ["contactSnapshot", "comment body", "source content"]
+    },
+    {
       "action": "inquiry.stage_deadline.changed",
       "outcomes": {
         "SUCCESS": ["STAGE_DUE_AT_SET", "STAGE_DUE_AT_CLEARED"],

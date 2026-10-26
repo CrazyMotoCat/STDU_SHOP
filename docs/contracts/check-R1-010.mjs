@@ -14,6 +14,7 @@ export async function loadR1_010(root = here) {
     rbac: await readJson('R1-010-inquiry-rbac-matrix.json'),
     audit: await readJson('R1-010-inquiry-audit-registry.json'),
     openapi: await readJson('R1-010-inquiries.openapi.json'),
+    uploadProfiles: await readJson('R1-010-inquiry-upload-profiles.json'),
     domain: await readFile(
       path.join(base, 'R1-010-inquiry-domain-contract.md'),
       'utf8',
@@ -31,6 +32,10 @@ export async function loadR1_010(root = here) {
       'utf8',
     ),
     matrix: await readFile(path.join(base, 'R1-010-test-matrix.md'), 'utf8'),
+    reviewReport: await readFile(
+      path.resolve(base, '../plans/R1-010B-01-review-verification.md'),
+      'utf8',
+    ),
   };
 }
 
@@ -223,6 +228,36 @@ export function validateR1_010(c) {
   ) {
     fail('public request body, line count or panel taxonomy drifted');
   }
+  const panels = c.openapi.components.schemas.PanelsDetails;
+  const engineering = c.openapi.components.schemas.EngineeringDetails;
+  const contact = c.openapi.components.schemas.ContactSnapshot;
+  if (
+    panels.required.join('|') !== 'requestType|description' ||
+    panels.properties.requirements.type.join('|') !== 'string|null' ||
+    panels.properties.documentationAvailability.enum.join('|') !==
+      'UNKNOWN|AVAILABLE|PARTIAL|NONE|' ||
+    panels.properties.notes.maxLength !== 3000 ||
+    engineering.required.join('|') !== 'technicalTask' ||
+    !contact.required.includes('contactName') ||
+    contact.properties.contactName.maxLength !== 180 ||
+    !contact.properties.customerComment ||
+    contact.properties.desiredDeadline.format ||
+    contact.properties.desiredDeadline.maxLength !== 120
+  ) {
+    fail(
+      'kind DTOs must preserve PR #18 form fields with only the accepted required constraints',
+    );
+  }
+  const productContext =
+    c.openapi.components.schemas.CreateInquiryRequest.properties
+      .catalogProductContext;
+  if (
+    productContext?.maxLength !== 120 ||
+    !/untrusted/i.test(productContext.description) ||
+    !/never resolve/i.test(productContext.description)
+  ) {
+    fail('optional catalog product context must remain bounded and untrusted');
+  }
   if (
     !c.openapi.components.schemas.ContactSnapshot.anyOf.some((branch) =>
       branch.required?.includes('email'),
@@ -278,7 +313,8 @@ export function validateR1_010(c) {
     ) ||
     c.openapi.components.schemas.AssignmentRequest.properties.staffUserId
       .type !== 'string' ||
-    c.openapi.components.schemas.TransitionRequest.properties.internalNote
+    c.openapi.components.schemas.StaffWorkflowTransitionRequest.properties
+      .internalNote
   ) {
     fail(
       'stage deadlines must be staff-visible, assignment clearing forbidden, and transition DTO must not imply an unpersisted note',
@@ -296,26 +332,60 @@ export function validateR1_010(c) {
   ) {
     fail('staff idempotency replay must reauthorize current Inquiry scope');
   }
+  const closeReasons = [
+    'DUPLICATE',
+    'CUSTOMER_WITHDRAWN',
+    'OUT_OF_SCOPE',
+    'SPAM',
+    'NOT_FEASIBLE',
+  ];
+  const transitionSchema = c.openapi.components.schemas.TransitionRequest;
+  const transitionRefs =
+    transitionSchema.oneOf?.map((branch) => branch.$ref) ?? [];
+  const ordinaryTransition =
+    c.openapi.components.schemas.StaffWorkflowTransitionRequest;
+  const closeRequest =
+    c.openapi.components.schemas.CloseInquiryWithoutQuoteRequest;
+  const closureAudit = c.audit.actions.find(
+    (entry) => entry.action === 'inquiry.closed_without_quote',
+  );
   if (
-    c.openapi.components.schemas.TransitionRequest.properties.reasonCode.enum.includes(
-      'CLOSED_DUPLICATE',
+    transitionRefs.join('|') !==
+      '#/components/schemas/StaffWorkflowTransitionRequest|#/components/schemas/CloseInquiryWithoutQuoteRequest' ||
+    ordinaryTransition.properties.toStatus.$ref !==
+      '#/components/schemas/StaffTransitionTargetStatus' ||
+    ordinaryTransition.properties.reasonCode.enum.some((reason) =>
+      closeReasons.includes(reason),
     ) ||
-    c.openapi.components.schemas.TransitionRequest.properties.reasonCode.enum.includes(
-      'CLOSED_WITHOUT_QUOTE',
+    closeRequest.required.join('|') !== 'toStatus|reasonCode' ||
+    closeRequest.properties.toStatus.const !== 'CLOSED' ||
+    closeRequest.properties.reasonCode.$ref !==
+      '#/components/schemas/InquiryClosureReason' ||
+    c.openapi.components.schemas.InquiryClosureReason.enum.join('|') !==
+      closeReasons.join('|') ||
+    closeRequest['x-allowed-source-statuses']?.join('|') !==
+      'NEW|TRIAGE|NEEDS_CLARIFICATION|ENGINEERING_REVIEW|READY_FOR_QUOTE' ||
+    !closureAudit ||
+    closureAudit.outcomes.SUCCESS.join('|') !== closeReasons.join('|') ||
+    !c.lifecycle.includes('No path reopens CLOSED') ||
+    !c.lifecycle.includes('current effective Inquiry read scope') ||
+    !c.lifecycle.includes(
+      'same-transaction state/version/AuditEvent/idempotency receipt',
     ) ||
-    !c.lifecycle.includes('Generic staff transitions cannot set CLOSED')
+    !c.lifecycle.includes('No quote or order is created') ||
+    !c.lifecycle.includes('QUOTE_SENT is excluded from this command')
   ) {
-    fail('generic Inquiry transitions must not bypass quote lifecycle closure');
+    fail(
+      'pre-quote closure must be a strict reasoned terminal branch with the agreed source-state, authority, audit, OCC and idempotency guards',
+    );
   }
   const staffTargetStatuses =
     c.openapi.components.schemas.StaffTransitionTargetStatus?.enum ?? [];
   if (
-    c.openapi.components.schemas.TransitionRequest.properties.toStatus.$ref !==
-      '#/components/schemas/StaffTransitionTargetStatus' ||
     staffTargetStatuses.includes('QUOTE_SENT') ||
     staffTargetStatuses.includes('CLOSED') ||
     staffTargetStatuses.includes('NEW') ||
-    c.openapi.components.schemas.TransitionRequest.properties.reasonCode.enum.includes(
+    c.openapi.components.schemas.StaffWorkflowTransitionRequest.properties.reasonCode.enum.includes(
       'QUOTE_WORK_READY',
     ) ||
     c.audit.actions
@@ -353,7 +423,7 @@ export function validateR1_010(c) {
   if (
     !c.attachment.includes('RATE_LIMIT_KEY') ||
     !c.attachment.includes('inquiry-source:v1:') ||
-    !c.attachment.includes('Do not add a new secret')
+    !c.attachment.includes('Do not add a secret')
   ) {
     fail(
       'public source rate limits must reuse the domain-separated existing key',
@@ -364,7 +434,7 @@ export function validateR1_010(c) {
     !c.audit.actions.some(
       (entry) => entry.action === 'inquiry.stage_deadline.changed',
     ) ||
-    !c.lifecycle.includes('A successful status transition clears `stageDueAt`')
+    !/A successful status transition.*clears `stageDueAt`/.test(c.lifecycle)
   ) {
     fail(
       'stage deadline must have persisted field, audit action and reset semantics',
@@ -425,13 +495,13 @@ export function validateR1_010(c) {
   }
   if (
     !c.attachment.includes(
-      'charged by declared bytes when an upload intent is accepted',
+      'charge declared bytes by one Redis atomic operation when an upload intent is accepted',
     ) ||
-    !c.attachment.includes(
-      'one Redis atomic operation enforces it across all Inquiries',
+    !c.model.rules.uploadQuotaConcurrency.includes(
+      'one atomic Redis counter across all Inquiry IDs',
     ) ||
-    !c.attachment.includes(
-      'receivingDeadlineAt = receivingStartedAt + 15 minutes',
+    !c.model.tables.InquiryUploadIntent.fields.receivingDeadlineAt.includes(
+      '15 minutes MVP_SAFE; 60 minutes ENGINEERING_DOCUMENTS',
     ) ||
     !c.model.tables.InquiryUploadIntent.fields.receivingDeadlineAt
   ) {
@@ -466,6 +536,53 @@ export function validateR1_010(c) {
       'upload isolation, independent transaction and quarantine invariants are required',
     );
   }
+  const profiles = c.uploadProfiles.profiles;
+  const shared = c.uploadProfiles.sharedControls;
+  if (
+    c.uploadProfiles.status !== 'PROPOSED' ||
+    c.uploadProfiles.defaultProfile !== 'MVP_SAFE' ||
+    c.uploadProfiles.profileSelection.owner !==
+      'server deployment configuration only; anonymous request cannot select or raise a profile' ||
+    shared.allowedFormats.join('|') !== 'PDF|CSV|XLSX' ||
+    shared.maxApplicationBufferPerStreamBytes !== 1048576 ||
+    shared.maxConcurrentStreamsPerApiInstance !== 4 ||
+    shared.maxConcurrentStreamsPerSource !== 2 ||
+    profiles.MVP_SAFE.maxFileBytes !== 10485760 ||
+    profiles.MVP_SAFE.maxFilesPerInquiry !== 5 ||
+    profiles.MVP_SAFE.maxCompletedBytesPerInquiry !== 26214400 ||
+    profiles.MVP_SAFE.maxDeclaredBytesPerSourceUtcDay !== 104857600 ||
+    profiles.MVP_SAFE.uploadIntentsPerSourcePerHour !== 10 ||
+    profiles.ENGINEERING_DOCUMENTS.maxFileBytes !== 52428800 ||
+    profiles.ENGINEERING_DOCUMENTS.maxFilesPerInquiry !== 20 ||
+    profiles.ENGINEERING_DOCUMENTS.maxCompletedBytesPerInquiry !== 262144000 ||
+    profiles.ENGINEERING_DOCUMENTS.maxDeclaredBytesPerSourceUtcDay !==
+      1073741824 ||
+    profiles.ENGINEERING_DOCUMENTS.uploadIntentsPerSourcePerHour !== 40 ||
+    profiles.MVP_SAFE.formats.join('|') !== 'PDF|CSV|XLSX' ||
+    profiles.ENGINEERING_DOCUMENTS.formats.join('|') !== 'PDF|CSV|XLSX' ||
+    !['DOCX', 'DWG', 'DXF', 'ZIP', '7Z', 'RAR'].every((format) =>
+      c.uploadProfiles.excludedPendingSeparateReview.includes(format),
+    ) ||
+    !c.attachment.includes(
+      'Colleagues behind the same NAT/VPN share the cap',
+    ) ||
+    !c.attachment.includes('document-led fabrication cannot proceed') ||
+    !c.attachment.includes('no operational scanner')
+  ) {
+    fail(
+      'the two proposed upload profiles, shared-source effects and scanner/format gates must remain explicit and bounded',
+    );
+  }
+  if (
+    !c.reviewReport.includes('R1-010A read-only compatibility matrix') ||
+    !/preview-only/i.test(c.reviewReport) ||
+    !/not integrated/i.test(c.reviewReport) ||
+    !/contactName.*at least one valid `email` or `phone`/.test(c.reviewReport)
+  ) {
+    fail(
+      'the PR #18 compatibility report must preserve the explicit preview-only and required-contact gaps',
+    );
+  }
   if (!c.lifecycle.includes('QUOTE_SENT -> CLOSED')) {
     fail('state machine must cover the approved terminal stages');
   }
@@ -478,7 +595,19 @@ export function validateR1_010(c) {
   ]) {
     if (!c.decisions.includes(id)) fail(`owner decision ${id} is missing`);
   }
-  for (let i = 1; i <= 35; i += 1) {
+  const matrixIds = [...c.matrix.matchAll(/\| (REQB-\d{2}) \|/g)].map(
+    (match) => match[1],
+  );
+  const expectedMatrixIds = Array.from(
+    { length: 41 },
+    (_, i) => `REQB-${String(i + 1).padStart(2, '0')}`,
+  );
+  if (matrixIds.join('|') !== expectedMatrixIds.join('|')) {
+    fail(
+      'acceptance matrix must contain exactly REQB-01 through REQB-41 once and in order',
+    );
+  }
+  for (let i = 1; i <= 41; i += 1) {
     const id = `REQB-${String(i).padStart(2, '0')}`;
     if (!c.matrix.includes(id)) fail(`acceptance scenario ${id} is missing`);
   }
@@ -499,6 +628,6 @@ if (
 ) {
   const result = validateR1_010(await loadR1_010());
   console.log(
-    `R1-010 contract PASS: ${result.tableCount} new tables; ${result.operationCount} API operations (${result.publicOperationCount} public, ${result.staffOperationCount} staff); ${result.permissionCount} additive permissions; REQB-01..35 present.`,
+    `R1-010 contract PASS: ${result.tableCount} new tables; ${result.operationCount} API operations (${result.publicOperationCount} public, ${result.staffOperationCount} staff); ${result.permissionCount} additive permissions; REQB-01..41 present.`,
   );
 }

@@ -1,0 +1,81 @@
+{
+  "status": "PROPOSED",
+  "version": "0.1.0-proposed",
+  "defaultProfile": "MVP_SAFE",
+  "profileSelection": {
+    "owner": "server deployment configuration only; anonymous request cannot select or raise a profile",
+    "scope": "all API replicas serving one environment must use the same configured profile",
+    "persistedAs": "Inquiry.uploadProfileCode, assigned at creation and immutable",
+    "sourceQuotaChange": "The source/UTC-day Redis counter is shared across Inquiry IDs. Its effective byte cap is the lowest profile cap seen for that source and UTC day; a profile change never resets, refunds or widens a charged daily bucket before UTC rollover."
+  },
+  "sharedControls": {
+    "allowedFormats": ["PDF", "CSV", "XLSX"],
+    "createJsonMaxBytes": 2097152,
+    "equipmentLinesMax": 50,
+    "createRequestsPerSourcePer15Minutes": 5,
+    "createRequestsPerSourcePerUtcDay": 20,
+    "intentStartLifetimeSeconds": 1800,
+    "maxConcurrentStreamsPerApiInstance": 4,
+    "maxConcurrentStreamsPerSource": 2,
+    "maxApplicationBufferPerStreamBytes": 1048576,
+    "streamIdleTimeoutSeconds": 60,
+    "scannerRequiredForClean": true,
+    "storage": "Existing configured private StoragePort only; random keys, bounded streaming, exact-object cleanup and capacity monitoring are required."
+  },
+  "profiles": {
+    "MVP_SAFE": {
+      "recommendedDefault": true,
+      "maxFileBytes": 10485760,
+      "maxFilesPerInquiry": 5,
+      "maxCompletedBytesPerInquiry": 26214400,
+      "maxDeclaredBytesPerSourceUtcDay": 104857600,
+      "uploadIntentsPerSourcePerHour": 10,
+      "receivingDeadlineSeconds": 900,
+      "formats": ["PDF", "CSV", "XLSX"],
+      "enablement": "Proposed default; production intake remains blocked until legal approval and a real scanner is operational."
+    },
+    "ENGINEERING_DOCUMENTS": {
+      "recommendedDefault": false,
+      "maxFileBytes": 52428800,
+      "maxFilesPerInquiry": 20,
+      "maxCompletedBytesPerInquiry": 262144000,
+      "maxDeclaredBytesPerSourceUtcDay": 1073741824,
+      "uploadIntentsPerSourcePerHour": 40,
+      "receivingDeadlineSeconds": 3600,
+      "formats": ["PDF", "CSV", "XLSX"],
+      "enablement": "Explicit server configuration only after owner approval, operational scanner confirmation, representative runtime fixtures and StoragePort capacity review."
+    }
+  },
+  "excludedPendingSeparateReview": [
+    "DOCX",
+    "DOCM",
+    "XLSM",
+    "DWG",
+    "DXF",
+    "ZIP",
+    "7Z",
+    "RAR",
+    "HTML",
+    "SVG",
+    "executables"
+  ],
+  "charging": {
+    "sourceDailyQuota": "Atomically charge declared bytes when an upload intent is accepted, across all Inquiries for the HMAC source fingerprint and UTC day. Same-key replay is not charged twice; failed, cancelled and expired intents are not refunded for that day.",
+    "inquiryQuota": "Count completed objects by actual bytes and active ISSUED/RECEIVING reservations by declared bytes under the Inquiry lock."
+  },
+  "streaming": {
+    "bodyBuffering": "Never load the whole request body or source document into memory. Enforce backpressure and stream from NestJS into the private quarantine StoragePort.",
+    "memoryBound": "Application byte buffers are at most 1 MiB per stream and at most four streams per API process (4 MiB aggregate application payload buffer), excluding socket/TLS, runtime, storage SDK and scanner memory.",
+    "scanner": "Accepted bytes remain QUARANTINED. Only an actually configured scanner can mark CLEAN or REJECTED; no scanner or scanner error means no download or extraction."
+  },
+  "runtimeFixtures": [
+    "Known benign PDF, CSV and XLSX fixtures; verify detected type and hash without storing customer data.",
+    "Generated streaming fixtures at each profile's exact file/inquiry boundary and one byte above it, with backpressure and bounded-memory assertions.",
+    "Maximum file-count and aggregate-byte reservation races, including two Inquiries sharing one source/day bucket and a profile-cap decrease that never widens the bucket.",
+    "Four concurrent streams and rejection of excess per-source/process concurrency; a bounded slow stream and an idle stream that expires using an injected clock/short test timeout.",
+    "Malformed, signature-mismatched, oversized and ZIP-bomb-like XLSX fixtures; reject unsafe structures or keep them quarantined without extraction.",
+    "DOCX, DOCM, XLSM, DWG, DXF, ZIP, 7Z and RAR fixtures are rejected by the proposed allowlist; no archive traversal/extraction is attempted.",
+    "Scanner CLEAN, REJECTED, absent, timeout and error outcomes; absent/error never permit download.",
+    "StoragePort unavailable, interrupted stream and exact-owned temporary-object cleanup; no volume or unrelated object cleanup."
+  ]
+}
