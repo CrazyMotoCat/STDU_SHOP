@@ -1,0 +1,270 @@
+{
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "extends": "FROZEN R1-002 AuditEvent",
+  "entityTypes": [
+    "Inquiry",
+    "InquiryLine",
+    "InquiryComment",
+    "InquirySourceDocument",
+    "InquiryUploadIntent"
+  ],
+  "changesContract": {
+    "schema": "FROZEN R1-002 components.schemas.AuditChanges; no schema changes",
+    "allowedKeys": {
+      "changedFields": "string[]; 1..100 entries; each item length 1..64; field names only",
+      "previousState": "string length 1..32; state enum value only",
+      "state": "string length 1..32; state enum value only",
+      "targetUserId": "UUID; only for assignment target",
+      "version": "int32 1..2147483647"
+    },
+    "rules": [
+      "Each action may use only its declared changesKeys subset of the allowed keys above.",
+      "No PII, free text, comment text, contact data, filenames, content, hashes, storage keys, capabilities, IP, byte counts or exception messages are stored in changes.",
+      "changedFields contains only allowlisted field names, never field values.",
+      "SUCCESS reasonCode may be null only where null appears in that action/outcome list; DENIED and FAILURE reasonCode are always non-null.",
+      "Denied public requests rejected before a bound Inquiry or upload intent is resolved do not create unbounded AuditEvent rows; bounded counters/metrics contain no raw source address."
+    ]
+  },
+  "actions": [
+    {
+      "action": "inquiry.created",
+      "outcomes": { "SUCCESS": ["PUBLIC_SUBMISSION_ACCEPTED"] },
+      "actorKinds": ["ANONYMOUS"],
+      "entityType": "Inquiry",
+      "changesKeys": [],
+      "redactions": [
+        "contactSnapshot",
+        "kindDetails",
+        "raw inquiry lines",
+        "capability",
+        "IP",
+        "body"
+      ]
+    },
+    {
+      "action": "inquiry.upload_intent.created",
+      "outcomes": { "SUCCESS": ["UPLOAD_INTENT_CREATED"] },
+      "actorKinds": ["ANONYMOUS"],
+      "entityType": "InquiryUploadIntent",
+      "changesKeys": ["changedFields", "version"],
+      "redactions": ["filename", "capability", "IP", "storageKey"]
+    },
+    {
+      "action": "inquiry.upload.completed",
+      "outcomes": { "SUCCESS": ["UPLOAD_ACCEPTED"] },
+      "actorKinds": ["ANONYMOUS"],
+      "entityType": "InquirySourceDocument",
+      "changesKeys": ["changedFields", "state"],
+      "redactions": [
+        "filename",
+        "bytes",
+        "content",
+        "capability",
+        "IP",
+        "storageKey"
+      ]
+    },
+    {
+      "action": "inquiry.upload.rejected",
+      "outcomes": {
+        "DENIED": [
+          "VALIDATION_ERROR",
+          "REQUEST_TOO_LARGE",
+          "FILE_TYPE_NOT_ALLOWED",
+          "MIME_MISMATCH",
+          "UPLOAD_QUOTA_EXCEEDED"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "actorKinds": ["ANONYMOUS"],
+      "entityType": "InquiryUploadIntent",
+      "changesKeys": ["previousState", "state", "version"],
+      "redactions": [
+        "filename",
+        "bytes",
+        "content",
+        "capability",
+        "IP",
+        "storageKey",
+        "exception details"
+      ]
+    },
+    {
+      "action": "inquiry.upload.cancelled",
+      "outcomes": { "SUCCESS": ["UPLOAD_INTENT_CANCELLED"] },
+      "actorKinds": ["ANONYMOUS"],
+      "entityType": "InquiryUploadIntent",
+      "changesKeys": ["previousState", "state", "version"],
+      "redactions": ["filename", "capability", "IP", "storageKey"]
+    },
+    {
+      "action": "inquiry.manager.assigned",
+      "outcomes": {
+        "SUCCESS": ["MANAGER_ASSIGNED"],
+        "DENIED": [
+          "FORBIDDEN",
+          "AUTH_REQUIRED",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "actorKinds": ["STAFF"],
+      "entityType": "Inquiry",
+      "changesKeys": ["targetUserId", "changedFields", "version"],
+      "redactions": ["contactSnapshot", "comment body", "source content"]
+    },
+    {
+      "action": "inquiry.engineer.assigned",
+      "outcomes": {
+        "SUCCESS": ["ENGINEER_ASSIGNED"],
+        "DENIED": [
+          "FORBIDDEN",
+          "AUTH_REQUIRED",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "actorKinds": ["STAFF"],
+      "entityType": "Inquiry",
+      "changesKeys": ["targetUserId", "changedFields", "version"],
+      "redactions": ["contactSnapshot", "comment body", "source content"]
+    },
+    {
+      "action": "inquiry.transitioned",
+      "outcomes": {
+        "SUCCESS": [
+          "TRIAGE_STARTED",
+          "MORE_INFORMATION_REQUIRED",
+          "INFORMATION_RECEIVED",
+          "ENGINEERING_STARTED",
+          "ENGINEERING_COMPLETE",
+          "RETURN_TO_CLARIFICATION"
+        ],
+        "DENIED": [
+          "FORBIDDEN",
+          "AUTH_REQUIRED",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "actorKinds": ["STAFF"],
+      "entityType": "Inquiry",
+      "changesKeys": ["previousState", "state", "version", "changedFields"],
+      "redactions": ["contactSnapshot", "comment body", "source content"]
+    },
+    {
+      "action": "inquiry.closed_without_quote",
+      "outcomes": {
+        "SUCCESS": [
+          "DUPLICATE",
+          "CUSTOMER_WITHDRAWN",
+          "OUT_OF_SCOPE",
+          "SPAM",
+          "NOT_FEASIBLE"
+        ],
+        "DENIED": [
+          "FORBIDDEN",
+          "AUTH_REQUIRED",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "VERSION_CONFLICT",
+          "INVALID_STATE_TRANSITION",
+          "VALIDATION_ERROR",
+          "NOT_FOUND"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "actorKinds": ["STAFF"],
+      "entityType": "Inquiry",
+      "changesKeys": ["previousState", "state", "version", "changedFields"],
+      "redactions": ["contactSnapshot", "comment body", "source content"]
+    },
+    {
+      "action": "inquiry.stage_deadline.changed",
+      "outcomes": {
+        "SUCCESS": ["STAGE_DUE_AT_SET", "STAGE_DUE_AT_CLEARED"],
+        "DENIED": [
+          "FORBIDDEN",
+          "AUTH_REQUIRED",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "VERSION_CONFLICT",
+          "VALIDATION_ERROR",
+          "NOT_FOUND"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "actorKinds": ["STAFF"],
+      "entityType": "Inquiry",
+      "changesKeys": ["changedFields", "version"],
+      "redactions": ["contactSnapshot", "comment body", "source content"]
+    },
+    {
+      "action": "inquiry.comment.created",
+      "outcomes": {
+        "SUCCESS": ["COMMENT_CREATED"],
+        "DENIED": [
+          "FORBIDDEN",
+          "AUTH_REQUIRED",
+          "CSRF_INVALID",
+          "ORIGIN_FORBIDDEN",
+          "VALIDATION_ERROR",
+          "NOT_FOUND"
+        ],
+        "FAILURE": ["DEPENDENCY_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "actorKinds": ["STAFF"],
+      "entityType": "InquiryComment",
+      "changesKeys": ["changedFields"],
+      "redactions": ["comment body", "contactSnapshot", "source content"]
+    },
+    {
+      "action": "inquiry.document.downloaded",
+      "outcomes": { "SUCCESS": ["DOWNLOAD_ALLOWED"] },
+      "actorKinds": ["STAFF"],
+      "entityType": "InquirySourceDocument",
+      "changesKeys": [],
+      "redactions": [
+        "bytes",
+        "content",
+        "filename",
+        "storageKey",
+        "contactSnapshot"
+      ]
+    },
+    {
+      "action": "inquiry.document.scan_state_changed",
+      "outcomes": {
+        "SUCCESS": ["SCAN_CLEAN", "SCAN_REJECTED"],
+        "FAILURE": ["SCANNER_UNAVAILABLE", "INTERNAL_ERROR"]
+      },
+      "actorKinds": ["OPERATOR"],
+      "entityType": "InquirySourceDocument",
+      "changesKeys": ["previousState", "state", "version"],
+      "redactions": ["scanner payload", "bytes", "content", "storageKey"]
+    }
+  ],
+  "rules": [
+    "Successful inquiry mutation and its AuditEvent use the same PostgreSQL transaction.",
+    "Each action declares allowed reasonCode values separately for every outcome and an exact changesKeys subset of FROZEN R1-002 AuditChanges.",
+    "AuditEvent stores stable action/outcome/reason and bounded allowlisted field names only; never raw PII, uploaded content, source filename, storage key, capability, IP or request body.",
+    "Rate-limit source identifiers use an ephemeral keyed fingerprint in Redis; raw IP is not written to AuditEvent or application logs.",
+    "No independent event bus or notification outbox is introduced by this contract. Outbound notifications are deferred to R1-017; inquiry registration commits independently."
+  ]
+}
