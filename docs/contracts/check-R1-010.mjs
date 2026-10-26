@@ -1,14 +1,51 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const approvedSourceHead = '68fb60f87c7821044939dd5d95f8e67e6bb73685';
+const frozenArtifactPaths = [
+  'docs/contracts/R1-010-attachment-security-policy.md',
+  'docs/contracts/R1-010-inquiries.openapi.json',
+  'docs/contracts/R1-010-inquiry-audit-registry.json',
+  'docs/contracts/R1-010-inquiry-data-model.json',
+  'docs/contracts/R1-010-inquiry-domain-contract.md',
+  'docs/contracts/R1-010-inquiry-rbac-matrix.json',
+  'docs/contracts/R1-010-inquiry-rbac-matrix.md',
+  'docs/contracts/R1-010-inquiry-state-machine.md',
+  'docs/contracts/R1-010-inquiry-upload-profiles.json',
+  'docs/contracts/R1-010-test-matrix.md',
+  'docs/plans/R1-010-owner-decisions.md',
+  'docs/plans/R1-010B-implementation-plan.md',
+];
+
+const normalizedBytes = (bytes) =>
+  Buffer.from(bytes.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
+const sha256 = (bytes) =>
+  createHash('sha256').update(normalizedBytes(bytes)).digest('hex');
 
 export async function loadR1_010(root = here) {
   const base = root === here ? here : path.resolve(root, 'docs/contracts');
   const readJson = async (name) =>
     JSON.parse(await readFile(path.join(base, name), 'utf8'));
+  const frozenManifest = await readJson('R1-010-frozen-manifest.json');
+  const repositoryRoot = path.resolve(base, '../..');
+  const frozenArtifactSha256 = {};
+  const approvedSourceSha256 = {};
+  for (const artifactPath of frozenArtifactPaths) {
+    frozenArtifactSha256[artifactPath] = sha256(
+      await readFile(path.resolve(repositoryRoot, artifactPath)),
+    );
+    approvedSourceSha256[artifactPath] = sha256(
+      execFileSync('git', ['show', `${approvedSourceHead}:${artifactPath}`], {
+        cwd: repositoryRoot,
+        maxBuffer: 5 * 1024 * 1024,
+      }),
+    );
+  }
   return {
     model: await readJson('R1-010-inquiry-data-model.json'),
     rbac: await readJson('R1-010-inquiry-rbac-matrix.json'),
@@ -21,6 +58,10 @@ export async function loadR1_010(root = here) {
     ),
     lifecycle: await readFile(
       path.join(base, 'R1-010-inquiry-state-machine.md'),
+      'utf8',
+    ),
+    rbacMarkdown: await readFile(
+      path.join(base, 'R1-010-inquiry-rbac-matrix.md'),
       'utf8',
     ),
     attachment: await readFile(
@@ -36,6 +77,13 @@ export async function loadR1_010(root = here) {
       path.resolve(base, '../plans/R1-010B-01-review-verification.md'),
       'utf8',
     ),
+    implementationPlan: await readFile(
+      path.resolve(base, '../plans/R1-010B-implementation-plan.md'),
+      'utf8',
+    ),
+    frozenManifest,
+    frozenArtifactSha256,
+    approvedSourceSha256,
   };
 }
 
@@ -81,14 +129,89 @@ export function validateR1_010(c) {
     'transitionStaffInquiry',
   ];
 
-  if (c.model.status !== 'PROPOSED' || c.model.version !== '0.1.0-proposed') {
-    fail('model must remain PROPOSED 0.1.0-proposed');
+  if (
+    c.model.status !== 'FROZEN' ||
+    c.model.version !== '1.0.0' ||
+    c.rbac.status !== 'FROZEN' ||
+    c.rbac.version !== '1.0.0' ||
+    c.audit.status !== 'FROZEN' ||
+    c.audit.version !== '1.0.0' ||
+    c.uploadProfiles.status !== 'FROZEN' ||
+    c.uploadProfiles.version !== '1.0.0' ||
+    c.openapi.info.version !== '1.0.0' ||
+    c.openapi['x-contract-status'] !== 'FROZEN' ||
+    c.openapi['x-contract-version'] !== '1.0.0'
+  ) {
+    fail('all R1-010 contract metadata must be FROZEN 1.0.0');
+  }
+  if (
+    c.frozenManifest.contract !== 'R1-010 Public Inquiry Domain Contract' ||
+    c.frozenManifest.status !== 'FROZEN' ||
+    c.frozenManifest.version !== '1.0.0' ||
+    c.frozenManifest.approval.sourceHead !== approvedSourceHead ||
+    c.frozenManifest.approval.approvedOn !== '2026-10-26' ||
+    !c.frozenManifest.approval.statement.includes(approvedSourceHead) ||
+    !c.frozenManifest.approval.scope.includes(
+      'does not authorize production migrations',
+    ) ||
+    c.frozenManifest.finalization.contractContentChanged !== false ||
+    JSON.stringify(c.frozenManifest.approval.decisionIds) !==
+      JSON.stringify([
+        'OD-010-01',
+        'OD-010-02',
+        'OD-010-03',
+        'OD-010-04',
+        'OD-010-05',
+      ])
+  ) {
+    fail('FROZEN approval provenance must match the owner-approved package');
+  }
+  if (
+    JSON.stringify(c.frozenManifest.approvedSourceSha256) !==
+      JSON.stringify(c.approvedSourceSha256) ||
+    JSON.stringify(c.frozenManifest.frozenArtifactSha256) !==
+      JSON.stringify(c.frozenArtifactSha256)
+  ) {
+    fail(
+      'FROZEN R1-010 artifact checksums do not match the approved source and current files',
+    );
+  }
+  if (
+    JSON.stringify(
+      Object.keys(c.frozenManifest.approvedSourceSha256).sort(),
+    ) !== JSON.stringify([...frozenArtifactPaths].sort()) ||
+    JSON.stringify(
+      Object.keys(c.frozenManifest.frozenArtifactSha256).sort(),
+    ) !== JSON.stringify([...frozenArtifactPaths].sort())
+  ) {
+    fail('FROZEN R1-010 checksum manifest must list the complete artifact set');
+  }
+  if (
+    !c.domain.startsWith('# R1-010 — Public Inquiry Domain Contract') ||
+    !c.domain.includes('**Status:** FROZEN.') ||
+    !c.domain.includes('**Version:** 1.0.0.') ||
+    !c.attachment.startsWith(
+      '# R1-010 Public Attachment Security Policy — FROZEN 1.0.0',
+    ) ||
+    !c.rbacMarkdown.startsWith('# R1-010 Inquiry Permissions — FROZEN 1.0.0') ||
+    !c.lifecycle.startsWith('# R1-010 Inquiry State Machine — FROZEN 1.0.0') ||
+    !c.matrix.startsWith(
+      '# R1-010 Inquiry Contract Acceptance Matrix — FROZEN 1.0.0',
+    ) ||
+    !c.decisions.startsWith('# R1-010 Owner Decisions — FROZEN 1.0.0') ||
+    !c.decisions.includes('**Owner decision: APPROVED.**') ||
+    !c.implementationPlan.includes('FROZEN R1-010 1.0.0') ||
+    !c.reviewReport.includes('FROZEN 1.0.0 finalization')
+  ) {
+    fail(
+      'FROZEN 1.0.0 status must be synchronized across contract and decision docs',
+    );
   }
   if (
     [...c.model.newTables].sort().join('|') !== expectedTables.join('|') ||
     Object.keys(c.model.tables).sort().join('|') !== expectedTables.join('|')
   ) {
-    fail('the package must define exactly six proposed Inquiry tables');
+    fail('the package must define exactly six FROZEN Inquiry tables');
   }
   if (
     !c.model.reusedTables.includes('AuditEvent') ||
@@ -116,7 +239,7 @@ export function validateR1_010(c) {
     Object.keys(c.rbac.permissions).sort().join('|') !==
     expectedPermissions.join('|')
   ) {
-    fail('proposed permission catalog drifted');
+    fail('FROZEN permission catalog drifted');
   }
   if (
     [...c.openapi['x-permissions']].sort().join('|') !==
@@ -539,7 +662,7 @@ export function validateR1_010(c) {
   const profiles = c.uploadProfiles.profiles;
   const shared = c.uploadProfiles.sharedControls;
   if (
-    c.uploadProfiles.status !== 'PROPOSED' ||
+    c.uploadProfiles.status !== 'FROZEN' ||
     c.uploadProfiles.defaultProfile !== 'MVP_SAFE' ||
     c.uploadProfiles.profileSelection.owner !==
       'server deployment configuration only; anonymous request cannot select or raise a profile' ||
@@ -570,7 +693,7 @@ export function validateR1_010(c) {
     !c.attachment.includes('no operational scanner')
   ) {
     fail(
-      'the two proposed upload profiles, shared-source effects and scanner/format gates must remain explicit and bounded',
+      'the two FROZEN upload profiles, shared-source effects and scanner/format gates must remain explicit and bounded',
     );
   }
   if (
@@ -628,6 +751,6 @@ if (
 ) {
   const result = validateR1_010(await loadR1_010());
   console.log(
-    `R1-010 contract PASS: ${result.tableCount} new tables; ${result.operationCount} API operations (${result.publicOperationCount} public, ${result.staffOperationCount} staff); ${result.permissionCount} additive permissions; REQB-01..41 present.`,
+    `FROZEN R1-010 1.0.0 contract PASS: ${result.tableCount} new tables; ${result.operationCount} API operations (${result.publicOperationCount} public, ${result.staffOperationCount} staff); ${result.permissionCount} additive permissions; REQB-01..41 and approved-source/frozen-artifact checksums verified.`,
   );
 }

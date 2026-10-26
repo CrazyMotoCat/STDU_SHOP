@@ -14,13 +14,53 @@ function rejects(change) {
   assert.throws(() => validateR1_010(contract));
 }
 
-test('proposed Inquiry contract has six tables, fifteen operations and nine permissions', () => {
+test('FROZEN Inquiry contract has six tables, fifteen operations and nine permissions', () => {
   assert.deepEqual(validateR1_010(baseline), {
     tableCount: 6,
     operationCount: 15,
     publicOperationCount: 4,
     staffOperationCount: 11,
     permissionCount: 9,
+  });
+});
+
+test('FROZEN contract approval pins the exact owner-approved source and OD package', () => {
+  assert.doesNotThrow(() => validateR1_010(baseline));
+  assert.equal(
+    baseline.frozenManifest.approval.sourceHead,
+    '68fb60f87c7821044939dd5d95f8e67e6bb73685',
+  );
+  assert.deepEqual(baseline.frozenManifest.approval.decisionIds, [
+    'OD-010-01',
+    'OD-010-02',
+    'OD-010-03',
+    'OD-010-04',
+    'OD-010-05',
+  ]);
+});
+
+test('checker rejects a changed frozen Inquiry artifact checksum', () => {
+  rejects((contract) => {
+    contract.frozenManifest.frozenArtifactSha256[
+      'docs/contracts/R1-010-inquiries.openapi.json'
+    ] = '0'.repeat(64);
+  });
+});
+
+test('checker rejects changed owner-approved source checksums', () => {
+  rejects((contract) => {
+    contract.frozenManifest.approvedSourceSha256[
+      'docs/contracts/R1-010-inquiry-data-model.json'
+    ] = '0'.repeat(64);
+  });
+});
+
+test('checker rejects contract version/status drift after FROZEN approval', () => {
+  rejects((contract) => {
+    contract.openapi.info.version = '0.1.0-proposed';
+  });
+  rejects((contract) => {
+    contract.model.status = 'PROPOSED';
   });
 });
 

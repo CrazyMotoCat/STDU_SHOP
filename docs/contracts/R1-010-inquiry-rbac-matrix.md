@@ -1,8 +1,8 @@
-# R1-010 Inquiry Permissions — PROPOSED 0.1.0
+# R1-010 Inquiry Permissions — FROZEN 1.0.0
 
-Default deny applies. Permission codes are additive to the approved R1-002 catalog but do not alter the protected full-admin set. No code is assigned to a role automatically; no role name conveys authority. Owner approval of the codes and later explicit R1-002 RBAC grants are separate from implementation.
+Default deny applies. Permission codes are additive to the approved R1-002 catalog but do not alter the protected full-admin set. No code is assigned to a role automatically; no role name conveys authority. Contract approval and later explicit R1-002 RBAC grants are separate; this contract does not grant permissions.
 
-| Permission                   | Proposed capability                                                   | Additional policy                                                                                                   |
+| Permission                   | Capability                                                            | Additional policy                                                                                                   |
 | ---------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | inquiries.read_assigned      | Queue/detail/history for inquiries where actor is manager or engineer | Unassigned items and all other inquiries are hidden. Contact values are redacted without contact permission.        |
 | inquiries.read_all           | Queue/detail/history for every Inquiry                                | Contact values are redacted without contact permission.                                                             |

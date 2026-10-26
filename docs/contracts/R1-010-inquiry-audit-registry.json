@@ -1,6 +1,6 @@
 {
-  "status": "PROPOSED",
-  "version": "0.1.0-proposed",
+  "status": "FROZEN",
+  "version": "1.0.0",
   "extends": "FROZEN R1-002 AuditEvent",
   "entityTypes": [
     "Inquiry",

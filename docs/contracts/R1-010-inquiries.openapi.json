@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "STDU_SHOP Public Inquiry and Staff Workflow API",
-    "version": "0.1.0-proposed",
-    "description": "PROPOSED R1-010 contract. It is not an implementation or authorization to run migrations. Inquiry submission has no public read/status endpoint."
+    "version": "1.0.0",
+    "description": "FROZEN R1-010 contract. This document is not an implementation or authorization to run production migrations. Inquiry submission has no public read/status endpoint."
   },
   "servers": [{ "url": "/" }],
   "tags": [{ "name": "Public inquiries" }, { "name": "Staff inquiries" }],
@@ -1284,7 +1284,8 @@
       }
     }
   },
-  "x-contract-status": "PROPOSED",
+  "x-contract-status": "FROZEN",
+  "x-contract-version": "1.0.0",
   "x-upload-profile-contract": {
     "file": "R1-010-inquiry-upload-profiles.json",
     "defaultProfile": "MVP_SAFE",

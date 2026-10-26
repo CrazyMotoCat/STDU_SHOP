@@ -1,8 +1,8 @@
-# R1-010 Owner Decisions — PROPOSED 0.1.0
+# R1-010 Owner Decisions — FROZEN 1.0.0
 
-Status: all listed items require owner approval before R1-010 implementation. Technical values below are recommendations, not frozen behavior. This packet does not reopen decisions 1–108.
+**Status:** FROZEN 1.0.0. OD-010-01…05 were approved by the owner for the exact proposal SHA recorded below. This packet does not reopen decisions 1–108.
 
-**Preliminary owner review:** OD-010-01, OD-010-02 and OD-010-05 were accepted in their recommended wording for this review round. They remain PROPOSED until the complete package, including OD-010-03 and OD-010-04, is approved on one exact HEAD.
+**Owner approval:** received for the complete OD-010-01…05 package on 2026-10-26 at proposed source SHA `68fb60f87c7821044939dd5d95f8e67e6bb73685`. Approval authorizes isolated R1-010B implementation after contract integration, but not production deployment, production migration, production PII collection, scanner provisioning or real permission grants. See [the frozen checksum manifest](../contracts/R1-010-frozen-manifest.json).
 
 ## OD-010-01 — Contact fields and verification
 
@@ -12,7 +12,7 @@ Status: all listed items require owner approval before R1-010 implementation. Te
 
 **Alternative:** verify one selected channel before accepting or require both email and phone. This reduces malformed contacts but adds delivery credentials, latency, abuse surface and recovery policy.
 
-**Owner choice:** accept recommendation or list fields and verification rule changes. No outbound verification provider is assumed.
+**Owner decision: APPROVED.** Contact name is required; at least one valid email or phone is required; account, OTP and channel verification are not required. Other contact fields remain as specified above.
 
 ## OD-010-02 — Personal data, legal notice, consent and retention
 
@@ -22,7 +22,9 @@ Status: all listed items require owner approval before R1-010 implementation. Te
 
 **Alternative:** collection under another confirmed legal basis with a separately approved notice and retention policy. A retention period cannot be inferred safely by engineering.
 
-**Launch gate:** commercial public collection and production retention/deletion remain blocked pending written legal/owner approval. The PROPOSED schema includes an optional versioned privacyNotice object only to reserve the review point; it is not a launch-ready consent design.
+**Launch gate:** commercial public collection and production retention/deletion remain blocked pending written legal/owner approval. The FROZEN schema includes an optional versioned privacyNotice object only to reserve the review point; it is not a launch-ready consent design.
+
+**Owner decision: APPROVED.** No production personal-data collection before separate legal approval of the basis, notice and retention/deletion schedule; a checkbox alone is not legal basis.
 
 ## OD-010-03 — Attachment types, quotas, scanner and retention
 
@@ -37,7 +39,7 @@ Status: all listed items require owner approval before R1-010 implementation. Te
 | MVP SAFE (default)                      | PDF, CSV, XLSX |   10 MiB |               5 |        25 MiB |          100 MiB |                     10 |                 15 min |
 | ENGINEERING DOCUMENTS (explicit opt-in) | PDF, CSV, XLSX |   50 MiB |              20 |       250 MiB |            1 GiB |                     40 |                 60 min |
 
-Both keep 5 Inquiry creates/15 minutes and 20/day/source, 2 MiB create JSON, 50 equipment lines, 30-minute intent-start expiry, 24-hour incomplete-byte cleanup and 30-day expired-intent metadata. The capability expiry remains 24 hours. Source quotas charge declared bytes once across Inquiry IDs and do not refund cancelled/failed/expired intents during that UTC day. If profiles differ for the same source/day, the atomic counter keeps the lower cap seen; profile changes never reset or widen a charged bucket before UTC rollover. NAT/VPN users share the source quota and the proposed two-stream-per-source limit. At the proposed caps, one shared source can submit four full Inquiry byte allowances/day; legitimate colleagues can still receive 429 when another person consumes the shared allowance. No bypass or new identity method is introduced.
+Both keep 5 Inquiry creates/15 minutes and 20/day/source, 2 MiB create JSON, 50 equipment lines, 30-minute intent-start expiry, 24-hour incomplete-byte cleanup and 30-day expired-intent metadata. The capability expiry remains 24 hours. Source quotas charge declared bytes once across Inquiry IDs and do not refund cancelled/failed/expired intents during that UTC day. If profiles differ for the same source/day, the atomic counter keeps the lower cap seen; profile changes never reset or widen a charged bucket before UTC rollover. NAT/VPN users share the source quota and the frozen two-stream-per-source limit. At the frozen caps, one shared source can submit four full Inquiry byte allowances/day; legitimate colleagues can still receive 429 when another person consumes the shared allowance. No bypass or new identity method is introduced.
 
 The machine-readable profile file is `R1-010-inquiry-upload-profiles.json`; profile choice is server config only, persisted on Inquiry, not selectable by anonymous callers. Both profiles match the current PR #18 extension allowlist; that form is only a preview and has no actual upload/size/count enforcement.
 
@@ -49,7 +51,7 @@ The machine-readable profile file is `R1-010-inquiry-upload-profiles.json`; prof
 
 **Runtime fixtures required in R1-010B:** benign PDF drawings (including a generated profile-sized streamed fixture), CSV schedules, XLSX specifications with representative workbook features, exact-limit and one-byte-over cases, max file-count/aggregate reservations under races, bounded-memory/backpressure, four concurrent streams, slow/idle streams with injected short clocks, shared-NAT multi-Inquiry source quotas and profile-cap decrease, malformed/signature-mismatched and ZIP-bomb-like XLSX, rejected DOCX/DWG/DXF/archives, scanner CLEAN/REJECTED/absent/timeout/error and StoragePort outage/interruption/exact-owned cleanup. Use generated fixtures, not customer documents. Do not wait 15/60 real minutes; inject time for configured deadline semantics.
 
-**Owner choice:** approve/adjust both profiles, shared-NAT effects, declared-byte accounting, scanner requirement, receiving deadlines and future-format gates. Completed file retention remains OD-010-02/legal decision. R1-006 staff-import remains unchanged.
+**Owner decision: APPROVED.** Both profiles, shared-NAT effects, declared-byte accounting, scanner requirement, 15/60-minute receiving deadlines and future-format gates are frozen as stated above. Completed-file retention remains blocked by OD-010-02/legal approval. R1-006 staff import remains unchanged.
 
 ## OD-010-04 — Inquiry taxonomy, lifecycle and stage deadlines
 
@@ -60,14 +62,16 @@ The machine-readable profile file is `R1-010-inquiry-upload-profiles.json`; prof
 - EQUIPMENT: one to 50 lines; title, positive decimal quantity string and unit required; SKU, manufacturer, modification, notes and untrusted per-line catalog slug optional. The current PR #18 renders one blank row initially and does not enforce the 50-line ceiling.
 - PANELS: `requestType` is required and maps `project-ready` → PROJECT_READY, `typical-change` → MODIFY_TYPICAL, `new-design` → DEVELOP_FROM_BRIEF. Non-empty task/description is required; cabinet purpose and positive quantity are optional; requirements is optional free text; requested work/services is an optional list; documentation availability and notes are optional. This preserves the three current preview choices without requiring fields the UI does not collect.
 - ENGINEERING: only non-empty technical task/subject is required. Direction/service area, system/object, expected outcomes, source-document description, scope and notes are optional bounded text. There is no inferred engineering approval or parsing.
-- Contact: backend still requires a contact name and at least one valid email or phone under preliminarily accepted OD-010-01. PR #18 currently leaves all contact fields optional in local validation; integration must add required validation before enabling submit. Desired deadline is preserved as optional free text, not parsed into a date. Optional customer comment is retained in the immutable private contact snapshot.
+- Contact: backend requires a contact name and at least one valid email or phone under approved OD-010-01. PR #18 currently leaves all contact fields optional in local validation; integration must add required validation before enabling submit. Desired deadline is preserved as optional free text, not parsed into a date. Optional customer comment is retained in the immutable private contact snapshot.
 - Preserve exact submitted wording. No SKU matching, automatic analogues, BOM, costing or approval.
-- Confirm the transition table in R1-010-inquiry-state-machine.md, including TRIAGE direct to ENGINEERING_REVIEW, staff recording received clarification, and controlled pre-quote closure. The proposed model keeps one terminal CLOSED state and requires `reasonCode` DUPLICATE, CUSTOMER_WITHDRAWN, OUT_OF_SCOPE, SPAM or NOT_FEASIBLE from NEW, TRIAGE, NEEDS_CLARIFICATION, ENGINEERING_REVIEW or READY_FOR_QUOTE. It requires inquiries.transition, current effective read scope (read_all for unassigned NEW), If-Match, durable idempotency and same-transaction state/audit. It is terminal, remains visible in authorized history, preserves the original submission, creates no quote/order and cannot close QUOTE_SENT; QUOTE_SENT still needs an approved sent quote and only quote lifecycle may close it. Assignments still cannot be cleared; they may be replaced with another eligible ACTIVE employee.
+- The FROZEN transition table in R1-010-inquiry-state-machine.md includes TRIAGE direct to ENGINEERING_REVIEW, staff recording received clarification, and controlled pre-quote closure. The model keeps one terminal CLOSED state and requires `reasonCode` DUPLICATE, CUSTOMER_WITHDRAWN, OUT_OF_SCOPE, SPAM or NOT_FEASIBLE from NEW, TRIAGE, NEEDS_CLARIFICATION, ENGINEERING_REVIEW or READY_FOR_QUOTE. It requires inquiries.transition, current effective read scope (read_all for unassigned NEW), If-Match, durable idempotency and same-transaction state/audit. It is terminal, remains visible in authorized history, preserves the original submission, creates no quote/order and cannot close QUOTE_SENT; QUOTE_SENT still needs an approved sent quote and only quote lifecycle may close it. Assignments still cannot be cleared; they may be replaced with another eligible ACTIVE employee.
 - Confirm one optional human-managed `stageDueAt` for the current stage, visible to authorized staff and set/cleared through a separate audited OCC command. A successful stage transition clears it. It is distinct from the customer's `desiredDeadline`; no automatic SLA calculation or notification is introduced.
 
 The detailed compatibility matrix is in the review-verification report. PR #18 remains preview-only: submit is disabled, selected files are represented only by local metadata, no request/capability/intent/byte upload reaches this API, and there is no integration claim. The contract PR does not change PR #18. Before future API activation, the frontend must enforce contact name plus email-or-phone, cap equipment lines at 50, map the three panel identifiers, map task/subject into the required API fields, and submit the optional product hint only as `catalogProductContext` (untrusted context).
 
-**Alternative:** specify other kind-specific choices or required fields as one consolidated list. New kinds or lifecycle branches require explicit contract update.
+**Owner decision: APPROVED.** The recommended request fields, compatibility mappings, lifecycle transitions, closure guards, assignment rules and stage-deadline semantics above are frozen; no unlisted fields or automation are added.
+
+**Alternative (not selected):** specify other kind-specific choices or required fields as one consolidated list. New kinds or lifecycle branches require explicit contract update.
 
 ## OD-010-05 — Receipt, reference and notifications
 
@@ -77,11 +81,11 @@ The detailed compatibility matrix is in the review-verification report. PR #18 r
 
 **Alternative:** return 202 only if acceptance itself is asynchronous and may remain uncommitted/awaiting processing. A sequential or guessable reference is rejected. Owner may approve future channel(s) under R1-017 but no provider is introduced here.
 
-**Owner choice:** accept 201 and no outbound notification in R1-010B, or record one precise alternative. This differs from the R1-010A proposal's suggested 202; rationale is that this contract persists the Inquiry before replying. It does not remove the R1-017 notification requirement from the full R1 roadmap.
+**Owner decision: APPROVED.** R1-010B returns synchronous 201 only after durable commit and sends no external notifications. This preserves the R1-017 notification requirement for a later stage.
 
 ## Approval wording
 
-> Утверждаю R1-010 Public Inquiry Domain Contract версии 0.1.0-proposed на SHA `<полный SHA после финальных проверок>`. Принимаю OD-010-01…05 в следующих редакциях:
+> Owner approval received: “Утверждаю R1-010 Public Inquiry Domain Contract версии 0.1.0-proposed на SHA `68fb60f87c7821044939dd5d95f8e67e6bb73685`. Принимаю OD-010-01…05 в редакциях `docs/plans/R1-010-owner-decisions.md`.” The owner additionally confirmed all listed rules and explicit production exclusions in the approval message on 2026-10-26.
 >
 > - **OD-010-01:** контактное лицо обязательно; нужен хотя бы один корректный email или телефон; проверка канала не выполняется; организация, ИНН, канал, регион, срок и комментарий необязательны.
 > - **OD-010-02:** производственный сбор персональных данных запрещён до утверждения юридического основания, уведомления и сроков хранения/удаления; чекбокс сам по себе не считается правовым основанием.

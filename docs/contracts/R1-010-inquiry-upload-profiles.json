@@ -1,6 +1,6 @@
 {
-  "status": "PROPOSED",
-  "version": "0.1.0-proposed",
+  "status": "FROZEN",
+  "version": "1.0.0",
   "defaultProfile": "MVP_SAFE",
   "profileSelection": {
     "owner": "server deployment configuration only; anonymous request cannot select or raise a profile",
@@ -32,7 +32,7 @@
       "uploadIntentsPerSourcePerHour": 10,
       "receivingDeadlineSeconds": 900,
       "formats": ["PDF", "CSV", "XLSX"],
-      "enablement": "Proposed default; production intake remains blocked until legal approval and a real scanner is operational."
+      "enablement": "Frozen default; production intake remains blocked until legal approval and a real scanner is operational."
     },
     "ENGINEERING_DOCUMENTS": {
       "recommendedDefault": false,
@@ -74,7 +74,7 @@
     "Maximum file-count and aggregate-byte reservation races, including two Inquiries sharing one source/day bucket and a profile-cap decrease that never widens the bucket.",
     "Four concurrent streams and rejection of excess per-source/process concurrency; a bounded slow stream and an idle stream that expires using an injected clock/short test timeout.",
     "Malformed, signature-mismatched, oversized and ZIP-bomb-like XLSX fixtures; reject unsafe structures or keep them quarantined without extraction.",
-    "DOCX, DOCM, XLSM, DWG, DXF, ZIP, 7Z and RAR fixtures are rejected by the proposed allowlist; no archive traversal/extraction is attempted.",
+    "DOCX, DOCM, XLSM, DWG, DXF, ZIP, 7Z and RAR fixtures are rejected by the frozen allowlist; no archive traversal/extraction is attempted.",
     "Scanner CLEAN, REJECTED, absent, timeout and error outcomes; absent/error never permit download.",
     "StoragePort unavailable, interrupted stream and exact-owned temporary-object cleanup; no volume or unrelated object cleanup."
   ]

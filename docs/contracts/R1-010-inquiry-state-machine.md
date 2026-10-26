@@ -1,4 +1,4 @@
-# R1-010 Inquiry State Machine — PROPOSED 0.1.0
+# R1-010 Inquiry State Machine — FROZEN 1.0.0
 
 ## States and transitions
 
