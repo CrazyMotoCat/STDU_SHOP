@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { PublicLayout } from '../../components/layouts/page-layouts';
 import { Breadcrumbs, Container } from '../../components/ui/primitives';
 import { RequestQuoteForm } from './request-quote-form';
+import { sanitizeProductHint } from './request-quote-utils';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
@@ -35,11 +36,7 @@ export default async function RequestQuotePage({
   )
     ? (kindParam as (typeof requestKinds)[number])
     : 'equipment';
-  const productParam = firstValue(params.product);
-  const productHint = productParam
-    ?.replace(/[\u0000-\u001f\u007f]/g, '')
-    .trim()
-    .slice(0, 120);
+  const productHint = sanitizeProductHint(firstValue(params.product));
   const previewEnabled =
     process.env.NODE_ENV === 'development' ||
     process.env.RFQ_PREVIEW_ENABLED === 'true';

@@ -60,16 +60,18 @@ async function withPreviewServer(enabled, operation) {
   );
   const port = await reservePort();
   const baseUrl = `http://127.0.0.1:${port}`;
+  const serverEnv = {
+    ...process.env,
+    NEXT_TELEMETRY_DISABLED: '1',
+  };
+  if (enabled) serverEnv.RFQ_PREVIEW_ENABLED = 'true';
+  else delete serverEnv.RFQ_PREVIEW_ENABLED;
   const child = spawn(
     process.execPath,
     [nextCli, 'start', '--hostname', '127.0.0.1', '--port', String(port)],
     {
       cwd: web,
-      env: {
-        ...process.env,
-        NEXT_TELEMETRY_DISABLED: '1',
-        RFQ_PREVIEW_ENABLED: String(enabled),
-      },
+      env: serverEnv,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     },
@@ -173,12 +175,11 @@ async function checkEquipmentFlow(page, baseUrl) {
     await page.getByRole('heading', { level: 1 }).innerText(),
     'Запросить коммерческое предложение',
   );
-  assert.match(
-    await page
-      .getByRole('complementary', { name: 'Контекст перехода' })
-      .innerText(),
-    /подсказка/,
-  );
+  const productContext = await page
+    .getByRole('complementary', { name: 'Контекст перехода' })
+    .innerText();
+  assert.match(productContext, /TEST-HINT-ONLY/);
+  assert.match(productContext, /только подсказка/);
   assert.equal(await page.locator('input[type="file"]').count(), 1);
   assert.equal(
     await page
