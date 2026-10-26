@@ -1,8 +1,18 @@
-# R1-010 Owner Decisions — FROZEN 1.0.0
+# R1-010 Owner Decisions — FROZEN 1.0.1
 
-**Status:** FROZEN 1.0.0. OD-010-01…05 were approved by the owner for the exact proposal SHA recorded below. This packet does not reopen decisions 1–108.
+**Status:** FROZEN 1.0.1. OD-010-01…05 were approved by the owner for the exact proposal SHA recorded below. Contract Amendment 01 is separately owner-approved below. This packet does not reopen decisions 1–108.
 
 **Owner approval:** received for the complete OD-010-01…05 package on 2026-10-26 at proposed source SHA `68fb60f87c7821044939dd5d95f8e67e6bb73685`. Approval authorizes isolated R1-010B implementation after contract integration, but not production deployment, production migration, production PII collection, scanner provisioning or real permission grants. See [the frozen checksum manifest](../contracts/R1-010-frozen-manifest.json).
+
+## R1-010 Contract Amendment 01 — FROZEN 1.0.1
+
+**Owner approval:** approved on 2026-10-27 after review of the public receipt/upload locator mismatch and `UploadIntentReceipt.maxBytes` profile ceiling. This amendment is limited to capability-only attachment routes, unique capability-hash lookup, one-way capability revocation, and the OpenAPI maximum matching the server's 50 MiB ENGINEERING_DOCUMENTS profile. The 201 create receipt remains exactly `publicReference`, `createdAt` and `message`; `publicReference` is not used to find or authorize an Inquiry.
+
+- `POST /v1/public/inquiry-attachments/upload-intents`
+- `PUT /v1/public/inquiry-attachments/upload-intents/{intentId}/content`
+- `DELETE /v1/public/inquiry-attachments/upload-intents/{intentId}`
+
+The client sends `X-Inquiry-Upload-Capability` only as a header. The server hashes it with SHA-256, finds exactly one unexpired Inquiry using a unique hash index, then checks the `intentId` belongs to that Inquiry. A missing, invalid, expired or revoked capability and a foreign intent are non-enumerating denials. Internal revocation is a one-way update that clears both stored hash and expiry; it does not add a public/staff route and cannot issue or rotate a capability. The capability is never stored raw or placed in a URL, query, cookie, log, trace or public response. `maxBytes` is the server-selected Inquiry profile's actual per-file limit; OpenAPI permits a maximum of 50 MiB but does not let the client select or expand a profile. All other OD-010-01…05 behavior, RBAC, lifecycle, personal-data rules, file formats, quarantine, rate limits, idempotency, streaming limits and launch gates remain unchanged.
 
 ## OD-010-01 — Contact fields and verification
 

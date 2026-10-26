@@ -1,6 +1,6 @@
 {
   "status": "FROZEN",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "task": "R1-010B-01",
   "baseline": "4b358f16a90998fdae2d2981601e9ccf3bfdf7f0",
   "extends": [
@@ -40,7 +40,7 @@
         "createdAt": "timestamptz(6) transaction_timestamp()",
         "updatedAt": "timestamptz(6) transaction_timestamp()"
       },
-      "unique": [["publicReference"]],
+      "unique": [["publicReference"], ["uploadCapabilityHash"]],
       "indexes": [
         ["status", "createdAt", "id"],
         ["status", "stageDueAt", "id"],
@@ -56,7 +56,7 @@
         "uploadCapabilityHash and uploadCapabilityExpiresAt are both NULL or both present",
         "version > 0"
       ],
-      "immutability": "kind, publicReference, contactSnapshot, catalogProductContext, kindDetails, uploadProfileCode and createdAt never change after creation; assignments/status/stageDueAt/version may change only through audited OCC commands; no physical delete API."
+      "immutability": "kind, publicReference, contactSnapshot, catalogProductContext, kindDetails, uploadProfileCode and createdAt never change after creation. uploadCapabilityHash and uploadCapabilityExpiresAt may only be cleared together once as one-way revocation; they cannot be rotated or reissued. Assignments/status/stageDueAt/version may change only through audited OCC commands; no physical delete API."
     },
     "InquiryLine": {
       "primaryKey": ["id"],
@@ -208,7 +208,8 @@
     "retention": "Exact inquiry/contact/document retention requires OD-010-02/03. No production launch or automatic deletion policy may be inferred. Incomplete byte streams are deleted after 24 hours by an ownership-checked private storage sweeper; expired intent metadata is retained 30 days for diagnostics then purged. Completed InquirySourceDocument rows/bytes remain until owner-approved retention exists.",
     "idempotencyRetention": "30 days; after expiration the client must never reuse a key. Cleanup deletes only expired rows after locking and does not touch inquiry, AuditEvent or source files.",
     "limits": "See the canonical FROZEN MVP_SAFE and ENGINEERING_DOCUMENTS profiles in R1-010-inquiry-upload-profiles.json. The server assigns one immutable uploadProfileCode to every Inquiry; clients cannot select a profile. OpenAPI carries the 50 MiB maximum schema ceiling while the selected profile enforces the lower runtime file/count/aggregate limits.",
-    "uploadQuotaConcurrency": "Creating and starting/completing each upload intent locks the Inquiry aggregate and rechecks completed documents by actual bytes, unexpired ISSUED reservations by declared bytes, and RECEIVING reservations by declared bytes until completion/failure/deadline against that Inquiry's immutable profile. The source/UTC-day budget is one atomic Redis counter across all Inquiry IDs for the HMAC source. It charges declared bytes once at accepted intent creation; retries do not double-charge and failed/cancelled/expired intents are not refunded. The bucket's effective cap is the lowest profile cap seen for that source/day; it is not reset, refunded or widened before UTC rollover."
+    "uploadQuotaConcurrency": "Creating and starting/completing each upload intent locks the Inquiry aggregate and rechecks completed documents by actual bytes, unexpired ISSUED reservations by declared bytes, and RECEIVING reservations by declared bytes until completion/failure/deadline against that Inquiry's immutable profile. The source/UTC-day budget is one atomic Redis counter across all Inquiry IDs for the HMAC source. It charges declared bytes once at accepted intent creation; retries do not double-charge and failed/cancelled/expired intents are not refunded. The bucket's effective cap is the lowest profile cap seen for that source/day; it is not reset, refunded or widened before UTC rollover.",
+    "publicUploadCapability": "Contract Amendment 01: the client sends a 256-bit capability only in X-Inquiry-Upload-Capability. The API stores only SHA-256, uses a unique nullable uploadCapabilityHash index to resolve one unexpired Inquiry, then binds intentId to that Inquiry. Missing, invalid, expired and revoked values are non-enumerating denials; publicReference and UUIDs are not credentials."
   },
   "outOfScope": [
     "customer accounts or inquiry read/status endpoint",

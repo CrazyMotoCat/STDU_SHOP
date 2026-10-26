@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const approvedSourceHead = '68fb60f87c7821044939dd5d95f8e67e6bb73685';
+const frozenContractVersion = '1.0.1';
 const frozenArtifactPaths = [
   'docs/contracts/R1-010-attachment-security-policy.md',
   'docs/contracts/R1-010-inquiries.openapi.json',
@@ -131,30 +132,37 @@ export function validateR1_010(c) {
 
   if (
     c.model.status !== 'FROZEN' ||
-    c.model.version !== '1.0.0' ||
+    c.model.version !== frozenContractVersion ||
     c.rbac.status !== 'FROZEN' ||
-    c.rbac.version !== '1.0.0' ||
+    c.rbac.version !== frozenContractVersion ||
     c.audit.status !== 'FROZEN' ||
-    c.audit.version !== '1.0.0' ||
+    c.audit.version !== frozenContractVersion ||
     c.uploadProfiles.status !== 'FROZEN' ||
-    c.uploadProfiles.version !== '1.0.0' ||
-    c.openapi.info.version !== '1.0.0' ||
+    c.uploadProfiles.version !== frozenContractVersion ||
+    c.openapi.info.version !== frozenContractVersion ||
     c.openapi['x-contract-status'] !== 'FROZEN' ||
-    c.openapi['x-contract-version'] !== '1.0.0'
+    c.openapi['x-contract-version'] !== frozenContractVersion
   ) {
-    fail('all R1-010 contract metadata must be FROZEN 1.0.0');
+    fail(
+      `all R1-010 contract metadata must be FROZEN ${frozenContractVersion}`,
+    );
   }
   if (
     c.frozenManifest.contract !== 'R1-010 Public Inquiry Domain Contract' ||
     c.frozenManifest.status !== 'FROZEN' ||
-    c.frozenManifest.version !== '1.0.0' ||
+    c.frozenManifest.version !== frozenContractVersion ||
+    c.frozenManifest.baseVersion !== '1.0.0' ||
     c.frozenManifest.approval.sourceHead !== approvedSourceHead ||
     c.frozenManifest.approval.approvedOn !== '2026-10-26' ||
     !c.frozenManifest.approval.statement.includes(approvedSourceHead) ||
     !c.frozenManifest.approval.scope.includes(
       'does not authorize production migrations',
     ) ||
-    c.frozenManifest.finalization.contractContentChanged !== false ||
+    c.frozenManifest.finalization.contractContentChanged !== true ||
+    c.frozenManifest.amendments?.length !== 1 ||
+    c.frozenManifest.amendments?.[0]?.id !== 'R1-010 Contract Amendment 01' ||
+    c.frozenManifest.amendments?.[0]?.version !== frozenContractVersion ||
+    c.frozenManifest.amendments?.[0]?.approvedOn !== '2026-10-27' ||
     JSON.stringify(c.frozenManifest.approval.decisionIds) !==
       JSON.stringify([
         'OD-010-01',
@@ -189,22 +197,29 @@ export function validateR1_010(c) {
   if (
     !c.domain.startsWith('# R1-010 — Public Inquiry Domain Contract') ||
     !c.domain.includes('**Status:** FROZEN.') ||
-    !c.domain.includes('**Version:** 1.0.0.') ||
+    !c.domain.includes(`**Version:** ${frozenContractVersion}.`) ||
     !c.attachment.startsWith(
-      '# R1-010 Public Attachment Security Policy — FROZEN 1.0.0',
+      `# R1-010 Public Attachment Security Policy — FROZEN ${frozenContractVersion}`,
     ) ||
-    !c.rbacMarkdown.startsWith('# R1-010 Inquiry Permissions — FROZEN 1.0.0') ||
-    !c.lifecycle.startsWith('# R1-010 Inquiry State Machine — FROZEN 1.0.0') ||
+    !c.rbacMarkdown.startsWith(
+      `# R1-010 Inquiry Permissions — FROZEN ${frozenContractVersion}`,
+    ) ||
+    !c.lifecycle.startsWith(
+      `# R1-010 Inquiry State Machine — FROZEN ${frozenContractVersion}`,
+    ) ||
     !c.matrix.startsWith(
-      '# R1-010 Inquiry Contract Acceptance Matrix — FROZEN 1.0.0',
+      `# R1-010 Inquiry Contract Acceptance Matrix — FROZEN ${frozenContractVersion}`,
     ) ||
-    !c.decisions.startsWith('# R1-010 Owner Decisions — FROZEN 1.0.0') ||
+    !c.decisions.startsWith(
+      `# R1-010 Owner Decisions — FROZEN ${frozenContractVersion}`,
+    ) ||
     !c.decisions.includes('**Owner decision: APPROVED.**') ||
-    !c.implementationPlan.includes('FROZEN R1-010 1.0.0') ||
-    !c.reviewReport.includes('FROZEN 1.0.0 finalization')
+    !c.decisions.includes('R1-010 Contract Amendment 01 — FROZEN 1.0.1') ||
+    !c.implementationPlan.includes(`FROZEN R1-010 ${frozenContractVersion}`) ||
+    !c.reviewReport.includes('Contract Amendment 01')
   ) {
     fail(
-      'FROZEN 1.0.0 status must be synchronized across contract and decision docs',
+      'FROZEN 1.0.1 status must be synchronized across contract and decision docs',
     );
   }
   if (
@@ -339,6 +354,56 @@ export function validateR1_010(c) {
     undefined
   ) {
     fail('public create must return a persisted 201 receipt');
+  }
+  const attachmentRoutes = [
+    '/v1/public/inquiry-attachments/upload-intents',
+    '/v1/public/inquiry-attachments/upload-intents/{intentId}/content',
+    '/v1/public/inquiry-attachments/upload-intents/{intentId}',
+  ];
+  const publicReceiptProperties = Object.keys(
+    c.openapi.components.schemas.PublicInquiryReceipt.properties.data
+      .properties,
+  ).sort();
+  if (
+    attachmentRoutes.some((route) => !c.openapi.paths[route]) ||
+    Object.keys(c.openapi.paths).some((route) =>
+      route.includes('/v1/public/inquiries/{inquiryId}/attachments/'),
+    ) ||
+    Object.keys(c.openapi.paths).some(
+      (route) =>
+        route.includes('/inquiry-attachments/') &&
+        route.includes('{inquiryId}'),
+    ) ||
+    c.openapi.paths['/v1/public/inquiry-attachments/upload-intents']?.post
+      ?.security?.[0]?.InquiryUploadCapability === undefined ||
+    c.openapi.components.securitySchemes.InquiryUploadCapability.name !==
+      'X-Inquiry-Upload-Capability' ||
+    publicReceiptProperties.join('|') !== 'createdAt|message|publicReference'
+  ) {
+    fail(
+      'Contract Amendment 01 requires capability-only routes, no Inquiry ID in receipt/path and header security',
+    );
+  }
+  if (
+    c.openapi.components.schemas.UploadIntentReceipt.properties.data.properties
+      .maxBytes.maximum !==
+      50 * 1024 * 1024 ||
+    c.uploadProfiles.profiles.ENGINEERING_DOCUMENTS.maxFileBytes !==
+      50 * 1024 * 1024 ||
+    c.uploadProfiles.profiles.MVP_SAFE.maxFileBytes !== 10 * 1024 * 1024
+  ) {
+    fail(
+      'UploadIntentReceipt.maxBytes ceiling must match the server-selected maximum profile while MVP_SAFE remains bounded',
+    );
+  }
+  if (
+    !c.model.tables.Inquiry.unique?.some(
+      (columns) =>
+        columns.length === 1 && columns[0] === 'uploadCapabilityHash',
+    ) ||
+    !c.model.tables.Inquiry.immutability.includes('one-way revocation')
+  ) {
+    fail('capability hash lookup must be unique and revocable only one-way');
   }
   if (
     c.openapi.paths['/v1/public/inquiries']?.post?.['x-max-request-bytes'] !==
@@ -751,6 +816,6 @@ if (
 ) {
   const result = validateR1_010(await loadR1_010());
   console.log(
-    `FROZEN R1-010 1.0.0 contract PASS: ${result.tableCount} new tables; ${result.operationCount} API operations (${result.publicOperationCount} public, ${result.staffOperationCount} staff); ${result.permissionCount} additive permissions; REQB-01..41 and approved-source/frozen-artifact checksums verified.`,
+    `FROZEN R1-010 ${frozenContractVersion} contract PASS: ${result.tableCount} new tables; ${result.operationCount} API operations (${result.publicOperationCount} public, ${result.staffOperationCount} staff); ${result.permissionCount} additive permissions; REQB-01..41, Amendment 01 and approved-source/frozen-artifact checksums verified.`,
   );
 }

@@ -1,6 +1,6 @@
 {
   "status": "FROZEN",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "defaultProfile": "MVP_SAFE",
   "profileSelection": {
     "owner": "server deployment configuration only; anonymous request cannot select or raise a profile",

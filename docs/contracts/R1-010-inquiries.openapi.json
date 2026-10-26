@@ -2,11 +2,22 @@
   "openapi": "3.1.0",
   "info": {
     "title": "STDU_SHOP Public Inquiry and Staff Workflow API",
-    "version": "1.0.0",
-    "description": "FROZEN R1-010 contract. This document is not an implementation or authorization to run production migrations. Inquiry submission has no public read/status endpoint."
+    "version": "1.0.1",
+    "description": "FROZEN R1-010 Contract Amendment 01. Inquiry submission has no public read/status endpoint; attachment upload routes resolve the Inquiry only from the header capability."
   },
-  "servers": [{ "url": "/" }],
-  "tags": [{ "name": "Public inquiries" }, { "name": "Staff inquiries" }],
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Public inquiries"
+    },
+    {
+      "name": "Staff inquiries"
+    }
+  ],
   "paths": {
     "/v1/public/inquiries": {
       "post": {
@@ -15,15 +26,21 @@
         "summary": "Create one anonymous B2B inquiry",
         "description": "Creates Inquiry + submitted lines + audit in one PostgreSQL transaction. Returns 201 only after commit. publicReference is a receipt, not a credential; there is no public inquiry lookup. When attachments are planned, client may include a CSPRNG-generated 256-bit uploadCapability in this JSON body; only its SHA-256 is stored and it grants attachment upload only. Later intent/upload/cancel calls carry it in X-Inquiry-Upload-Capability.",
         "parameters": [
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/Origin" }
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
         ],
         "x-max-request-bytes": 2097152,
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateInquiryRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateInquiryRequest"
+              }
             }
           }
         },
@@ -38,26 +55,664 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/ValidationError" },
-          "409": { "$ref": "#/components/responses/Conflict" },
-          "413": { "$ref": "#/components/responses/TooLarge" },
-          "415": { "$ref": "#/components/responses/UnsupportedMedia" },
-          "429": { "$ref": "#/components/responses/RateLimited" },
-          "503": { "$ref": "#/components/responses/Unavailable" }
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
         }
       }
     },
-    "/v1/public/inquiries/{inquiryId}/attachments/upload-intents": {
+    "/v1/staff/inquiries": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "listStaffInquiries",
+        "summary": "Read a permission-scoped inquiry queue",
+        "security": [
+          {
+            "StaffSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StatusFilter"
+          },
+          {
+            "$ref": "#/components/parameters/KindFilter"
+          },
+          {
+            "$ref": "#/components/parameters/AssignedFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Permission-scoped keyset page; no contact PII in list rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InquiryQueuePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "getStaffInquiry",
+        "summary": "Read one permission-scoped inquiry",
+        "security": [
+          {
+            "StaffSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InquiryId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contact snapshot is omitted unless inquiries.contacts.read is also effective",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Inquiry version, used with If-Match on aggregate mutations"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InquiryDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/events": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "listInquiryEvents",
+        "summary": "Read state and assignment history",
+        "security": [
+          {
+            "StaffSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InquiryId"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Allowlisted audit timeline, no raw request or PII",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InquiryEventPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/manager": {
+      "patch": {
+        "tags": ["Staff inquiries"],
+        "operationId": "assignInquiryManager",
+        "summary": "Assign or replace the inquiry manager",
+        "security": [
+          {
+            "StaffSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InquiryId"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/StaffCsrf"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Assignment receipt and new aggregate version",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/engineer": {
+      "patch": {
+        "tags": ["Staff inquiries"],
+        "operationId": "assignInquiryEngineer",
+        "summary": "Assign or replace the responsible engineer",
+        "security": [
+          {
+            "StaffSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InquiryId"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/StaffCsrf"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Assignment receipt and new aggregate version",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/stage-deadline": {
+      "put": {
+        "tags": ["Staff inquiries"],
+        "operationId": "setInquiryStageDeadline",
+        "summary": "Set or clear the due date for the current stage",
+        "description": "Human-managed internal due date, distinct from customer desiredDeadline. Uses current inquiry scope, transition permission, If-Match and durable idempotency. No automatic SLA calculation or notification is performed. A successful status transition clears this value.",
+        "security": [
+          {
+            "StaffSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InquiryId"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/StaffCsrf"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StageDeadlineRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stage due date committed with audit and new aggregate version",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/transition": {
+      "post": {
+        "tags": ["Staff inquiries"],
+        "operationId": "transitionStaffInquiry",
+        "summary": "Perform one allowed staff transition",
+        "description": "The ordinary staff transition branch excludes QUOTE_SENT and CLOSED. A separate strict union branch permits pre-quote closure to CLOSED only from the five eligible states and with one of the five enumerated reasonCode values; it uses this same permission, If-Match, durable idempotency and transactional audit boundary. QUOTE_SENT remains exclusively owned by approved quote delivery; a QUOTE_SENT inquiry may close only through its later quote lifecycle.",
+        "security": [
+          {
+            "StaffSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InquiryId"
+          },
+          {
+            "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/StaffCsrf"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transition committed with audit and new version",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/comments": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "listStaffInquiryComments",
+        "summary": "Read internal comments",
+        "security": [
+          {
+            "StaffSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InquiryId"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Internal-only comments; never included in public DTO",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InquiryCommentPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Staff inquiries"],
+        "operationId": "createStaffInquiryComment",
+        "summary": "Append an internal-only comment",
+        "security": [
+          {
+            "StaffSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InquiryId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/StaffCsrf"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Comment and audit committed atomically",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutationReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/documents": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "listStaffInquiryDocuments",
+        "summary": "Read attachment metadata and security state",
+        "security": [
+          {
+            "StaffSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InquiryId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "No storage keys or public URLs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InquiryDocumentPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/documents/{documentId}/download": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "downloadStaffInquiryDocument",
+        "summary": "Download one authorized CLEAN source",
+        "security": [
+          {
+            "StaffSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InquiryId"
+          },
+          {
+            "$ref": "#/components/parameters/DocumentId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized private stream; attachment disposition, no-store, nosniff, no public URL",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Document not CLEAN; body uses Error envelope"
+          }
+        }
+      }
+    },
+    "/v1/public/inquiry-attachments/upload-intents": {
       "post": {
         "tags": ["Public inquiries"],
         "operationId": "createInquiryUploadIntent",
         "summary": "Reserve a one-use upload for one inquiry",
-        "description": "Requires the upload-only capability supplied with createPublicInquiry. Capability is compared by hash and is bound to this Inquiry. The route creates no public read permission.",
-        "security": [{ "InquiryUploadCapability": [] }],
+        "description": "Requires the upload-only capability supplied with createPublicInquiry. The server resolves the bound Inquiry from the capability hash; no Inquiry UUID or public lookup is needed. Capability grants attachment upload only.",
+        "security": [
+          {
+            "InquiryUploadCapability": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/InquiryId" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/Origin" }
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
         ],
         "requestBody": {
           "required": true,
@@ -74,39 +729,69 @@
             "description": "One-use bounded intent created",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/UploadIntentReceipt" }
+                "schema": {
+                  "$ref": "#/components/schemas/UploadIntentReceipt"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/ValidationError" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" },
-          "413": { "$ref": "#/components/responses/TooLarge" },
-          "415": { "$ref": "#/components/responses/UnsupportedMedia" },
-          "429": { "$ref": "#/components/responses/RateLimited" },
-          "503": { "$ref": "#/components/responses/Unavailable" }
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
         }
       }
     },
-    "/v1/public/inquiries/{inquiryId}/attachments/upload-intents/{intentId}/content": {
+    "/v1/public/inquiry-attachments/upload-intents/{intentId}/content": {
       "put": {
         "tags": ["Public inquiries"],
         "operationId": "uploadInquirySourceDocument",
         "summary": "Upload the bytes for one reserved intent",
-        "description": "Streams bytes into a private temporary object; the stream must start before the 30-minute intent expiry and finish within the receiving deadline captured from the Inquiry's server-selected upload profile (15 minutes MVP_SAFE; 60 minutes ENGINEERING_DOCUMENTS). The selected profile is not client-controlled. Expiry does not interrupt a RECEIVING stream, but its captured deadline does. Enforces the selected profile limits while streaming with bounded backpressure, sniffs the allowlisted type and computes SHA-256, then commits one immutable QUARANTINED source document, intent consumption, idempotency receipt and audit. A failed upload never rolls back the Inquiry. Partial bytes are deleted or ownership-checked as a private orphan. Retry after a completed same-key request replays the safe receipt after current capability/intent authorization; a consumed intent cannot be used with a new key.",
-        "security": [{ "InquiryUploadCapability": [] }],
+        "description": "Streams bytes into a private temporary object; the server resolves Inquiry from the upload capability and verifies the intent is bound to it. The route contains no Inquiry UUID. The stream must start before the 30-minute intent expiry and finish within the receiving deadline captured from the Inquiry server-selected profile (15 minutes MVP_SAFE; 60 minutes ENGINEERING_DOCUMENTS). Expiry does not interrupt a RECEIVING stream, but its captured deadline does. Enforces selected profile limits while streaming with bounded backpressure, sniffs the allowlisted type and computes SHA-256, then commits one immutable QUARANTINED source document, intent consumption, idempotency receipt and audit. A failed upload never rolls back the Inquiry. Partial bytes are deleted or ownership-checked as a private orphan. Retry after a completed same-key request replays the safe receipt after current capability/intent authorization; a consumed intent cannot be used with a new key.",
+        "security": [
+          {
+            "InquiryUploadCapability": []
+          }
+        ],
         "parameters": [
-          { "$ref": "#/components/parameters/InquiryId" },
-          { "$ref": "#/components/parameters/IntentId" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/Origin" }
+          {
+            "$ref": "#/components/parameters/IntentId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/octet-stream": {
-              "schema": { "type": "string", "format": "binary" }
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
             }
           }
         },
@@ -121,386 +806,73 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/ValidationError" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" },
-          "413": { "$ref": "#/components/responses/TooLarge" },
-          "415": { "$ref": "#/components/responses/UnsupportedMedia" },
-          "429": { "$ref": "#/components/responses/RateLimited" },
-          "503": { "$ref": "#/components/responses/Unavailable" }
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMedia"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
         }
       }
     },
-    "/v1/public/inquiries/{inquiryId}/attachments/upload-intents/{intentId}": {
+    "/v1/public/inquiry-attachments/upload-intents/{intentId}": {
       "delete": {
         "tags": ["Public inquiries"],
         "operationId": "cancelInquiryUploadIntent",
         "summary": "Cancel an unconsumed upload intent",
-        "description": "Only the bound upload capability can cancel an ISSUED intent. It cannot delete an Inquiry or completed source document. Retry requires a new intent.",
-        "security": [{ "InquiryUploadCapability": [] }],
-        "parameters": [
-          { "$ref": "#/components/parameters/InquiryId" },
-          { "$ref": "#/components/parameters/IntentId" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/Origin" }
-        ],
-        "responses": {
-          "204": { "description": "Intent cancelled" },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" },
-          "429": { "$ref": "#/components/responses/RateLimited" },
-          "503": { "$ref": "#/components/responses/Unavailable" }
-        }
-      }
-    },
-    "/v1/staff/inquiries": {
-      "get": {
-        "tags": ["Staff inquiries"],
-        "operationId": "listStaffInquiries",
-        "summary": "Read a permission-scoped inquiry queue",
-        "security": [{ "StaffSessionCookie": [] }],
-        "parameters": [
-          { "$ref": "#/components/parameters/StatusFilter" },
-          { "$ref": "#/components/parameters/KindFilter" },
-          { "$ref": "#/components/parameters/AssignedFilter" },
-          { "$ref": "#/components/parameters/Cursor" },
-          { "$ref": "#/components/parameters/PageSize" }
-        ],
-        "responses": {
-          "200": {
-            "description": "Permission-scoped keyset page; no contact PII in list rows",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/InquiryQueuePage" }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
-        }
-      }
-    },
-    "/v1/staff/inquiries/{inquiryId}": {
-      "get": {
-        "tags": ["Staff inquiries"],
-        "operationId": "getStaffInquiry",
-        "summary": "Read one permission-scoped inquiry",
-        "security": [{ "StaffSessionCookie": [] }],
-        "parameters": [{ "$ref": "#/components/parameters/InquiryId" }],
-        "responses": {
-          "200": {
-            "description": "Contact snapshot is omitted unless inquiries.contacts.read is also effective",
-            "headers": {
-              "ETag": {
-                "schema": { "type": "string" },
-                "description": "Inquiry version, used with If-Match on aggregate mutations"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/InquiryDetail" }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
-        }
-      }
-    },
-    "/v1/staff/inquiries/{inquiryId}/events": {
-      "get": {
-        "tags": ["Staff inquiries"],
-        "operationId": "listInquiryEvents",
-        "summary": "Read state and assignment history",
-        "security": [{ "StaffSessionCookie": [] }],
-        "parameters": [
-          { "$ref": "#/components/parameters/InquiryId" },
-          { "$ref": "#/components/parameters/Cursor" },
-          { "$ref": "#/components/parameters/PageSize" }
-        ],
-        "responses": {
-          "200": {
-            "description": "Allowlisted audit timeline, no raw request or PII",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/InquiryEventPage" }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
-        }
-      }
-    },
-    "/v1/staff/inquiries/{inquiryId}/manager": {
-      "patch": {
-        "tags": ["Staff inquiries"],
-        "operationId": "assignInquiryManager",
-        "summary": "Assign or replace the inquiry manager",
-        "security": [{ "StaffSessionCookie": [] }],
-        "parameters": [
-          { "$ref": "#/components/parameters/InquiryId" },
-          { "$ref": "#/components/parameters/IfMatch" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/StaffCsrf" },
-          { "$ref": "#/components/parameters/Origin" }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/AssignmentRequest" }
-            }
+        "description": "Only the bound upload capability can cancel an ISSUED intent. The server resolves Inquiry from the capability hash and verifies the intent belongs to it; no Inquiry UUID is present in the route. It cannot delete an Inquiry or completed source document. Retry requires a new intent.",
+        "security": [
+          {
+            "InquiryUploadCapability": []
           }
-        },
-        "responses": {
-          "200": {
-            "description": "Assignment receipt and new aggregate version",
-            "headers": { "ETag": { "schema": { "type": "string" } } },
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/MutationReceipt" }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/ValidationError" }
-        }
-      }
-    },
-    "/v1/staff/inquiries/{inquiryId}/engineer": {
-      "patch": {
-        "tags": ["Staff inquiries"],
-        "operationId": "assignInquiryEngineer",
-        "summary": "Assign or replace the responsible engineer",
-        "security": [{ "StaffSessionCookie": [] }],
-        "parameters": [
-          { "$ref": "#/components/parameters/InquiryId" },
-          { "$ref": "#/components/parameters/IfMatch" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/StaffCsrf" },
-          { "$ref": "#/components/parameters/Origin" }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/AssignmentRequest" }
-            }
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IntentId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
           }
-        },
-        "responses": {
-          "200": {
-            "description": "Assignment receipt and new aggregate version",
-            "headers": { "ETag": { "schema": { "type": "string" } } },
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/MutationReceipt" }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/ValidationError" }
-        }
-      }
-    },
-    "/v1/staff/inquiries/{inquiryId}/stage-deadline": {
-      "put": {
-        "tags": ["Staff inquiries"],
-        "operationId": "setInquiryStageDeadline",
-        "summary": "Set or clear the due date for the current stage",
-        "description": "Human-managed internal due date, distinct from customer desiredDeadline. Uses current inquiry scope, transition permission, If-Match and durable idempotency. No automatic SLA calculation or notification is performed. A successful status transition clears this value.",
-        "security": [{ "StaffSessionCookie": [] }],
-        "parameters": [
-          { "$ref": "#/components/parameters/InquiryId" },
-          { "$ref": "#/components/parameters/IfMatch" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/StaffCsrf" },
-          { "$ref": "#/components/parameters/Origin" }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/StageDeadlineRequest" }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Stage due date committed with audit and new aggregate version",
-            "headers": { "ETag": { "schema": { "type": "string" } } },
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/MutationReceipt" }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/ValidationError" }
-        }
-      }
-    },
-    "/v1/staff/inquiries/{inquiryId}/transition": {
-      "post": {
-        "tags": ["Staff inquiries"],
-        "operationId": "transitionStaffInquiry",
-        "summary": "Perform one allowed staff transition",
-        "description": "The ordinary staff transition branch excludes QUOTE_SENT and CLOSED. A separate strict union branch permits pre-quote closure to CLOSED only from the five eligible states and with one of the five enumerated reasonCode values; it uses this same permission, If-Match, durable idempotency and transactional audit boundary. QUOTE_SENT remains exclusively owned by approved quote delivery; a QUOTE_SENT inquiry may close only through its later quote lifecycle.",
-        "security": [{ "StaffSessionCookie": [] }],
-        "parameters": [
-          { "$ref": "#/components/parameters/InquiryId" },
-          { "$ref": "#/components/parameters/IfMatch" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/StaffCsrf" },
-          { "$ref": "#/components/parameters/Origin" }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/TransitionRequest" }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Transition committed with audit and new version",
-            "headers": { "ETag": { "schema": { "type": "string" } } },
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/MutationReceipt" }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/ValidationError" }
-        }
-      }
-    },
-    "/v1/staff/inquiries/{inquiryId}/comments": {
-      "get": {
-        "tags": ["Staff inquiries"],
-        "operationId": "listStaffInquiryComments",
-        "summary": "Read internal comments",
-        "security": [{ "StaffSessionCookie": [] }],
-        "parameters": [
-          { "$ref": "#/components/parameters/InquiryId" },
-          { "$ref": "#/components/parameters/Cursor" },
-          { "$ref": "#/components/parameters/PageSize" }
         ],
         "responses": {
-          "200": {
-            "description": "Internal-only comments; never included in public DTO",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/InquiryCommentPage" }
-              }
-            }
+          "204": {
+            "description": "Intent cancelled"
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
-        }
-      },
-      "post": {
-        "tags": ["Staff inquiries"],
-        "operationId": "createStaffInquiryComment",
-        "summary": "Append an internal-only comment",
-        "security": [{ "StaffSessionCookie": [] }],
-        "parameters": [
-          { "$ref": "#/components/parameters/InquiryId" },
-          { "$ref": "#/components/parameters/IdempotencyKey" },
-          { "$ref": "#/components/parameters/StaffCsrf" },
-          { "$ref": "#/components/parameters/Origin" }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateCommentRequest" }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Comment and audit committed atomically",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/MutationReceipt" }
-              }
-            }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/ValidationError" }
-        }
-      }
-    },
-    "/v1/staff/inquiries/{inquiryId}/documents": {
-      "get": {
-        "tags": ["Staff inquiries"],
-        "operationId": "listStaffInquiryDocuments",
-        "summary": "Read attachment metadata and security state",
-        "security": [{ "StaffSessionCookie": [] }],
-        "parameters": [{ "$ref": "#/components/parameters/InquiryId" }],
-        "responses": {
-          "200": {
-            "description": "No storage keys or public URLs",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/InquiryDocumentPage" }
-              }
-            }
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
-        }
-      }
-    },
-    "/v1/staff/inquiries/{inquiryId}/documents/{documentId}/download": {
-      "get": {
-        "tags": ["Staff inquiries"],
-        "operationId": "downloadStaffInquiryDocument",
-        "summary": "Download one authorized CLEAN source",
-        "security": [{ "StaffSessionCookie": [] }],
-        "parameters": [
-          { "$ref": "#/components/parameters/InquiryId" },
-          { "$ref": "#/components/parameters/DocumentId" }
-        ],
-        "responses": {
-          "200": {
-            "description": "Authorized private stream; attachment disposition, no-store, nosniff, no public URL",
-            "content": {
-              "application/octet-stream": {
-                "schema": { "type": "string", "format": "binary" }
-              }
-            }
-          },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
           "409": {
-            "description": "Document not CLEAN; body uses Error envelope"
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         }
       }
@@ -526,71 +898,104 @@
         "name": "Idempotency-Key",
         "in": "header",
         "required": true,
-        "schema": { "type": "string", "minLength": 8, "maxLength": 128 },
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
         "description": "Client-generated unpredictable unique key. Recommended 128-bit or more CSPRNG entropy. Stored only as SHA-256."
       },
       "Origin": {
         "name": "Origin",
         "in": "header",
         "required": true,
-        "schema": { "type": "string", "format": "uri" },
+        "schema": {
+          "type": "string",
+          "format": "uri"
+        },
         "description": "Must exactly match configured public web origin; arbitrary X-Forwarded-For and reflected CORS are rejected."
       },
       "InquiryId": {
         "name": "inquiryId",
         "in": "path",
         "required": true,
-        "schema": { "type": "string", "format": "uuid" }
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
       },
       "IntentId": {
         "name": "intentId",
         "in": "path",
         "required": true,
-        "schema": { "type": "string", "format": "uuid" }
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
       },
       "DocumentId": {
         "name": "documentId",
         "in": "path",
         "required": true,
-        "schema": { "type": "string", "format": "uuid" }
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
       },
       "IfMatch": {
         "name": "If-Match",
         "in": "header",
         "required": true,
-        "schema": { "type": "string", "pattern": "^\"[1-9][0-9]*\"$" },
+        "schema": {
+          "type": "string",
+          "pattern": "^\"[1-9][0-9]*\"$"
+        },
         "description": "Strong inquiry aggregate version ETag from current staff detail."
       },
       "StaffCsrf": {
         "name": "X-CSRF-Token",
         "in": "header",
         "required": true,
-        "schema": { "type": "string", "minLength": 32, "maxLength": 512 },
+        "schema": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 512
+        },
         "description": "Existing FROZEN R1-002 staff CSRF token for unsafe cookie-authenticated operations."
       },
       "StatusFilter": {
         "name": "status",
         "in": "query",
         "required": false,
-        "schema": { "$ref": "#/components/schemas/InquiryStatus" }
+        "schema": {
+          "$ref": "#/components/schemas/InquiryStatus"
+        }
       },
       "KindFilter": {
         "name": "kind",
         "in": "query",
         "required": false,
-        "schema": { "$ref": "#/components/schemas/InquiryKind" }
+        "schema": {
+          "$ref": "#/components/schemas/InquiryKind"
+        }
       },
       "AssignedFilter": {
         "name": "assignee",
         "in": "query",
         "required": false,
-        "schema": { "type": "string", "enum": ["ME", "UNASSIGNED"] }
+        "schema": {
+          "type": "string",
+          "enum": ["ME", "UNASSIGNED"]
+        }
       },
       "Cursor": {
         "name": "cursor",
         "in": "query",
         "required": false,
-        "schema": { "type": "string", "maxLength": 512 },
+        "schema": {
+          "type": "string",
+          "maxLength": 512
+        },
         "description": "Opaque permission-scoped keyset cursor; not an authorization credential."
       },
       "PageSize": {
@@ -627,9 +1032,18 @@
         "additionalProperties": false,
         "required": ["code", "message", "requestId"],
         "properties": {
-          "code": { "type": "string", "maxLength": 64 },
-          "message": { "type": "string", "maxLength": 240 },
-          "requestId": { "type": "string", "format": "uuid" },
+          "code": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "fields": {
             "type": "array",
             "maxItems": 32,
@@ -638,8 +1052,14 @@
               "additionalProperties": false,
               "required": ["field", "code"],
               "properties": {
-                "field": { "type": "string", "maxLength": 128 },
-                "code": { "type": "string", "maxLength": 64 }
+                "field": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "code": {
+                  "type": "string",
+                  "maxLength": 64
+                }
               }
             }
           }
@@ -652,29 +1072,53 @@
         "anyOf": [
           {
             "required": ["email"],
-            "properties": { "email": { "type": "string" } }
+            "properties": {
+              "email": {
+                "type": "string"
+              }
+            }
           },
           {
             "required": ["phone"],
-            "properties": { "phone": { "type": "string" } }
+            "properties": {
+              "phone": {
+                "type": "string"
+              }
+            }
           }
         ],
         "properties": {
-          "contactName": { "type": "string", "minLength": 1, "maxLength": 180 },
+          "contactName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180
+          },
           "email": {
             "type": ["string", "null"],
             "format": "email",
             "maxLength": 254
           },
-          "phone": { "type": ["string", "null"], "maxLength": 40 },
-          "organization": { "type": ["string", "null"], "maxLength": 200 },
-          "taxIdentifier": { "type": ["string", "null"], "maxLength": 24 },
+          "phone": {
+            "type": ["string", "null"],
+            "maxLength": 40
+          },
+          "organization": {
+            "type": ["string", "null"],
+            "maxLength": 200
+          },
+          "taxIdentifier": {
+            "type": ["string", "null"],
+            "maxLength": 24
+          },
           "preferredChannel": {
             "type": ["string", "null"],
             "enum": ["EMAIL", "PHONE", null],
             "description": "Must correspond to a supplied non-null email/phone channel."
           },
-          "region": { "type": ["string", "null"], "maxLength": 120 },
+          "region": {
+            "type": ["string", "null"],
+            "maxLength": 120
+          },
           "desiredDeadline": {
             "type": ["string", "null"],
             "maxLength": 120,
@@ -692,18 +1136,38 @@
         "additionalProperties": false,
         "required": ["rawTitle", "quantity", "unit"],
         "properties": {
-          "rawTitle": { "type": "string", "minLength": 1, "maxLength": 500 },
-          "originalSku": { "type": ["string", "null"], "maxLength": 160 },
-          "manufacturerName": { "type": ["string", "null"], "maxLength": 200 },
-          "modification": { "type": ["string", "null"], "maxLength": 200 },
+          "rawTitle": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "originalSku": {
+            "type": ["string", "null"],
+            "maxLength": 160
+          },
+          "manufacturerName": {
+            "type": ["string", "null"],
+            "maxLength": 200
+          },
+          "modification": {
+            "type": ["string", "null"],
+            "maxLength": 200
+          },
           "quantity": {
             "type": "string",
             "pattern": "^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:[.,][0-9]{1,6})?$",
             "maxLength": 19,
             "description": "Positive decimal string with dot or comma as the optional decimal separator; no grouping separator. Preserved literally and never converted through binary floating point."
           },
-          "unit": { "type": "string", "minLength": 1, "maxLength": 40 },
-          "notes": { "type": ["string", "null"], "maxLength": 4000 },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "notes": {
+            "type": ["string", "null"],
+            "maxLength": 4000
+          },
           "catalogProductSlugContext": {
             "type": ["string", "null"],
             "maxLength": 160,
@@ -720,7 +1184,10 @@
             "type": "string",
             "enum": ["PROJECT_READY", "MODIFY_TYPICAL", "DEVELOP_FROM_BRIEF"]
           },
-          "cabinetPurpose": { "type": ["string", "null"], "maxLength": 2000 },
+          "cabinetPurpose": {
+            "type": ["string", "null"],
+            "maxLength": 2000
+          },
           "quantity": {
             "type": ["string", "null"],
             "pattern": "^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:[.,][0-9]{1,6})?$",
@@ -734,7 +1201,10 @@
           "requestedWork": {
             "type": "array",
             "maxItems": 50,
-            "items": { "type": "string", "maxLength": 500 }
+            "items": {
+              "type": "string",
+              "maxLength": 500
+            }
           },
           "description": {
             "type": "string",
@@ -745,7 +1215,10 @@
             "type": ["string", "null"],
             "enum": ["UNKNOWN", "AVAILABLE", "PARTIAL", "NONE", null]
           },
-          "notes": { "type": ["string", "null"], "maxLength": 3000 }
+          "notes": {
+            "type": ["string", "null"],
+            "maxLength": 3000
+          }
         }
       },
       "EngineeringDetails": {
@@ -757,7 +1230,10 @@
             "type": ["string", "null"],
             "maxLength": 200
           },
-          "systemType": { "type": ["string", "null"], "maxLength": 200 },
+          "systemType": {
+            "type": ["string", "null"],
+            "maxLength": 200
+          },
           "technicalTask": {
             "type": "string",
             "minLength": 1,
@@ -772,8 +1248,14 @@
             "type": ["string", "null"],
             "maxLength": 1500
           },
-          "scope": { "type": ["string", "null"], "maxLength": 2500 },
-          "notes": { "type": ["string", "null"], "maxLength": 2500 }
+          "scope": {
+            "type": ["string", "null"],
+            "maxLength": 2500
+          },
+          "notes": {
+            "type": ["string", "null"],
+            "maxLength": 2500
+          }
         }
       },
       "CreateInquiryRequest": {
@@ -781,8 +1263,12 @@
         "additionalProperties": false,
         "required": ["kind", "contact"],
         "properties": {
-          "kind": { "$ref": "#/components/schemas/InquiryKind" },
-          "contact": { "$ref": "#/components/schemas/ContactSnapshot" },
+          "kind": {
+            "$ref": "#/components/schemas/InquiryKind"
+          },
+          "contact": {
+            "$ref": "#/components/schemas/ContactSnapshot"
+          },
           "catalogProductContext": {
             "type": ["string", "null"],
             "maxLength": 120,
@@ -797,54 +1283,95 @@
             "type": "array",
             "minItems": 1,
             "maxItems": 50,
-            "items": { "$ref": "#/components/schemas/EquipmentLine" }
+            "items": {
+              "$ref": "#/components/schemas/EquipmentLine"
+            }
           },
-          "panels": { "$ref": "#/components/schemas/PanelsDetails" },
-          "engineering": { "$ref": "#/components/schemas/EngineeringDetails" },
+          "panels": {
+            "$ref": "#/components/schemas/PanelsDetails"
+          },
+          "engineering": {
+            "$ref": "#/components/schemas/EngineeringDetails"
+          },
           "privacyNotice": {
             "type": ["object", "null"],
             "additionalProperties": false,
             "required": ["version", "accepted"],
             "properties": {
-              "version": { "type": "string", "maxLength": 64 },
-              "accepted": { "type": "boolean" }
+              "version": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "accepted": {
+                "type": "boolean"
+              }
             },
             "description": "Exact content and whether required are BLOCKED on OD-010-02; no production collection before legal approval."
           }
         },
         "allOf": [
           {
-            "if": { "properties": { "kind": { "const": "EQUIPMENT" } } },
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "EQUIPMENT"
+                }
+              }
+            },
             "then": {
               "required": ["equipmentLines"],
               "not": {
                 "anyOf": [
-                  { "required": ["panels"] },
-                  { "required": ["engineering"] }
+                  {
+                    "required": ["panels"]
+                  },
+                  {
+                    "required": ["engineering"]
+                  }
                 ]
               }
             }
           },
           {
-            "if": { "properties": { "kind": { "const": "PANELS" } } },
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "PANELS"
+                }
+              }
+            },
             "then": {
               "required": ["panels"],
               "not": {
                 "anyOf": [
-                  { "required": ["equipmentLines"] },
-                  { "required": ["engineering"] }
+                  {
+                    "required": ["equipmentLines"]
+                  },
+                  {
+                    "required": ["engineering"]
+                  }
                 ]
               }
             }
           },
           {
-            "if": { "properties": { "kind": { "const": "ENGINEERING" } } },
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "ENGINEERING"
+                }
+              }
+            },
             "then": {
               "required": ["engineering"],
               "not": {
                 "anyOf": [
-                  { "required": ["equipmentLines"] },
-                  { "required": ["panels"] }
+                  {
+                    "required": ["equipmentLines"]
+                  },
+                  {
+                    "required": ["panels"]
+                  }
                 ]
               }
             }
@@ -866,11 +1393,19 @@
                 "minLength": 20,
                 "maxLength": 32
               },
-              "createdAt": { "type": "string", "format": "date-time" },
-              "message": { "type": "string", "maxLength": 240 }
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 240
+              }
             }
           },
-          "meta": { "$ref": "#/components/schemas/Meta" }
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
         }
       },
       "CreateUploadIntentRequest": {
@@ -878,7 +1413,11 @@
         "additionalProperties": false,
         "required": ["filename", "declaredMimeType", "sizeBytes"],
         "properties": {
-          "filename": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
           "declaredMimeType": {
             "type": "string",
             "minLength": 3,
@@ -906,12 +1445,24 @@
             "additionalProperties": false,
             "required": ["intentId", "expiresAt", "maxBytes"],
             "properties": {
-              "intentId": { "type": "string", "format": "uuid" },
-              "expiresAt": { "type": "string", "format": "date-time" },
-              "maxBytes": { "type": "integer", "maximum": 10485760 }
+              "intentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "maxBytes": {
+                "type": "integer",
+                "maximum": 52428800,
+                "description": "Exactly the selected server-side upload profile per-file limit (10 MiB or 50 MiB); callers cannot select or raise the profile."
+              }
             }
           },
-          "meta": { "$ref": "#/components/schemas/Meta" }
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
         }
       },
       "DocumentUploadReceipt": {
@@ -924,12 +1475,23 @@
             "additionalProperties": false,
             "required": ["accepted", "sizeBytes", "securityState"],
             "properties": {
-              "accepted": { "type": "boolean", "const": true },
-              "sizeBytes": { "type": "integer", "minimum": 1 },
-              "securityState": { "type": "string", "const": "QUARANTINED" }
+              "accepted": {
+                "type": "boolean",
+                "const": true
+              },
+              "sizeBytes": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "securityState": {
+                "type": "string",
+                "const": "QUARANTINED"
+              }
             }
           },
-          "meta": { "$ref": "#/components/schemas/Meta" }
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
         }
       },
       "InquirySummary": {
@@ -945,18 +1507,36 @@
           "createdAt"
         ],
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "publicReference": { "type": "string" },
-          "channel": { "type": "string", "const": "PUBLIC_WEB" },
-          "kind": { "$ref": "#/components/schemas/InquiryKind" },
-          "status": { "$ref": "#/components/schemas/InquiryStatus" },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "publicReference": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string",
+            "const": "PUBLIC_WEB"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/InquiryKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InquiryStatus"
+          },
           "stageDueAt": {
             "type": ["string", "null"],
             "format": "date-time",
             "description": "Staff-managed due date for this current stage; not the customer's desiredDeadline."
           },
-          "version": { "type": "integer", "minimum": 1 },
-          "createdAt": { "type": "string", "format": "date-time" },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
           "assignedManagerUserId": {
             "type": ["string", "null"],
             "format": "uuid"
@@ -969,20 +1549,28 @@
       },
       "InquiryDetail": {
         "allOf": [
-          { "$ref": "#/components/schemas/InquirySummary" },
+          {
+            "$ref": "#/components/schemas/InquirySummary"
+          },
           {
             "type": "object",
             "properties": {
-              "contact": { "$ref": "#/components/schemas/ContactSnapshot" },
+              "contact": {
+                "$ref": "#/components/schemas/ContactSnapshot"
+              },
               "catalogProductContext": {
                 "type": ["string", "null"],
                 "maxLength": 120,
                 "description": "Untrusted context copied from the catalog CTA; informational only and never a product link or authorization fact."
               },
-              "kindDetails": { "type": "object" },
+              "kindDetails": {
+                "type": "object"
+              },
               "equipmentLines": {
                 "type": "array",
-                "items": { "$ref": "#/components/schemas/EquipmentLine" }
+                "items": {
+                  "$ref": "#/components/schemas/EquipmentLine"
+                }
               }
             }
           }
@@ -994,9 +1582,13 @@
         "properties": {
           "data": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/InquirySummary" }
+            "items": {
+              "$ref": "#/components/schemas/InquirySummary"
+            }
           },
-          "meta": { "$ref": "#/components/schemas/PageMeta" }
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          }
         }
       },
       "InquiryEventPage": {
@@ -1009,22 +1601,33 @@
               "type": "object",
               "required": ["action", "outcome", "occurredAt"],
               "properties": {
-                "action": { "type": "string" },
+                "action": {
+                  "type": "string"
+                },
                 "outcome": {
                   "type": "string",
                   "enum": ["SUCCESS", "DENIED", "FAILURE"]
                 },
-                "occurredAt": { "type": "string", "format": "date-time" },
+                "occurredAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
                 "actorStaffUserId": {
                   "type": ["string", "null"],
                   "format": "uuid"
                 },
-                "fromStatus": { "type": ["string", "null"] },
-                "toStatus": { "type": ["string", "null"] }
+                "fromStatus": {
+                  "type": ["string", "null"]
+                },
+                "toStatus": {
+                  "type": ["string", "null"]
+                }
               }
             }
           },
-          "meta": { "$ref": "#/components/schemas/PageMeta" }
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          }
         }
       },
       "AssignmentRequest": {
@@ -1032,7 +1635,10 @@
         "additionalProperties": false,
         "required": ["staffUserId"],
         "properties": {
-          "staffUserId": { "type": "string", "format": "uuid" }
+          "staffUserId": {
+            "type": "string",
+            "format": "uuid"
+          }
         }
       },
       "StageDeadlineRequest": {
@@ -1059,8 +1665,12 @@
       },
       "TransitionRequest": {
         "oneOf": [
-          { "$ref": "#/components/schemas/StaffWorkflowTransitionRequest" },
-          { "$ref": "#/components/schemas/CloseInquiryWithoutQuoteRequest" }
+          {
+            "$ref": "#/components/schemas/StaffWorkflowTransitionRequest"
+          },
+          {
+            "$ref": "#/components/schemas/CloseInquiryWithoutQuoteRequest"
+          }
         ],
         "description": "Disjoint strict request variants. CLOSED is accepted only by CloseInquiryWithoutQuoteRequest and only from a pre-quote state."
       },
@@ -1108,7 +1718,10 @@
           "READY_FOR_QUOTE"
         ],
         "properties": {
-          "toStatus": { "type": "string", "const": "CLOSED" },
+          "toStatus": {
+            "type": "string",
+            "const": "CLOSED"
+          },
           "reasonCode": {
             "$ref": "#/components/schemas/InquiryClosureReason"
           }
@@ -1119,7 +1732,11 @@
         "additionalProperties": false,
         "required": ["body"],
         "properties": {
-          "body": { "type": "string", "minLength": 1, "maxLength": 4000 }
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
         }
       },
       "MutationReceipt": {
@@ -1132,12 +1749,23 @@
             "additionalProperties": false,
             "required": ["inquiryId", "version"],
             "properties": {
-              "inquiryId": { "type": "string", "format": "uuid" },
-              "version": { "type": "integer", "minimum": 1 },
-              "commentId": { "type": "string", "format": "uuid" }
+              "inquiryId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "commentId": {
+                "type": "string",
+                "format": "uuid"
+              }
             }
           },
-          "meta": { "$ref": "#/components/schemas/Meta" }
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          }
         }
       },
       "InquiryCommentPage": {
@@ -1150,14 +1778,27 @@
               "type": "object",
               "required": ["id", "body", "authorStaffUserId", "createdAt"],
               "properties": {
-                "id": { "type": "string", "format": "uuid" },
-                "body": { "type": "string" },
-                "authorStaffUserId": { "type": "string", "format": "uuid" },
-                "createdAt": { "type": "string", "format": "date-time" }
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "authorStaffUserId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
               }
             }
           },
-          "meta": { "$ref": "#/components/schemas/PageMeta" }
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          }
         }
       },
       "InquiryDocumentPage": {
@@ -1177,35 +1818,63 @@
                 "uploadedAt"
               ],
               "properties": {
-                "id": { "type": "string", "format": "uuid" },
-                "sizeBytes": { "type": "integer" },
-                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-                "detectedMimeType": { "type": "string" },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "sizeBytes": {
+                  "type": "integer"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "detectedMimeType": {
+                  "type": "string"
+                },
                 "securityState": {
                   "type": "string",
                   "enum": ["QUARANTINED", "CLEAN", "REJECTED", "SCAN_ERROR"]
                 },
-                "uploadedAt": { "type": "string", "format": "date-time" },
-                "originalFilename": { "type": "string", "maxLength": 255 }
+                "uploadedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "originalFilename": {
+                  "type": "string",
+                  "maxLength": 255
+                }
               }
             }
           },
-          "meta": { "$ref": "#/components/schemas/PageMeta" }
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta"
+          }
         }
       },
       "Meta": {
         "type": "object",
         "additionalProperties": false,
         "required": ["requestId"],
-        "properties": { "requestId": { "type": "string", "format": "uuid" } }
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       },
       "PageMeta": {
         "type": "object",
         "additionalProperties": false,
         "required": ["nextCursor", "requestId"],
         "properties": {
-          "nextCursor": { "type": ["string", "null"] },
-          "requestId": { "type": "string", "format": "uuid" }
+          "nextCursor": {
+            "type": ["string", "null"]
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          }
         }
       }
     },
@@ -1214,7 +1883,9 @@
         "description": "VALIDATION_ERROR; field names/codes only",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" }
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
           }
         }
       },
@@ -1222,7 +1893,9 @@
         "description": "OCC, invalid state, used upload intent or IDEMPOTENCY_KEY_REUSED; no partial domain mutation",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" }
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
           }
         }
       },
@@ -1230,7 +1903,9 @@
         "description": "REQUEST_TOO_LARGE; stream stopped at configured hard bound",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" }
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
           }
         }
       },
@@ -1238,7 +1913,9 @@
         "description": "FILE_TYPE_NOT_ALLOWED or MIME_MISMATCH",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" }
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
           }
         }
       },
@@ -1246,7 +1923,9 @@
         "description": "RATE_LIMITED; safe retry hint, no source address detail",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" }
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
           }
         }
       },
@@ -1254,7 +1933,9 @@
         "description": "Dependency unavailable; fail closed for public writes",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" }
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
           }
         }
       },
@@ -1262,7 +1943,9 @@
         "description": "UNAUTHORIZED; no details that distinguish missing from invalid capability",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" }
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
           }
         }
       },
@@ -1270,7 +1953,9 @@
         "description": "FORBIDDEN; safe stable error envelope",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" }
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
           }
         }
       },
@@ -1278,14 +1963,16 @@
         "description": "NOT_FOUND; does not reveal whether another inquiry or intent exists",
         "content": {
           "application/json": {
-            "schema": { "$ref": "#/components/schemas/Error" }
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
           }
         }
       }
     }
   },
   "x-contract-status": "FROZEN",
-  "x-contract-version": "1.0.0",
+  "x-contract-version": "1.0.1",
   "x-upload-profile-contract": {
     "file": "R1-010-inquiry-upload-profiles.json",
     "defaultProfile": "MVP_SAFE",

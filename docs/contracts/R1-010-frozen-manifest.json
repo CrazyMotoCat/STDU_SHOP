@@ -1,7 +1,7 @@
 {
   "contract": "R1-010 Public Inquiry Domain Contract",
   "status": "FROZEN",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "approval": {
     "approvedOn": "2026-10-26",
     "sourceHead": "68fb60f87c7821044939dd5d95f8e67e6bb73685",
@@ -30,21 +30,44 @@
     "docs/plans/R1-010B-implementation-plan.md": "173d7d2698ff9f5f1def1dbf15f641b575f517837ddddad4f1d4309ba200a942"
   },
   "frozenArtifactSha256": {
-    "docs/contracts/R1-010-attachment-security-policy.md": "f359efa22428fd69ca87a2291173157b13a751ff520c3e08bd934af8cce39aa2",
-    "docs/contracts/R1-010-inquiries.openapi.json": "eadb00d5d779da2eb9cf2f2e52ff18402ebf324e2e01790545f578023141df7d",
-    "docs/contracts/R1-010-inquiry-audit-registry.json": "6ca15b7fa48383c88740120e5d5acf888ca1e1720f584eddb6863a62c9162228",
-    "docs/contracts/R1-010-inquiry-data-model.json": "3700a586bcf5d4ce6e6937cd49def977aad8ed476949f9598b5adff0677b034f",
-    "docs/contracts/R1-010-inquiry-domain-contract.md": "f17088bc9eb35ad073a7146bf7c10bd55c9c7d96067ec2825f60e8e4fc84bf04",
-    "docs/contracts/R1-010-inquiry-rbac-matrix.json": "5b4f838ceb4db11e3bc659d0c6a5f493b37a33870236ca113a637b10346152e9",
-    "docs/contracts/R1-010-inquiry-rbac-matrix.md": "5fa5a8e7092d8058be2dc401be5c6354abd96bdaf30b8a4e0442a4962d5e8ffe",
-    "docs/contracts/R1-010-inquiry-state-machine.md": "53f48a3c0c16301d5f77c44dd38aaf03157c1d4ef0152f7f89922ae5f3b2dce5",
-    "docs/contracts/R1-010-inquiry-upload-profiles.json": "8d531544c9da7b6df8d8a87839c55d64e55094a12d3ed54de87cfdb22c3c8ff0",
-    "docs/contracts/R1-010-test-matrix.md": "a419ac553585c33e272b30357ccaf2fcddf9a2a1abae56097a258a87b32549be",
-    "docs/plans/R1-010-owner-decisions.md": "5d524c6dbe06e9402dbd9067c1471efcc391131d2f7f32b5429ef5c96a232b6b",
-    "docs/plans/R1-010B-implementation-plan.md": "6fc8b0b6e7b639bfaccdd754c755f95e3f1b7d9b160f12eedbea9a641d2b6551"
+    "docs/contracts/R1-010-attachment-security-policy.md": "1b241c112a28638d792242f43dce5e3ff56d018f259366f7b0f4ce0b02026751",
+    "docs/contracts/R1-010-inquiries.openapi.json": "f037c5886510d44a801d1ec36b752cbd7ae7bad8cde194eb3e559da1a18cbe9f",
+    "docs/contracts/R1-010-inquiry-audit-registry.json": "67b208ea033fe9ca573fc24252f4728f104d018b5ab46bcd32ccf488dbc35add",
+    "docs/contracts/R1-010-inquiry-data-model.json": "2791d853f548d60e9cf8f4ab4dd043375fd6cf4ac63341abe4f4e8092779100b",
+    "docs/contracts/R1-010-inquiry-domain-contract.md": "ee0b3a8cf9df892b678442a0a49a6bd5ee4c5bef41d151e9dc1c65a60bd0a3a1",
+    "docs/contracts/R1-010-inquiry-rbac-matrix.json": "ff7f21a9294596ed8bbc7e685fbb75add029fca1970ebfdac271a3ab23871184",
+    "docs/contracts/R1-010-inquiry-rbac-matrix.md": "bf18402e28da38a5738e3f93ba616af48b6d256d3fbd33f4a9005bc0f36e96a5",
+    "docs/contracts/R1-010-inquiry-state-machine.md": "47a92b44c9ed8b70ab07de2627d314eee38b70672476c20e081b025fd376ea20",
+    "docs/contracts/R1-010-inquiry-upload-profiles.json": "bde73bc9dcb90dcc956437c29cc9bc3dcc929b9824b8c2af1239594ba0e56f4f",
+    "docs/contracts/R1-010-test-matrix.md": "425256e5ed8b29e45ce909fb23248f0c5aab97239d860f808434ca6f912e058e",
+    "docs/plans/R1-010-owner-decisions.md": "37f331be5f139b6e697a69fe6898835c8c8c9ca610b32dbbcdc65b141e2de17b",
+    "docs/plans/R1-010B-implementation-plan.md": "8533209849136237eeef1c30e97f8b11c5028e2f0f101534a69055a833b32c9b"
   },
   "finalization": {
-    "contractContentChanged": false,
-    "description": "Owner-approved content at sourceHead was finalized as FROZEN 1.0.0. Only contract status/version labels, approval provenance, reports, checkpoint and verification scaffolding changed. No schema, RBAC code, API route or DTO, upload limit, retention value, lifecycle rule or security behavior changed."
-  }
+    "contractContentChanged": true,
+    "description": "The owner-approved 1.0.0 package is preserved as baseVersion. Contract Amendment 01, owner-approved on 2026-10-27, corrects capability-only upload route resolution, permits only one-way capability revocation by clearing hash and expiry, and raises the OpenAPI maxBytes ceiling to match the server-selected 50 MiB ENGINEERING_DOCUMENTS profile; all other approved business, security, RBAC and lifecycle rules are unchanged."
+  },
+  "baseVersion": "1.0.0",
+  "amendments": [
+    {
+      "id": "R1-010 Contract Amendment 01",
+      "version": "1.0.1",
+      "approvedOn": "2026-10-27",
+      "approvalStatement": "Owner approved capability-only upload routes, preserved the public create receipt without Inquiry UUID, required unique capability-hash lookup and one-way capability revocation, and raised the OpenAPI maxBytes ceiling to 50 MiB while keeping profile selection server-controlled.",
+      "changes": [
+        "POST /v1/public/inquiry-attachments/upload-intents",
+        "PUT /v1/public/inquiry-attachments/upload-intents/{intentId}/content",
+        "DELETE /v1/public/inquiry-attachments/upload-intents/{intentId}",
+        "UploadIntentReceipt.data.maxBytes.maximum=52428800",
+        "Unique nullable Inquiry.uploadCapabilityHash lookup index",
+        "One-way server-side capability revocation by clearing hash and expiry; no public or staff route"
+      ],
+      "preserves": [
+        "Public create receipt contains only publicReference, createdAt and message",
+        "OD-010-01…05 behavior apart from these explicit corrections",
+        "RBAC, lifecycle, personal-data rules, upload formats and limits, quarantine and launch gates"
+      ],
+      "scope": "No production migration, deployment, real permission grant or public launch authorization."
+    }
+  ]
 }

@@ -1,7 +1,7 @@
 # R1-010 — Public Inquiry Domain Contract
 
 **Status:** FROZEN.
-**Version:** 1.0.0.
+**Version:** 1.0.1.
 **Task:** R1-010B-01.
 **Baseline:** origin/main after R1-010A merge `4b358f16a90998fdae2d2981601e9ccf3bfdf7f0`.
 **Approval provenance:** owner approved the complete package at source SHA `68fb60f87c7821044939dd5d95f8e67e6bb73685`; see [the frozen manifest](R1-010-frozen-manifest.json).
@@ -42,7 +42,7 @@ Staff aggregate changes require If-Match with the Inquiry version. The version p
 
 ## File boundary
 
-The public client generates a 256-bit CSPRNG upload capability when an attachment is selected. The initial create request carries it only in the JSON `uploadCapability` field; later intent, upload and cancel requests carry it only in `X-Inquiry-Upload-Capability`. Inquiry creation stores only SHA-256(capability), with a recommended 24-hour expiry; no response contains the secret. That capability is accepted only for creating/uploading/cancelling intents bound to the same Inquiry. It never authorizes reading Inquiry data, status, attachment metadata or bytes. An optional request-level `catalogProductContext` is preserved only as an untrusted hint and never grants catalog access or links a product. Each Inquiry captures a server-selected immutable upload profile; each intent binds one file, declared name/type/size and start expiry and may be consumed once. An active stream receives the profile's separate 15- or 60-minute deadline and remains quota-reserved until it completes, fails or expires. Knowing an Inquiry or intent UUID is insufficient.
+The public client generates a 256-bit CSPRNG upload capability when an attachment is selected. The initial create request carries it only in the JSON `uploadCapability` field; later intent, upload and cancel requests carry it only in `X-Inquiry-Upload-Capability` on the capability-only routes defined by Contract Amendment 01. The server resolves the active Inquiry from the unique SHA-256 hash and checks that the intent belongs to it. Inquiry creation stores only the hash, with a recommended 24-hour expiry; no response contains the secret. That capability is accepted only for creating/uploading/cancelling intents bound to the same Inquiry. It never authorizes reading Inquiry data, status, attachment metadata or bytes. An optional request-level `catalogProductContext` is preserved only as an untrusted hint and never grants catalog access or links a product. Each Inquiry captures a server-selected immutable upload profile; each intent binds one file, declared name/type/size and start expiry and may be consumed once. An active stream receives the profile's separate 15- or 60-minute deadline and remains quota-reserved until it completes, fails or expires. Knowing an Inquiry or intent UUID is insufficient.
 
 The file is streamed through NestJS into an opaque private quarantine key, bounded while reading, sniffed against the approved allowlist and hashed. A completed attachment is a separate immutable InquirySourceDocument. It is never stored as a staff-owned R1-002 FileObject or linked through generic FileLink: those frozen tables require staff ownership. Only the existing private StoragePort implementation is reusable. There are no static or public object URLs. Incomplete temporary bytes are removed after 24 hours by ownership-checked cleanup. A failed attachment does not roll back the Inquiry or prior attachments.
 

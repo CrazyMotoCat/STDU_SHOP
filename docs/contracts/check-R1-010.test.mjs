@@ -39,6 +39,54 @@ test('FROZEN contract approval pins the exact owner-approved source and OD packa
   ]);
 });
 
+test('Contract Amendment 01 uses capability-only paths and profile-bound byte receipts', () => {
+  assert.equal(baseline.frozenManifest.version, '1.0.1');
+  assert.equal(baseline.frozenManifest.baseVersion, '1.0.0');
+  assert.equal(
+    baseline.frozenManifest.amendments[0].id,
+    'R1-010 Contract Amendment 01',
+  );
+  assert.deepEqual(
+    Object.keys(baseline.openapi.paths)
+      .filter((route) => route.includes('/inquiry-attachments/'))
+      .sort(),
+    [
+      '/v1/public/inquiry-attachments/upload-intents',
+      '/v1/public/inquiry-attachments/upload-intents/{intentId}',
+      '/v1/public/inquiry-attachments/upload-intents/{intentId}/content',
+    ].sort(),
+  );
+  assert.equal(
+    baseline.openapi.components.schemas.UploadIntentReceipt.properties.data
+      .properties.maxBytes.maximum,
+    50 * 1024 * 1024,
+  );
+  assert.equal(
+    baseline.uploadProfiles.profiles.MVP_SAFE.maxFileBytes,
+    10 * 1024 * 1024,
+  );
+  assert.equal(
+    baseline.uploadProfiles.profiles.ENGINEERING_DOCUMENTS.maxFileBytes,
+    50 * 1024 * 1024,
+  );
+  assert.match(
+    baseline.model.tables.Inquiry.immutability,
+    /one-way revocation/,
+  );
+});
+
+test('checker rejects Inquiry IDs in attachment paths and a client-expanded byte ceiling', () => {
+  rejects((contract) => {
+    contract.openapi.paths[
+      '/v1/public/inquiry-attachments/upload-intents/{inquiryId}'
+    ] = { post: { operationId: 'extraPublicUploadRoute' } };
+  });
+  rejects((contract) => {
+    contract.openapi.components.schemas.UploadIntentReceipt.properties.data.properties.maxBytes.maximum =
+      1024 * 1024 * 1024;
+  });
+});
+
 test('checker rejects a changed frozen Inquiry artifact checksum', () => {
   rejects((contract) => {
     contract.frozenManifest.frozenArtifactSha256[

@@ -1,6 +1,6 @@
-# R1-010B Implementation Plan — FROZEN R1-010 1.0.0
+# R1-010B Implementation Plan — FROZEN R1-010 1.0.1
 
-This is the execution sequence for owner-approved FROZEN R1-010 1.0.0. Implementation may start after the contract is integrated; production operations remain separately gated.
+This is the execution sequence for owner-approved FROZEN R1-010 1.0.1, including Contract Amendment 01. Implementation may start after the amended contract is integrated; production operations remain separately gated.
 
 1. **Completed contract freeze gate:** owner-approved source SHA `68fb60f87c7821044939dd5d95f8e67e6bb73685`; frozen artifact hashes are pinned in `docs/contracts/R1-010-frozen-manifest.json`. The finalization changes only status/version/provenance metadata. Keep PR #18 preview-only until explicit field mapping and required contact validation are implemented; no integration is implied by this contract.
 2. **Create the implementation branch from current main.** Add one additive migration under `apps/api/prisma/migrations/<timestamp>_inquiry_domain/` for the six approved tables and the inquiry AuditEvent registry extension. Preserve the frozen R1-002/R1-004/R1-006/R1-007 contracts and all existing rows. No production migrate.
