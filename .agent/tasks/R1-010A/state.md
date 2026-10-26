@@ -13,5 +13,15 @@
 - Web typecheck: `pnpm --filter @stdu/web typecheck` passed (environment emitted a non-blocking Node engine warning: configured 24.19.0, runtime 24.22.1).
 - Browser: 1440/375 scenarios and local interactions passed; keyboard activation and invalid/valid field feedback verified; no page/console errors, horizontal overflow, or non-GET requests; robots metadata is `noindex, nofollow`.
 - Screenshots: `C:\Users\mvideo\.codex\visualizations\2026\10\25\r1-010a\` (demo-only contact/file data).
-- Backend/API submission and production build were not run or connected; feature remains disabled in production unless `RFQ_PREVIEW_ENABLED=true` is set.
+- Initial implementation did not connect an API or run a production build; preview remains disabled in production unless `RFQ_PREVIEW_ENABLED=true` is set.
 - Delivery: branch `codex/r1-010a-rfq-ux`; Draft PR `https://github.com/CrazyMotoCat/STDU_SHOP/pull/18`; implementation based on main SHA above. Final pushed HEAD is reported in the task result.
+
+## R1-010A-FINAL — 2026-10-26
+
+- Status: final polish prepared for visual review; PR #18 remains Draft and unmerged.
+- Synced branch with `origin/main` at `6b9f03e67f51f8e201a04047afd282c71b1d335e` using a regular merge. R1-007B source files were not edited by this task.
+- Mobile hero is shorter; local validation wording now distinguishes browser checks from server submission; empty equipment-row errors are attached to the name field.
+- Added a page-local preview model and a focused Playwright script covering equipment, panels, engineering, validation, keyboard input, file metadata and preview gating. The model is explicitly not an API DTO.
+- Prettier, `pnpm --filter @stdu/web typecheck`, `pnpm --filter @stdu/web build`, and `pnpm rfq:ui:smoke` passed. The smoke ran production preview with the flag enabled and disabled; no browser errors, overflow, external requests or non-GET requests were observed. Node emitted the existing non-blocking engine mismatch warning (24.22.1 runtime vs 24.19.0 configured).
+- Screenshots are in `C:\Users\mvideo\.codex\visualizations\2026\10\26\r1-010a-final\`.
+- No real upload, persistence or request submission was added. Contact requirements and the server contract remain open for R1-010B.

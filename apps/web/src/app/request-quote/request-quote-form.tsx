@@ -60,6 +60,31 @@ type EngineeringDetails = {
 };
 type LocalFile = { id: number; name: string; size: number; type: string };
 type ValidationErrors = Record<string, string>;
+type LocalRequestPreview =
+  | {
+      kind: 'equipment';
+      productContext?: { value: string; verified: false };
+      positions: Array<{
+        id: number;
+        description: string;
+        quantity: string;
+        unit: string;
+      }>;
+      contact: ContactDetails;
+      files: LocalFile[];
+    }
+  | {
+      kind: 'panels';
+      details: PanelDetails;
+      contact: ContactDetails;
+      files: LocalFile[];
+    }
+  | {
+      kind: 'engineering';
+      details: EngineeringDetails;
+      contact: ContactDetails;
+      files: LocalFile[];
+    };
 
 const directions: readonly DirectionOption[] = [
   {
@@ -277,6 +302,58 @@ function equipmentLineSummary(line: EquipmentLine) {
     .join(' · ');
 }
 
+// Page-local display model only. This is not a server request DTO.
+function buildLocalRequestPreview({
+  kind,
+  equipmentLines,
+  panel,
+  engineering,
+  contact,
+  files,
+  productHint,
+}: {
+  kind: RequestKind;
+  equipmentLines: EquipmentLine[];
+  panel: PanelDetails;
+  engineering: EngineeringDetails;
+  contact: ContactDetails;
+  files: LocalFile[];
+  productHint?: string;
+}): LocalRequestPreview {
+  const shared = {
+    contact: { ...contact },
+    files: files.map((file) => ({ ...file })),
+  };
+
+  if (kind === 'equipment') {
+    return {
+      kind,
+      ...shared,
+      productContext: productHint
+        ? { value: productHint, verified: false }
+        : undefined,
+      positions: equipmentLines
+        .filter(equipmentLineHasDescription)
+        .map((line) => ({
+          id: line.id,
+          description: equipmentLineSummary(line),
+          quantity: line.quantity,
+          unit: line.unit,
+        })),
+    };
+  }
+
+  if (kind === 'panels') {
+    return {
+      kind,
+      ...shared,
+      details: { ...panel, services: [...panel.services] },
+    };
+  }
+
+  return { kind, ...shared, details: { ...engineering } };
+}
+
 export function RequestQuoteForm({
   initialKind,
   productHint,
@@ -312,14 +389,14 @@ export function RequestQuoteForm({
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [fileError, setFileError] = useState('');
   const [dragActive, setDragActive] = useState(false);
-  const [reviewReady, setReviewReady] = useState(false);
+  const [localReviewPassed, setLocalReviewPassed] = useState(false);
 
   const fieldId = (key: string) =>
     `${idPrefix}-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 
   function clearValidation() {
     setErrors({});
-    setReviewReady(false);
+    setLocalReviewPassed(false);
   }
 
   function updateContact<K extends keyof ContactDetails>(
@@ -479,7 +556,7 @@ export function RequestQuoteForm({
 
     setErrors(nextErrors);
     const isValid = Object.keys(nextErrors).length === 0;
-    setReviewReady(isValid);
+    setLocalReviewPassed(isValid);
     if (!isValid) {
       requestAnimationFrame(() => errorSummaryRef.current?.focus());
     }
@@ -507,6 +584,15 @@ export function RequestQuoteForm({
     contact.email.trim() || contact.phone.trim(),
   );
   const describedLines = equipmentLines.filter(equipmentLineHasDescription);
+  const localPreview = buildLocalRequestPreview({
+    kind,
+    equipmentLines,
+    panel,
+    engineering,
+    contact,
+    files,
+    productHint,
+  });
 
   return (
     <>
@@ -515,8 +601,7 @@ export function RequestQuoteForm({
           <span className={styles.eyebrow}>Заявка без регистрации</span>
           <h1>Запросить коммерческое предложение</h1>
           <p>
-            Оборудование, электрощиты и инженерные решения — опишите задачу и
-            приложите исходные материалы.
+            Опишите запрос по оборудованию, электрощитам или инженерным работам.
           </p>
         </div>
         <div className={styles.heroAside}>
@@ -531,9 +616,9 @@ export function RequestQuoteForm({
           </span>
           <div>
             <span className={styles.heroAsideKicker}>
-              ОДИН ПРОЦЕСС · 3 НАПРАВЛЕНИЯ
+              ЕДИНАЯ ФОРМА · 3 НАПРАВЛЕНИЯ
             </span>
-            <p>Укажите состав запроса — детали можно уточнить позже.</p>
+            <p>Детали запроса можно уточнить позже.</p>
           </div>
         </div>
       </header>
@@ -554,8 +639,8 @@ export function RequestQuoteForm({
       <div className={styles.previewNotice} role="note">
         <span className={styles.previewDot} aria-hidden="true" />
         <p>
-          Режим предпросмотра. Данные остаются только в открытой странице, файлы
-          не загружаются, отправка отключена.
+          Предпросмотр: данные остаются в браузере; отправка и загрузка файлов
+          отключены.
         </p>
       </div>
 
@@ -638,15 +723,13 @@ export function RequestQuoteForm({
                     позиции.
                   </p>
                 ) : null}
-                {errors['equipment.lines'] ? (
-                  <p className={styles.fieldError} role="alert">
-                    {errors['equipment.lines']}
-                  </p>
-                ) : null}
                 <div className={styles.lineList}>
                   {equipmentLines.map((line, index) => {
                     const lineDescriptionError =
-                      errors[`equipment.${line.id}.description`];
+                      errors[`equipment.${line.id}.description`] ??
+                      (index === 0 && !describedLines.length
+                        ? errors['equipment.lines']
+                        : undefined);
                     const quantityKey = `equipment.${line.id}.quantity`;
                     const quantityId = fieldId(quantityKey);
                     return (
@@ -664,18 +747,20 @@ export function RequestQuoteForm({
                             Удалить <span aria-hidden="true">×</span>
                           </button>
                         </div>
-                        {lineDescriptionError ? (
-                          <p className={styles.fieldError} role="alert">
-                            {lineDescriptionError}
-                          </p>
-                        ) : null}
                         <div className={styles.fieldsGrid}>
                           <FieldFrame
                             id={fieldId(`equipment.${line.id}.name`)}
                             label="Наименование"
+                            error={lineDescriptionError}
                             className={styles.fieldWide}
                           >
                             <input
+                              aria-describedby={getFieldDescription(
+                                fieldId(`equipment.${line.id}.name`),
+                                undefined,
+                                lineDescriptionError,
+                              )}
+                              aria-invalid={Boolean(lineDescriptionError)}
                               autoComplete="off"
                               className={styles.control}
                               id={fieldId(`equipment.${line.id}.name`)}
@@ -1551,7 +1636,7 @@ export function RequestQuoteForm({
                 </dd>
               </div>
             </dl>
-            {reviewReady ? (
+            {localReviewPassed ? (
               <div
                 aria-live="polite"
                 className={styles.reviewSuccess}
@@ -1559,8 +1644,11 @@ export function RequestQuoteForm({
               >
                 <span aria-hidden="true">✓</span>
                 <div>
-                  <strong>Локальная проверка пройдена</strong>
-                  <p>Это резюме не сохранено и не отправлено.</p>
+                  <strong>Проверка доступных полей пройдена</strong>
+                  <p>
+                    Требования к отправке будут применены после подключения
+                    сервиса. Данные не сохранены и не отправлены.
+                  </p>
                 </div>
               </div>
             ) : null}
@@ -1585,7 +1673,7 @@ export function RequestQuoteForm({
         </aside>
       </div>
 
-      {reviewReady ? (
+      {localReviewPassed ? (
         <section
           aria-labelledby={`${idPrefix}-review-title`}
           className={styles.reviewPanel}
@@ -1602,15 +1690,15 @@ export function RequestQuoteForm({
               <dt>Направление</dt>
               <dd>{requestTitle(kind)}</dd>
             </div>
-            {kind === 'equipment' ? (
+            {localPreview.kind === 'equipment' ? (
               <div className={styles.reviewWide}>
                 <dt>Позиции</dt>
                 <dd>
-                  {describedLines.length ? (
+                  {localPreview.positions.length ? (
                     <ul className={styles.reviewLines}>
-                      {describedLines.map((line) => (
+                      {localPreview.positions.map((line) => (
                         <li key={line.id}>
-                          <span>{equipmentLineSummary(line) || line.note}</span>
+                          <span>{line.description}</span>
                           <span>
                             {line.quantity} {line.unit}
                           </span>
@@ -1623,135 +1711,148 @@ export function RequestQuoteForm({
                 </dd>
               </div>
             ) : null}
-            {kind === 'panels' ? (
+            {localPreview.kind === 'equipment' &&
+            localPreview.productContext ? (
+              <div className={styles.reviewWide}>
+                <dt>Контекст каталога</dt>
+                <dd>
+                  {localPreview.productContext.value} · подсказка, не
+                  подтверждённая позиция
+                </dd>
+              </div>
+            ) : null}
+            {localPreview.kind === 'panels' ? (
               <>
                 <div>
                   <dt>Тип задачи</dt>
                   <dd>
                     {
                       panelTypes.find(
-                        (item) => item.value === panel.requestType,
+                        (item) =>
+                          item.value === localPreview.details.requestType,
                       )?.title
                     }
                   </dd>
                 </div>
                 <div>
                   <dt>Желаемый срок</dt>
-                  <dd>{formatValue(contact.deadline)}</dd>
+                  <dd>{formatValue(localPreview.contact.deadline)}</dd>
                 </div>
                 <div>
                   <dt>Назначение</dt>
-                  <dd>{formatValue(panel.purpose)}</dd>
+                  <dd>{formatValue(localPreview.details.purpose)}</dd>
                 </div>
                 <div>
                   <dt>Количество шкафов</dt>
-                  <dd>{formatValue(panel.quantity)}</dd>
+                  <dd>{formatValue(localPreview.details.quantity)}</dd>
                 </div>
                 <div>
                   <dt>Документация</dt>
                   <dd>
-                    {panel.documentation === 'available'
+                    {localPreview.details.documentation === 'available'
                       ? 'Есть'
-                      : panel.documentation === 'partial'
+                      : localPreview.details.documentation === 'partial'
                         ? 'Есть частично'
-                        : panel.documentation === 'none'
+                        : localPreview.details.documentation === 'none'
                           ? 'Нет'
                           : 'Пока не знаю'}
                   </dd>
                 </div>
                 <div className={styles.reviewWide}>
                   <dt>Описание</dt>
-                  <dd>{formatValue(panel.task)}</dd>
+                  <dd>{formatValue(localPreview.details.task)}</dd>
                 </div>
                 <div className={styles.reviewWide}>
                   <dt>Основные требования</dt>
-                  <dd>{formatValue(panel.requirements)}</dd>
+                  <dd>{formatValue(localPreview.details.requirements)}</dd>
                 </div>
                 <div>
                   <dt>Услуги</dt>
-                  <dd>{panel.services.join(', ') || 'Не выбраны'}</dd>
+                  <dd>
+                    {localPreview.details.services.join(', ') || 'Не выбраны'}
+                  </dd>
                 </div>
                 <div className={styles.reviewWide}>
                   <dt>Примечания</dt>
-                  <dd>{formatValue(panel.notes)}</dd>
+                  <dd>{formatValue(localPreview.details.notes)}</dd>
                 </div>
               </>
             ) : null}
-            {kind === 'engineering' ? (
+            {localPreview.kind === 'engineering' ? (
               <>
                 <div>
                   <dt>Объект / система</dt>
-                  <dd>{formatValue(engineering.object)}</dd>
+                  <dd>{formatValue(localPreview.details.object)}</dd>
                 </div>
                 <div>
                   <dt>Направление работ</dt>
-                  <dd>{formatValue(engineering.serviceArea)}</dd>
+                  <dd>{formatValue(localPreview.details.serviceArea)}</dd>
                 </div>
                 <div className={styles.reviewWide}>
                   <dt>Предмет работ</dt>
-                  <dd>{formatValue(engineering.subject)}</dd>
+                  <dd>{formatValue(localPreview.details.subject)}</dd>
                 </div>
                 <div>
                   <dt>Объём</dt>
-                  <dd>{formatValue(engineering.scope)}</dd>
+                  <dd>{formatValue(localPreview.details.scope)}</dd>
                 </div>
                 <div>
                   <dt>Результаты</dt>
-                  <dd>{formatValue(engineering.outcomes)}</dd>
+                  <dd>{formatValue(localPreview.details.outcomes)}</dd>
                 </div>
                 <div className={styles.reviewWide}>
                   <dt>Исходная документация</dt>
-                  <dd>{formatValue(engineering.documentation)}</dd>
+                  <dd>{formatValue(localPreview.details.documentation)}</dd>
                 </div>
                 <div className={styles.reviewWide}>
                   <dt>Дополнительные комментарии</dt>
-                  <dd>{formatValue(engineering.notes)}</dd>
+                  <dd>{formatValue(localPreview.details.notes)}</dd>
                 </div>
               </>
             ) : null}
             <div>
               <dt>Контактное лицо</dt>
-              <dd>{formatValue(contact.name)}</dd>
+              <dd>{formatValue(localPreview.contact.name)}</dd>
             </div>
             <div>
               <dt>Организация</dt>
-              <dd>{formatValue(contact.organization)}</dd>
+              <dd>{formatValue(localPreview.contact.organization)}</dd>
             </div>
             <div>
               <dt>Email</dt>
-              <dd>{formatValue(contact.email)}</dd>
+              <dd>{formatValue(localPreview.contact.email)}</dd>
             </div>
             <div>
               <dt>Телефон</dt>
-              <dd>{formatValue(contact.phone)}</dd>
+              <dd>{formatValue(localPreview.contact.phone)}</dd>
             </div>
             <div>
               <dt>Предпочтительный канал</dt>
               <dd>
-                {contact.channel === 'email'
+                {localPreview.contact.channel === 'email'
                   ? 'Email'
-                  : contact.channel === 'phone'
+                  : localPreview.contact.channel === 'phone'
                     ? 'Телефон'
                     : 'Любой'}
               </dd>
             </div>
             <div>
               <dt>Регион</dt>
-              <dd>{formatValue(contact.region)}</dd>
+              <dd>{formatValue(localPreview.contact.region)}</dd>
             </div>
             <div>
               <dt>Желаемый срок</dt>
-              <dd>{formatValue(contact.deadline)}</dd>
+              <dd>{formatValue(localPreview.contact.deadline)}</dd>
             </div>
             <div className={styles.reviewWide}>
               <dt>Комментарий</dt>
-              <dd>{formatValue(contact.comment)}</dd>
+              <dd>{formatValue(localPreview.contact.comment)}</dd>
             </div>
             <div className={styles.reviewWide}>
               <dt>Выбранные документы</dt>
               <dd>
-                {files.length
-                  ? files.map((file) => file.name).join(', ')
+                {localPreview.files.length
+                  ? localPreview.files.map((file) => file.name).join(', ')
                   : 'Не приложены'}
               </dd>
             </div>
