@@ -131,6 +131,10 @@ const fixtureServer = createHttpServer((request, response) => {
   if (url.pathname === '/v1/public/catalog/categories') {
     const parent = url.searchParams.get('parentSlug');
     const cursor = url.searchParams.get('cursor');
+    if (cursor === 'fixture-category-outage') {
+      response.writeHead(503).end();
+      return;
+    }
     const rows = parent === 'switchgear' ? [breakers, contactors] : categories;
     const page = !parent && !cursor ? rows.slice(0, 2) : rows;
     json(
@@ -145,6 +149,10 @@ const fixtureServer = createHttpServer((request, response) => {
 
   if (url.pathname === '/v1/public/catalog/products') {
     observedQueries.push(new URLSearchParams(url.searchParams));
+    if (url.searchParams.get('q') === 'fixture-api-outage') {
+      response.writeHead(503).end();
+      return;
+    }
     const filters = url.searchParams.getAll('filter');
     if (
       filters.length &&
@@ -188,6 +196,14 @@ const fixtureServer = createHttpServer((request, response) => {
   const slug = /^\/v1\/public\/catalog\/products\/([^/]+)$/.exec(
     url.pathname,
   )?.[1];
+  if (slug === 'invalid-slug') {
+    response.writeHead(400).end();
+    return;
+  }
+  if (slug === 'api-outage') {
+    response.writeHead(503).end();
+    return;
+  }
   if (slug === sampleProduct.slug) {
     json(response, envelope(sampleProduct, {}));
     return;
@@ -489,6 +505,44 @@ async function main() {
             { waitUntil: 'domcontentloaded' },
           );
           assert.equal(missingCategory?.status(), 404);
+          const invalidProduct = await page.goto(
+            `${baseUrl}/catalog/product/invalid-slug`,
+            { waitUntil: 'domcontentloaded' },
+          );
+          assert.equal(invalidProduct?.status(), 404);
+          const unavailableProduct = await page.goto(
+            `${baseUrl}/catalog/product/api-outage`,
+            { waitUntil: 'domcontentloaded' },
+          );
+          assert.equal(unavailableProduct?.status(), 200);
+          assert.equal(
+            await page
+              .getByRole('heading', { name: 'Не удалось загрузить каталог' })
+              .count(),
+            1,
+          );
+          const unavailableCategory = await page.goto(
+            `${baseUrl}/catalog/category/switchgear?categoryCursor=fixture-category-outage`,
+            { waitUntil: 'domcontentloaded' },
+          );
+          assert.equal(unavailableCategory?.status(), 200);
+          assert.equal(
+            await page
+              .getByRole('heading', { name: 'Не удалось загрузить каталог' })
+              .count(),
+            1,
+          );
+          const unavailableSearch = await page.goto(
+            `${baseUrl}/catalog?q=fixture-api-outage`,
+            { waitUntil: 'domcontentloaded' },
+          );
+          assert.equal(unavailableSearch?.status(), 200);
+          assert.equal(
+            await page
+              .getByRole('heading', { name: 'Не удалось загрузить каталог' })
+              .count(),
+            1,
+          );
           assert.deepEqual(
             pageErrors,
             [],
