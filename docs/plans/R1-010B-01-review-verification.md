@@ -1,6 +1,6 @@
 # R1-010B-01 Contract Preparation & Verification
 
-**Status:** PROPOSED / REVIEW_REQUIRED; stop at owner approval.
+**Status:** PROPOSED / REVIEW_REQUIRED; Draft PR #20; stop at owner approval.
 **Baseline:** `6b9f03e67f51f8e201a04047afd282c71b1d335e`.
 **Comparison input:** open Draft PR #18, HEAD `644a9ad9e72c98cd07c1914bd5c2f2d38e690944`; read only.
 **Implementation/migrations:** not started and not authorized before owner approval.
@@ -64,7 +64,8 @@ No acceptance item introduces a customer order, inventory, production operation,
 - Independent architecture rereview — PASS; quote/closure target enum, allowed transitions, audit allowlist and stage deadlines are consistent.
 - Independent security rereview — PASS; capability/replay authorization, declared-byte quota, live-stream expiry and privacy boundaries have no open findings.
 - `git diff --cached --check` on the explicit 15-file task diff — PASS.
-- GitHub CI — pending Draft PR; no full local/runtime CI was run in this contract-only phase.
+- GitHub Actions run [40316410894](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/40316410894) — SUCCESS on exact Draft PR #20 HEAD `aa1ab91cf08179266bd3e1c0342f396bc723f45a`. The hosted workflow included the complete repository quality/integration gate, disposable PostgreSQL/Redis acceptance, app-level runtime suites and three consecutive host lifecycle smoke runs. No separate full runtime CI was run locally.
+- Draft PR #20: https://github.com/CrazyMotoCat/STDU_SHOP/pull/20; contract remains PROPOSED and is not merged.
 
 Independent architecture and security reviewers initially reported contract gaps. The package now includes corrections for capability transport, current-scope reauthorization before idempotency replay, separate comment persistence, explicit closure/assignment rules, stage deadline traceability, per-action AuditChanges allowlists, declared-byte source quota semantics, bounded active-stream expiry, and a staff target enum that excludes quote lifecycle states. Both final rereviews are PASS with no actionable findings.
 

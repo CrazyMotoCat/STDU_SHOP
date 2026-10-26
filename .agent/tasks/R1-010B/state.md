@@ -1,12 +1,12 @@
 # R1 task state
 
 TASK: R1-010B-01 Public Inquiry Contract
-STATUS: IN_PROGRESS
+STATUS: REVIEW_REQUIRED
 CHECKPOINT_STATUS: SAFE
-PHASE: Final independent review, contract verification and Draft PR
-UPDATED_AT: 2026-10-26T21:36:10+10:00
+PHASE: Owner approval of proposed contract
+UPDATED_AT: 2026-10-26T21:47:09+10:00
 BRANCH: codex/r1-010b-01-inquiry-contract
-LAST_SAFE_COMMIT: 6b9f03e67f51f8e201a04047afd282c71b1d335e
+LAST_SAFE_COMMIT: aa1ab91cf08179266bd3e1c0342f396bc723f45a
 
 ## COMPLETED
 - Created a separate worktree/branch from freshly fetched origin/main `6b9f03e67f51f8e201a04047afd282c71b1d335e`; main has not advanced.
@@ -14,6 +14,7 @@ LAST_SAFE_COMMIT: 6b9f03e67f51f8e201a04047afd282c71b1d335e
 - Compared open Draft PR #18 read-only; no changes to its branch/proposal/UI.
 - Drafted the six-table Inquiry model, 15-operation OpenAPI (4 public/11 staff), nine default-deny permissions, state machine, audit registry, attachment policy, REQB-01…35, owner decisions and R1-010B plan.
 - Resolved first-pass architecture/security findings in contract docs: capability transport; current-scope checks before staff replay; separate internal comments; explicit closure and assignment rules; current-stage due dates; per-action frozen AuditChanges allowlists; cross-Inquiry declared-byte quota; bounded active-stream deadline.
+- Committed and pushed contract package as `aa1ab91cf08179266bd3e1c0342f396bc723f45a`; opened Draft PR #20: https://github.com/CrazyMotoCat/STDU_SHOP/pull/20.
 
 ## VERIFIED
 - `node docs/contracts/check-R1-010.mjs` — PASS; 6 tables, 15 operations (4 public/11 staff), 9 permissions, REQB-01…35.
@@ -24,14 +25,16 @@ LAST_SAFE_COMMIT: 6b9f03e67f51f8e201a04047afd282c71b1d335e
 - `git diff --cached --check` — PASS; exactly 15 task-owned files staged.
 - Fresh `git fetch origin` — PASS; origin/main remains `6b9f03e67f51f8e201a04047afd282c71b1d335e`.
 - Independent architecture and security rereviews — PASS; no actionable findings.
+- GitHub Actions run 40316410894 — SUCCESS on PR HEAD `aa1ab91cf08179266bd3e1c0342f396bc723f45a`; full quality/integration workflow including PostgreSQL/Redis runtime acceptance, all app acceptance suites, five-service integration, and three consecutive host lifecycle smoke runs.
 
-## STAGED
+## DELIVERED FOR REVIEW
 - Exactly 15 task-owned contract, checker, plan/report and checkpoint files under `docs/contracts/R1-010*`, `docs/contracts/check-R1-010*`, `docs/plans/R1-010*` and `.agent/tasks/R1-010B/`.
 - No application implementation, migration, FROZEN contract, decision #1–108 or PR #18 path changed.
+- Draft PR #20 is open; owner approval is the next gate. No merge was performed.
 
 ## PENDING
-- Inspect the staged diff, commit and push the contract branch.
-- Open Draft PR, attach it, and verify required GitHub CI on the exact PR head.
+- Owner decision on OD-010-01…05 and the proposed R1-010 Inquiry contract.
+- A checkpoint-only follow-up commit is being prepared; verify its exact-head GitHub Actions before reporting final delivery.
 - Stop at owner approval; no merge, migration or R1-010B implementation.
 
 ## DECISIONS
@@ -47,4 +50,4 @@ LAST_SAFE_COMMIT: 6b9f03e67f51f8e201a04047afd282c71b1d335e
 ## RESUME_NOTES
 - Worktree: `C:\Users\mvideo\.codex\worktrees\r1-010b-01-contract\SHOP STDU`.
 - Branch: `codex/r1-010b-01-inquiry-contract`.
-- Current contract is PROPOSED 0.1.0; final review and Draft PR CI are still pending.
+- Current contract is PROPOSED 0.1.0; Draft PR #20 has CI SUCCESS for `aa1ab91cf08179266bd3e1c0342f396bc723f45a`.
