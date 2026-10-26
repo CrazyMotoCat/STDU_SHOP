@@ -3,7 +3,7 @@ import { CatalogListingPage } from '../../components/catalog/catalog-listing-pag
 import type { PageSearchParams } from '../../lib/catalog/query';
 
 export const metadata: Metadata = {
-  title: 'Каталог электротехнического оборудования | STDU SHOP',
+  title: 'Каталог электротехнического оборудования | SHOP-STDU',
   description:
     'Публичный каталог электротехнического оборудования: поиск по артикулам, брендам и опубликованным характеристикам.',
 };

@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
+import { getPublicPageRobots } from '../../lib/seo';
 import Image from 'next/image';
 import { PublicLayout } from '../../components/layouts/page-layouts';
 import { Breadcrumbs, Container } from '../../components/ui/primitives';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
+  robots: getPublicPageRobots(),
   title: 'Проектирование и изготовление электрощитов | SHOP-STDU',
   description:
     'Электрощиты автоматизации, мониторинга и распределения. Состав работ, компонентная база и этапы инженерной проработки по техническому заданию.',
