@@ -45,6 +45,7 @@
     "Catalog identity is the exact frozen R1-004 tuple (brandId, manufacturerName, originalPartNumber, modification) with its NFC/outer-U+0020-only normalization; no fuzzy candidate, analog, or auto-link exists.",
     "Money is a canonical decimal string, never a JSON number. Currency is explicit; no FX conversion, assumed VAT or default currency.",
     "All responses containing contact, purchase cost, internal notes, source or matching data are no-store and never enter PublicCatalogProduct or PublicQuotation DTOs.",
+    "The unlink mutation returns only OfferMutationReceipt {id, version}; the full private Offer (including purchase cost) remains available only through its separately authorized read operation. This keeps the durable exact idempotency response sanitized.",
     "No route creates a CatalogProduct, updates public price, changes a quotation, sends a supplier request, fetches a source URL or performs a bulk decision.",
     "Idempotency scope is authenticated actorStaffUserId plus fixed R1-007 scope plus key across every mutation; RFC 8785 canonical request envelope is SHA-256 hashed and completed status/body is durably stored in SupplierCommandIdempotency in the same PostgreSQL transaction as a successful mutation and its AuditEvent.",
     "PostgreSQL transaction-scoped actor/scope/key serialization makes same-key concurrent requests replay one saved result; identical retries survive API restart, hash mismatch is 409 IDEMPOTENCY_KEY_REUSED, and deterministic VERSION_CONFLICT is replayed until a corrected request uses a new key.",
@@ -603,7 +604,7 @@
           "Expected current proposal and offer version must match; proposal history is unchanged; unlink is never implicit."
         ],
         "responses": {
-          "200": { "$ref": "#/components/responses/Offer" },
+          "200": { "$ref": "#/components/responses/OfferUnlinkMutation" },
           "400": { "$ref": "#/components/responses/ValidationError" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
@@ -1417,6 +1418,23 @@
           "meta": { "$ref": "#/components/schemas/Meta" }
         }
       },
+      "OfferUnlinkMutationReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version"],
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "version": { "type": "integer", "minimum": 1 }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
       "RevisionListResponse": {
         "type": "object",
         "required": ["data", "meta"],
@@ -1620,6 +1638,16 @@
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/OfferMutationReceipt" }
+          }
+        }
+      },
+      "OfferUnlinkMutation": {
+        "description": "Exact unlink receipt only; purchase cost, supplier detail and other offer fields are not returned or stored for replay.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OfferUnlinkMutationReceipt"
+            }
           }
         }
       },

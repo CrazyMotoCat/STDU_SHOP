@@ -35,6 +35,15 @@ model StaffUser {
   createdProductRelations   ProductRelation[]        @relation("ProductRelationCreator")
   uploadedCatalogImports    CatalogImportRun[]       @relation("CatalogImportUploader")
   decidedCatalogImports     CatalogImportDecision[]  @relation("CatalogImportDecisionActor")
+  createdSuppliers          Supplier[]               @relation("SupplierCreator")
+  updatedSuppliers          Supplier[]               @relation("SupplierUpdater")
+  supplierRevisions         SupplierRevision[]        @relation("SupplierRevisionCreator")
+  createdSupplierOffers     SupplierOffer[]           @relation("SupplierOfferCreator")
+  updatedSupplierOffers     SupplierOffer[]           @relation("SupplierOfferUpdater")
+  supplierOfferRevisions    SupplierOfferRevision[]   @relation("SupplierOfferRevisionCreator")
+  createdMatchProposals     ProductMatchProposal[]    @relation("MatchProposalCreator")
+  decidedMatchProposals     ProductMatchProposal[]    @relation("MatchProposalDecider")
+  supplierCommandResults    SupplierCommandIdempotency[]
 
   @@index([state, id], map: "staff_user_state_id_idx")
   @@map("staff_user")
@@ -225,6 +234,7 @@ model Brand {
   updatedAt DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
   products  CatalogProduct[]         @relation("CatalogProductBrand")
   revisions CatalogProductRevision[] @relation("CatalogRevisionBrand")
+  supplierOfferRevisions SupplierOfferRevision[]
 
   @@index([state, name, id], map: "brand_state_name_id_idx")
   @@map("brand")
@@ -297,6 +307,7 @@ model CatalogProduct {
   currentDraftRevision   CatalogProductRevision?  @relation("ProductDraftRevision", fields: [currentDraftRevisionId, id], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
   catalogImportRows      CatalogImportRow[]        @relation("CatalogImportMatchedProduct")
   catalogImportDecisions CatalogImportDecision[]   @relation("CatalogImportDecisionTarget")
+  supplierMatchProposals ProductMatchProposal[]
 
   @@index([publicationState, updatedAt, id], map: "catalog_product_state_updated_id_idx")
   @@index([brandId, publicationState, id], map: "catalog_product_brand_state_id_idx")
@@ -524,4 +535,166 @@ model ProductRelation {
   @@id([sourceRevisionId, targetProductId, relationType])
   @@unique([sourceRevisionId, sortOrder], map: "product_relation_source_sort_key")
   @@map("product_relation")
+}
+
+model Supplier {
+  id                   String             @id @db.Uuid
+  legalName            String             @map("legal_name") @db.VarChar(240)
+  shortName            String?            @map("short_name") @db.VarChar(160)
+  taxIdentifier        String?            @map("tax_identifier") @db.VarChar(64)
+  taxJurisdiction      String?            @map("tax_jurisdiction") @db.VarChar(2)
+  contactName          String?            @map("contact_name") @db.VarChar(160)
+  email                String?            @db.VarChar(254)
+  phone                String?            @db.VarChar(64)
+  website              String?            @db.VarChar(2048)
+  internalNotes        String?            @map("internal_notes") @db.VarChar(4000)
+  state                String             @db.Text
+  currentRevisionId    String             @unique(map: "supplier_current_revision_key") @map("current_revision_id") @db.Uuid
+  version              Int                @default(1)
+  createdByStaffUserId String             @map("created_by_staff_user_id") @db.Uuid
+  updatedByStaffUserId String             @map("updated_by_staff_user_id") @db.Uuid
+  createdAt            DateTime           @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime           @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  currentRevision      SupplierRevision   @relation("SupplierCurrentRevision", fields: [currentRevisionId, id], references: [id, supplierId], onDelete: Restrict, onUpdate: Restrict)
+  revisions            SupplierRevision[] @relation("SupplierRevisions")
+  createdBy            StaffUser          @relation("SupplierCreator", fields: [createdByStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  updatedBy            StaffUser          @relation("SupplierUpdater", fields: [updatedByStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  offers               SupplierOffer[]
+
+  @@index([state, updatedAt, id], map: "supplier_state_updated_id_idx")
+  @@map("supplier")
+}
+
+model SupplierRevision {
+  id                    String     @id @db.Uuid
+  supplierId            String     @map("supplier_id") @db.Uuid
+  revisionNo            Int        @map("revision_no")
+  legalName             String     @map("legal_name") @db.VarChar(240)
+  shortName             String?    @map("short_name") @db.VarChar(160)
+  taxIdentifier         String?    @map("tax_identifier") @db.VarChar(64)
+  taxJurisdiction       String?    @map("tax_jurisdiction") @db.VarChar(2)
+  contactName           String?    @map("contact_name") @db.VarChar(160)
+  email                 String?    @db.VarChar(254)
+  phone                 String?    @db.VarChar(64)
+  website               String?    @db.VarChar(2048)
+  internalNotes         String?    @map("internal_notes") @db.VarChar(4000)
+  recordedAt            DateTime   @default(dbgenerated("transaction_timestamp()")) @map("recorded_at") @db.Timestamptz(6)
+  recordedByStaffUserId String     @map("recorded_by_staff_user_id") @db.Uuid
+  supplier              Supplier   @relation("SupplierRevisions", fields: [supplierId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentFor            Supplier[] @relation("SupplierCurrentRevision")
+  recordedBy            StaffUser  @relation("SupplierRevisionCreator", fields: [recordedByStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, supplierId], map: "supplier_revision_id_supplier_key")
+  @@unique([supplierId, revisionNo], map: "supplier_revision_supplier_no_key")
+  @@index([supplierId, revisionNo(sort: Desc)], map: "supplier_revision_supplier_no_idx")
+  @@map("supplier_revision")
+}
+
+model SupplierOffer {
+  id                     String                  @id @db.Uuid
+  supplierId             String                  @map("supplier_id") @db.Uuid
+  state                  String                  @db.Text
+  currentRevisionId      String                  @map("current_revision_id") @db.Uuid
+  currentMatchProposalId String?                 @unique(map: "supplier_offer_current_match_key") @map("current_match_proposal_id") @db.Uuid
+  version                Int                     @default(1)
+  createdByStaffUserId   String                  @map("created_by_staff_user_id") @db.Uuid
+  updatedByStaffUserId   String                  @map("updated_by_staff_user_id") @db.Uuid
+  createdAt              DateTime                @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  supplier               Supplier                @relation(fields: [supplierId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentRevision        SupplierOfferRevision   @relation("SupplierOfferCurrentRevision", fields: [currentRevisionId, id], references: [id, offerId], onDelete: Restrict, onUpdate: Restrict)
+  revisions              SupplierOfferRevision[] @relation("SupplierOfferRevisions")
+  proposals              ProductMatchProposal[]  @relation("SupplierOfferProposals")
+  currentMatchProposal   ProductMatchProposal?   @relation("SupplierOfferCurrentMatch", fields: [currentMatchProposalId, id], references: [id, offerId], onDelete: Restrict, onUpdate: Restrict)
+  createdBy              StaffUser               @relation("SupplierOfferCreator", fields: [createdByStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  updatedBy              StaffUser               @relation("SupplierOfferUpdater", fields: [updatedByStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([supplierId, state, updatedAt, id], map: "supplier_offer_supplier_state_updated_idx")
+  @@index([state, updatedAt, id], map: "supplier_offer_state_updated_idx")
+  @@map("supplier_offer")
+}
+
+model SupplierOfferRevision {
+  id                    String                 @id @db.Uuid
+  offerId               String                 @map("offer_id") @db.Uuid
+  revisionNo            Int                    @map("revision_no")
+  supplierPartNumber    String?                @map("supplier_part_number") @db.VarChar(160)
+  offerName             String?                @map("offer_name") @db.VarChar(240)
+  sourceBrandText       String?                @map("source_brand_text") @db.VarChar(160)
+  brandId               String?                @map("brand_id") @db.Uuid
+  manufacturerName      String?                @map("manufacturer_name") @db.VarChar(200)
+  originalPartNumber    String?                @map("original_part_number") @db.VarChar(160)
+  modification          String?                @db.VarChar(160)
+  modificationEvidence  String                 @map("modification_evidence") @db.Text
+  purchaseCost          Decimal?               @map("purchase_cost") @db.Decimal
+  currency              String?                @db.VarChar(3)
+  sourceVatText         String?                @map("source_vat_text") @db.VarChar(160)
+  availabilityText      String?                @map("availability_text") @db.VarChar(500)
+  leadTimeText          String?                @map("lead_time_text") @db.VarChar(160)
+  sourceObservedAt      DateTime?              @map("source_observed_at") @db.Timestamptz(6)
+  expiresAt             DateTime?              @map("expires_at") @db.Timestamptz(6)
+  sourceUrl             String?                @map("source_url") @db.VarChar(2048)
+  origin                String                 @db.Text
+  recordedAt            DateTime               @default(dbgenerated("transaction_timestamp()")) @map("recorded_at") @db.Timestamptz(6)
+  recordedByStaffUserId String                 @map("recorded_by_staff_user_id") @db.Uuid
+  createdAt             DateTime               @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  offer                 SupplierOffer          @relation("SupplierOfferRevisions", fields: [offerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentFor            SupplierOffer[]        @relation("SupplierOfferCurrentRevision")
+  proposals             ProductMatchProposal[] @relation("SupplierOfferRevisionProposals")
+  brand                 Brand?                 @relation(fields: [brandId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  recordedBy            StaffUser              @relation("SupplierOfferRevisionCreator", fields: [recordedByStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, offerId], map: "supplier_offer_revision_id_offer_key")
+  @@unique([offerId, revisionNo], map: "supplier_offer_revision_offer_no_key")
+  @@index([offerId, revisionNo(sort: Desc)], map: "supplier_offer_revision_offer_no_idx")
+  @@index([brandId, manufacturerName, originalPartNumber, modification], map: "supplier_offer_revision_identity_idx")
+  @@map("supplier_offer_revision")
+}
+
+model ProductMatchProposal {
+  id                      String                @id @db.Uuid
+  offerId                 String                @map("offer_id") @db.Uuid
+  offerRevisionId         String                @map("offer_revision_id") @db.Uuid
+  proposedProductId       String                @map("proposed_product_id") @db.Uuid
+  offerIdentitySnapshot   Json                  @map("offer_identity_snapshot") @db.JsonB
+  productIdentitySnapshot Json                  @map("product_identity_snapshot") @db.JsonB
+  evidenceKind            String                @map("evidence_kind") @db.Text
+  state                   String                @db.Text
+  createdByStaffUserId    String                @map("created_by_staff_user_id") @db.Uuid
+  createdAt               DateTime              @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  decidedByStaffUserId    String?               @map("decided_by_staff_user_id") @db.Uuid
+  decidedAt               DateTime?             @map("decided_at") @db.Timestamptz(6)
+  decisionReasonCode      String?               @map("decision_reason_code") @db.VarChar(64)
+  decisionComment         String?               @map("decision_comment") @db.VarChar(1000)
+  version                 Int                   @default(1)
+  offer                   SupplierOffer         @relation("SupplierOfferProposals", fields: [offerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  offerRevision           SupplierOfferRevision @relation("SupplierOfferRevisionProposals", fields: [offerRevisionId, offerId], references: [id, offerId], onDelete: Restrict, onUpdate: Restrict)
+  proposedProduct         CatalogProduct        @relation(fields: [proposedProductId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  currentForOffer         SupplierOffer[]       @relation("SupplierOfferCurrentMatch")
+  createdBy               StaffUser             @relation("MatchProposalCreator", fields: [createdByStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  decidedBy               StaffUser?            @relation("MatchProposalDecider", fields: [decidedByStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, offerId], map: "product_match_proposal_id_offer_key")
+  @@index([state, createdAt, id], map: "product_match_proposal_state_created_idx")
+  @@index([offerId, createdAt, id], map: "product_match_proposal_offer_created_idx")
+  @@index([offerId, offerRevisionId, proposedProductId, createdAt, id], map: "product_match_proposal_pair_created_idx")
+  @@index([proposedProductId, createdAt, id], map: "product_match_proposal_product_created_idx")
+  @@map("product_match_proposal")
+}
+
+model SupplierCommandIdempotency {
+  id               String    @id @db.Uuid
+  actorStaffUserId String    @map("actor_staff_user_id") @db.Uuid
+  scope            String    @db.VarChar(32)
+  idempotencyKey   String    @map("idempotency_key") @db.VarChar(128)
+  operationId      String    @map("operation_id") @db.VarChar(100)
+  requestHash      Bytes     @map("request_hash") @db.ByteA
+  responseStatus   Int       @map("response_status") @db.SmallInt
+  responseBody     Json      @map("response_body") @db.JsonB
+  completedAt      DateTime  @default(dbgenerated("transaction_timestamp()")) @map("completed_at") @db.Timestamptz(6)
+  actor            StaffUser @relation(fields: [actorStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([actorStaffUserId, scope, idempotencyKey], map: "supplier_command_idempotency_actor_scope_key")
+  @@index([actorStaffUserId, completedAt(sort: Desc)], map: "supplier_command_idempotency_actor_completed_idx")
+  @@map("supplier_command_idempotency")
 }

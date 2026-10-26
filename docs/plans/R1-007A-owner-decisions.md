@@ -64,3 +64,7 @@ The contract package was approved as a complete set of OD-007A-01…07 at the ex
 > Утверждаю пакет R1-007A Supplier Domain Contract версии 0.1.0-proposed на SHA `241b9c1a6d6e57b7ff1999e1aae46b66c33cb131`, включая OD-007A-01…07. Принимаю шесть таблиц, включая SupplierCommandIdempotency, 20 staff API-операций и пять предлагаемых permissions.
 
 This approval covers the contract content only. It does not authorize bypassing required CI, production migrations, deployment or real permission grants. It authorizes freezing the unchanged approved contract as FROZEN 1.0.0 and starting R1-007B after integration.
+
+### OD-007A-07-CLARIFICATION-01 — unlink receipt
+
+During R1-007B preparation the owner selected **“Change unlink response to receipt”** to resolve the conflict between a full Offer response containing purchase cost and OD-007A-07's sanitized, exact idempotency replay requirement. `POST /v1/staff/supplier-offers/{offerId}/match/unlink` returns and durably replays only `OfferUnlinkMutationReceipt { id, version }`. Full Offer data, including purchase cost, remains on its separately authorized read operation. This clarification changes only that mutation response schema; all six tables, permissions, other API operations, lifecycle and audit rules remain unchanged.

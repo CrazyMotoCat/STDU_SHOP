@@ -43,9 +43,18 @@ export const CATALOG_PERMISSION_CODES = [
   'catalog.products.documents.write',
 ] as const;
 
+export const SUPPLIER_PERMISSION_CODES = [
+  'suppliers.read',
+  'suppliers.write',
+  'suppliers.offers.read',
+  'suppliers.offers.write',
+  'suppliers.matches.decide',
+] as const;
+
 export const REGISTERED_PERMISSION_CODES = [
   ...PERMISSION_CODES,
   ...CATALOG_PERMISSION_CODES,
+  ...SUPPLIER_PERMISSION_CODES,
 ] as const;
 
 export const FULL_ADMIN_PERMISSIONS = PERMISSION_CODES;

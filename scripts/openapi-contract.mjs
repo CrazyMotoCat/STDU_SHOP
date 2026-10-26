@@ -255,9 +255,70 @@ function collectDifferences(expected, actual, at = '$', out = []) {
   return out;
 }
 
-export function compareOpenApi(expected, actual) {
+export function compareOpenApi(
+  expected,
+  actual,
+  { allowedPermissionCodeAdditions = [] } = {},
+) {
   const left = semanticProjection(expected);
   const right = semanticProjection(actual);
-  const differences = collectDifferences(left, right);
+  const permissionCodes = new Set(left.schemas.PermissionCode?.enum ?? []);
+  const extensionDifferences = [];
+  const normalizePermissionEnums = (expectedNode, actualNode, at = '$') => {
+    if (
+      !expectedNode ||
+      !actualNode ||
+      typeof expectedNode !== 'object' ||
+      typeof actualNode !== 'object'
+    )
+      return;
+    if (Array.isArray(expectedNode.enum) && Array.isArray(actualNode.enum)) {
+      const expectedEnum = expectedNode.enum;
+      const actualEnum = actualNode.enum;
+      const isPermissionEnum = expectedEnum.some((code) =>
+        permissionCodes.has(code),
+      );
+      if (isPermissionEnum && allowedPermissionCodeAdditions.length > 0) {
+        const expectedSet = new Set(expectedEnum);
+        const expectedActualSet = new Set([
+          ...expectedEnum,
+          ...allowedPermissionCodeAdditions,
+        ]);
+        const actualSet = new Set(actualEnum);
+        if (
+          actualEnum.length !== actualSet.size ||
+          expectedActualSet.size !== actualSet.size ||
+          [...expectedActualSet].some((code) => !actualSet.has(code))
+        ) {
+          extensionDifferences.push(
+            `${at}.enum: expected frozen permission values plus exactly ${JSON.stringify(allowedPermissionCodeAdditions)}; got ${JSON.stringify(actualEnum)}`,
+          );
+        }
+        actualNode.enum = actualEnum.filter(
+          (code) => !allowedPermissionCodeAdditions.includes(code),
+        );
+        if (expectedSet.size !== new Set(actualNode.enum).size) {
+          extensionDifferences.push(
+            `${at}.enum: duplicate or missing permission value after approved extension normalization`,
+          );
+        }
+      }
+    }
+    for (const key of Object.keys(expectedNode)) {
+      if (key in actualNode)
+        normalizePermissionEnums(
+          expectedNode[key],
+          actualNode[key],
+          `${at}.${key}`,
+        );
+    }
+  };
+  if (allowedPermissionCodeAdditions.length > 0) {
+    normalizePermissionEnums(left, right);
+  }
+  const differences = [
+    ...extensionDifferences,
+    ...collectDifferences(left, right),
+  ];
   return { equal: differences.length === 0, differences };
 }
