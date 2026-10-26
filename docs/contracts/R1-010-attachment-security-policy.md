@@ -1,0 +1,44 @@
+# R1-010 Public Attachment Security Policy — PROPOSED 0.1.0
+
+## Trust boundary
+
+Every byte and filename supplied anonymously is untrusted, even after inquiry creation or HTTP success. R1-010 accepts and preserves originals only. It does not parse, render inline, execute, extract archives, OCR, or call FastAPI. R1-011 may parse a source only after an approved scanner state and its own bounded parser checks.
+
+## Identity and authorization
+
+The public form generates a 256-bit capability with Web Crypto when a file is selected and includes it as the `uploadCapability` field of the HTTPS Inquiry-creation JSON body. Creation has no capability header. The API stores only SHA-256(capability), bound to that Inquiry, with a recommended 24-hour expiry; neither success nor error responses echo it. For later upload-intent, byte-upload and cancel requests, the client sends the same capability only in `X-Inquiry-Upload-Capability` over HTTPS. It is never placed in a URL or cookie and is never logged, traced or audited. It authorizes only create/upload/cancel for attachment intents attached to that one Inquiry; it cannot read or enumerate any Inquiry, status, filename, metadata or bytes. UUIDs, publicReference and Idempotency-Key are not authorization credentials.
+
+Each intent is a one-file declaration with immutable inquiry binding, sanitized basename, declared MIME/size, optional expected digest, random UUID, 30-minute proposed start expiry and state. Exact capability, intent, and path inquiry must all match. An upload stream may start only while the intent is ISSUED and unexpired. Starting a stream atomically changes it to RECEIVING and sets `receivingStartedAt` plus `receivingDeadlineAt = receivingStartedAt + 15 minutes`. The start expiry does not abort an already RECEIVING stream; the stream must finish before its receiving deadline. If it does not, abort it, mark the intent FAILED, attach no document and clean only the exact owned temporary bytes. RECEIVING reservations remain counted against the Inquiry quota until completion, failure or that deadline, even if the intent's start expiry passes.
+
+Intent reservation and upload completion lock the Inquiry row and recheck completed documents using actual bytes plus ISSUED intents with future start expiry using declared bytes plus RECEIVING intents before their receiving deadline using declared bytes. This prevents concurrent intents or streams from exceeding the per-Inquiry file-count/byte quotas. A successful stream must not exceed declared size; actual persisted size is authoritative for the completed-file quota. One successful byte stream consumes the intent once; duplicate bytes with the same successful idempotency key replay its receipt, while a new key against a consumed intent returns 409. Cancel only changes ISSUED to CANCELLED. Retry uses a new intent and command key.
+
+## Intake and private storage
+
+NestJS is the only public upload endpoint. It streams to a random opaque object key under the configured private StoragePort quarantine namespace; no user-controlled path or content-derived key. Limits are enforced during the stream, not trusted from Content-Length or ZIP metadata. Verify declared extension, MIME and bounded signature/content checks together; reject mismatches, empty files, unsupported formats and over-limit data. Never unpack archives or execute content. Compute SHA-256 and actual byte count from the received stream. Preserve immutable originals; any replacement is a new document.
+
+The R1-002 FileObject/FileVersion/FileLink schema is staff-owned and cannot represent anonymous ownership. Do not make owner nullable, synthesize a staff owner, or write public inquiry rows into catalog-import tables. Reuse the existing private StoragePort implementation only; InquirySourceDocument provides typed inquiry ownership and download policy. Storage keys never enter DTOs.
+
+Upload bytes and PostgreSQL cannot share a transaction. Write the exact new private object first; then commit document metadata, intent consumption, AuditEvent and idempotency receipt atomically. If the transaction fails, delete only the exact newly written object when the StoragePort write receipt proves ownership. If cleanup fails, emit a bounded sanitized operations diagnostic and retain it in private quarantine for an ownership-checked sweeper. Never delete an object by shared path/name, port, or broad namespace. An upload failure leaves the Inquiry and previous attachments intact.
+
+An incomplete stream is never attached. Delete task-owned partial temporary bytes in the request cleanup path; stale temporary blobs left by process loss are eligible for the 24-hour ownership-checked cleanup recommendation. Expired intent metadata remains 30 days for diagnosis, then may be purged. The cleanup process must not touch Inquiry, AuditEvent or completed originals.
+
+## Quarantine and download
+
+On successful intake, state is QUARANTINED. Content sniffing and allowlist checks are not malware clearance. A configured scanner is the only actor allowed to set CLEAN or REJECTED; scanner errors remain SCAN_ERROR/quarantined. If no operational scanner exists, fail closed: no file download and no extraction, including by staff. Do not introduce an unapproved scanner service or claim a file is safe.
+
+Staff metadata view requires inquiry read scope plus inquiries.documents.read. Download additionally requires inquiries.documents.download and state CLEAN. NestJS resolves authorization against the stored Inquiry -> document relation before opening bytes. Response is streamed with Content-Disposition attachment, safe sanitized filename, Cache-Control no-store, X-Content-Type-Options nosniff and no public/static URL. Denied and missing objects have non-enumerating safe responses. Public users cannot download, list, inspect, cancel completed files or query document state.
+
+## Proposed launch bounds and controls
+
+Pending owner approval: PDF, CSV, XLSX and common image types only; no ZIP, executable, macro-enabled office, HTML, SVG or CAD formats in the initial profile. Maximum 10 MiB/file, 5 files and 25 MiB total per Inquiry. Create JSON request 2 MiB and equipment line count 50; binary upload is streamed under its separate limits. The exact MIME allowlist and limits are OD-010-03. R1-010 does not decompress XLSX or extract PDF text.
+
+Recommended intent start TTL 30 minutes and maximum receiving stream duration 15 minutes; verify the stream timeout against representative files during R1-010B tests. Recommended cleanup for abandoned temporary bytes 24 hours; completed document retention is not set until privacy/legal approval. Source documents remain immutable and private. A retention policy must define archive/deletion/legal hold before commercial launch.
+
+Public rate-limits use Redis counters, exact configured reverse-proxy trust and keyed ephemeral source fingerprints; no raw IP is logged. Reuse the existing R1-002 `RATE_LIMIT_KEY` configuration and derive an Inquiry-specific HMAC-SHA256 namespace (for example, `inquiry-source:v1:` plus the normalized trusted peer), so fingerprints cannot be correlated with other rate-limit domains. Do not add a new secret or persist the fingerprint beyond the counter TTL. Recommended limits: 5 Inquiry creations/15 minutes and 20/day per source; 10 upload-intent creations/hour and 25 MiB/day per source. The 25 MiB/day budget is charged by declared bytes when an upload intent is accepted, not by actual bytes; one Redis atomic operation enforces it across all Inquiries for that HMAC source and UTC day. A same-key idempotent retry does not charge twice. Cancelled, expired or failed intents do not refund declared-byte budget for that day; the actual stream still cannot exceed the declared size, and completed per-Inquiry storage quota uses actual bytes. If the PostgreSQL intent insert fails, release only its exact Redis reservation; if that compensation fails, leave the conservative charge until UTC-day reset. Exceeding a budget returns 429; Redis failure returns a safe 503. These are configurable initial values, not guarantees. Private storage failure also returns a safe 503 and does not accept unbounded writes. Exact trusted proxy configuration is required; arbitrary X-Forwarded-For is ignored.
+
+## Open security risks requiring approval
+
+- No scanner is assumed available; launch requires an operational scanner or a separately approved restricted policy. Quarantine-only means download/extraction are unavailable.
+- Exact legal retention and deletion of uploaded PII is pending OD-010-02/03.
+- Accepted file formats and limits are pending OD-010-03 and representative runtime tests before implementation is frozen.
+- Capability loss in the client prevents later uploads but never grants access to Inquiry data; any recovery/rotation flow would require a new security review and owner approval.

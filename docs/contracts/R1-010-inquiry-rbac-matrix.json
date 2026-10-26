@@ -1,0 +1,25 @@
+{
+  "status": "PROPOSED",
+  "version": "0.1.0-proposed",
+  "defaultDeny": true,
+  "automaticRoleGrants": false,
+  "permissions": {
+    "inquiries.read_assigned": "Read queue/detail/history for inquiries assigned to the actor as manager or engineer; contact values remain redacted without inquiries.contacts.read.",
+    "inquiries.read_all": "Read all inquiry queue/detail/history including unassigned inquiries; contact values remain redacted without inquiries.contacts.read.",
+    "inquiries.contacts.read": "Reveal submitted contact snapshots only together with read_assigned or read_all scope.",
+    "inquiries.assign_manager": "Assign or replace the manager; clearing an assignment is not supported. Requires read scope and target ACTIVE staff with inquiries.read_assigned or inquiries.read_all.",
+    "inquiries.assign_engineer": "Assign or replace the engineer; clearing an assignment is not supported. Requires read scope and target ACTIVE staff with inquiries.read_assigned or inquiries.read_all.",
+    "inquiries.transition": "Perform only the approved staff lifecycle transitions or set the current stage due date; requires read scope and transition preconditions.",
+    "inquiries.comment": "Append internal-only comments; requires read scope.",
+    "inquiries.documents.read": "Read attachment metadata and security state; requires read scope.",
+    "inquiries.documents.download": "Download only an authorized CLEAN source document; also requires inquiries.documents.read and read scope."
+  },
+  "rules": [
+    "Public inquiry creation has no staff permission and cannot read, enumerate, update or transition an inquiry.",
+    "Knowledge of inquiry UUID or publicReference never grants staff or customer access.",
+    "The anonymous upload capability is bound to one inquiry and permits only creating, uploading or cancelling its attachments; it grants no read/status/download access.",
+    "Contact PII requires an explicit contact permission in addition to inquiry visibility.",
+    "Attachment metadata and byte access are separate permissions; byte access additionally requires CLEAN state and domain policy authorization.",
+    "No permission is automatically added to any role. Owner approval and ordinary R1-002 RBAC administration are required to grant codes."
+  ]
+}

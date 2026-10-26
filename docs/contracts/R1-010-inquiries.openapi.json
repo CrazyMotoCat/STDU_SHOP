@@ -1,0 +1,1267 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "STDU_SHOP Public Inquiry and Staff Workflow API",
+    "version": "0.1.0-proposed",
+    "description": "PROPOSED R1-010 contract. It is not an implementation or authorization to run migrations. Inquiry submission has no public read/status endpoint."
+  },
+  "servers": [{ "url": "/" }],
+  "tags": [{ "name": "Public inquiries" }, { "name": "Staff inquiries" }],
+  "paths": {
+    "/v1/public/inquiries": {
+      "post": {
+        "tags": ["Public inquiries"],
+        "operationId": "createPublicInquiry",
+        "summary": "Create one anonymous B2B inquiry",
+        "description": "Creates Inquiry + submitted lines + audit in one PostgreSQL transaction. Returns 201 only after commit. publicReference is a receipt, not a credential; there is no public inquiry lookup. When attachments are planned, client may include a CSPRNG-generated 256-bit uploadCapability in this JSON body; only its SHA-256 is stored and it grants attachment upload only. Later intent/upload/cancel calls carry it in X-Inquiry-Upload-Capability.",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/Origin" }
+        ],
+        "x-max-request-bytes": 2097152,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateInquiryRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Inquiry durably created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicInquiryReceipt"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "413": { "$ref": "#/components/responses/TooLarge" },
+          "415": { "$ref": "#/components/responses/UnsupportedMedia" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/v1/public/inquiries/{inquiryId}/attachments/upload-intents": {
+      "post": {
+        "tags": ["Public inquiries"],
+        "operationId": "createInquiryUploadIntent",
+        "summary": "Reserve a one-use upload for one inquiry",
+        "description": "Requires the upload-only capability supplied with createPublicInquiry. Capability is compared by hash and is bound to this Inquiry. The route creates no public read permission.",
+        "security": [{ "InquiryUploadCapability": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/InquiryId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/Origin" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUploadIntentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "One-use bounded intent created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UploadIntentReceipt" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "413": { "$ref": "#/components/responses/TooLarge" },
+          "415": { "$ref": "#/components/responses/UnsupportedMedia" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/v1/public/inquiries/{inquiryId}/attachments/upload-intents/{intentId}/content": {
+      "put": {
+        "tags": ["Public inquiries"],
+        "operationId": "uploadInquirySourceDocument",
+        "summary": "Upload the bytes for one reserved intent",
+        "description": "Streams bytes into a private temporary object; the stream must start before the 30-minute intent expiry and finish within 15 minutes after start. Expiry does not interrupt a RECEIVING stream, but its deadline does. Enforces declared size and global limits while streaming, sniffs the allowlisted type and computes SHA-256, then commits one immutable QUARANTINED source document, intent consumption, idempotency receipt and audit. A failed upload never rolls back the Inquiry. Partial bytes are deleted or ownership-checked as a private orphan. Retry after a completed same-key request replays the safe receipt after current capability/intent authorization; a consumed intent cannot be used with a new key.",
+        "security": [{ "InquiryUploadCapability": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/InquiryId" },
+          { "$ref": "#/components/parameters/IntentId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/Origin" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": { "type": "string", "format": "binary" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Original stored privately in quarantine",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentUploadReceipt"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "413": { "$ref": "#/components/responses/TooLarge" },
+          "415": { "$ref": "#/components/responses/UnsupportedMedia" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/v1/public/inquiries/{inquiryId}/attachments/upload-intents/{intentId}": {
+      "delete": {
+        "tags": ["Public inquiries"],
+        "operationId": "cancelInquiryUploadIntent",
+        "summary": "Cancel an unconsumed upload intent",
+        "description": "Only the bound upload capability can cancel an ISSUED intent. It cannot delete an Inquiry or completed source document. Retry requires a new intent.",
+        "security": [{ "InquiryUploadCapability": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/InquiryId" },
+          { "$ref": "#/components/parameters/IntentId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/Origin" }
+        ],
+        "responses": {
+          "204": { "description": "Intent cancelled" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": { "$ref": "#/components/responses/Unavailable" }
+        }
+      }
+    },
+    "/v1/staff/inquiries": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "listStaffInquiries",
+        "summary": "Read a permission-scoped inquiry queue",
+        "security": [{ "StaffSessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/StatusFilter" },
+          { "$ref": "#/components/parameters/KindFilter" },
+          { "$ref": "#/components/parameters/AssignedFilter" },
+          { "$ref": "#/components/parameters/Cursor" },
+          { "$ref": "#/components/parameters/PageSize" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Permission-scoped keyset page; no contact PII in list rows",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InquiryQueuePage" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "getStaffInquiry",
+        "summary": "Read one permission-scoped inquiry",
+        "security": [{ "StaffSessionCookie": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/InquiryId" }],
+        "responses": {
+          "200": {
+            "description": "Contact snapshot is omitted unless inquiries.contacts.read is also effective",
+            "headers": {
+              "ETag": {
+                "schema": { "type": "string" },
+                "description": "Inquiry version, used with If-Match on aggregate mutations"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InquiryDetail" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/events": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "listInquiryEvents",
+        "summary": "Read state and assignment history",
+        "security": [{ "StaffSessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/InquiryId" },
+          { "$ref": "#/components/parameters/Cursor" },
+          { "$ref": "#/components/parameters/PageSize" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Allowlisted audit timeline, no raw request or PII",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InquiryEventPage" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/manager": {
+      "patch": {
+        "tags": ["Staff inquiries"],
+        "operationId": "assignInquiryManager",
+        "summary": "Assign or replace the inquiry manager",
+        "security": [{ "StaffSessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/InquiryId" },
+          { "$ref": "#/components/parameters/IfMatch" },
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/StaffCsrf" },
+          { "$ref": "#/components/parameters/Origin" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AssignmentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Assignment receipt and new aggregate version",
+            "headers": { "ETag": { "schema": { "type": "string" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MutationReceipt" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/engineer": {
+      "patch": {
+        "tags": ["Staff inquiries"],
+        "operationId": "assignInquiryEngineer",
+        "summary": "Assign or replace the responsible engineer",
+        "security": [{ "StaffSessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/InquiryId" },
+          { "$ref": "#/components/parameters/IfMatch" },
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/StaffCsrf" },
+          { "$ref": "#/components/parameters/Origin" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AssignmentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Assignment receipt and new aggregate version",
+            "headers": { "ETag": { "schema": { "type": "string" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MutationReceipt" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/stage-deadline": {
+      "put": {
+        "tags": ["Staff inquiries"],
+        "operationId": "setInquiryStageDeadline",
+        "summary": "Set or clear the due date for the current stage",
+        "description": "Human-managed internal due date, distinct from customer desiredDeadline. Uses current inquiry scope, transition permission, If-Match and durable idempotency. No automatic SLA calculation or notification is performed. A successful status transition clears this value.",
+        "security": [{ "StaffSessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/InquiryId" },
+          { "$ref": "#/components/parameters/IfMatch" },
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/StaffCsrf" },
+          { "$ref": "#/components/parameters/Origin" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/StageDeadlineRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stage due date committed with audit and new aggregate version",
+            "headers": { "ETag": { "schema": { "type": "string" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MutationReceipt" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/transition": {
+      "post": {
+        "tags": ["Staff inquiries"],
+        "operationId": "transitionStaffInquiry",
+        "summary": "Perform one allowed staff transition",
+        "description": "The staff target enum excludes QUOTE_SENT and CLOSED. The command accepts only a currently allowed state-machine edge; quote delivery/lifecycle owns those two statuses.",
+        "security": [{ "StaffSessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/InquiryId" },
+          { "$ref": "#/components/parameters/IfMatch" },
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/StaffCsrf" },
+          { "$ref": "#/components/parameters/Origin" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TransitionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transition committed with audit and new version",
+            "headers": { "ETag": { "schema": { "type": "string" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MutationReceipt" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/comments": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "listStaffInquiryComments",
+        "summary": "Read internal comments",
+        "security": [{ "StaffSessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/InquiryId" },
+          { "$ref": "#/components/parameters/Cursor" },
+          { "$ref": "#/components/parameters/PageSize" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Internal-only comments; never included in public DTO",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InquiryCommentPage" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Staff inquiries"],
+        "operationId": "createStaffInquiryComment",
+        "summary": "Append an internal-only comment",
+        "security": [{ "StaffSessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/InquiryId" },
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/StaffCsrf" },
+          { "$ref": "#/components/parameters/Origin" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateCommentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Comment and audit committed atomically",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MutationReceipt" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/documents": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "listStaffInquiryDocuments",
+        "summary": "Read attachment metadata and security state",
+        "security": [{ "StaffSessionCookie": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/InquiryId" }],
+        "responses": {
+          "200": {
+            "description": "No storage keys or public URLs",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InquiryDocumentPage" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/v1/staff/inquiries/{inquiryId}/documents/{documentId}/download": {
+      "get": {
+        "tags": ["Staff inquiries"],
+        "operationId": "downloadStaffInquiryDocument",
+        "summary": "Download one authorized CLEAN source",
+        "security": [{ "StaffSessionCookie": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/InquiryId" },
+          { "$ref": "#/components/parameters/DocumentId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized private stream; attachment disposition, no-store, nosniff, no public URL",
+            "content": {
+              "application/octet-stream": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": {
+            "description": "Document not CLEAN; body uses Error envelope"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "StaffSessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-stdu_staff",
+        "description": "Existing FROZEN R1-002 staff session; explicit loopback development profile follows that contract."
+      },
+      "InquiryUploadCapability": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Inquiry-Upload-Capability",
+        "description": "Client-generated 256-bit CSPRNG capability; server stores SHA-256 only. Bound to one Inquiry; attachment-only; never grants read/status/download access."
+      }
+    },
+    "parameters": {
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "minLength": 8, "maxLength": 128 },
+        "description": "Client-generated unpredictable unique key. Recommended 128-bit or more CSPRNG entropy. Stored only as SHA-256."
+      },
+      "Origin": {
+        "name": "Origin",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "format": "uri" },
+        "description": "Must exactly match configured public web origin; arbitrary X-Forwarded-For and reflected CORS are rejected."
+      },
+      "InquiryId": {
+        "name": "inquiryId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "IntentId": {
+        "name": "intentId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "DocumentId": {
+        "name": "documentId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "IfMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "pattern": "^\"[1-9][0-9]*\"$" },
+        "description": "Strong inquiry aggregate version ETag from current staff detail."
+      },
+      "StaffCsrf": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "minLength": 32, "maxLength": 512 },
+        "description": "Existing FROZEN R1-002 staff CSRF token for unsafe cookie-authenticated operations."
+      },
+      "StatusFilter": {
+        "name": "status",
+        "in": "query",
+        "required": false,
+        "schema": { "$ref": "#/components/schemas/InquiryStatus" }
+      },
+      "KindFilter": {
+        "name": "kind",
+        "in": "query",
+        "required": false,
+        "schema": { "$ref": "#/components/schemas/InquiryKind" }
+      },
+      "AssignedFilter": {
+        "name": "assignee",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string", "enum": ["ME", "UNASSIGNED"] }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string", "maxLength": 512 },
+        "description": "Opaque permission-scoped keyset cursor; not an authorization credential."
+      },
+      "PageSize": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        }
+      }
+    },
+    "schemas": {
+      "InquiryKind": {
+        "type": "string",
+        "enum": ["EQUIPMENT", "PANELS", "ENGINEERING"]
+      },
+      "InquiryStatus": {
+        "type": "string",
+        "enum": [
+          "NEW",
+          "TRIAGE",
+          "NEEDS_CLARIFICATION",
+          "ENGINEERING_REVIEW",
+          "READY_FOR_QUOTE",
+          "QUOTE_SENT",
+          "CLOSED"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "requestId"],
+        "properties": {
+          "code": { "type": "string", "maxLength": 64 },
+          "message": { "type": "string", "maxLength": 240 },
+          "requestId": { "type": "string", "format": "uuid" },
+          "fields": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["field", "code"],
+              "properties": {
+                "field": { "type": "string", "maxLength": 128 },
+                "code": { "type": "string", "maxLength": 64 }
+              }
+            }
+          }
+        }
+      },
+      "ContactSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["contactName"],
+        "anyOf": [
+          {
+            "required": ["email"],
+            "properties": { "email": { "type": "string" } }
+          },
+          {
+            "required": ["phone"],
+            "properties": { "phone": { "type": "string" } }
+          }
+        ],
+        "properties": {
+          "contactName": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "email": {
+            "type": ["string", "null"],
+            "format": "email",
+            "maxLength": 254
+          },
+          "phone": { "type": ["string", "null"], "maxLength": 40 },
+          "organization": { "type": ["string", "null"], "maxLength": 200 },
+          "taxIdentifier": { "type": ["string", "null"], "maxLength": 24 },
+          "preferredChannel": {
+            "type": ["string", "null"],
+            "enum": ["EMAIL", "PHONE", null],
+            "description": "Must correspond to a supplied non-null email/phone channel."
+          },
+          "region": { "type": ["string", "null"], "maxLength": 120 },
+          "desiredDeadline": { "type": ["string", "null"], "format": "date" }
+        }
+      },
+      "EquipmentLine": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rawTitle", "quantity", "unit"],
+        "properties": {
+          "rawTitle": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "originalSku": { "type": ["string", "null"], "maxLength": 160 },
+          "manufacturerName": { "type": ["string", "null"], "maxLength": 200 },
+          "modification": { "type": ["string", "null"], "maxLength": 200 },
+          "quantity": {
+            "type": "string",
+            "pattern": "^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,6})?$",
+            "maxLength": 19,
+            "description": "Positive decimal string; never converted through binary floating point."
+          },
+          "unit": { "type": "string", "minLength": 1, "maxLength": 40 },
+          "notes": { "type": ["string", "null"], "maxLength": 4000 },
+          "catalogProductSlugContext": {
+            "type": ["string", "null"],
+            "maxLength": 160,
+            "description": "Untrusted context only; never matched, linked or used as authority."
+          }
+        }
+      },
+      "PanelsDetails": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestType", "cabinetPurpose", "quantity"],
+        "properties": {
+          "requestType": {
+            "type": "string",
+            "enum": ["PROJECT_READY", "MODIFY_TYPICAL", "DEVELOP_FROM_BRIEF"]
+          },
+          "cabinetPurpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,6})?$",
+            "maxLength": 19
+          },
+          "requirements": {
+            "type": "array",
+            "maxItems": 100,
+            "items": { "type": "string", "maxLength": 2000 }
+          },
+          "requestedWork": {
+            "type": "array",
+            "maxItems": 50,
+            "items": { "type": "string", "maxLength": 500 }
+          },
+          "description": { "type": ["string", "null"], "maxLength": 8000 }
+        }
+      },
+      "EngineeringDetails": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "engineeringDirection",
+          "systemType",
+          "technicalTask",
+          "expectedDeliverables"
+        ],
+        "properties": {
+          "engineeringDirection": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "systemType": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "technicalTask": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "expectedDeliverables": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": { "type": "string", "maxLength": 500 }
+          },
+          "sourceDocumentDescription": {
+            "type": ["string", "null"],
+            "maxLength": 2000
+          }
+        }
+      },
+      "CreateInquiryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "contact"],
+        "properties": {
+          "kind": { "$ref": "#/components/schemas/InquiryKind" },
+          "contact": { "$ref": "#/components/schemas/ContactSnapshot" },
+          "uploadCapability": {
+            "type": ["string", "null"],
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "description": "Optional base64url 256-bit CSPRNG value required only when attachments are requested. Never echoed or logged."
+          },
+          "equipmentLines": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": { "$ref": "#/components/schemas/EquipmentLine" }
+          },
+          "panels": { "$ref": "#/components/schemas/PanelsDetails" },
+          "engineering": { "$ref": "#/components/schemas/EngineeringDetails" },
+          "privacyNotice": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["version", "accepted"],
+            "properties": {
+              "version": { "type": "string", "maxLength": 64 },
+              "accepted": { "type": "boolean" }
+            },
+            "description": "Exact content and whether required are BLOCKED on OD-010-02; no production collection before legal approval."
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "kind": { "const": "EQUIPMENT" } } },
+            "then": {
+              "required": ["equipmentLines"],
+              "not": {
+                "anyOf": [
+                  { "required": ["panels"] },
+                  { "required": ["engineering"] }
+                ]
+              }
+            }
+          },
+          {
+            "if": { "properties": { "kind": { "const": "PANELS" } } },
+            "then": {
+              "required": ["panels"],
+              "not": {
+                "anyOf": [
+                  { "required": ["equipmentLines"] },
+                  { "required": ["engineering"] }
+                ]
+              }
+            }
+          },
+          {
+            "if": { "properties": { "kind": { "const": "ENGINEERING" } } },
+            "then": {
+              "required": ["engineering"],
+              "not": {
+                "anyOf": [
+                  { "required": ["equipmentLines"] },
+                  { "required": ["panels"] }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "PublicInquiryReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["publicReference", "createdAt", "message"],
+            "properties": {
+              "publicReference": {
+                "type": "string",
+                "minLength": 20,
+                "maxLength": 32
+              },
+              "createdAt": { "type": "string", "format": "date-time" },
+              "message": { "type": "string", "maxLength": 240 }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "CreateUploadIntentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["filename", "declaredMimeType", "sizeBytes"],
+        "properties": {
+          "filename": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "declaredMimeType": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 127
+          },
+          "sizeBytes": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+          "expectedSha256": {
+            "type": ["string", "null"],
+            "pattern": "^[a-fA-F0-9]{64}$"
+          }
+        }
+      },
+      "UploadIntentReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["intentId", "expiresAt", "maxBytes"],
+            "properties": {
+              "intentId": { "type": "string", "format": "uuid" },
+              "expiresAt": { "type": "string", "format": "date-time" },
+              "maxBytes": { "type": "integer", "maximum": 10485760 }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "DocumentUploadReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["accepted", "sizeBytes", "securityState"],
+            "properties": {
+              "accepted": { "type": "boolean", "const": true },
+              "sizeBytes": { "type": "integer", "minimum": 1 },
+              "securityState": { "type": "string", "const": "QUARANTINED" }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "InquirySummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "publicReference",
+          "channel",
+          "kind",
+          "status",
+          "stageDueAt",
+          "version",
+          "createdAt"
+        ],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "publicReference": { "type": "string" },
+          "channel": { "type": "string", "const": "PUBLIC_WEB" },
+          "kind": { "$ref": "#/components/schemas/InquiryKind" },
+          "status": { "$ref": "#/components/schemas/InquiryStatus" },
+          "stageDueAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Staff-managed due date for this current stage; not the customer's desiredDeadline."
+          },
+          "version": { "type": "integer", "minimum": 1 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "assignedManagerUserId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "assignedEngineerUserId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          }
+        }
+      },
+      "InquiryDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/InquirySummary" },
+          {
+            "type": "object",
+            "properties": {
+              "contact": { "$ref": "#/components/schemas/ContactSnapshot" },
+              "kindDetails": { "type": "object" },
+              "equipmentLines": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/EquipmentLine" }
+              }
+            }
+          }
+        ]
+      },
+      "InquiryQueuePage": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/InquirySummary" }
+          },
+          "meta": { "$ref": "#/components/schemas/PageMeta" }
+        }
+      },
+      "InquiryEventPage": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["action", "outcome", "occurredAt"],
+              "properties": {
+                "action": { "type": "string" },
+                "outcome": {
+                  "type": "string",
+                  "enum": ["SUCCESS", "DENIED", "FAILURE"]
+                },
+                "occurredAt": { "type": "string", "format": "date-time" },
+                "actorStaffUserId": {
+                  "type": ["string", "null"],
+                  "format": "uuid"
+                },
+                "fromStatus": { "type": ["string", "null"] },
+                "toStatus": { "type": ["string", "null"] }
+              }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/PageMeta" }
+        }
+      },
+      "AssignmentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["staffUserId"],
+        "properties": {
+          "staffUserId": { "type": "string", "format": "uuid" }
+        }
+      },
+      "StageDeadlineRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stageDueAt"],
+        "properties": {
+          "stageDueAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Set an explicit due date for the current stage or null to clear it. No automatic value is inferred."
+          }
+        }
+      },
+      "StaffTransitionTargetStatus": {
+        "type": "string",
+        "enum": [
+          "TRIAGE",
+          "NEEDS_CLARIFICATION",
+          "ENGINEERING_REVIEW",
+          "READY_FOR_QUOTE"
+        ],
+        "description": "Generic staff transitions cannot set NEW, QUOTE_SENT or CLOSED."
+      },
+      "TransitionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["toStatus", "reasonCode"],
+        "properties": {
+          "toStatus": {
+            "$ref": "#/components/schemas/StaffTransitionTargetStatus"
+          },
+          "reasonCode": {
+            "type": "string",
+            "enum": [
+              "TRIAGE_STARTED",
+              "MORE_INFORMATION_REQUIRED",
+              "INFORMATION_RECEIVED",
+              "ENGINEERING_STARTED",
+              "ENGINEERING_COMPLETE",
+              "RETURN_TO_CLARIFICATION"
+            ]
+          }
+        }
+      },
+      "CreateCommentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["body"],
+        "properties": {
+          "body": { "type": "string", "minLength": 1, "maxLength": 4000 }
+        }
+      },
+      "MutationReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["inquiryId", "version"],
+            "properties": {
+              "inquiryId": { "type": "string", "format": "uuid" },
+              "version": { "type": "integer", "minimum": 1 },
+              "commentId": { "type": "string", "format": "uuid" }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "InquiryCommentPage": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "body", "authorStaffUserId", "createdAt"],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "body": { "type": "string" },
+                "authorStaffUserId": { "type": "string", "format": "uuid" },
+                "createdAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/PageMeta" }
+        }
+      },
+      "InquiryDocumentPage": {
+        "type": "object",
+        "required": ["data", "meta"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "sizeBytes",
+                "sha256",
+                "detectedMimeType",
+                "securityState",
+                "uploadedAt"
+              ],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "sizeBytes": { "type": "integer" },
+                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "detectedMimeType": { "type": "string" },
+                "securityState": {
+                  "type": "string",
+                  "enum": ["QUARANTINED", "CLEAN", "REJECTED", "SCAN_ERROR"]
+                },
+                "uploadedAt": { "type": "string", "format": "date-time" },
+                "originalFilename": { "type": "string", "maxLength": 255 }
+              }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/PageMeta" }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId"],
+        "properties": { "requestId": { "type": "string", "format": "uuid" } }
+      },
+      "PageMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nextCursor", "requestId"],
+        "properties": {
+          "nextCursor": { "type": ["string", "null"] },
+          "requestId": { "type": "string", "format": "uuid" }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "VALIDATION_ERROR; field names/codes only",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "OCC, invalid state, used upload intent or IDEMPOTENCY_KEY_REUSED; no partial domain mutation",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "TooLarge": {
+        "description": "REQUEST_TOO_LARGE; stream stopped at configured hard bound",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "UnsupportedMedia": {
+        "description": "FILE_TYPE_NOT_ALLOWED or MIME_MISMATCH",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "RATE_LIMITED; safe retry hint, no source address detail",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Unavailable": {
+        "description": "Dependency unavailable; fail closed for public writes",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "UNAUTHORIZED; no details that distinguish missing from invalid capability",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "FORBIDDEN; safe stable error envelope",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "NOT_FOUND; does not reveal whether another inquiry or intent exists",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    }
+  },
+  "x-contract-status": "PROPOSED",
+  "x-permissions": [
+    "inquiries.read_assigned",
+    "inquiries.read_all",
+    "inquiries.contacts.read",
+    "inquiries.assign_manager",
+    "inquiries.assign_engineer",
+    "inquiries.transition",
+    "inquiries.comment",
+    "inquiries.documents.read",
+    "inquiries.documents.download"
+  ],
+  "x-permission-rules": {
+    "listStaffInquiries": "inquiries.read_assigned OR inquiries.read_all",
+    "getStaffInquiry": "inquiries.read_assigned OR inquiries.read_all",
+    "listInquiryEvents": "inquiries.read_assigned OR inquiries.read_all",
+    "assignInquiryManager": "(inquiries.read_assigned OR inquiries.read_all) AND inquiries.assign_manager",
+    "assignInquiryEngineer": "(inquiries.read_assigned OR inquiries.read_all) AND inquiries.assign_engineer",
+    "setInquiryStageDeadline": "(inquiries.read_assigned OR inquiries.read_all) AND inquiries.transition",
+    "transitionStaffInquiry": "(inquiries.read_assigned OR inquiries.read_all) AND inquiries.transition",
+    "listStaffInquiryComments": "(inquiries.read_assigned OR inquiries.read_all) AND inquiries.comment",
+    "createStaffInquiryComment": "(inquiries.read_assigned OR inquiries.read_all) AND inquiries.comment",
+    "listStaffInquiryDocuments": "(inquiries.read_assigned OR inquiries.read_all) AND inquiries.documents.read",
+    "downloadStaffInquiryDocument": "(inquiries.read_assigned OR inquiries.read_all) AND inquiries.documents.read AND inquiries.documents.download"
+  },
+  "x-invariants": [
+    "No public inquiry GET/status endpoint.",
+    "No public DTO exposes staff IDs, internal comments, contact snapshots, storage keys or inquiry status.",
+    "No public content is trusted for SKU matching, BOM, substitute or quote computation.",
+    "Every mutation uses durable Idempotency-Key; staff state/assignment mutations use If-Match.",
+    "Before replaying any staff mutation receipt, revalidate current session, CSRF/Origin, action permission and inquiry read scope; before public upload replay, revalidate live capability and intent binding.",
+    "Generic staff transitions cannot set QUOTE_SENT or CLOSED; QUOTE_SENT-to-CLOSED is only a later quote-lifecycle integration.",
+    "Assignments cannot be cleared; setInquiryStageDeadline manages optional human-set current-stage due dates without SLA automation.",
+    "Staff unsafe requests follow FROZEN R1-002 cookie, exact Origin and CSRF rules.",
+    "Every public write validates exact configured Origin; no credentialed wildcard CORS.",
+    "No source file download unless CLEAN and both document permissions plus inquiry scope pass.",
+    "No external parser, malware result is never assumed, no automatic notification provider.",
+    "Public inquiry create JSON is limited to 2 MiB and at most 50 equipment lines; file bytes use independent streaming limits.",
+    "The per-source 25 MiB/day byte budget charges declared upload-intent bytes exactly once at accepted intent creation; one atomic Redis operation applies it across all Inquiries for the same domain-separated source fingerprint and UTC day."
+  ]
+}

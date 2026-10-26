@@ -1,0 +1,221 @@
+{
+  "status": "PROPOSED",
+  "version": "0.1.0-proposed",
+  "task": "R1-010B-01",
+  "baseline": "6b9f03e67f51f8e201a04047afd282c71b1d335e",
+  "extends": [
+    "FROZEN R1-002 1.0.0",
+    "FROZEN R1-004 1.0.0",
+    "FROZEN R1-006A 1.0.0",
+    "FROZEN R1-007A 1.0.0"
+  ],
+  "newTables": [
+    "Inquiry",
+    "InquiryLine",
+    "InquiryComment",
+    "InquirySourceDocument",
+    "InquiryUploadIntent",
+    "InquiryCommandIdempotency"
+  ],
+  "reusedTables": ["StaffUser", "AuditEvent"],
+  "tables": {
+    "Inquiry": {
+      "primaryKey": ["id"],
+      "fields": {
+        "id": "uuid PK, application UUIDv4 CSPRNG",
+        "publicReference": "varchar(32), unique, cryptographically random opaque receipt; not an authorization credential",
+        "channel": "literal PUBLIC_WEB for this contract",
+        "kind": "enum EQUIPMENT|PANELS|ENGINEERING",
+        "status": "enum NEW|TRIAGE|NEEDS_CLARIFICATION|ENGINEERING_REVIEW|READY_FOR_QUOTE|QUOTE_SENT|CLOSED",
+        "contactSnapshot": "jsonb <=16384 bytes; immutable submission-time snapshot of contact and optional region/deadline context; exact properties defined in OpenAPI",
+        "kindDetails": "jsonb <=32768 bytes; immutable strict version-1 union selected by kind",
+        "uploadCapabilityHash": "bytea(32), nullable SHA-256 of client-generated 256-bit capability; never the raw capability",
+        "uploadCapabilityExpiresAt": "timestamptz(6) nullable, recommended 24 hours after creation when capability exists",
+        "assignedManagerUserId": "uuid nullable FK StaffUser.id ON DELETE RESTRICT",
+        "assignedEngineerUserId": "uuid nullable FK StaffUser.id ON DELETE RESTRICT",
+        "stageDueAt": "timestamptz(6) nullable; human-set internal due date for the current stage, distinct from customer desiredDeadline; cleared on each successful status transition",
+        "version": "int32 NOT NULL DEFAULT 1 CHECK > 0",
+        "createdAt": "timestamptz(6) transaction_timestamp()",
+        "updatedAt": "timestamptz(6) transaction_timestamp()"
+      },
+      "unique": [["publicReference"]],
+      "indexes": [
+        ["status", "createdAt", "id"],
+        ["status", "stageDueAt", "id"],
+        ["assignedManagerUserId", "status", "createdAt", "id"],
+        ["assignedEngineerUserId", "status", "createdAt", "id"]
+      ],
+      "checks": [
+        "status and kind are declared enums",
+        "kindDetails schema is selected by kind and version=1",
+        "uploadCapabilityHash is NULL or exactly 32 bytes",
+        "uploadCapabilityHash and uploadCapabilityExpiresAt are both NULL or both present",
+        "version > 0"
+      ],
+      "immutability": "kind, publicReference, contactSnapshot, kindDetails and createdAt never change after creation; assignments/status/stageDueAt/version may change only through audited OCC commands; no physical delete API."
+    },
+    "InquiryLine": {
+      "primaryKey": ["id"],
+      "fields": {
+        "id": "uuid PK",
+        "inquiryId": "uuid FK Inquiry.id ON DELETE RESTRICT",
+        "sequence": "int32 >= 1",
+        "rawTitle": "varchar(500), original customer wording",
+        "originalSku": "varchar(160) nullable, preserved literally",
+        "manufacturerName": "varchar(200) nullable, preserved literally",
+        "modification": "varchar(200) nullable, preserved literally",
+        "quantityText": "varchar(80), validated positive decimal string without float conversion and preserved exactly",
+        "unitText": "varchar(40), preserved literally",
+        "notes": "varchar(4000) nullable, inert text",
+        "catalogProductSlugContext": "varchar(160) nullable, untrusted URL context only; never an SKU match, link, or authorization fact",
+        "createdAt": "timestamptz(6)"
+      },
+      "unique": [["inquiryId", "sequence"]],
+      "indexes": [["inquiryId", "sequence"]],
+      "checks": [
+        "sequence >= 1",
+        "quantityText matches positive decimal grammar; no JS floating point"
+      ],
+      "applicationRules": [
+        "Only EQUIPMENT inquiries may have InquiryLine rows; NestJS validates kind and lines in the create transaction."
+      ],
+      "immutability": "Append-only; line input and order are preserved as submitted. No catalog matching or edits in R1-010."
+    },
+    "InquiryComment": {
+      "primaryKey": ["id"],
+      "fields": {
+        "id": "uuid PK",
+        "inquiryId": "uuid FK Inquiry.id ON DELETE RESTRICT",
+        "authorStaffUserId": "uuid FK StaffUser.id ON DELETE RESTRICT",
+        "visibility": "literal INTERNAL",
+        "body": "varchar(4000), inert escaped text",
+        "auditEventId": "uuid FK AuditEvent.id ON DELETE RESTRICT UNIQUE",
+        "createdAt": "timestamptz(6)"
+      },
+      "indexes": [["inquiryId", "createdAt", "id"]],
+      "checks": ["visibility = INTERNAL", "trimmed body length 1..4000"],
+      "immutability": "Append-only; correction is a new comment, never an update. No customer-visible message API in R1-010."
+    },
+    "InquirySourceDocument": {
+      "primaryKey": ["id"],
+      "fields": {
+        "id": "uuid PK",
+        "inquiryId": "uuid FK Inquiry.id ON DELETE RESTRICT",
+        "uploadIntentId": "uuid FK InquiryUploadIntent.id ON DELETE RESTRICT UNIQUE; composite binding also verifies the same inquiry",
+        "uploaderKind": "literal ANONYMOUS",
+        "uploadChannel": "literal PUBLIC_WEB",
+        "storageKey": "varchar(128), opaque random StoragePort key; private quarantine namespace only; never DTO/log",
+        "sha256": "bytea(32), computed from received bytes",
+        "sizeBytes": "int64 > 0 and within frozen approved limits",
+        "detectedMimeType": "varchar(127), server-detected allowlisted type",
+        "originalFilename": "varchar(255), safe basename, no path/control characters; inert metadata",
+        "safetyState": "enum QUARANTINED|CLEAN|REJECTED|SCAN_ERROR; default QUARANTINED",
+        "uploadedAt": "timestamptz(6)",
+        "createdAt": "timestamptz(6)"
+      },
+      "unique": [["storageKey"]],
+      "compositeForeignKeys": [
+        {
+          "fields": ["uploadIntentId", "inquiryId"],
+          "references": "InquiryUploadIntent(id,inquiryId)",
+          "onDelete": "RESTRICT"
+        }
+      ],
+      "indexes": [
+        ["inquiryId", "createdAt", "id"],
+        ["safetyState", "createdAt", "id"]
+      ],
+      "checks": [
+        "octet_length(sha256)=32",
+        "sizeBytes within approved hard limit",
+        "storageKey is an opaque random key, never a path or content hash",
+        "only one source document may consume one upload intent"
+      ],
+      "immutability": "Append-only original metadata and bytes. Scan state may advance only through the configured scanner integration; no API can mark CLEAN manually."
+    },
+    "InquiryUploadIntent": {
+      "primaryKey": ["id"],
+      "fields": {
+        "id": "uuid PK",
+        "inquiryId": "uuid FK Inquiry.id ON DELETE RESTRICT",
+        "state": "enum ISSUED|RECEIVING|CONSUMED|CANCELLED|EXPIRED|REJECTED|FAILED",
+        "safeFilename": "varchar(255), sanitized basename",
+        "declaredMimeType": "varchar(127)",
+        "declaredSizeBytes": "int64 > 0 and within approved hard limit",
+        "expectedSha256": "bytea(32) nullable, client integrity hint only; actual digest is authoritative",
+        "expiresAt": "timestamptz(6), recommended 30 minutes after creation",
+        "receivingStartedAt": "timestamptz(6) nullable; set exactly once when an unexpired ISSUED intent becomes RECEIVING",
+        "receivingDeadlineAt": "timestamptz(6) nullable; receivingStartedAt + 15 minutes, independent of intent start expiry",
+        "version": "int32 > 0",
+        "createdAt": "timestamptz(6)",
+        "updatedAt": "timestamptz(6)"
+      },
+      "unique": [["id", "inquiryId"]],
+      "indexes": [
+        ["inquiryId", "state", "expiresAt", "id"],
+        ["state", "expiresAt", "id"]
+      ],
+      "checks": [
+        "expectedSha256 NULL or 32 bytes",
+        "state is a declared enum",
+        "receivingStartedAt and receivingDeadlineAt are both NULL or both present; if a stream started, retain both timestamps in RECEIVING and terminal states",
+        "when state=RECEIVING, receivingDeadlineAt=receivingStartedAt+15 minutes",
+        "version > 0"
+      ],
+      "completionInvariant": "A byte stream may start only while state=ISSUED and clock_timestamp()<expiresAt; one transaction changes it to RECEIVING and sets receiving timestamps. Intent start expiry does not abort a started stream; receivingDeadlineAt bounds it to 15 minutes. At or after that deadline, abort, mark FAILED and attach no source document. The only transition to CONSUMED occurs in the transaction that inserts the unique InquirySourceDocument, AuditEvent and idempotency receipt. The composite FK enforces the same Inquiry; the unique uploadIntentId permits at most one source document.",
+      "immutability": "Intent binding and file declaration are immutable; state changes only by one-use upload/cancel/expiry/validation commands under row lock."
+    },
+    "InquiryCommandIdempotency": {
+      "primaryKey": ["id"],
+      "fields": {
+        "id": "uuid PK",
+        "actorKind": "enum PUBLIC|STAFF",
+        "actorStaffUserId": "uuid nullable FK StaffUser.id; required iff actorKind=STAFF",
+        "operationScope": "varchar(80), fixed route command identifier",
+        "idempotencyKeyHash": "bytea(32), SHA-256 of supplied key",
+        "requestHash": "bytea(32), SHA-256 of RFC 8785 canonical validated command; upload content commands include actual byte SHA-256, detected MIME, size and bound intent ID",
+        "httpStatus": "int16",
+        "responseReceipt": "jsonb <=8192 bytes, sanitized replay response only; never request body, capability, PII, or storage key",
+        "createdAt": "timestamptz(6)",
+        "expiresAt": "timestamptz(6), proposed 30-day retention for all inquiry command records"
+      },
+      "unique": [
+        "partial unique PUBLIC (operationScope,idempotencyKeyHash)",
+        "partial unique STAFF (actorStaffUserId,operationScope,idempotencyKeyHash)"
+      ],
+      "indexes": [["expiresAt", "id"]],
+      "checks": [
+        "actorKind=PUBLIC iff actorStaffUserId IS NULL",
+        "request and key hashes are exactly 32 bytes",
+        "responseReceipt contains no PII or file secrets"
+      ],
+      "transaction": "Insert command reservation, domain mutation, same-transaction AuditEvent and exact status/receipt in one PostgreSQL transaction. The unique index serializes same-key races; a failed transaction leaves none of these writes. Same key/hash replays; same key/different hash returns 409 IDEMPOTENCY_KEY_REUSED. Deterministic OCC/domain 409 is durably replayed without domain mutation or success audit. Before staff receipt lookup/replay, revalidate current session, CSRF/Origin, effective action permission and Inquiry read scope. Before public upload receipt lookup/replay, revalidate an unexpired matching capability and intent binding; failed authorization never returns the saved result."
+    }
+  },
+  "rules": {
+    "kindDetails": {
+      "EQUIPMENT": "No extra kind-specific object; deliveryRegion and desiredDeadline are optional fields in contactSnapshot. At least one InquiryLine is required.",
+      "PANELS": "Strict object: requestType PROJECT_READY|MODIFY_TYPICAL|DEVELOP_FROM_BRIEF; required cabinetPurpose and positive quantityText; optional requirements, requestedWork and description. Shared region/deadline context is in contactSnapshot. Preserve all submitted wording.",
+      "ENGINEERING": "Strict object: engineeringDirection, systemType, technicalTask, expectedDeliverables; optional sourceDocumentDescription. Shared region/deadline context is in contactSnapshot. Preserve all submitted wording."
+    },
+    "audit": "Reuse existing R1-002 AuditEvent append-only table and actor model. Add only R1-010 entity/action registry entries; audit records actor/time/entity/result, never contact snapshots, inquiry line text, comment body, filename, byte, capability, IP or raw request.",
+    "fileStorage": "Do not reuse R1-002 FileObject/FileVersion/FileLink rows: frozen R1-002 requires staff ownership and has no anonymous owner. Reuse only the configured private StoragePort implementation with a dedicated inquiry-quarantine namespace and InquirySourceDocument domain policy. Do not alter R1-002/R1-006 schemas.",
+    "atomicity": "Inquiry, its lines, public receipt and inquiry.created audit commit atomically. Uploads happen later and independently; a failed upload never rolls back the Inquiry or prior documents. Each completed upload metadata, one-use intent consumption, idempotency result and audit commit atomically after private blob write; exact-write compensation is attempted on DB failure, otherwise a private orphan is flagged for bounded cleanup. No partial document becomes downloadable.",
+    "retention": "Exact inquiry/contact/document retention requires OD-010-02/03. No production launch or automatic deletion policy may be inferred. Incomplete byte streams are deleted after 24 hours by an ownership-checked private storage sweeper; expired intent metadata is retained 30 days for diagnostics then purged. Completed InquirySourceDocument rows/bytes remain until owner-approved retention exists.",
+    "idempotencyRetention": "Proposed 30 days; after expiration the client must never reuse a key. Cleanup deletes only expired rows after locking and does not touch inquiry, AuditEvent or source files.",
+    "limits": "Recommended initial bounds, pending OD-010-03: 5 files/inquiry; 10 MiB/file; 25 MiB total/inquiry; create JSON <=2 MiB; 50 equipment lines; bounded field lengths in OpenAPI.",
+    "uploadQuotaConcurrency": "Creating and starting/completing each upload intent locks the Inquiry aggregate and rechecks completed documents by actual bytes, unexpired ISSUED reservations by declared bytes, and RECEIVING reservations by declared bytes until completion/failure/deadline. This prevents concurrent intents/uploads from exceeding per-Inquiry max files or bytes. The 25 MiB/source/UTC-day budget is an atomic Redis counter charged once by declared bytes when an intent is accepted; same-key retry does not double-charge, failed/cancelled/expired intents are not refunded during that day, and the counter applies across all Inquiries for the same domain-separated source fingerprint."
+  },
+  "outOfScope": [
+    "customer accounts or inquiry read/status endpoint",
+    "customer orders",
+    "BOM/costing/quote calculation",
+    "automatic SKU matching or substitutes",
+    "R1-011 parsing/OCR/spec extraction",
+    "supplier imports",
+    "public download URLs",
+    "automatic staff permission grants",
+    "notifications provider or delivery retry service",
+    "production migrations/deployment"
+  ]
+}
