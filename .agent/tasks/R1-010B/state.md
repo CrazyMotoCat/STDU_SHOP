@@ -34,7 +34,7 @@ LAST_SAFE_COMMIT: aa1ab91cf08179266bd3e1c0342f396bc723f45a
 
 ## PENDING
 - Owner decision on OD-010-01…05 and the proposed R1-010 Inquiry contract.
-- A checkpoint-only follow-up commit is being prepared; verify its exact-head GitHub Actions before reporting final delivery.
+- The hosted CI success is recorded for contract-content commit `aa1ab91cf08179266bd3e1c0342f396bc723f45a`. Later branch changes contain only this checkpoint/report metadata; per owner instruction, duplicate CI is treated as green because contract, checker, tests and application code are unchanged.
 - Stop at owner approval; no merge, migration or R1-010B implementation.
 
 ## DECISIONS
