@@ -4,7 +4,7 @@ TASK: R1-010B Public Inquiry Backend & Staff Workflow
 STATUS: IN_PROGRESS
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE
-PHASE: correcting isolated Compose overlay after hosted smoke failure
+PHASE: isolated Compose overlay fixed; exact implementation-head CI passed; syncing checkpoint before PR integration
 UPDATED_AT: 2026-10-27
 CONTRACT_APPROVED_SOURCE_SHA: 68fb60f87c7821044939dd5d95f8e67e6bb73685
 CONTRACT_APPROVAL: OD-010-01…05 approved; FROZEN 1.0.0 integrated
@@ -12,10 +12,10 @@ CONTRACT_MERGE_SHA: c8b10f07522d0d72bd52834607e154abbd0c28c6
 BASE_MAIN_SHA: 27f3e99b616b44592957f50d13df412d7cf8e953
 CURRENT_BRANCH: codex/r1-010b-inquiry-impl
 CURRENT_HEAD: task branch tip; verify with `git rev-parse HEAD`
-CURRENT_WORKTREE_STATE: commits 1000a832 and 7658a3f are pushed; current owned Compose overlay/checkpoint fix is uncommitted; unrelated R1-003/R1-005V artifacts remain excluded.
+CURRENT_WORKTREE_STATE: implementation and isolated Compose fix are committed on the task branch; only unrelated generated R1-003/R1-005V artifacts remain untracked and excluded.
 ORIGIN_MAIN: 27f3e99b616b44592957f50d13df412d7cf8e953 (freshly fetched; synchronized at checkpoint)
 PR: Draft #24 https://github.com/CrazyMotoCat/STDU_SHOP/pull/24
-EXACT_HEAD_CI: run 40493633373 failed at `pnpm smoke` after all runtime/UI suites passed. Root cause: `compose.test.yaml` cleared top-level named volumes but left the base Redis `redis-data` mount intact, invalidating the isolated Compose model. The fix replaces only isolated Redis `/data` with tmpfs; ordinary Compose named storage is unchanged. Targeted Compose config, format check and diff check pass; local full smoke is skipped because the shared existing project occupies required host ports. Commit/push and require fresh exact-head CI.
+EXACT_HEAD_CI: run 40494617768 SUCCESS on implementation SHA `4ddee85a2a8c998b4e20d1a4c824ec612e4baadd`. The earlier `40493633373` failure was caused by `compose.test.yaml` clearing top-level named volumes but leaving the base Redis `redis-data` mount. The fix replaces only isolated Redis `/data` with tmpfs; ordinary Compose named storage is unchanged. Targeted Compose config, format check and diff check pass. Local full smoke was not run because the shared existing project occupies required host ports; CI completed five-service and three consecutive host smokes.
 
 ## Completed implementation scope
 
@@ -37,7 +37,9 @@ EXACT_HEAD_CI: run 40493633373 failed at `pnpm smoke` after all runtime/UI suite
 - PASS `pnpm test`: 68 Vitest passed, 88 skipped; ingestion pytest 15/15 passed.
 - PASS `pnpm test:r1-010b`: 34/34 on owned disposable PostgreSQL/Redis. Includes exact upload-intent replay without internal quota metadata leakage; cross-source retry after transaction rollback charges only the committed reservation; UTC rollover lock ordering; AOF-backed Redis restart persistence; upload structure/memory-spam fixture; expired/backdated receiving SQL guard; capability revocation; storage cleanup diagnostic; staff scope/assignment races; and quarantine/download checks.
 - The first hosted run `40492808737` passed all 34 Inquiry runtime tests, then failed while removing Redis AOF files owned by container root (`EACCES` on the isolated test directory). The harness now runs disposable Redis as the invoking UID/GID on Unix, uses the Windows-compatible root fallback, and reports owned-directory cleanup failures explicitly. Fresh Windows rerun passed 34/34 and exited 0 after cleanup.
-- The next hosted run `40493633373` passed all Inquiry runtime tests and the R1-002B/R1-006B/R1-007B/R1-003/R1-005 acceptance suites, then failed before integration smoke: `compose.test.yaml` set top-level `volumes: !override {}` while retaining Redis's base named-volume mount. The isolated overlay now gives Redis a tmpfs `/data`, matching its no-named-volumes policy; validation and exact-head CI are pending.
+- The next hosted run `40493633373` passed all Inquiry runtime tests and the R1-002B/R1-006B/R1-007B/R1-003/R1-005 acceptance suites, then failed before integration smoke: `compose.test.yaml` set top-level `volumes: !override {}` while retaining Redis's base named-volume mount. The isolated overlay now gives Redis a tmpfs `/data`, matching its no-named-volumes policy; targeted config and final implementation-head CI subsequently passed.
+- PASS targeted Compose `config --quiet` with base, test and host overlays; rendered model confirms Redis `/data` is tmpfs and has no named-volume mounts. PASS `pnpm format:check` and `git diff --check`. Local full smoke was skipped because the shared development Compose stack holds ports 3000/3001/15432/16379; it was not stopped or modified.
+- Final implementation-head hosted CI run `40494617768` on `4ddee85a2a8c998b4e20d1a4c824ec612e4baadd`: SUCCESS. All quality/contract/runtime/UI checks, five-service integration smoke, three consecutive host lifecycle smokes, and stopped-state restoration passed; named volumes were not deleted.
 - PASS `pnpm test:r1-006b` (disposable migration/runtime harness; database sentinel preserved).
 - PASS `pnpm test:r1-007b`: 11/11; disposable database sentinel preserved.
 - PASS `pnpm test:r1-002b`: 26 passed, 1 loopback browser smoke skipped because ports 3000/3001 are already occupied; existing processes were left untouched; post-runtime sentinel unchanged.
