@@ -1,4 +1,4 @@
-import type { components } from '../../../../../packages/staff-client/src/inquiry-schema';
+import type { components } from './inquiry-schema';
 import { sanitizeProductHint } from './request-quote-utils';
 
 export type RequestKind = 'equipment' | 'panels' | 'engineering';
