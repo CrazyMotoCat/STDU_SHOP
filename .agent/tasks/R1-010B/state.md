@@ -4,7 +4,7 @@ TASK: R1-010B Public Inquiry Backend & Staff Workflow
 STATUS: IN_PROGRESS
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE
-PHASE: implementation and local quality gates complete; awaiting exact-head hosted CI
+PHASE: correcting hosted CI cleanup permissions; local runtime rerun passed
 UPDATED_AT: 2026-10-27
 CONTRACT_APPROVED_SOURCE_SHA: 68fb60f87c7821044939dd5d95f8e67e6bb73685
 CONTRACT_APPROVAL: OD-010-01…05 approved; FROZEN 1.0.0 integrated
@@ -12,10 +12,10 @@ CONTRACT_MERGE_SHA: c8b10f07522d0d72bd52834607e154abbd0c28c6
 BASE_MAIN_SHA: 27f3e99b616b44592957f50d13df412d7cf8e953
 CURRENT_BRANCH: codex/r1-010b-inquiry-impl
 CURRENT_HEAD: task branch tip; verify with `git rev-parse HEAD`
-CURRENT_WORKTREE_STATE: R1-010B implementation is committed locally; unrelated R1-003/R1-005V verification artifacts remain untracked and excluded.
+CURRENT_WORKTREE_STATE: implementation commit is pushed; only the owned test-harness cleanup fix is uncommitted; unrelated R1-003/R1-005V artifacts remain excluded.
 ORIGIN_MAIN: 27f3e99b616b44592957f50d13df412d7cf8e953 (freshly fetched; synchronized at checkpoint)
-PR: create Draft PR after publishing the task branch; attach it to this task
-EXACT_HEAD_CI: pending push; required on current PR HEAD before merge
+PR: Draft #24 https://github.com/CrazyMotoCat/STDU_SHOP/pull/24
+EXACT_HEAD_CI: run 40492808737 failed after 34/34 Inquiry tests due EACCES removing root-owned Redis AOF fixture; local fix pending push
 
 ## Completed implementation scope
 
@@ -36,12 +36,13 @@ EXACT_HEAD_CI: pending push; required on current PR HEAD before merge
 - PASS `pnpm contract:check`; PASS `pnpm contract:test` (10/10); PASS `pnpm inquiry:contract:check` (OpenAPI validation and 15 operations).
 - PASS `pnpm test`: 68 Vitest passed, 88 skipped; ingestion pytest 15/15 passed.
 - PASS `pnpm test:r1-010b`: 34/34 on owned disposable PostgreSQL/Redis. Includes exact upload-intent replay without internal quota metadata leakage; cross-source retry after transaction rollback charges only the committed reservation; UTC rollover lock ordering; AOF-backed Redis restart persistence; upload structure/memory-spam fixture; expired/backdated receiving SQL guard; capability revocation; storage cleanup diagnostic; staff scope/assignment races; and quarantine/download checks.
+- The first hosted run `40492808737` passed all 34 Inquiry runtime tests, then failed while removing Redis AOF files owned by container root (`EACCES` on the isolated test directory). The harness now runs disposable Redis as the invoking UID/GID on Unix, uses the Windows-compatible root fallback, and reports owned-directory cleanup failures explicitly. Fresh Windows rerun passed 34/34 and exited 0 after cleanup.
 - PASS `pnpm test:r1-006b` (disposable migration/runtime harness; database sentinel preserved).
 - PASS `pnpm test:r1-007b`: 11/11; disposable database sentinel preserved.
 - PASS `pnpm test:r1-002b`: 26 passed, 1 loopback browser smoke skipped because ports 3000/3001 are already occupied; existing processes were left untouched; post-runtime sentinel unchanged.
 - BLOCKED-LOCAL-CONFIG `docker compose -f infra/compose/compose.yaml config --quiet`: main Compose requires local `.env` values. No `.env` was generated and no secrets were invented. Disposable R1-010B Compose was started successfully by its runtime harness.
 - Required local checks rerun after final code/test updates: lint, format check, typecheck, build, unit/pytest, contract check/test, Inquiry OpenAPI validation and generated TypeScript reproducibility, database validation, `git diff --check`, and the 34-case disposable Inquiry runtime suite.
-- CI has not yet run for the final implementation SHA; run after commit/push and confirm checks on that exact SHA.
+- Push the test-harness cleanup fix and verify a new GitHub Actions run on its exact SHA before merge.
 
 ## Independent reviews
 

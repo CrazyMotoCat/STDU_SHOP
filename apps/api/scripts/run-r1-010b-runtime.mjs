@@ -199,6 +199,12 @@ async function main() {
     R1_010B_TEST_PG_PASSWORD: pgPassword,
     R1_010B_TEST_REDIS_PASSWORD: redisPassword,
     R1_010B_TEST_REDIS_DATA_ROOT: redisDataRoot.replaceAll('\\', '/'),
+    R1_010B_TEST_REDIS_UID: String(
+      typeof process.getuid === 'function' ? process.getuid() : 0,
+    ),
+    R1_010B_TEST_REDIS_GID: String(
+      typeof process.getgid === 'function' ? process.getgid() : 0,
+    ),
   });
   const composeEnv = { ...process.env, ...portEnv };
   composeAttempted = true;
@@ -341,7 +347,16 @@ try {
         'Refusing to remove a storage path outside its generated test prefix.',
       );
       exitCode = 1;
-    } else await rm(storageRoot, { recursive: true, force: true });
+    } else {
+      try {
+        await rm(storageRoot, { recursive: true, force: true });
+      } catch (error) {
+        console.error(
+          `Could not remove owned Inquiry storage test directory: ${error instanceof Error ? error.message : 'unknown filesystem error'}`,
+        );
+        exitCode = 1;
+      }
+    }
   }
   if (composeCleaned && redisDataRoot) {
     if (!redisDataRoot.startsWith(resolve(tmpdir(), 'stdu-r1-010b-redis-'))) {
@@ -349,7 +364,16 @@ try {
         'Refusing to remove a Redis data path outside its generated test prefix.',
       );
       exitCode = 1;
-    } else await rm(redisDataRoot, { recursive: true, force: true });
+    } else {
+      try {
+        await rm(redisDataRoot, { recursive: true, force: true });
+      } catch (error) {
+        console.error(
+          `Could not remove owned Inquiry Redis test directory: ${error instanceof Error ? error.message : 'unknown filesystem error'}`,
+        );
+        exitCode = 1;
+      }
+    }
   }
   process.exitCode = exitCode;
 }

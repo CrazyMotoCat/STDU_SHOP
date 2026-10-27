@@ -18,7 +18,7 @@ services:
 
   redis:
     image: redis:8.10.1-alpine3.23
-    user: '0'
+    user: '${R1_010B_TEST_REDIS_UID:?Set the disposable Redis container UID}:${R1_010B_TEST_REDIS_GID:?Set the disposable Redis container GID}'
     environment:
       R1_010B_TEST_REDIS_PASSWORD: ${R1_010B_TEST_REDIS_PASSWORD:?Set a generated disposable password}
     command:
