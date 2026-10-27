@@ -13,7 +13,12 @@ export async function generateMetadata({
 }: RouteProps): Promise<Metadata> {
   const { slug } = await params;
   const result = await getPublicProduct(slug);
-  if (!result.ok && result.kind === 'not-found') notFound();
+  if (
+    !result.ok &&
+    (result.kind === 'not-found' || result.kind === 'validation')
+  ) {
+    notFound();
+  }
   if (!result.ok) return { title: 'Карточка оборудования | STDU SHOP' };
   const product = result.data.data;
   return {
@@ -27,7 +32,12 @@ export async function generateMetadata({
 export default async function ProductPage({ params }: RouteProps) {
   const { slug } = await params;
   const result = await getPublicProduct(slug);
-  if (!result.ok && result.kind === 'not-found') notFound();
+  if (
+    !result.ok &&
+    (result.kind === 'not-found' || result.kind === 'validation')
+  ) {
+    notFound();
+  }
   return result.ok ? (
     <ProductDetailView product={result.data.data} />
   ) : (
