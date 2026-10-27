@@ -3,7 +3,7 @@
 TASK: R1-010D Malware Scanning & Quarantine Processing — Stage A
 STATUS: READY_FOR_OWNER_APPROVAL
 DELIVERY_MODE: REVIEW_REQUIRED
-CHECKPOINT_STATUS: DIRTY_EXPECTED / REVIEWABLE_PROPOSAL
+CHECKPOINT_STATUS: DRAFT_PR_OPEN / OWNER_APPROVAL_REQUIRED
 PHASE: STAGE_A_CONTRACT_PROPOSAL
 UPDATED_AT: 2026-10-27
 BRANCH: codex/r1-010d-contract-proposal
@@ -25,14 +25,18 @@ LAST_SAFE_COMMIT: 81b76b5b084a0ef656c190ca63f9f71f93f092ba
 - `pnpm inquiry:contract:check`: PASS; 15-operation frozen Amendment 01 validation passed.
 - `pnpm exec prettier --check docs/adr/ADR-005-malware-scanning.md docs/proposals/R1-010D-malware-scanning-contract.md docs/spec/09_ROADMAP_BACKLOG.md .agent/tasks/R1-010D/state.md`: PASS.
 - `git diff --check`: PASS.
+- GitHub Actions `R1 foundation`, run 40512329147: SUCCESS on PR #26 HEAD `14c7bf8249ff0d5ecd299f545e4fc84d2822e80c`; all quality, contract, DB, runtime, browser, integration and three-run host lifecycle steps passed.
+- PR #26 is OPEN / DRAFT, head `14c7bf8249ff0d5ecd299f545e4fc84d2822e80c`, base `main` at `81b76b5b084a0ef656c190ca63f9f71f93f092ba`; no merge performed.
 - Official ClamAV docs rechecked 2026-10-27: 1.4.6 is latest 1.4 LTS patch; official image is `clamav/clamav`; 3 GiB+ RAM, 1 CPU and 5 GiB free are recommended; INSTREAM framing and socket restrictions confirmed.
 - Node emits a non-blocking engine warning: repository expects 24.19.0; shell reports 24.22.1. The checks completed successfully.
-- Application/runtime tests, fake scanner adapter tests and real clamd smoke: NOT RUN; Stage A has no implementation or approved DB contract.
-- GitHub CI: NOT RUN yet; pending Draft PR creation and required checks on its exact HEAD.
+- Scanner-specific adapter/runtime tests and real clamd smoke: NOT RUN; Stage A has no implementation or approved DB contract. The repository-wide runtime acceptance ran successfully in CI but does not verify scanner behavior.
+- The post-CI follow-up changes only this checkpoint. Application and contract content are unchanged; per the owner's standing instruction, no duplicate full CI is awaited for this checkpoint-only update.
 
-## UNCOMMITTED
+## DELIVERY
 
-- Expected task-owned files only: ADR-005, R1-010D proposal, R1-010D state checkpoint and one proposed backlog line.
+- Initial proposal commit: `14c7bf8249ff0d5ecd299f545e4fc84d2822e80c` (`docs(r1-010d): propose malware scan security contract`).
+- PR: https://github.com/CrazyMotoCat/STDU_SHOP/pull/26 (OPEN / DRAFT; Owner Approval required).
+- The proposal branch is pushed and tracks `origin/codex/r1-010d-contract-proposal`.
 
 ## DECISIONS
 
@@ -57,7 +61,7 @@ LAST_SAFE_COMMIT: 81b76b5b084a0ef656c190ca63f9f71f93f092ba
 
 ## NEXT_ACTION
 
-Review only the task-owned staged diff, commit and push the proposal branch, create the Draft PR titled `R1-010D-01 — Malware Scanner Architecture & Security Contract`, verify required checks for its exact HEAD, attach the PR and stop for Owner Approval.
+Stop for Owner Approval on Draft PR #26. Do not merge or begin Stage B until approval.
 
 ## DO_NOT_REPEAT
 
