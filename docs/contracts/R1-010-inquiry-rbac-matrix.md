@@ -1,4 +1,4 @@
-# R1-010 Inquiry Permissions — FROZEN 1.0.0
+# R1-010 Inquiry Permissions — FROZEN 1.0.2
 
 Default deny applies. Permission codes are additive to the approved R1-002 catalog but do not alter the protected full-admin set. No code is assigned to a role automatically; no role name conveys authority. Contract approval and later explicit R1-002 RBAC grants are separate; this contract does not grant permissions.
 

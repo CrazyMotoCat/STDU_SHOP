@@ -1,12 +1,12 @@
 # R1-010B-01 Contract Preparation & Verification
 
-**Status:** Owner-approved; R1-010 FROZEN 1.0.0 finalization; PR #20 remains open pending finalization CI and merge.
+**Status:** R1-010 FROZEN 1.0.2 including the owner-approved Amendment 01 capability revocation and profile/quota byte-ceiling refinements; PR #20 is integrated and this report records the contract baseline for R1-010B.
 **Baseline:** `4b358f16a90998fdae2d2981601e9ccf3bfdf7f0` (main after merging R1-010A PR #18).
 **Comparison input:** merged PR #18 preview, read-only source snapshot HEAD `c21a14e1385363496714cae76910ecf9f28c7470`; its merge commit is `4b358f16a90998fdae2d2981601e9ccf3bfdf7f0`. No PR #18 files were changed in this correction pass.
 **Owner-approved source SHA:** `68fb60f87c7821044939dd5d95f8e67e6bb73685`.
 **Implementation/migrations:** R1-010B isolated implementation is authorized after contract integration. Production migration/deployment, production PII collection, scanner provisioning and real permission grants remain unauthorized.
 
-**Final owner review:** the owner approved OD-010-01…05 on the exact source SHA above. The metadata-only FROZEN 1.0.0 finalization preserves that approved content and records its checksums.
+**Final owner review:** the owner approved OD-010-01…05 on the exact source SHA above. The original 1.0.0 approval remains recorded; Contract Amendment 01 is separately approved and checksummed in the frozen manifest.
 
 ## Scope and sources checked
 
@@ -51,7 +51,7 @@ These approved contract clarifications do not modify decisions 1–108.
 - Six new PostgreSQL tables: Inquiry, InquiryLine, InquiryComment, InquirySourceDocument, InquiryUploadIntent, InquiryCommandIdempotency.
 - Fifteen OpenAPI operations: four public and eleven staff, including an audited current-stage due-date command. No public Inquiry read/status route.
 - Nine additive permissions, default-deny, with no automatic role grants.
-- Forty-one numbered REQB acceptance scenarios, including one regression for each early-close reason.
+- Forty-five numbered REQB acceptance scenarios after Amendment 01, including one regression for each early-close reason and capability-revocation lifecycle.
 - Existing AuditEvent is extended through a frozen action/entity registry. No separate service/event bus/outbox is added in R1-010B-01.
 
 ## Requirement traceability
@@ -68,15 +68,15 @@ No acceptance item introduces a customer order, inventory, production operation,
 
 ## Contract-only checks
 
-- `node docs/contracts/check-R1-010.mjs` — PASS; six new tables, 15 operations (4 public/11 staff), 9 additive permissions, REQB-01…41.
-- `node --test docs/contracts/check-R1-010.test.mjs` — PASS, 23/23 in the current correction pass; includes all five closure reasons, terminal/source-state guards, preview DTO constraints, profile limits and prior security/idempotency regressions.
+- `node docs/contracts/check-R1-010.mjs` — PASS; six new tables, 15 operations (4 public/11 staff), 9 additive permissions, REQB-01…45.
+- `node --test docs/contracts/check-R1-010.test.mjs` — PASS, 31/31 after Amendment 01 refinements; includes five closure reasons, capability-only uploads/revocation, 10/50 MiB profile bounds, DTO constraints and security/idempotency regressions.
 - `node scripts/validate-openapi.mjs docs/contracts/R1-010-inquiries.openapi.json` — PASS; Swagger Parser accepted the revised OpenAPI 3.1 document.
 - `pnpm exec openapi-typescript ... --output <unique system-temp file>` and the same command with `--check` — PASS; generated declaration was reproducible and the exact temporary file was removed. Checked-in clients were not changed.
 - `pnpm exec prettier --check` on all changed contract/checker/report artifacts — PASS; `git diff --check` — PASS.
 - Focused architecture review — PASS: closure uses one terminal state and one existing transition route, preserves the quote-send gate, and adds no tables, permissions or service. Upload profiles are server-selected and bounded, with no unsupported file types/scanner assumed.
 - Focused security review — PASS with explicit integration gates: staff closure requires transition permission, current read scope, OCC and durable idempotency; original request remains immutable. Uploads stay private/quarantined without a real scanner, source quotas remain shared across NAT/VPN, and PR #18 is not represented as API-integrated. Contact requiredness remains the one documented frontend gap under OD-010-01.
 - GitHub Actions run [#99](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/40323186736) — SUCCESS on the exact owner-approved source SHA `68fb60f87c7821044939dd5d95f8e67e6bb73685`, including runtime and host smoke steps. The FROZEN metadata/checksum finalization has its own exact-HEAD checks before merge.
-- PR #20: https://github.com/CrazyMotoCat/STDU_SHOP/pull/20; contract is owner-approved and being finalized as FROZEN 1.0.0. No merge or R1-010B implementation is represented by this report until integration completes.
+- PR #20 was integrated at `c8b10f07522d0d72bd52834607e154abbd0c28c6`; Contract Amendment 01 is FROZEN 1.0.2 with capability-only attachment routing, paired one-way revocation through pre-quote close, 50 MiB OpenAPI ceiling and server-enforced profile/quota limits. R1-010B implementation is tracked separately.
 
 Earlier architecture and security rereviews passed the initial package and identified gaps already corrected before this final owner round. The focused review above covers this correction pass; it is not a runtime or production-security certification.
 

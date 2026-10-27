@@ -1,4 +1,4 @@
-# R1-010 Inquiry State Machine — FROZEN 1.0.0
+# R1-010 Inquiry State Machine — FROZEN 1.0.2
 
 ## States and transitions
 
@@ -30,7 +30,7 @@ The sequence preserves REQ-02 and the domain model. The shorter branch from TRIA
 | Pre-quote states -> CLOSED                | Staff with inquiries.transition       | `CloseInquiryWithoutQuoteRequest` only; source must be NEW, TRIAGE, NEEDS_CLARIFICATION, ENGINEERING_REVIEW or READY_FOR_QUOTE; current read scope; If-Match; Idempotency-Key; one required enumerated reasonCode; row lock and same-transaction state/version/AuditEvent/idempotency receipt. An unassigned NEW requires read_all. |
 | QUOTE_SENT -> CLOSED                      | Later quote-lifecycle event only      | The corresponding approved immutable quote lifecycle emits completion atomically with this transition. Manual pre-quote close is rejected from QUOTE_SENT. No order is created.                                                                                                                                                     |
 
-Every staff command also requires an effective read scope and the action permission. Public actors have no transition endpoint. Frontend-hidden actions are not authorization. A successful close sets state to CLOSED, clears `stageDueAt`, increments version and writes `inquiry.closed_without_quote` with `AuditEvent.reasonCode` equal to the required closure reason. The state and audit are atomic; audit failure rolls the mutation back. CLOSED inquiries remain available to authorized staff in detail and event/history views, including an explicit CLOSED queue filter, but never through a public route.
+Every staff command also requires an effective read scope and the action permission. Public actors have no transition endpoint. Frontend-hidden actions are not authorization. A successful close sets state to CLOSED, clears `stageDueAt`, increments version and writes `inquiry.closed_without_quote` with `AuditEvent.reasonCode` equal to the required closure reason. If an upload capability remains active, the same locked transaction clears its stored hash and expiry and includes only those field names in `changedFields`; the existing permission and scope checks authorize this internal operation, with no new route or permission. If close audit or revocation fails, the entire transaction rolls back. A RECEIVING upload rechecks the stored hash while locking the Inquiry before finalization; a concurrent revocation makes it fail without consuming the intent or creating a source document. Capability expiry still controls stream start, and revocation never removes previously completed originals. CLOSED inquiries remain available to authorized staff in detail and event/history views, including an explicit CLOSED queue filter, but never through a public route.
 
 ## Assignment and concurrency
 

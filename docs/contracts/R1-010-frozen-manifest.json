@@ -1,7 +1,7 @@
 {
   "contract": "R1-010 Public Inquiry Domain Contract",
   "status": "FROZEN",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "approval": {
     "approvedOn": "2026-10-26",
     "sourceHead": "68fb60f87c7821044939dd5d95f8e67e6bb73685",
@@ -30,21 +30,46 @@
     "docs/plans/R1-010B-implementation-plan.md": "173d7d2698ff9f5f1def1dbf15f641b575f517837ddddad4f1d4309ba200a942"
   },
   "frozenArtifactSha256": {
-    "docs/contracts/R1-010-attachment-security-policy.md": "f359efa22428fd69ca87a2291173157b13a751ff520c3e08bd934af8cce39aa2",
-    "docs/contracts/R1-010-inquiries.openapi.json": "eadb00d5d779da2eb9cf2f2e52ff18402ebf324e2e01790545f578023141df7d",
-    "docs/contracts/R1-010-inquiry-audit-registry.json": "6ca15b7fa48383c88740120e5d5acf888ca1e1720f584eddb6863a62c9162228",
-    "docs/contracts/R1-010-inquiry-data-model.json": "3700a586bcf5d4ce6e6937cd49def977aad8ed476949f9598b5adff0677b034f",
-    "docs/contracts/R1-010-inquiry-domain-contract.md": "f17088bc9eb35ad073a7146bf7c10bd55c9c7d96067ec2825f60e8e4fc84bf04",
-    "docs/contracts/R1-010-inquiry-rbac-matrix.json": "5b4f838ceb4db11e3bc659d0c6a5f493b37a33870236ca113a637b10346152e9",
-    "docs/contracts/R1-010-inquiry-rbac-matrix.md": "5fa5a8e7092d8058be2dc401be5c6354abd96bdaf30b8a4e0442a4962d5e8ffe",
-    "docs/contracts/R1-010-inquiry-state-machine.md": "53f48a3c0c16301d5f77c44dd38aaf03157c1d4ef0152f7f89922ae5f3b2dce5",
-    "docs/contracts/R1-010-inquiry-upload-profiles.json": "8d531544c9da7b6df8d8a87839c55d64e55094a12d3ed54de87cfdb22c3c8ff0",
-    "docs/contracts/R1-010-test-matrix.md": "a419ac553585c33e272b30357ccaf2fcddf9a2a1abae56097a258a87b32549be",
-    "docs/plans/R1-010-owner-decisions.md": "5d524c6dbe06e9402dbd9067c1471efcc391131d2f7f32b5429ef5c96a232b6b",
-    "docs/plans/R1-010B-implementation-plan.md": "6fc8b0b6e7b639bfaccdd754c755f95e3f1b7d9b160f12eedbea9a641d2b6551"
+    "docs/contracts/R1-010-attachment-security-policy.md": "e7e8439292ec8b7d3b855c5ce0c5f911c54abb6e50e70ffbde9649df9d515a85",
+    "docs/contracts/R1-010-inquiries.openapi.json": "43de9c50e5f826d71258bb20c213d426387fd7fb1a79b77bdefd4ad2b88ba580",
+    "docs/contracts/R1-010-inquiry-audit-registry.json": "29edb473b41de1add652a896ae33a777c40ca790082e31c3bd8ccbb394d55d3a",
+    "docs/contracts/R1-010-inquiry-data-model.json": "769d57867387e79951a771fdd4aa9307d0fda06aa47145b71121315c0ad1a9d9",
+    "docs/contracts/R1-010-inquiry-domain-contract.md": "d8c8c4c6af4f1f0e35797f32e3bac65da8c89cb8a5ae58939616cfde414dd934",
+    "docs/contracts/R1-010-inquiry-rbac-matrix.json": "67b15000b819046d4c09755a269aff5dd8cb6c1bbb27f9b5bcb9e0c1b085f31c",
+    "docs/contracts/R1-010-inquiry-rbac-matrix.md": "5849125473cc04889d43ee8fb10045a5d0c89c5a2d4d8e361edc577416ae2a2b",
+    "docs/contracts/R1-010-inquiry-state-machine.md": "8239eabf71b70f51246800f4fafc6a3050d552422d1501288e40fdbb27f25db1",
+    "docs/contracts/R1-010-inquiry-upload-profiles.json": "0b1a84130eca3c04dd5eab0c956479c2530d68ebeaed09e2b9cdb90966149bc3",
+    "docs/contracts/R1-010-test-matrix.md": "ca5d83e5478e9927b71edb75330ddcc58e27306d1329c285d4f54d58fd1f56f6",
+    "docs/plans/R1-010-owner-decisions.md": "eb0ec75b4ddfaee7fb492931a40df9cca50c62b2af01f1daccf716b2eae90b0c",
+    "docs/plans/R1-010B-implementation-plan.md": "2ade5afb51784e52d46368d2fe79b0ee5874882bdfdafc181bc8458ae164f52e"
   },
   "finalization": {
-    "contractContentChanged": false,
-    "description": "Owner-approved content at sourceHead was finalized as FROZEN 1.0.0. Only contract status/version labels, approval provenance, reports, checkpoint and verification scaffolding changed. No schema, RBAC code, API route or DTO, upload limit, retention value, lifecycle rule or security behavior changed."
-  }
+    "contractContentChanged": true,
+    "description": "The owner-approved 1.0.0 package is preserved as baseVersion. Contract Amendment 01 and its owner-approved 1.0.2 refinement correct capability-only upload route resolution, permit only one-way capability revocation through the authorized pre-quote close transaction, and set the OpenAPI maxBytes ceiling to 50 MiB. MVP_SAFE remains capped at 10 MiB/file and ENGINEERING_DOCUMENTS at 50 MiB/file; each receipt is further bounded by its declared size and remaining Inquiry/source-day quotas. All other approved business, security, RBAC and lifecycle rules are unchanged."
+  },
+  "baseVersion": "1.0.0",
+  "amendments": [
+    {
+      "id": "R1-010 Contract Amendment 01",
+      "version": "1.0.2",
+      "approvedOn": "2026-10-27",
+      "approvalStatement": "Owner approved capability-only upload routes, preserved the public create receipt without Inquiry UUID, required unique capability-hash lookup and one-way capability revocation through the authorized pre-quote close, and confirmed MVP_SAFE 10 MiB/file and ENGINEERING_DOCUMENTS 50 MiB/file with an OpenAPI ceiling of 52428800 bytes and server-selected profile/quota limits.",
+      "changes": [
+        "POST /v1/public/inquiry-attachments/upload-intents",
+        "PUT /v1/public/inquiry-attachments/upload-intents/{intentId}/content",
+        "DELETE /v1/public/inquiry-attachments/upload-intents/{intentId}",
+        "UploadIntentReceipt.data.maxBytes.maximum=52428800",
+        "Unique nullable Inquiry.uploadCapabilityHash lookup index",
+        "One-way server-side capability revocation by clearing hash and expiry in the authorized pre-quote close transaction; no public or additional staff route",
+        "UploadIntentReceipt.data.maxBytes is bounded by the declared size, selected profile and remaining Inquiry and source/day quotas; streaming limit remains enforced"
+      ],
+      "preserves": [
+        "Public create receipt contains only publicReference, createdAt and message",
+        "MVP_SAFE=10 MiB/file; ENGINEERING_DOCUMENTS=50 MiB/file; maximum OpenAPI schema value=52428800 bytes",
+        "OD-010-01…05 behavior apart from these explicit corrections",
+        "RBAC, lifecycle, personal-data rules, upload formats and limits, quarantine and launch gates"
+      ],
+      "scope": "No production migration, deployment, real permission grant or public launch authorization."
+    }
+  ]
 }
