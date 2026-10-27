@@ -8,58 +8,28 @@ import {
   type DragEvent,
   type ReactNode,
 } from 'react';
+import {
+  MAX_EQUIPMENT_LINES,
+  validateRequestQuoteForm,
+  type ContactChannel,
+  type ContactDetails,
+  type DocumentationAvailability,
+  type EngineeringDetails,
+  type EquipmentLine,
+  type PanelDetails,
+  type PanelRequestType,
+  type RequestKind,
+  type ValidationErrors,
+} from './request-quote-dto';
 import styles from './page.module.css';
 
-type RequestKind = 'equipment' | 'panels' | 'engineering';
-type PanelRequestType = 'project-ready' | 'typical-change' | 'new-design';
-type ContactChannel = 'any' | 'email' | 'phone';
 type DirectionOption = {
   kind: RequestKind;
   index: string;
   title: string;
   description: string;
 };
-type EquipmentLine = {
-  id: number;
-  name: string;
-  brand: string;
-  article: string;
-  modification: string;
-  quantity: string;
-  unit: string;
-  note: string;
-};
-type ContactDetails = {
-  name: string;
-  organization: string;
-  email: string;
-  phone: string;
-  channel: ContactChannel;
-  region: string;
-  deadline: string;
-  comment: string;
-};
-type PanelDetails = {
-  requestType: PanelRequestType;
-  purpose: string;
-  task: string;
-  requirements: string;
-  documentation: string;
-  services: string[];
-  quantity: string;
-  notes: string;
-};
-type EngineeringDetails = {
-  object: string;
-  serviceArea: string;
-  subject: string;
-  documentation: string;
-  scope: string;
-  outcomes: string;
-  notes: string;
-};
 type LocalFile = { id: number; name: string; size: number; type: string };
-type ValidationErrors = Record<string, string>;
 type LocalRequestPreview =
   | {
       kind: 'equipment';
@@ -437,20 +407,21 @@ export function RequestQuoteForm({
   }
 
   function addEquipmentLine() {
+    if (equipmentLines.length >= MAX_EQUIPMENT_LINES) return;
     lineCounter.current += 1;
-    setEquipmentLines((current) => [
-      ...current,
-      {
-        id: lineCounter.current,
-        name: '',
-        brand: '',
-        article: '',
-        modification: '',
-        quantity: '1',
-        unit: 'шт',
-        note: '',
-      },
-    ]);
+    const newLine: EquipmentLine = {
+      id: lineCounter.current,
+      name: '',
+      brand: '',
+      article: '',
+      modification: '',
+      quantity: '1',
+      unit: 'шт',
+      note: '',
+    };
+    setEquipmentLines((current) =>
+      current.length >= MAX_EQUIPMENT_LINES ? current : [...current, newLine],
+    );
     clearValidation();
   }
 
@@ -499,61 +470,13 @@ export function RequestQuoteForm({
   }
 
   function validateForLocalReview() {
-    const nextErrors: ValidationErrors = {};
-
-    if (
-      contact.email.trim() &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim())
-    ) {
-      nextErrors['contact.email'] = 'Проверьте формат email.';
-    }
-    if (
-      contact.phone.trim() &&
-      !/^\+?[\d\s().-]{6,}$/.test(contact.phone.trim())
-    ) {
-      nextErrors['contact.phone'] = 'Проверьте формат телефона.';
-    }
-
-    if (kind === 'equipment') {
-      const describedLines = equipmentLines.filter(equipmentLineHasDescription);
-      if (!describedLines.length) {
-        nextErrors['equipment.lines'] =
-          'Добавьте хотя бы одну описанную позицию или свободное наименование.';
-      }
-      for (const line of describedLines) {
-        const quantity = Number(line.quantity.replace(',', '.'));
-        if (!Number.isFinite(quantity) || quantity <= 0) {
-          nextErrors[`equipment.${line.id}.quantity`] =
-            'Укажите количество больше нуля.';
-        }
-      }
-      if (
-        describedLines.length &&
-        describedLines.length < equipmentLines.length
-      ) {
-        for (const line of equipmentLines) {
-          if (!equipmentLineHasDescription(line)) {
-            nextErrors[`equipment.${line.id}.description`] =
-              'Заполните позицию или удалите её.';
-          }
-        }
-      }
-    }
-    if (kind === 'panels' && !panel.task.trim()) {
-      nextErrors['panels.task'] =
-        'Коротко опишите, что требуется сделать со шкафом.';
-    }
-    if (kind === 'panels' && panel.quantity.trim()) {
-      const quantity = Number(panel.quantity.replace(',', '.'));
-      if (!Number.isFinite(quantity) || quantity <= 0) {
-        nextErrors['panels.quantity'] =
-          'Укажите количество больше нуля или оставьте поле пустым.';
-      }
-    }
-    if (kind === 'engineering' && !engineering.subject.trim()) {
-      nextErrors['engineering.subject'] = 'Опишите предмет инженерной задачи.';
-    }
-
+    const nextErrors = validateRequestQuoteForm({
+      kind,
+      equipmentLines,
+      panel,
+      engineering,
+      contact,
+    });
     setErrors(nextErrors);
     const isValid = Object.keys(nextErrors).length === 0;
     setLocalReviewPassed(isValid);
@@ -584,6 +507,8 @@ export function RequestQuoteForm({
     contact.email.trim() || contact.phone.trim(),
   );
   const describedLines = equipmentLines.filter(equipmentLineHasDescription);
+  const equipmentLineLimitReached =
+    equipmentLines.length >= MAX_EQUIPMENT_LINES;
   const localPreview = buildLocalRequestPreview({
     kind,
     equipmentLines,
@@ -726,7 +651,7 @@ export function RequestQuoteForm({
                 <div className={styles.lineList}>
                   {equipmentLines.map((line, index) => {
                     const lineDescriptionError =
-                      errors[`equipment.${line.id}.description`] ??
+                      errors[`equipment.${line.id}.name`] ??
                       (index === 0 && !describedLines.length
                         ? errors['equipment.lines']
                         : undefined);
@@ -761,10 +686,11 @@ export function RequestQuoteForm({
                                 lineDescriptionError,
                               )}
                               aria-invalid={Boolean(lineDescriptionError)}
+                              aria-required="true"
                               autoComplete="off"
                               className={styles.control}
                               id={fieldId(`equipment.${line.id}.name`)}
-                              maxLength={240}
+                              maxLength={500}
                               onChange={(event) =>
                                 updateEquipmentLine(
                                   line.id,
@@ -784,7 +710,7 @@ export function RequestQuoteForm({
                             <input
                               className={styles.control}
                               id={fieldId(`equipment.${line.id}.brand`)}
-                              maxLength={120}
+                              maxLength={200}
                               onChange={(event) =>
                                 updateEquipmentLine(
                                   line.id,
@@ -804,7 +730,7 @@ export function RequestQuoteForm({
                             <input
                               className={styles.control}
                               id={fieldId(`equipment.${line.id}.article`)}
-                              maxLength={120}
+                              maxLength={160}
                               onChange={(event) =>
                                 updateEquipmentLine(
                                   line.id,
@@ -824,7 +750,7 @@ export function RequestQuoteForm({
                             <input
                               className={styles.control}
                               id={fieldId(`equipment.${line.id}.modification`)}
-                              maxLength={120}
+                              maxLength={200}
                               onChange={(event) =>
                                 updateEquipmentLine(
                                   line.id,
@@ -852,6 +778,7 @@ export function RequestQuoteForm({
                               className={styles.control}
                               id={quantityId}
                               inputMode="decimal"
+                              maxLength={19}
                               onChange={(event) =>
                                 updateEquipmentLine(
                                   line.id,
@@ -859,19 +786,29 @@ export function RequestQuoteForm({
                                   event.target.value,
                                 )
                               }
-                              step="any"
-                              type="number"
+                              pattern="^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:[.,][0-9]{1,6})?$"
+                              type="text"
                               value={line.quantity}
                             />
                           </FieldFrame>
                           <FieldFrame
                             id={fieldId(`equipment.${line.id}.unit`)}
                             label="Единица измерения"
+                            error={errors[`equipment.${line.id}.unit`]}
                           >
                             <input
+                              aria-describedby={getFieldDescription(
+                                fieldId(`equipment.${line.id}.unit`),
+                                undefined,
+                                errors[`equipment.${line.id}.unit`],
+                              )}
+                              aria-invalid={Boolean(
+                                errors[`equipment.${line.id}.unit`],
+                              )}
+                              aria-required="true"
                               className={styles.control}
                               id={fieldId(`equipment.${line.id}.unit`)}
-                              maxLength={32}
+                              maxLength={40}
                               onChange={(event) =>
                                 updateEquipmentLine(
                                   line.id,
@@ -891,7 +828,7 @@ export function RequestQuoteForm({
                             <input
                               className={styles.control}
                               id={fieldId(`equipment.${line.id}.note`)}
-                              maxLength={500}
+                              maxLength={4000}
                               onChange={(event) =>
                                 updateEquipmentLine(
                                   line.id,
@@ -910,12 +847,28 @@ export function RequestQuoteForm({
                   })}
                 </div>
                 <button
+                  aria-describedby={
+                    equipmentLineLimitReached
+                      ? fieldId('equipment.line-limit')
+                      : undefined
+                  }
                   className={styles.addLine}
+                  disabled={equipmentLineLimitReached}
                   onClick={addEquipmentLine}
                   type="button"
                 >
                   <span aria-hidden="true">＋</span> Добавить позицию
                 </button>
+                {equipmentLineLimitReached ? (
+                  <p
+                    className={styles.sectionFootnote}
+                    id={fieldId('equipment.line-limit')}
+                    role="status"
+                  >
+                    Достигнут лимит: не более 50 позиций. Чтобы добавить ещё,
+                    удалите ненужную строку.
+                  </p>
+                ) : null}
                 <p className={styles.sectionFootnote}>
                   Можно описать изделие своими словами — выбор из каталога не
                   обязателен.
@@ -955,7 +908,7 @@ export function RequestQuoteForm({
                     <input
                       className={styles.control}
                       id={fieldId('panels.purpose')}
-                      maxLength={180}
+                      maxLength={2000}
                       onChange={(event) =>
                         updatePanel('purpose', event.target.value)
                       }
@@ -978,12 +931,13 @@ export function RequestQuoteForm({
                       aria-invalid={Boolean(errors['panels.quantity'])}
                       className={styles.control}
                       id={fieldId('panels.quantity')}
-                      inputMode="numeric"
+                      inputMode="decimal"
+                      maxLength={19}
                       onChange={(event) =>
                         updatePanel('quantity', event.target.value)
                       }
-                      step="1"
-                      type="number"
+                      pattern="^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:[.,][0-9]{1,6})?$"
+                      type="text"
                       value={panel.quantity}
                     />
                   </FieldFrame>
@@ -1003,7 +957,7 @@ export function RequestQuoteForm({
                       aria-invalid={Boolean(errors['panels.task'])}
                       className={styles.control}
                       id={fieldId('panels.task')}
-                      maxLength={3000}
+                      maxLength={8000}
                       onChange={(event) =>
                         updatePanel('task', event.target.value)
                       }
@@ -1020,7 +974,7 @@ export function RequestQuoteForm({
                     <textarea
                       className={styles.control}
                       id={fieldId('panels.requirements')}
-                      maxLength={3000}
+                      maxLength={8000}
                       onChange={(event) =>
                         updatePanel('requirements', event.target.value)
                       }
@@ -1037,7 +991,10 @@ export function RequestQuoteForm({
                       className={styles.control}
                       id={fieldId('panels.documentation')}
                       onChange={(event) =>
-                        updatePanel('documentation', event.target.value)
+                        updatePanel(
+                          'documentation',
+                          event.target.value as DocumentationAvailability,
+                        )
                       }
                       value={panel.documentation}
                     >
@@ -1108,7 +1065,7 @@ export function RequestQuoteForm({
                     <input
                       className={styles.control}
                       id={fieldId('engineering.object')}
-                      maxLength={180}
+                      maxLength={200}
                       onChange={(event) =>
                         updateEngineering('object', event.target.value)
                       }
@@ -1153,7 +1110,7 @@ export function RequestQuoteForm({
                       aria-invalid={Boolean(errors['engineering.subject'])}
                       className={styles.control}
                       id={fieldId('engineering.subject')}
-                      maxLength={3000}
+                      maxLength={8000}
                       onChange={(event) =>
                         updateEngineering('subject', event.target.value)
                       }
@@ -1247,13 +1204,24 @@ export function RequestQuoteForm({
                 <h2 id="contact-title">Как с вами связаться?</h2>
               </div>
               <p>
-                Укажите удобный канал и желаемый срок, если он уже определён.
-                Организация и ИНН не обязательны.
+                Контактное лицо и хотя бы один корректный email или телефон
+                обязательны. Организация не обязательна.
               </p>
             </div>
             <div className={styles.fieldsGrid}>
-              <FieldFrame id={fieldId('contact.name')} label="Контактное лицо">
+              <FieldFrame
+                id={fieldId('contact.name')}
+                label="Контактное лицо *"
+                error={errors['contact.name']}
+              >
                 <input
+                  aria-describedby={getFieldDescription(
+                    fieldId('contact.name'),
+                    undefined,
+                    errors['contact.name'],
+                  )}
+                  aria-invalid={Boolean(errors['contact.name'])}
+                  aria-required="true"
                   autoComplete="name"
                   className={styles.control}
                   id={fieldId('contact.name')}
@@ -1274,7 +1242,7 @@ export function RequestQuoteForm({
                   autoComplete="organization"
                   className={styles.control}
                   id={fieldId('contact.organization')}
-                  maxLength={180}
+                  maxLength={200}
                   onChange={(event) =>
                     updateContact('organization', event.target.value)
                   }
@@ -1334,8 +1302,15 @@ export function RequestQuoteForm({
               <FieldFrame
                 id={fieldId('contact.channel')}
                 label="Предпочтительный способ связи"
+                error={errors['contact.channel']}
               >
                 <select
+                  aria-describedby={getFieldDescription(
+                    fieldId('contact.channel'),
+                    undefined,
+                    errors['contact.channel'],
+                  )}
+                  aria-invalid={Boolean(errors['contact.channel'])}
                   className={styles.control}
                   id={fieldId('contact.channel')}
                   onChange={(event) =>
@@ -1402,8 +1377,8 @@ export function RequestQuoteForm({
               </FieldFrame>
             </div>
             <p className={styles.sectionFootnote}>
-              Обязательность контактных полей будет определена после утверждения
-              контракта заявки.
+              Укажите предпочтительный канал только при заполненном контакте
+              этого типа.
             </p>
           </section>
 
@@ -1655,7 +1630,7 @@ export function RequestQuoteForm({
             <p className={styles.summaryFootnote}>
               {contactHasChannel
                 ? 'Контактные значения показаны только в текущем предпросмотре.'
-                : 'Обязательность контактного канала будет определена в контракте.'}
+                : 'Для проверки заполните контактное лицо и email или телефон.'}
             </p>
           </div>
 
