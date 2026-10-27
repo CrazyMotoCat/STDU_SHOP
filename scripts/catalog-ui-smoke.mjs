@@ -500,6 +500,14 @@ async function main() {
             { waitUntil: 'domcontentloaded' },
           );
           assert.equal(missingProduct?.status(), 404);
+          assert.match(
+            (await page
+              .locator('meta[name="robots"]')
+              .last()
+              .getAttribute('content')) ?? '',
+            /noindex/i,
+            'Missing catalog products must stay noindex under the public catalog layout.',
+          );
           const missingCategory = await page.goto(
             `${baseUrl}/catalog/category/not-published`,
             { waitUntil: 'domcontentloaded' },

@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { NO_INDEX_ROBOTS } from '../lib/seo';
 import styles from './public-error.module.css';
 
 export const metadata: Metadata = {
   title: '404 — Такой страницы пока нет | SHOP-STDU',
+  robots: NO_INDEX_ROBOTS,
 };
 
 export default function NotFound() {
