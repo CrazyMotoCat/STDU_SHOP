@@ -26,7 +26,7 @@ LAST_SAFE_COMMIT: 81b76b5b084a0ef656c190ca63f9f71f93f092ba
 - `pnpm exec prettier --check docs/adr/ADR-005-malware-scanning.md docs/proposals/R1-010D-malware-scanning-contract.md docs/spec/09_ROADMAP_BACKLOG.md .agent/tasks/R1-010D/state.md`: PASS.
 - `git diff --check`: PASS.
 - GitHub Actions `R1 foundation`, run 40512329147: SUCCESS on PR #26 HEAD `14c7bf8249ff0d5ecd299f545e4fc84d2822e80c`; all quality, contract, DB, runtime, browser, integration and three-run host lifecycle steps passed.
-- PR #26 is OPEN / DRAFT, head `14c7bf8249ff0d5ecd299f545e4fc84d2822e80c`, base `main` at `81b76b5b084a0ef656c190ca63f9f71f93f092ba`; no merge performed.
+- PR #26 remains OPEN / DRAFT, based on `main` at `81b76b5b084a0ef656c190ca63f9f71f93f092ba`; no merge performed. Its proposal content is the CI-passing initial commit above; commits after that contain only this checkpoint update.
 - Official ClamAV docs rechecked 2026-10-27: 1.4.6 is latest 1.4 LTS patch; official image is `clamav/clamav`; 3 GiB+ RAM, 1 CPU and 5 GiB free are recommended; INSTREAM framing and socket restrictions confirmed.
 - Node emits a non-blocking engine warning: repository expects 24.19.0; shell reports 24.22.1. The checks completed successfully.
 - Scanner-specific adapter/runtime tests and real clamd smoke: NOT RUN; Stage A has no implementation or approved DB contract. The repository-wide runtime acceptance ran successfully in CI but does not verify scanner behavior.
@@ -35,6 +35,7 @@ LAST_SAFE_COMMIT: 81b76b5b084a0ef656c190ca63f9f71f93f092ba
 ## DELIVERY
 
 - Initial proposal commit: `14c7bf8249ff0d5ecd299f545e4fc84d2822e80c` (`docs(r1-010d): propose malware scan security contract`).
+- A later documentation-only checkpoint commit records the completed workflow; it changes no proposal, application, schema or migration content. The owner-directed no-duplicate-CI rule was applied to this checkpoint-only follow-up.
 - PR: https://github.com/CrazyMotoCat/STDU_SHOP/pull/26 (OPEN / DRAFT; Owner Approval required).
 - The proposal branch is pushed and tracks `origin/codex/r1-010d-contract-proposal`.
 
