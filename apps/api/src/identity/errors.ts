@@ -150,8 +150,13 @@ export class StaffError extends HttpException {
   readonly fields?: ErrorField[];
   readonly retryAfter?: number;
 
-  constructor(code: ErrorCode, fields?: ErrorField[], retryAfter?: number) {
-    super(messages[code], statusByCode[code]);
+  constructor(
+    code: ErrorCode,
+    fields?: ErrorField[],
+    retryAfter?: number,
+    status = statusByCode[code],
+  ) {
+    super(messages[code], status);
     this.code = code;
     this.fields = fields;
     this.retryAfter = retryAfter;

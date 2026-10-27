@@ -4,6 +4,10 @@ services:
     volumes: !override
       - type: tmpfs
         target: /var/lib/postgresql
+  redis:
+    volumes: !override
+      - type: tmpfs
+        target: /data
   api:
     ports: !override
       - '127.0.0.1:${STDU_SMOKE_API_PORT:-3001}:3001'

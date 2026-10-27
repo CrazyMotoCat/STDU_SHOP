@@ -26,6 +26,7 @@ import {
 import { REGISTERED_PERMISSION_CODES } from '../permissions/policy.js';
 import { StaffController } from '../staff/staff.controller.js';
 import { SupplierStaffController } from '../suppliers/suppliers.controller.js';
+import { StaffInquiriesController } from '../inquiries/inquiries.controller.js';
 import { STAFF_OPERATION_CONTRACT_NOTES } from './operation-notes.js';
 import { STAFF_OPENAPI_ROOT_EXTENSIONS } from './root-extensions.js';
 
@@ -64,7 +65,8 @@ function routePath(controller: object, handler: object) {
   const pathValue = Array.isArray(path) ? path[0] : path;
   return `/${[prefixValue, pathValue].filter((part) => part !== undefined && part !== '').join('/')}`
     .replace(/:([A-Za-z0-9_]+)/g, '{$1}')
-    .replace(/\/+/g, '/');
+    .replace(/\/+/g, '/')
+    .replace(/\/$/, '');
 }
 
 function routeMethod(handler: object) {
@@ -278,7 +280,8 @@ function finalizeDocument(document: OpenAPIObject) {
     if (
       !path.startsWith('/v1/staff') ||
       path.startsWith('/v1/staff/catalog') ||
-      path.startsWith('/v1/staff/supplier')
+      path.startsWith('/v1/staff/supplier') ||
+      path.startsWith('/v1/staff/inquiries')
     )
       delete document.paths[path];
   inventoryRoutes(document);
@@ -382,6 +385,193 @@ export async function createSupplierRuntimeOpenApi() {
     if (!path.startsWith('/v1/staff/supplier')) delete document.paths[path];
   inventoryRoutes(document, [SupplierStaffController], 20);
   for (const schema of Object.values(document.components?.schemas ?? {}))
+    normalizeSchema(schema);
+  return document;
+}
+
+const INQUIRY_OPENAPI_SCHEMAS = {
+  ContactSnapshotDto: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['contactName'],
+    properties: {
+      contactName: { type: 'string', minLength: 1, maxLength: 180 },
+      email: {
+        type: 'string',
+        nullable: true,
+        format: 'email',
+        maxLength: 254,
+      },
+      phone: { type: 'string', nullable: true, maxLength: 40 },
+      organization: { type: 'string', nullable: true, maxLength: 200 },
+      taxIdentifier: { type: 'string', nullable: true, maxLength: 24 },
+      preferredChannel: {
+        type: 'string',
+        nullable: true,
+        enum: ['EMAIL', 'PHONE'],
+      },
+      region: { type: 'string', nullable: true, maxLength: 120 },
+      desiredDeadline: { type: 'string', nullable: true, maxLength: 120 },
+      customerComment: { type: 'string', nullable: true, maxLength: 3000 },
+    },
+    anyOf: [
+      {
+        required: ['email'],
+        properties: { email: { type: 'string' } },
+        additionalProperties: true,
+      },
+      {
+        required: ['phone'],
+        properties: { phone: { type: 'string' } },
+        additionalProperties: true,
+      },
+    ],
+  },
+  EquipmentLineDto: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['rawTitle', 'quantity', 'unit'],
+    properties: {
+      rawTitle: { type: 'string', minLength: 1, maxLength: 500 },
+      originalSku: { type: 'string', nullable: true, maxLength: 160 },
+      manufacturerName: { type: 'string', nullable: true, maxLength: 200 },
+      modification: { type: 'string', nullable: true, maxLength: 200 },
+      quantity: {
+        type: 'string',
+        maxLength: 19,
+        pattern: '^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:[.,][0-9]{1,6})?$',
+      },
+      unit: { type: 'string', minLength: 1, maxLength: 40 },
+      notes: { type: 'string', nullable: true, maxLength: 4000 },
+      catalogProductSlugContext: {
+        type: 'string',
+        nullable: true,
+        maxLength: 160,
+      },
+    },
+  },
+  PanelsDetailsDto: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['requestType', 'description'],
+    properties: {
+      requestType: {
+        type: 'string',
+        enum: ['PROJECT_READY', 'MODIFY_TYPICAL', 'DEVELOP_FROM_BRIEF'],
+      },
+      cabinetPurpose: { type: 'string', nullable: true, maxLength: 2000 },
+      quantity: {
+        type: 'string',
+        nullable: true,
+        maxLength: 19,
+        pattern: '^(?=.*[1-9])(?:0|[1-9][0-9]{0,11})(?:[.,][0-9]{1,6})?$',
+      },
+      requirements: { type: 'string', nullable: true, maxLength: 8000 },
+      requestedWork: {
+        type: 'array',
+        maxItems: 50,
+        items: { type: 'string', maxLength: 500 },
+      },
+      description: { type: 'string', minLength: 1, maxLength: 8000 },
+      documentationAvailability: {
+        type: 'string',
+        nullable: true,
+        enum: ['UNKNOWN', 'AVAILABLE', 'PARTIAL', 'NONE'],
+      },
+      notes: { type: 'string', nullable: true, maxLength: 3000 },
+    },
+  },
+  EngineeringDetailsDto: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['technicalTask'],
+    properties: {
+      engineeringDirection: { type: 'string', nullable: true, maxLength: 200 },
+      systemType: { type: 'string', nullable: true, maxLength: 200 },
+      technicalTask: { type: 'string', minLength: 1, maxLength: 8000 },
+      expectedDeliverables: {
+        type: 'string',
+        nullable: true,
+        maxLength: 1800,
+      },
+      sourceDocumentDescription: {
+        type: 'string',
+        nullable: true,
+        maxLength: 1500,
+      },
+      scope: { type: 'string', nullable: true, maxLength: 2500 },
+      notes: { type: 'string', nullable: true, maxLength: 2500 },
+    },
+  },
+};
+
+export async function createInquiryRuntimeOpenApi() {
+  const document = await createNestOpenApiDocument();
+  for (const path of Object.keys(document.paths))
+    if (
+      !path.startsWith('/v1/public/inquiries') &&
+      !path.startsWith('/v1/public/inquiry-attachments') &&
+      !path.startsWith('/v1/staff/inquiries')
+    )
+      delete document.paths[path];
+  inventoryRoutes(document, [StaffInquiriesController], 11);
+  document.components ??= {};
+  document.components.schemas ??= {};
+  Object.assign(document.components.schemas, INQUIRY_OPENAPI_SCHEMAS);
+  const contactSchema = document.components?.schemas?.ContactSnapshotDto as
+    Record<string, unknown> | undefined;
+  if (!contactSchema)
+    throw new Error('Inquiry OpenAPI ContactSnapshotDto schema is missing.');
+  const expectedPublic: [string, string, string][] = [
+    ['createPublicInquiry', 'post', '/v1/public/inquiries'],
+    [
+      'createInquiryUploadIntent',
+      'post',
+      '/v1/public/inquiry-attachments/upload-intents',
+    ],
+    [
+      'uploadInquirySourceDocument',
+      'put',
+      '/v1/public/inquiry-attachments/upload-intents/{intentId}/content',
+    ],
+    [
+      'cancelInquiryUploadIntent',
+      'delete',
+      '/v1/public/inquiry-attachments/upload-intents/{intentId}',
+    ],
+  ];
+  for (const [operationId, method, path] of expectedPublic) {
+    const operation = document.paths[path]?.[
+      method as keyof (typeof document.paths)[string]
+    ] as Record<string, unknown> | undefined;
+    if (operation?.operationId !== operationId)
+      throw new Error(
+        `Missing public Inquiry operation ${method.toUpperCase()} ${path}.`,
+      );
+    operation.security =
+      operationId === 'createPublicInquiry'
+        ? []
+        : [{ InquiryUploadCapability: [] }];
+  }
+  document.components ??= {};
+  document.components.securitySchemes ??= {};
+  document.components.securitySchemes.InquiryUploadCapability = {
+    type: 'apiKey',
+    in: 'header',
+    name: 'X-Inquiry-Upload-Capability',
+    description:
+      '256-bit capability sent only in this header; the server hashes it to resolve one Inquiry and verify the bound intent.',
+  };
+  document.openapi = '3.0.3';
+  document.info = {
+    title: 'STDU R1-010 Inquiry API',
+    version: '1.0.2',
+    description:
+      'Generated from the implemented R1-010 public and staff controllers. FROZEN R1-010 Contract Amendment 01 is the normative DTO and response definition.',
+  };
+  document.servers = [{ url: '/' }, { url: 'http://127.0.0.1:3001' }];
+  retainReferencedSchemas(document);
+  for (const schema of Object.values(document.components?.schemas ?? []))
     normalizeSchema(schema);
   return document;
 }

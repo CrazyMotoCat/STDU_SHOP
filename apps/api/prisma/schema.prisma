@@ -44,6 +44,10 @@ model StaffUser {
   createdMatchProposals     ProductMatchProposal[]    @relation("MatchProposalCreator")
   decidedMatchProposals     ProductMatchProposal[]    @relation("MatchProposalDecider")
   supplierCommandResults    SupplierCommandIdempotency[]
+  managedInquiries           Inquiry[]                  @relation("InquiryManager")
+  engineeredInquiries        Inquiry[]                  @relation("InquiryEngineer")
+  inquiryComments            InquiryComment[]           @relation("InquiryCommentAuthor")
+  inquiryCommandResults      InquiryCommandIdempotency[]
 
   @@index([state, id], map: "staff_user_state_id_idx")
   @@map("staff_user")
@@ -154,6 +158,7 @@ model AuditEvent {
   changes      Json       @default("{}") @db.JsonB
   actor        StaffUser? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   catalogImportDecisions CatalogImportDecision[] @relation("CatalogImportDecisionAudit")
+  inquiryComment InquiryComment? @relation("InquiryCommentAudit")
 
   @@index([occurredAt(sort: Desc), id(sort: Desc)], map: "audit_event_occurred_id_idx")
   @@index([actorUserId, occurredAt(sort: Desc)], map: "audit_event_actor_occurred_idx")
@@ -697,4 +702,135 @@ model SupplierCommandIdempotency {
   @@unique([actorStaffUserId, scope, idempotencyKey], map: "supplier_command_idempotency_actor_scope_key")
   @@index([actorStaffUserId, completedAt(sort: Desc)], map: "supplier_command_idempotency_actor_completed_idx")
   @@map("supplier_command_idempotency")
+}
+
+model Inquiry {
+  id                       String                     @id @db.Uuid
+  publicReference          String                     @unique(map: "inquiry_public_reference_key") @map("public_reference") @db.VarChar(32)
+  channel                  String                     @db.Text
+  kind                     String                     @db.Text
+  status                   String                     @db.Text
+  contactSnapshot          Json                       @map("contact_snapshot") @db.JsonB
+  catalogProductContext    String?                    @map("catalog_product_context") @db.VarChar(120)
+  kindDetails              Json                       @map("kind_details") @db.JsonB
+  uploadProfileCode        String                     @map("upload_profile_code") @db.Text
+  uploadCapabilityHash     Bytes?                     @unique(map: "inquiry_upload_capability_hash_key") @map("upload_capability_hash") @db.ByteA
+  uploadCapabilityExpiresAt DateTime?                 @map("upload_capability_expires_at") @db.Timestamptz(6)
+  assignedManagerUserId    String?                    @map("assigned_manager_user_id") @db.Uuid
+  assignedEngineerUserId   String?                    @map("assigned_engineer_user_id") @db.Uuid
+  stageDueAt               DateTime?                  @map("stage_due_at") @db.Timestamptz(6)
+  version                  Int                        @default(1)
+  createdAt                DateTime                   @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime                   @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  assignedManager          StaffUser?                 @relation("InquiryManager", fields: [assignedManagerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  assignedEngineer         StaffUser?                 @relation("InquiryEngineer", fields: [assignedEngineerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lines                    InquiryLine[]
+  comments                 InquiryComment[]
+  sourceDocuments          InquirySourceDocument[]
+  uploadIntents            InquiryUploadIntent[]
+
+  @@index([status, createdAt, id], map: "inquiry_status_created_id_idx")
+  @@index([status, stageDueAt, id], map: "inquiry_status_due_id_idx")
+  @@index([assignedManagerUserId, status, createdAt, id], map: "inquiry_manager_status_created_idx")
+  @@index([assignedEngineerUserId, status, createdAt, id], map: "inquiry_engineer_status_created_idx")
+  @@map("inquiry")
+}
+
+model InquiryLine {
+  id                       String   @id @db.Uuid
+  inquiryId                String   @map("inquiry_id") @db.Uuid
+  sequence                 Int
+  rawTitle                 String   @map("raw_title") @db.VarChar(500)
+  originalSku              String?  @map("original_sku") @db.VarChar(160)
+  manufacturerName         String?  @map("manufacturer_name") @db.VarChar(200)
+  modification             String?  @db.VarChar(200)
+  quantityText             String   @map("quantity_text") @db.VarChar(80)
+  unitText                 String   @map("unit_text") @db.VarChar(40)
+  notes                    String?  @db.VarChar(4000)
+  catalogProductSlugContext String? @map("catalog_product_slug_context") @db.VarChar(160)
+  createdAt                DateTime @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  inquiry                  Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([inquiryId, sequence], map: "inquiry_line_sequence_key")
+  @@index([inquiryId, sequence], map: "inquiry_line_inquiry_sequence_idx")
+  @@map("inquiry_line")
+}
+
+model InquiryComment {
+  id                 String     @id @db.Uuid
+  inquiryId          String     @map("inquiry_id") @db.Uuid
+  authorStaffUserId  String     @map("author_staff_user_id") @db.Uuid
+  visibility         String     @default("INTERNAL") @db.Text
+  body               String     @db.VarChar(4000)
+  auditEventId       String     @unique(map: "inquiry_comment_audit_event_key") @map("audit_event_id") @db.Uuid
+  createdAt          DateTime   @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  inquiry            Inquiry    @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  author             StaffUser  @relation("InquiryCommentAuthor", fields: [authorStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  auditEvent         AuditEvent @relation("InquiryCommentAudit", fields: [auditEventId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([inquiryId, createdAt, id], map: "inquiry_comment_inquiry_created_idx")
+  @@map("inquiry_comment")
+}
+
+model InquiryUploadIntent {
+  id                  String                    @id @db.Uuid
+  inquiryId           String                    @map("inquiry_id") @db.Uuid
+  state               String                    @db.Text
+  safeFilename        String                    @map("safe_filename") @db.VarChar(255)
+  declaredMimeType    String                    @map("declared_mime_type") @db.VarChar(127)
+  declaredSizeBytes   BigInt                    @map("declared_size_bytes")
+  expectedSha256      Bytes?                    @map("expected_sha256") @db.ByteA
+  expiresAt           DateTime                  @map("expires_at") @db.Timestamptz(6)
+  receivingStartedAt  DateTime?                 @map("receiving_started_at") @db.Timestamptz(6)
+  receivingDeadlineAt DateTime?                 @map("receiving_deadline_at") @db.Timestamptz(6)
+  version             Int                       @default(1)
+  createdAt           DateTime                  @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                  @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  inquiry             Inquiry                   @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sourceDocument      InquirySourceDocument?
+
+  @@unique([id, inquiryId], map: "inquiry_upload_intent_id_inquiry_key")
+  @@index([inquiryId, state, expiresAt, id], map: "inquiry_upload_intent_inquiry_state_expiry_idx")
+  @@index([state, expiresAt, id], map: "inquiry_upload_intent_state_expiry_idx")
+  @@map("inquiry_upload_intent")
+}
+
+model InquirySourceDocument {
+  id                String             @id @db.Uuid
+  inquiryId         String             @map("inquiry_id") @db.Uuid
+  uploadIntentId    String             @unique(map: "inquiry_source_document_intent_key") @map("upload_intent_id") @db.Uuid
+  uploaderKind      String             @map("uploader_kind") @db.Text
+  uploadChannel     String             @map("upload_channel") @db.Text
+  storageKey        String             @unique(map: "inquiry_source_document_storage_key_key") @map("storage_key") @db.VarChar(128)
+  sha256            Bytes              @db.ByteA
+  sizeBytes         BigInt             @map("size_bytes")
+  detectedMimeType  String             @map("detected_mime_type") @db.VarChar(127)
+  originalFilename  String             @map("original_filename") @db.VarChar(255)
+  safetyState       String             @default("QUARANTINED") @map("safety_state") @db.Text
+  uploadedAt        DateTime           @map("uploaded_at") @db.Timestamptz(6)
+  createdAt         DateTime           @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  inquiry           Inquiry            @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  uploadIntent      InquiryUploadIntent @relation(fields: [uploadIntentId, inquiryId], references: [id, inquiryId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([inquiryId, createdAt, id], map: "inquiry_source_document_inquiry_created_idx")
+  @@index([safetyState, createdAt, id], map: "inquiry_source_document_state_created_idx")
+  @@unique([uploadIntentId, inquiryId], map: "inquiry_source_document_intent_inquiry_key")
+  @@map("inquiry_source_document")
+}
+
+model InquiryCommandIdempotency {
+  id                 String     @id @db.Uuid
+  actorKind          String     @map("actor_kind") @db.Text
+  actorStaffUserId   String?    @map("actor_staff_user_id") @db.Uuid
+  operationScope     String     @map("operation_scope") @db.VarChar(80)
+  idempotencyKeyHash Bytes      @map("idempotency_key_hash") @db.ByteA
+  requestHash        Bytes      @map("request_hash") @db.ByteA
+  httpStatus         Int        @map("http_status") @db.SmallInt
+  responseReceipt    Json       @map("response_receipt") @db.JsonB
+  createdAt          DateTime   @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  expiresAt          DateTime   @map("expires_at") @db.Timestamptz(6)
+  actor              StaffUser? @relation(fields: [actorStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([expiresAt, id], map: "inquiry_command_idempotency_expiry_idx")
+  @@map("inquiry_command_idempotency")
 }

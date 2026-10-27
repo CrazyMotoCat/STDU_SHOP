@@ -15,6 +15,13 @@ async function main() {
     'tsx',
     'scripts/export-openapi.ts',
   ]);
+  await run('pnpm', [
+    '--filter',
+    '@stdu/api',
+    'exec',
+    'tsx',
+    'scripts/export-inquiry-openapi.ts',
+  ]);
   const generated = resolve(
     root,
     '.local/contracts/generated-staff.openapi.json',
@@ -24,7 +31,23 @@ async function main() {
     root,
     'docs/contracts/R1-007-supplier-rbac-matrix.json',
   );
+  const inquiryPermissions = resolve(
+    root,
+    'docs/contracts/R1-010-inquiry-rbac-matrix.json',
+  );
   const client = resolve(root, 'packages/staff-client/src/schema.d.ts');
+  const inquiryClient = resolve(
+    root,
+    'packages/staff-client/src/inquiry-schema.d.ts',
+  );
+  const inquiryGenerated = resolve(
+    root,
+    '.local/contracts/generated-inquiry.openapi.json',
+  );
+  const inquiryFrozen = resolve(
+    root,
+    'docs/contracts/R1-010-inquiries.openapi.json',
+  );
   await run('pnpm', [
     'exec',
     'node',
@@ -37,6 +60,19 @@ async function main() {
     frozen,
     generated,
     additivePermissions,
+    inquiryPermissions,
+  ]);
+  await run('pnpm', [
+    'exec',
+    'node',
+    'scripts/validate-openapi.mjs',
+    inquiryFrozen,
+    inquiryGenerated,
+  ]);
+  await run('node', [
+    'scripts/inquiry-openapi-contract.mjs',
+    inquiryFrozen,
+    inquiryGenerated,
   ]);
   if (action === 'generate-client') {
     await run('pnpm', [
@@ -45,6 +81,13 @@ async function main() {
       generated,
       '--output',
       client,
+    ]);
+    await run('pnpm', [
+      'exec',
+      'openapi-typescript',
+      inquiryFrozen,
+      '--output',
+      inquiryClient,
     ]);
     console.log(
       'Generated TypeScript schema from the contract-verified Nest OpenAPI.',
@@ -58,6 +101,14 @@ async function main() {
     generated,
     '--output',
     client,
+    '--check',
+  ]);
+  await run('pnpm', [
+    'exec',
+    'openapi-typescript',
+    inquiryFrozen,
+    '--output',
+    inquiryClient,
     '--check',
   ]);
   console.log('PASS generated TypeScript client is reproducible from OpenAPI.');

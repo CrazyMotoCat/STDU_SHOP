@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { compareOpenApi, readJson } from './openapi-contract.mjs';
 
-const [expectedPath, actualPath, additivePermissionContract] =
+const [expectedPath, actualPath, ...additivePermissionContracts] =
   process.argv.slice(2);
 if (!expectedPath || !actualPath)
   throw new Error(
@@ -9,11 +9,13 @@ if (!expectedPath || !actualPath)
   );
 const expected = await readJson(resolve(expectedPath));
 const actual = await readJson(resolve(actualPath));
-const additions = additivePermissionContract
-  ? Object.keys(
-      (await readJson(resolve(additivePermissionContract))).permissions,
-    )
-  : [];
+const additions = (
+  await Promise.all(
+    additivePermissionContracts.map(async (path) =>
+      Object.keys((await readJson(resolve(path))).permissions),
+    ),
+  )
+).flat();
 const result = compareOpenApi(expected, actual, {
   allowedPermissionCodeAdditions: additions,
 });

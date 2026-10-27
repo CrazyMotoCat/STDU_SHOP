@@ -1,6 +1,13 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, unlink } from 'node:fs/promises';
+import {
+  lstat,
+  mkdir,
+  open as openFile,
+  readdir,
+  rename,
+  unlink,
+} from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { Transform, type Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -12,37 +19,187 @@ export interface OwnedStorageWrite {
   readonly receipt: object;
 }
 
+export interface StorageByteRange {
+  readonly offset: number;
+  readonly length: number;
+}
+
+export class PrivateStorageUnavailableError extends Error {
+  constructor(cause: unknown) {
+    super('Private file storage is unavailable.', { cause });
+    this.name = 'PrivateStorageUnavailableError';
+  }
+}
+
+function isStorageFailure(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const code = (error as NodeJS.ErrnoException).code;
+  return [
+    'EACCES',
+    'EDQUOT',
+    'EIO',
+    'EMFILE',
+    'ENFILE',
+    'ENOSPC',
+    'EROFS',
+  ].includes(code ?? '');
+}
+
 @Injectable()
 export class PrivateFileStorage implements StoragePort {
   private readonly ownership = new WeakMap<object, string>();
 
   async write(source: Readable): Promise<StoredObject> {
-    return (await this.store(source, false)).stored;
+    return (await this.store(source, false, null)).stored;
   }
 
   async writeOwned(source: Readable): Promise<OwnedStorageWrite> {
-    return this.store(source, true);
+    return this.store(source, true, null);
+  }
+
+  /** Stores anonymous inquiry bytes below a dedicated private quarantine root. */
+  async writeInquiryQuarantineOwned(
+    source: Readable,
+    onPipelineReady?: () => void,
+  ): Promise<OwnedStorageWrite> {
+    return this.store(source, true, 'inquiry-quarantine', onPipelineReady);
   }
 
   async removeOwned(write: OwnedStorageWrite): Promise<void> {
-    const key = write.stored.key;
-    if (this.ownership.get(write.receipt) !== key)
+    const ownedPath = this.ownership.get(write.receipt);
+    if (
+      !ownedPath ||
+      (!ownedPath.endsWith(`/${write.stored.key}`) &&
+        !ownedPath.endsWith(`\\${write.stored.key}`))
+    )
       throw new Error('PRIVATE_STORAGE_RECEIPT_INVALID');
-    await unlink(this.filePath(key));
+    await unlink(ownedPath);
     this.ownership.delete(write.receipt);
   }
 
   async open(key: string): Promise<Readable> {
-    return createReadStream(this.filePath(key));
+    return createReadStream(this.filePath(key, null));
+  }
+
+  async openInquiryQuarantine(key: string): Promise<Readable> {
+    try {
+      const handle = await openFile(
+        this.filePath(key, 'inquiry-quarantine'),
+        'r',
+      );
+      return handle.createReadStream();
+    } catch (error) {
+      throw new PrivateStorageUnavailableError(error);
+    }
+  }
+
+  async readInquiryQuarantineRanges(
+    key: string,
+    ranges: readonly StorageByteRange[],
+  ): Promise<Buffer[]> {
+    const validated = ranges.map(({ offset, length }) => {
+      if (
+        !Number.isSafeInteger(offset) ||
+        offset < 0 ||
+        !Number.isSafeInteger(length) ||
+        length < 0 ||
+        length > 131_100
+      )
+        throw new Error('PRIVATE_STORAGE_RANGE_INVALID');
+      return { offset, length };
+    });
+    let handle;
+    try {
+      handle = await openFile(this.filePath(key, 'inquiry-quarantine'), 'r');
+      const results: Buffer[] = [];
+      for (const { offset, length } of validated) {
+        const buffer = Buffer.alloc(length);
+        let read = 0;
+        while (read < length) {
+          const result = await handle.read(
+            buffer,
+            read,
+            length - read,
+            offset + read,
+          );
+          if (result.bytesRead === 0) break;
+          read += result.bytesRead;
+        }
+        results.push(buffer.subarray(0, read));
+      }
+      return results;
+    } catch (error) {
+      if (error instanceof PrivateStorageUnavailableError) throw error;
+      throw new PrivateStorageUnavailableError(error);
+    } finally {
+      await handle?.close().catch(() => undefined);
+    }
+  }
+
+  async cleanupStaleInquiryTemporaryFiles(now = Date.now()) {
+    const directory = resolve(this.root(), 'inquiry-quarantine');
+    let names: string[];
+    try {
+      names = await readdir(directory);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 0;
+      throw error;
+    }
+    let removed = 0;
+    for (const name of names) {
+      if (!/^\.tmp-[0-9a-f-]{36}$/i.test(name)) continue;
+      const path = join(directory, name);
+      const metadata = await lstat(path).catch(() => null);
+      if (metadata?.isFile() && now - metadata.mtimeMs >= 24 * 60 * 60_000) {
+        await unlink(path);
+        removed++;
+      }
+    }
+    return removed;
+  }
+
+  async listStaleInquiryObjects(now = Date.now()) {
+    const directory = resolve(this.root(), 'inquiry-quarantine');
+    let names: string[];
+    try {
+      names = await readdir(directory);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
+    }
+    const stale: string[] = [];
+    for (const name of names) {
+      if (!/^[a-f0-9]{64}$/.test(name)) continue;
+      const metadata = await lstat(join(directory, name)).catch(() => null);
+      if (metadata?.isFile() && now - metadata.mtimeMs >= 24 * 60 * 60_000)
+        stale.push(name);
+    }
+    return stale;
+  }
+
+  async removeInquiryQuarantineObject(key: string) {
+    await unlink(this.filePath(key, 'inquiry-quarantine'));
   }
 
   private async store(
     source: Readable,
     owned: boolean,
+    namespace: string | null,
+    onPipelineReady?: () => void,
   ): Promise<OwnedStorageWrite> {
     const key = randomBytes(32).toString('hex');
-    const target = this.filePath(key);
-    await mkdir(this.root(), { recursive: true, mode: 0o700 });
+    let target: string;
+    let directory: string;
+    try {
+      target = this.filePath(key, namespace);
+      directory = resolve(this.root(), namespace ?? '');
+      await mkdir(directory, { recursive: true, mode: 0o700 });
+    } catch (error) {
+      if (namespace === 'inquiry-quarantine')
+        throw new PrivateStorageUnavailableError(error);
+      throw error;
+    }
+    const temporary = join(directory, `.tmp-${randomUUID()}`);
     const hash = createHash('sha256');
     let size = 0;
     const meter = new Transform({
@@ -53,19 +210,34 @@ export class PrivateFileStorage implements StoragePort {
       },
     });
     try {
-      await pipeline(
+      const writing = pipeline(
         source,
         meter,
-        createWriteStream(target, { flags: 'wx', mode: 0o600 }),
+        createWriteStream(temporary, { flags: 'wx', mode: 0o600 }),
       );
+      onPipelineReady?.();
+      await writing;
+      try {
+        await rename(temporary, target);
+      } catch (error) {
+        if (namespace === 'inquiry-quarantine')
+          throw new PrivateStorageUnavailableError(error);
+        throw error;
+      }
     } catch (error) {
-      await unlink(target).catch(() => undefined);
+      await unlink(temporary).catch(() => undefined);
+      if (
+        namespace === 'inquiry-quarantine' &&
+        !(error instanceof PrivateStorageUnavailableError) &&
+        isStorageFailure(error)
+      )
+        throw new PrivateStorageUnavailableError(error);
       throw error;
     }
     const stored = Object.freeze({ key, size, sha256: hash.digest('hex') });
     if (!owned) return { stored, receipt: Object.freeze({}) };
     const receipt = Object.freeze({ id: randomUUID() });
-    this.ownership.set(receipt, key);
+    this.ownership.set(receipt, target);
     return { stored, receipt };
   }
 
@@ -75,9 +247,18 @@ export class PrivateFileStorage implements StoragePort {
     return resolve(configured);
   }
 
-  private filePath(key: string) {
+  private filePath(key: string, namespace: string | null) {
     if (!/^[a-f0-9]{64}$/.test(key))
       throw new Error('PRIVATE_STORAGE_KEY_INVALID');
-    return join(this.root(), key);
+    const root = this.root();
+    const directory = namespace ? resolve(root, namespace) : root;
+    if (
+      !directory.startsWith(
+        `${root}${process.platform === 'win32' ? '\\' : '/'}`,
+      ) &&
+      directory !== root
+    )
+      throw new Error('PRIVATE_STORAGE_NAMESPACE_INVALID');
+    return join(directory, key);
   }
 }

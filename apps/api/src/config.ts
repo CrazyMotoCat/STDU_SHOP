@@ -11,6 +11,8 @@ export interface ApiConfig {
   cookieProfile: 'loopback' | 'https';
   allowedOrigins: string[];
   trustedProxyAddress: string | null;
+  inquiryPublicEnabled: boolean;
+  inquiryUploadProfile: 'MVP_SAFE' | 'ENGINEERING_DOCUMENTS';
 }
 
 function requiredUrl(
@@ -112,6 +114,17 @@ export function readConfig(env: NodeJS.ProcessEnv): ApiConfig {
       throw new Error(`Invalid ${name}`);
     return Buffer.from(value, 'hex');
   };
+  const inquiryPublicEnabled = env.INQUIRY_PUBLIC_ENABLED === 'true';
+  if (inquiryPublicEnabled && appEnv !== 'development')
+    throw new Error(
+      'INQUIRY_PUBLIC_ENABLED is development-only pending legal approval',
+    );
+  const inquiryUploadProfile = env.INQUIRY_UPLOAD_PROFILE ?? 'MVP_SAFE';
+  if (
+    inquiryUploadProfile !== 'MVP_SAFE' &&
+    inquiryUploadProfile !== 'ENGINEERING_DOCUMENTS'
+  )
+    throw new Error('Invalid INQUIRY_UPLOAD_PROFILE');
   const databaseEnv = {
     ...env,
     DATABASE_URL: env.STAFF_DATABASE_URL ?? env.DATABASE_URL,
@@ -130,5 +143,7 @@ export function readConfig(env: NodeJS.ProcessEnv): ApiConfig {
     cookieProfile,
     allowedOrigins,
     trustedProxyAddress,
+    inquiryPublicEnabled,
+    inquiryUploadProfile,
   };
 }

@@ -61,6 +61,14 @@ const r1_007Tables = [
   'product_match_proposal',
   'supplier_command_idempotency',
 ];
+const r1_010Tables = [
+  'inquiry',
+  'inquiry_line',
+  'inquiry_comment',
+  'inquiry_upload_intent',
+  'inquiry_source_document',
+  'inquiry_command_idempotency',
+];
 const r1_002Permissions = [
   'staff.users.read',
   'staff.users.create',
@@ -95,6 +103,17 @@ const r1_007Permissions = [
   'suppliers.offers.read',
   'suppliers.offers.write',
   'suppliers.matches.decide',
+];
+const r1_010Permissions = [
+  'inquiries.read_assigned',
+  'inquiries.read_all',
+  'inquiries.contacts.read',
+  'inquiries.assign_manager',
+  'inquiries.assign_engineer',
+  'inquiries.transition',
+  'inquiries.comment',
+  'inquiries.documents.read',
+  'inquiries.documents.download',
 ];
 let pgStarted = false;
 let redisStarted = false;
@@ -485,30 +504,42 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
     `SELECT count(*)::integer AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
     [r1_007Tables],
   );
+  const inquiryModels = await afterFirst.query(
+    `SELECT count(*)::integer AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
+    [r1_010Tables],
+  );
   const initial = await afterFirst.query(
     `SELECT (SELECT count(*) FROM staff_user)::int AS users,
        (SELECT count(*) FROM staff_session)::int AS sessions,
        (SELECT count(*) FROM permission)::int AS permissions,
        (SELECT count(*) FROM permission WHERE code=ANY($1::text[]))::int AS r1_002_permissions,
        (SELECT count(*) FROM permission WHERE code=ANY($2::text[]))::int AS r1_004_permissions,
-       (SELECT count(*) FROM permission WHERE code=ANY($3::text[]))::int AS r1_007_permissions`,
-    [r1_002Permissions, r1_004Permissions, r1_007Permissions],
+       (SELECT count(*) FROM permission WHERE code=ANY($3::text[]))::int AS r1_007_permissions,
+       (SELECT count(*) FROM permission WHERE code=ANY($4::text[]))::int AS r1_010_permissions`,
+    [
+      r1_002Permissions,
+      r1_004Permissions,
+      r1_007Permissions,
+      r1_010Permissions,
+    ],
   );
   await afterFirst.end();
   if (
-    before.rowCount !== 4 ||
+    before.rowCount !== 5 ||
     before.rows.map((row) => row.migration_name).join('\0') !==
       [
         '20261022120000_staff_identity',
         '20261024120000_catalog_domain',
         '20261024140000_catalog_import',
         '20261025120000_supplier_domain',
+        '20261026140000_inquiry_domain',
       ].join('\0') ||
     sentinel.rows[0]?.payload !== 'must-survive-migration' ||
     models.rows[0]?.count !== 11 ||
     catalogModels.rows[0]?.count !== 9 ||
     importModels.rows[0]?.count !== 3 ||
-    supplierModels.rows[0]?.count !== 6
+    supplierModels.rows[0]?.count !== 6 ||
+    inquiryModels.rows[0]?.count !== 6
   )
     throw new Error(
       'Fresh migration did not preserve sentinel or create the frozen R1-002/R1-004 and additive R1-006/R1-007 entities.',
@@ -516,16 +547,17 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
   if (
     initial.rows[0]?.users !== 0 ||
     initial.rows[0]?.sessions !== 0 ||
-    initial.rows[0]?.permissions !== 29 ||
+    initial.rows[0]?.permissions !== 38 ||
     initial.rows[0]?.r1_002_permissions !== 12 ||
     initial.rows[0]?.r1_004_permissions !== 12 ||
-    initial.rows[0]?.r1_007_permissions !== 5
+    initial.rows[0]?.r1_007_permissions !== 5 ||
+    initial.rows[0]?.r1_010_permissions !== 9
   )
     throw new Error(
       'Fresh migration did not leave account/session data empty and preserve the frozen R1-002/R1-004 and additive R1-007 permission registries.',
     );
   console.log(
-    'PASS additive migrations: 11 R1-002 entities, 9 R1-004 catalog entities, 3 R1-006 import entities, 6 R1-007 supplier entities, frozen R1-002/R1-004 permissions plus 5 R1-007 permissions, no accounts/sessions, sentinel preserved.',
+    'PASS additive migrations: R1-002/004/006/007 entities and all 6 R1-010 inquiry entities, frozen permission registries plus additive supplier/inquiry permissions, no accounts/sessions, sentinel preserved.',
   );
 
   await verifyPopulatedRepeatMigration(ownerUrl, env);
@@ -544,6 +576,7 @@ async function snapshotBusinessTables(client) {
     'file_object',
     'file_version',
     'file_link',
+    ...r1_010Tables,
   ];
   const rows = [];
   for (const table of names) {
@@ -564,6 +597,12 @@ async function seedAllTableFixtures(client) {
   const sellerId = randomUUID();
   const fileId = randomUUID();
   const fileVersionId = randomUUID();
+  const inquiryId = randomUUID();
+  const inquiryLineId = randomUUID();
+  const inquiryIntentId = randomUUID();
+  const inquiryDocumentId = randomUUID();
+  const inquiryCommentId = randomUUID();
+  const inquiryCommentAuditId = randomUUID();
   const email = `repeat-${suffix}@stdu.test`;
   await client.query(
     `
@@ -634,6 +673,58 @@ async function seedAllTableFixtures(client) {
   `,
     [randomUUID(), fileId, fileVersionId, sellerId, userId],
   );
+  await client.query(
+    `INSERT INTO inquiry(id,public_reference,channel,kind,status,contact_snapshot,kind_details,upload_profile_code)
+     VALUES($1,$2,'PUBLIC_WEB','EQUIPMENT','NEW',$3::jsonb,$4::jsonb,'MVP_SAFE')`,
+    [
+      inquiryId,
+      `inq-${randomBytes(12).toString('hex')}`,
+      JSON.stringify({ contactName: 'Repeat fixture' }),
+      JSON.stringify({ type: 'EQUIPMENT' }),
+    ],
+  );
+  await client.query(
+    `INSERT INTO inquiry_line(id,inquiry_id,sequence,raw_title,quantity_text,unit_text)
+     VALUES($1,$2,1,'Repeat migration inquiry fixture','1','pcs')`,
+    [inquiryLineId, inquiryId],
+  );
+  await client.query(
+    `INSERT INTO inquiry_upload_intent(id,inquiry_id,state,safe_filename,declared_mime_type,declared_size_bytes,expires_at)
+     VALUES($1,$2,'CONSUMED','repeat-fixture.pdf','application/pdf',7,clock_timestamp()+interval '1 hour')`,
+    [inquiryIntentId, inquiryId],
+  );
+  await client.query(
+    `INSERT INTO inquiry_source_document(id,inquiry_id,upload_intent_id,uploader_kind,upload_channel,storage_key,sha256,size_bytes,detected_mime_type,original_filename,safety_state,uploaded_at)
+     VALUES($1,$2,$3,'ANONYMOUS','PUBLIC_WEB',$4,$5,7,'application/pdf','repeat-fixture.pdf','QUARANTINED',clock_timestamp())`,
+    [
+      inquiryDocumentId,
+      inquiryId,
+      inquiryIntentId,
+      randomBytes(32).toString('hex'),
+      randomBytes(32),
+    ],
+  );
+  await client.query(
+    `INSERT INTO audit_event(id,actor_kind,actor_user_id,action,entity_type,entity_id,outcome,reason_code,request_id,changes)
+     VALUES($1,'STAFF',$2,'inquiry.comment.created','InquiryComment',$3,'SUCCESS','COMMENT_CREATED',$4,$5::jsonb)`,
+    [
+      inquiryCommentAuditId,
+      userId,
+      inquiryCommentId,
+      randomUUID(),
+      JSON.stringify({ changedFields: ['body'] }),
+    ],
+  );
+  await client.query(
+    `INSERT INTO inquiry_comment(id,inquiry_id,author_staff_user_id,body,audit_event_id)
+     VALUES($1,$2,$3,'Repeat migration inquiry comment',$4)`,
+    [inquiryCommentId, inquiryId, userId, inquiryCommentAuditId],
+  );
+  await client.query(
+    `INSERT INTO inquiry_command_idempotency(id,actor_kind,operation_scope,idempotency_key_hash,request_hash,http_status,response_receipt,expires_at)
+     VALUES($1,'PUBLIC','public:fixture',$2,$3,201,'{"data":{"accepted":true}}'::jsonb,clock_timestamp()+interval '1 day')`,
+    [randomUUID(), randomBytes(32), randomBytes(32)],
+  );
 }
 
 async function verifyPopulatedRepeatMigration(ownerUrl, baseEnv) {
@@ -691,7 +782,7 @@ async function verifyPopulatedRepeatMigration(ownerUrl, baseEnv) {
         'Populated migration repeat did not include at least one fixture row in every frozen entity.',
       );
     console.log(
-      'PASS populated repeat deploy: all 11 entity snapshots, migration history, and sentinel unchanged.',
+      'PASS populated repeat deploy: R1-002 identity plus six R1-010 entity snapshots, migration history, and sentinel unchanged.',
     );
   } finally {
     await fixture.end().catch(() => undefined);

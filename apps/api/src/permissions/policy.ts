@@ -51,10 +51,23 @@ export const SUPPLIER_PERMISSION_CODES = [
   'suppliers.matches.decide',
 ] as const;
 
+export const INQUIRY_PERMISSION_CODES = [
+  'inquiries.read_assigned',
+  'inquiries.read_all',
+  'inquiries.contacts.read',
+  'inquiries.assign_manager',
+  'inquiries.assign_engineer',
+  'inquiries.transition',
+  'inquiries.comment',
+  'inquiries.documents.read',
+  'inquiries.documents.download',
+] as const;
+
 export const REGISTERED_PERMISSION_CODES = [
   ...PERMISSION_CODES,
   ...CATALOG_PERMISSION_CODES,
   ...SUPPLIER_PERMISSION_CODES,
+  ...INQUIRY_PERMISSION_CODES,
 ] as const;
 
 export const FULL_ADMIN_PERMISSIONS = PERMISSION_CODES;

@@ -41,6 +41,15 @@ const supplierRbacContract = JSON.parse(
 const expectedSupplierPermissions = Object.keys(
   supplierRbacContract.permissions,
 ).sort();
+const inquiryRbacContract = JSON.parse(
+  await readFile(
+    resolve(repoRoot, 'docs/contracts/R1-010-inquiry-rbac-matrix.json'),
+    'utf8',
+  ),
+);
+const expectedInquiryPermissions = Object.keys(
+  inquiryRbacContract.permissions,
+).sort();
 const require = createRequire(resolve(apiRoot, 'package.json'));
 const prismaCli = require.resolve('prisma/build/index.js');
 const tsxCli = require.resolve('tsx/cli');
@@ -492,7 +501,8 @@ async function applyMigrationState(port, database, baseSql, populated) {
     permission: after.permission.filter(
       ({ code }) =>
         !expectedCatalogPermissions.includes(code) &&
-        !expectedSupplierPermissions.includes(code),
+        !expectedSupplierPermissions.includes(code) &&
+        !expectedInquiryPermissions.includes(code),
     ),
   };
   assert.deepEqual(
@@ -516,16 +526,30 @@ async function applyMigrationState(port, database, baseSql, populated) {
     expectedSupplierPermissions,
     `${database}: the migration did not register exactly the frozen supplier permissions.`,
   );
+  assert.deepEqual(
+    after.permission
+      .filter(({ code }) => expectedInquiryPermissions.includes(code))
+      .map(({ code }) => code)
+      .sort(),
+    expectedInquiryPermissions,
+    `${database}: the migration did not register exactly the frozen inquiry permissions.`,
+  );
   const catalogGrants = await verify.query(
     `SELECT p.code FROM role_permission rp
      JOIN permission p ON p.id = rp.permission_id
      WHERE p.code = ANY($1::text[]) ORDER BY p.code`,
-    [[...expectedCatalogPermissions, ...expectedSupplierPermissions]],
+    [
+      [
+        ...expectedCatalogPermissions,
+        ...expectedSupplierPermissions,
+        ...expectedInquiryPermissions,
+      ],
+    ],
   );
   assert.deepEqual(
     catalogGrants.rows,
     [],
-    `${database}: catalog or supplier permissions were granted automatically.`,
+    `${database}: catalog, supplier, or inquiry permissions were granted automatically.`,
   );
   await exerciseCatalogAuditRegistry(verify, sentinel?.userId ?? null);
   const tables = await verify.query(
@@ -567,6 +591,7 @@ async function applyMigrationState(port, database, baseSql, populated) {
       ['20261024120000_catalog_domain', true],
       ['20261024140000_catalog_import', true],
       ['20261025120000_supplier_domain', true],
+      ['20261026140000_inquiry_domain', true],
     ],
   );
 

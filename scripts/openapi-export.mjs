@@ -8,3 +8,10 @@ await run('pnpm', [
   'tsx',
   'scripts/export-openapi.ts',
 ]);
+await run('pnpm', [
+  '--filter',
+  '@stdu/api',
+  'exec',
+  'tsx',
+  'scripts/export-inquiry-openapi.ts',
+]);
