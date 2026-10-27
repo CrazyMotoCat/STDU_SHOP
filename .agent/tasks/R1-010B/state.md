@@ -1,21 +1,24 @@
 # R1-010B task state
 
 TASK: R1-010B Public Inquiry Backend & Staff Workflow
-STATUS: IN_PROGRESS
+STATUS: COMPLETE
 DELIVERY_MODE: AUTO_MERGE
-CHECKPOINT_STATUS: SAFE
-PHASE: isolated Compose overlay fixed; exact implementation-head CI passed; syncing checkpoint before PR integration
+CHECKPOINT_STATUS: VERIFIED
+PHASE: MERGED; post-integration CI SUCCESS
 UPDATED_AT: 2026-10-27
 CONTRACT_APPROVED_SOURCE_SHA: 68fb60f87c7821044939dd5d95f8e67e6bb73685
 CONTRACT_APPROVAL: OD-010-01…05 approved; FROZEN 1.0.0 integrated
 CONTRACT_MERGE_SHA: c8b10f07522d0d72bd52834607e154abbd0c28c6
 BASE_MAIN_SHA: 27f3e99b616b44592957f50d13df412d7cf8e953
-CURRENT_BRANCH: codex/r1-010b-inquiry-impl
-CURRENT_HEAD: task branch tip; verify with `git rev-parse HEAD`
-CURRENT_WORKTREE_STATE: implementation and isolated Compose fix are committed on the task branch; only unrelated generated R1-003/R1-005V artifacts remain untracked and excluded.
-ORIGIN_MAIN: 27f3e99b616b44592957f50d13df412d7cf8e953 (freshly fetched; synchronized at checkpoint)
-PR: Draft #24 https://github.com/CrazyMotoCat/STDU_SHOP/pull/24
-EXACT_HEAD_CI: run 40494617768 SUCCESS on implementation SHA `4ddee85a2a8c998b4e20d1a4c824ec612e4baadd`. The earlier `40493633373` failure was caused by `compose.test.yaml` clearing top-level named volumes but leaving the base Redis `redis-data` mount. The fix replaces only isolated Redis `/data` with tmpfs; ordinary Compose named storage is unchanged. Targeted Compose config, format check and diff check pass. Local full smoke was not run because the shared existing project occupies required host ports; CI completed five-service and three consecutive host smokes.
+IMPLEMENTATION_HEAD: 4ddee85a2a8c998b4e20d1a4c824ec612e4baadd
+FINAL_PR_HEAD: 5761d55646f18dd86e7ccf83a5142e23b98dfbf0
+MERGE_SHA: 22fbcdb3925696406bae08207525159c04f52ecf
+MAIN_AT_MERGE: 22fbcdb3925696406bae08207525159c04f52ecf (local main fast-forwarded from 27f3e99 before checkpoint completion)
+PR: #24 MERGED https://github.com/CrazyMotoCat/STDU_SHOP/pull/24
+PR_HEAD_CI: run 40495886943 SUCCESS on `5761d55646f18dd86e7ccf83a5142e23b98dfbf0`; this head contains only a checkpoint update beyond the implementation head.
+POST_MERGE_CI: run 40497074415 SUCCESS on merge SHA `22fbcdb3925696406bae08207525159c04f52ecf`, including all runtime/UI checks, five-service smoke, three host smoke runs, and stopped-state restoration without volume deletion.
+CURRENT_WORKTREE_STATE: local main was fast-forwarded to the merge SHA; this completion checkpoint is the only task-owned follow-up. The R1-010B feature worktree is retained; unrelated generated R1-003/R1-005V artifacts remain untracked and excluded.
+EXACT_HEAD_CI: Full checks passed on implementation SHA `4ddee85a2a8c998b4e20d1a4c824ec612e4baadd` and final PR HEAD above. The earlier `40493633373` failure was caused by `compose.test.yaml` clearing top-level named volumes but leaving the base Redis `redis-data` mount. The fix replaces only isolated Redis `/data` with tmpfs; ordinary Compose named storage is unchanged. Targeted Compose config, format check and diff check pass. Local full smoke was not run because the shared project occupied required host ports; CI completed the equivalent five-service and three consecutive host smokes.
 
 ## Completed implementation scope
 
@@ -45,7 +48,7 @@ EXACT_HEAD_CI: run 40494617768 SUCCESS on implementation SHA `4ddee85a2a8c998b4e
 - PASS `pnpm test:r1-002b`: 26 passed, 1 loopback browser smoke skipped because ports 3000/3001 are already occupied; existing processes were left untouched; post-runtime sentinel unchanged.
 - BLOCKED-LOCAL-CONFIG `docker compose -f infra/compose/compose.yaml config --quiet`: main Compose requires local `.env` values. No `.env` was generated and no secrets were invented. Disposable R1-010B Compose was started successfully by its runtime harness.
 - Required local checks rerun after final code/test updates: lint, format check, typecheck, build, unit/pytest, contract check/test, Inquiry OpenAPI validation and generated TypeScript reproducibility, database validation, `git diff --check`, and the 34-case disposable Inquiry runtime suite.
-- Push the test-harness cleanup fix and verify a new GitHub Actions run on its exact SHA before merge.
+- R1-010B is delivered and merged. Public collection remains disabled outside development pending legal approval; no production migration, real permission grant, deployment, or launch was performed.
 
 ## Independent reviews
 
