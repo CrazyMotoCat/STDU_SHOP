@@ -1,6 +1,6 @@
 {
   "status": "FROZEN",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "extends": "FROZEN R1-002 AuditEvent",
   "entityTypes": [
     "Inquiry",
@@ -22,6 +22,7 @@
       "Each action may use only its declared changesKeys subset of the allowed keys above.",
       "No PII, free text, comment text, contact data, filenames, content, hashes, storage keys, capabilities, IP, byte counts or exception messages are stored in changes.",
       "changedFields contains only allowlisted field names, never field values.",
+      "A pre-quote close may list uploadCapabilityHash and uploadCapabilityExpiresAt in changedFields when revoking an active capability; their values are never audited.",
       "SUCCESS reasonCode may be null only where null appears in that action/outcome list; DENIED and FAILURE reasonCode are always non-null.",
       "Denied public requests rejected before a bound Inquiry or upload intent is resolved do not create unbounded AuditEvent rows; bounded counters/metrics contain no raw source address."
     ]
@@ -201,7 +202,13 @@
       "actorKinds": ["STAFF"],
       "entityType": "Inquiry",
       "changesKeys": ["previousState", "state", "version", "changedFields"],
-      "redactions": ["contactSnapshot", "comment body", "source content"]
+      "redactions": [
+        "contactSnapshot",
+        "comment body",
+        "source content",
+        "capability hash value",
+        "capability expiry value"
+      ]
     },
     {
       "action": "inquiry.stage_deadline.changed",

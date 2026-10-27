@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const approvedSourceHead = '68fb60f87c7821044939dd5d95f8e67e6bb73685';
-const frozenContractVersion = '1.0.1';
+const frozenContractVersion = '1.0.2';
 const frozenArtifactPaths = [
   'docs/contracts/R1-010-attachment-security-policy.md',
   'docs/contracts/R1-010-inquiries.openapi.json',
@@ -214,12 +214,14 @@ export function validateR1_010(c) {
       `# R1-010 Owner Decisions — FROZEN ${frozenContractVersion}`,
     ) ||
     !c.decisions.includes('**Owner decision: APPROVED.**') ||
-    !c.decisions.includes('R1-010 Contract Amendment 01 — FROZEN 1.0.1') ||
+    !c.decisions.includes(
+      `R1-010 Contract Amendment 01 — FROZEN ${frozenContractVersion}`,
+    ) ||
     !c.implementationPlan.includes(`FROZEN R1-010 ${frozenContractVersion}`) ||
     !c.reviewReport.includes('Contract Amendment 01')
   ) {
     fail(
-      'FROZEN 1.0.1 status must be synchronized across contract and decision docs',
+      `FROZEN ${frozenContractVersion} status must be synchronized across contract and decision docs`,
     );
   }
   if (
@@ -404,6 +406,44 @@ export function validateR1_010(c) {
     !c.model.tables.Inquiry.immutability.includes('one-way revocation')
   ) {
     fail('capability hash lookup must be unique and revocable only one-way');
+  }
+  const closeAudit = c.audit.actions.find(
+    (entry) => entry.action === 'inquiry.closed_without_quote',
+  );
+  const intentReceiptDescription =
+    c.openapi.components.schemas.UploadIntentReceipt.properties.data.properties
+      .maxBytes.description;
+  if (
+    !c.attachment.includes('only R1-010B revocation path') ||
+    !c.attachment.includes(
+      'rechecks that the same capability hash remains stored',
+    ) ||
+    !c.lifecycle.includes('clears its stored hash and expiry') ||
+    !c.lifecycle.includes(
+      'fail without consuming the intent or creating a source document',
+    ) ||
+    !c.model.tables.InquiryUploadIntent.completionInvariant.includes(
+      'uploadCapabilityHash remains present',
+    ) ||
+    !intentReceiptDescription.includes('remaining Inquiry byte quota') ||
+    !intentReceiptDescription.includes('remaining source/UTC-day byte quota') ||
+    !intentReceiptDescription.includes('immutable declared size') ||
+    !closeAudit?.redactions.includes('capability hash value') ||
+    !closeAudit.redactions.includes('capability expiry value')
+  ) {
+    fail(
+      'Amendment 01 revocation and per-intent quota ceiling rules must be explicit',
+    );
+  }
+  const uploadBoundaryScenario = c.matrix.match(/\| REQB-23 \|([^\n]*)/);
+  if (
+    !uploadBoundaryScenario?.[1].includes('10 MiB/file') ||
+    !uploadBoundaryScenario[1].includes('50 MiB/file') ||
+    !uploadBoundaryScenario[1].includes('one byte over')
+  ) {
+    fail(
+      'REQB-23 must cover both owner-approved profile ceilings and over-limit rejection',
+    );
   }
   if (
     c.openapi.paths['/v1/public/inquiries']?.post?.['x-max-request-bytes'] !==
@@ -787,15 +827,15 @@ export function validateR1_010(c) {
     (match) => match[1],
   );
   const expectedMatrixIds = Array.from(
-    { length: 41 },
+    { length: 45 },
     (_, i) => `REQB-${String(i + 1).padStart(2, '0')}`,
   );
   if (matrixIds.join('|') !== expectedMatrixIds.join('|')) {
     fail(
-      'acceptance matrix must contain exactly REQB-01 through REQB-41 once and in order',
+      'acceptance matrix must contain exactly REQB-01 through REQB-45 once and in order',
     );
   }
-  for (let i = 1; i <= 41; i += 1) {
+  for (let i = 1; i <= 45; i += 1) {
     const id = `REQB-${String(i).padStart(2, '0')}`;
     if (!c.matrix.includes(id)) fail(`acceptance scenario ${id} is missing`);
   }
@@ -816,6 +856,6 @@ if (
 ) {
   const result = validateR1_010(await loadR1_010());
   console.log(
-    `FROZEN R1-010 ${frozenContractVersion} contract PASS: ${result.tableCount} new tables; ${result.operationCount} API operations (${result.publicOperationCount} public, ${result.staffOperationCount} staff); ${result.permissionCount} additive permissions; REQB-01..41, Amendment 01 and approved-source/frozen-artifact checksums verified.`,
+    `FROZEN R1-010 ${frozenContractVersion} contract PASS: ${result.tableCount} new tables; ${result.operationCount} API operations (${result.publicOperationCount} public, ${result.staffOperationCount} staff); ${result.permissionCount} additive permissions; REQB-01..45, Amendment 01 and approved-source/frozen-artifact checksums verified.`,
   );
 }

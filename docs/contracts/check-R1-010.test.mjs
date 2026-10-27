@@ -40,11 +40,15 @@ test('FROZEN contract approval pins the exact owner-approved source and OD packa
 });
 
 test('Contract Amendment 01 uses capability-only paths and profile-bound byte receipts', () => {
-  assert.equal(baseline.frozenManifest.version, '1.0.1');
+  assert.equal(baseline.frozenManifest.version, '1.0.2');
   assert.equal(baseline.frozenManifest.baseVersion, '1.0.0');
   assert.equal(
     baseline.frozenManifest.amendments[0].id,
     'R1-010 Contract Amendment 01',
+  );
+  assert.match(
+    baseline.matrix,
+    /REQB-23[^\n]*10 MiB\/file[^\n]*50 MiB\/file[^\n]*one byte over/,
   );
   assert.deepEqual(
     Object.keys(baseline.openapi.paths)
@@ -186,10 +190,42 @@ test('owner-supplied and added security acceptance cases are traced', () => {
   assert.deepEqual(
     ids,
     Array.from(
-      { length: 41 },
+      { length: 45 },
       (_, i) => `REQB-${String(i + 1).padStart(2, '0')}`,
     ),
   );
+});
+
+test('Amendment 01 binds close revocation to audit and receiving finalization', () => {
+  const closeAudit = baseline.audit.actions.find(
+    (entry) => entry.action === 'inquiry.closed_without_quote',
+  );
+  assert.ok(closeAudit.redactions.includes('capability hash value'));
+  assert.ok(closeAudit.redactions.includes('capability expiry value'));
+  assert.match(baseline.attachment, /only R1-010B revocation path/);
+  assert.match(baseline.lifecycle, /clears its stored hash and expiry/);
+  assert.match(
+    baseline.model.tables.InquiryUploadIntent.completionInvariant,
+    /uploadCapabilityHash remains present/,
+  );
+  assert.match(
+    baseline.openapi.components.schemas.UploadIntentReceipt.properties.data
+      .properties.maxBytes.description,
+    /immutable declared size.*remaining Inquiry byte quota.*remaining source\/UTC-day byte quota/,
+  );
+});
+
+test('Amendment 01 rejects removal of the locked close and revocation semantics', () => {
+  rejects((contract) => {
+    contract.lifecycle = contract.lifecycle.replace(
+      'clears its stored hash and expiry',
+      'keeps upload capability active',
+    );
+  });
+  rejects((contract) => {
+    contract.openapi.components.schemas.UploadIntentReceipt.properties.data.properties.maxBytes.description =
+      'The maximum depends only on the profile.';
+  });
 });
 
 test('staff mutation replay is blocked when current Inquiry scope is lost', () => {

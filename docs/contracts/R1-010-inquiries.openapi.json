@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "STDU_SHOP Public Inquiry and Staff Workflow API",
-    "version": "1.0.1",
-    "description": "FROZEN R1-010 Contract Amendment 01. Inquiry submission has no public read/status endpoint; attachment upload routes resolve the Inquiry only from the header capability."
+    "version": "1.0.2",
+    "description": "FROZEN R1-010 Contract Amendment 01, refined by the owner-approved one-way revocation rule. Inquiry submission has no public read/status endpoint; attachment upload routes resolve the Inquiry only from the header capability."
   },
   "servers": [
     {
@@ -438,7 +438,7 @@
         "tags": ["Staff inquiries"],
         "operationId": "transitionStaffInquiry",
         "summary": "Perform one allowed staff transition",
-        "description": "The ordinary staff transition branch excludes QUOTE_SENT and CLOSED. A separate strict union branch permits pre-quote closure to CLOSED only from the five eligible states and with one of the five enumerated reasonCode values; it uses this same permission, If-Match, durable idempotency and transactional audit boundary. QUOTE_SENT remains exclusively owned by approved quote delivery; a QUOTE_SENT inquiry may close only through its later quote lifecycle.",
+        "description": "The ordinary staff transition branch excludes QUOTE_SENT and CLOSED. A separate strict union branch permits pre-quote closure to CLOSED only from the five eligible states and with one of the five enumerated reasonCode values; it uses this same permission, If-Match, durable idempotency and transactional audit boundary. If an upload capability remains active, this trusted staff operation revokes it in the same locked transaction by clearing its stored hash and expiry together; only the changed field names are recorded in the close AuditEvent. A RECEIVING upload rechecks that the hash remains present before finalization, so a concurrent revocation cannot consume its intent or create a document. QUOTE_SENT remains exclusively owned by approved quote delivery; a QUOTE_SENT inquiry may close only through its later quote lifecycle.",
         "security": [
           {
             "StaffSessionCookie": []
@@ -1456,7 +1456,7 @@
               "maxBytes": {
                 "type": "integer",
                 "maximum": 52428800,
-                "description": "Exactly the selected server-side upload profile per-file limit (10 MiB or 50 MiB); callers cannot select or raise the profile."
+                "description": "Maximum accepted stream size for this intent at reservation: the minimum of its immutable declared size, the immutable server-selected profile per-file limit, remaining Inquiry byte quota and remaining source/UTC-day byte quota. The client cannot select or raise the profile; the server enforces this ceiling while streaming and requires the received size to equal the declared size."
               }
             }
           },
@@ -1972,7 +1972,7 @@
     }
   },
   "x-contract-status": "FROZEN",
-  "x-contract-version": "1.0.1",
+  "x-contract-version": "1.0.2",
   "x-upload-profile-contract": {
     "file": "R1-010-inquiry-upload-profiles.json",
     "defaultProfile": "MVP_SAFE",
