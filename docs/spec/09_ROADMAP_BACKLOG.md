@@ -49,6 +49,8 @@ M1 — совокупный этап задач R1-001, R1-002 и R1-003. R1-001
 
 P0 означает, что задача необходима для законченного R1; P1 допускает отдельные вертикальные итерации, но бизнес-процесс R1 не следует выпускать без необходимых уведомлений/сайта, согласованных в №19–20 и №29–35. При конфликте приоритета решение принимает оркестратор.
 
+**R1-010D-01 — proposed contract-first subtask:** architecture and security contract for malware scanning of private Inquiry quarantine. The proposal requires Owner Approval before schema, worker, scanner Compose or migration implementation. This subtask does not enable production scanning or change the frozen R1-010 upload/API/RBAC contract.
+
 ## Уточнения после технического ревью R1-001
 
 - **R1-002:** генерация OpenAPI из реализованного NestJS API и контрактная проверка в CI относительно зафиксированного контракта, включая DTO, HTTP-коды и auth/security requirements; генерация TS-клиента из того же OpenAPI. Не подменять проверку контракта статическим health JSON.
