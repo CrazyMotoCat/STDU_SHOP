@@ -1,41 +1,58 @@
-# R1 task state
+# R1-010B task state
 
 TASK: R1-010B Public Inquiry Backend & Staff Workflow
 STATUS: IN_PROGRESS
 DELIVERY_MODE: AUTO_MERGE
 CHECKPOINT_STATUS: SAFE
-PHASE: Owner-approved contract freeze finalization before integration
-UPDATED_AT: 2026-10-26
+PHASE: implementation and local quality gates complete; awaiting exact-head hosted CI
+UPDATED_AT: 2026-10-27
 CONTRACT_APPROVED_SOURCE_SHA: 68fb60f87c7821044939dd5d95f8e67e6bb73685
-CONTRACT_APPROVAL: OD-010-01…05 approved; FROZEN 1.0.0 metadata-only finalization underway
-CONTRACT_CI: GitHub Actions run 40323186736 SUCCESS on approved source SHA
-CURRENT_BRANCH: codex/r1-010b-01-inquiry-contract
-CURRENT_WORKTREE_STATE: FROZEN metadata/doc/checker/checkpoint changes only
+CONTRACT_APPROVAL: OD-010-01…05 approved; FROZEN 1.0.0 integrated
+CONTRACT_MERGE_SHA: c8b10f07522d0d72bd52834607e154abbd0c28c6
+BASE_MAIN_SHA: 27f3e99b616b44592957f50d13df412d7cf8e953
+CURRENT_BRANCH: codex/r1-010b-inquiry-impl
+CURRENT_HEAD: task branch tip; verify with `git rev-parse HEAD`
+CURRENT_WORKTREE_STATE: R1-010B implementation is committed locally; unrelated R1-003/R1-005V verification artifacts remain untracked and excluded.
+ORIGIN_MAIN: 27f3e99b616b44592957f50d13df412d7cf8e953 (freshly fetched; synchronized at checkpoint)
+PR: create Draft PR after publishing the task branch; attach it to this task
+EXACT_HEAD_CI: pending push; required on current PR HEAD before merge
 
-## COMPLETED
-- Owner approved R1-010 Public Inquiry Domain Contract 0.1.0-proposed on exact source SHA `68fb60f87c7821044939dd5d95f8e67e6bb73685`, including OD-010-01…05.
-- PR #20 is open, Draft, and unmerged; its approved HEAD matched the owner-approved SHA before finalization.
-- Exact-source GitHub Actions run #99 (`40323186736`) completed SUCCESS, including contract checks, typecheck/test/build, disposable runtime suites and three host lifecycle smoke runs.
-- R1-010B execution plan and scope are approved; production migration, deployment, PII collection, scanner provisioning and live permission grants remain unauthorized.
-- PR #18 remains preview-only and is not part of the R1-010B implementation branch.
+## Completed implementation scope
 
-## CONTRACT BOUNDARIES
-- Six approved Inquiry tables, 15 API operations, nine additive default-deny permissions and REQB-01…41.
-- FROZEN R1-002/R1-004/R1-006/R1-007 and decisions #1–108 remain unchanged.
-- Anonymous public Inquiry creation only; no public Inquiry read/status route or outbound notifications.
-- Uploads use approved PDF/CSV/XLSX profiles, private quarantine and the existing StoragePort. Without an operational scanner, no CLEAN state or file download.
-- No extraction/OCR, automatic matching, quotation calculation, quote creation or orders.
+- Added six Inquiry domain entities with additive migration and restrictive relations, lifecycle constraints, runtime-role grants, revocable one-way upload capability and audit/idempotency persistence.
+- Implemented anonymous inquiry creation, capability-only upload intents, streamed CSV/PDF/XLSX intake, private quarantine and CLEAN-only download boundary, source/file limits, durable idempotency, rate limiting and sanitized errors.
+- Implemented staff list/detail/history, assignment, typed pre-quote closure, stage deadlines, comments, OCC, audit and field-level redaction under R1-002 permissions.
+- Added staff inquiry list/detail screens; public inquiry form remains disabled pending legal approval.
+- Added generated Inquiry OpenAPI export/checker, frontend route metadata and disposable PostgreSQL/Redis runtime harness.
+- Redis source/day quota state is configured for AOF persistence in the main Compose profile; source quota uses a source-wide DB advisory lock and reads the UTC date from PostgreSQL only after lock acquisition.
+- PDF structural scanning is limited to PDF candidates with bounded retained data; failed exact-object cleanup emits a sanitized diagnostic and leaves any orphan private for the ownership-checked sweeper.
+- OpenAPI 3.1 export converts runtime nullable schemas to JSON Schema null unions and the checker verifies required nullability.
+- Frozen R1-002/R1-004/R1-006/R1-007/R1-010 contracts and business decisions #1–108 were not edited.
 
-## PENDING CONTRACT INTEGRATION
-- Record owner approval provenance and approved-source/frozen-artifact SHA-256 checksums.
-- Verify metadata-only diff, checker, contract tests, OpenAPI validation/generation, formatting and diff hygiene.
-- Push freeze finalization to PR #20, verify exact-HEAD CI, mark Ready for Review and merge under Git Delivery Policy.
-- Confirm merged SHA and post-integration checks; then create the R1-010B implementation branch/worktree from fresh main.
+## Fresh local verification (2026-10-27)
 
-## R1-010B ACCEPTANCE PLAN
-- Implement vertical slices A–D from `docs/plans/R1-010B-implementation-plan.md` in a dedicated worktree from integrated main.
-- Use disposable PostgreSQL/runtime fixtures; do not delete volumes or touch other project containers.
-- Do not edit PR #18 or the parallel R1-019A worktree.
-- Obtain independent backend, database and security review; trace every REQB-01…41 criterion.
-- Open Draft PR `R1-010B — Public Inquiry Backend & Staff Workflow`; run final quality gate and exact-head GitHub CI.
-- Keep public form submission disabled and preserve production launch gates.
+- PASS `pnpm toolchain:check` (Node 24.19.0, pnpm 11.25.0, Python 3.14.3, uv 0.13.3).
+- PASS `pnpm db:validate`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm build`, `git diff --check`.
+- PASS `pnpm contract:check`; PASS `pnpm contract:test` (10/10); PASS `pnpm inquiry:contract:check` (OpenAPI validation and 15 operations).
+- PASS `pnpm test`: 68 Vitest passed, 88 skipped; ingestion pytest 15/15 passed.
+- PASS `pnpm test:r1-010b`: 34/34 on owned disposable PostgreSQL/Redis. Includes exact upload-intent replay without internal quota metadata leakage; cross-source retry after transaction rollback charges only the committed reservation; UTC rollover lock ordering; AOF-backed Redis restart persistence; upload structure/memory-spam fixture; expired/backdated receiving SQL guard; capability revocation; storage cleanup diagnostic; staff scope/assignment races; and quarantine/download checks.
+- PASS `pnpm test:r1-006b` (disposable migration/runtime harness; database sentinel preserved).
+- PASS `pnpm test:r1-007b`: 11/11; disposable database sentinel preserved.
+- PASS `pnpm test:r1-002b`: 26 passed, 1 loopback browser smoke skipped because ports 3000/3001 are already occupied; existing processes were left untouched; post-runtime sentinel unchanged.
+- BLOCKED-LOCAL-CONFIG `docker compose -f infra/compose/compose.yaml config --quiet`: main Compose requires local `.env` values. No `.env` was generated and no secrets were invented. Disposable R1-010B Compose was started successfully by its runtime harness.
+- Required local checks rerun after final code/test updates: lint, format check, typecheck, build, unit/pytest, contract check/test, Inquiry OpenAPI validation and generated TypeScript reproducibility, database validation, `git diff --check`, and the 34-case disposable Inquiry runtime suite.
+- CI has not yet run for the final implementation SHA; run after commit/push and confirm checks on that exact SHA.
+
+## Independent reviews
+
+- Backend review: PASS on scope/privacy, UTC ordering, OpenAPI nullability and final quota-receipt persistence/replay. Exact upload-intent replay is covered and the internal quota wrapper is not returned publicly. Nonblocking checker caveats: frozen response/parameter metadata is overlaid in the generated export, and nullability assertions cover selected fields.
+- Database review: PASS on exact quota-ticket identity binding in rollback settlement and stale reconciliation. The runtime regression holds failed-request settlement until a same-key retry from a second source commits, then verifies only the committed source/day ticket remains charged. Earlier expired/backdated RECEIVING trigger guard remains covered by PostgreSQL runtime tests.
+- Security review: PASS on the frozen 1 MiB per-stream application-buffer budget. Both Transform queues are 128 KiB; conservative accounting totals 824 KiB, with 200 KiB headroom. Structural PDF/XLSX checks are not full format parsers; files remain QUARANTINED without a configured scanner.
+
+## Contract and delivery boundaries
+
+- Six approved Inquiry tables, 15 Inquiry API operations, nine additive default-deny permissions and REQB-01…41.
+- Public request creation remains disabled outside development until legal approval. No production PII collection, production migration, deployment, permission grant, scanner provisioning or public launch was performed.
+- No order, warehouse, production workflow, quote calculation, quote creation, outbound notification, OCR or automatic catalogue matching was added.
+- Use only the explicit task-owned file list when staging. Never stage `artifacts/verification/R1-003/*` or `artifacts/verification/R1-005V-01/*`; those are unrelated user artifacts.
+- Local checks and independent reviews are complete. Publish the task branch, create/attach the Draft PR, verify checks on exact PR HEAD, and follow AUTO_MERGE only after all policy gates pass. No production migration/deployment.

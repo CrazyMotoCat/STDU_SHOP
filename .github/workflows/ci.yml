@@ -64,6 +64,7 @@ jobs:
           node docs/contracts/check-R1-010.mjs
           node --test docs/contracts/check-R1-010.test.mjs
           node scripts/validate-openapi.mjs docs/contracts/R1-010-inquiries.openapi.json
+          pnpm inquiry:contract:check
           generated=$(mktemp --suffix=.d.ts)
           trap 'rm -f "$generated"' EXIT
           pnpm exec openapi-typescript docs/contracts/R1-010-inquiries.openapi.json --output "$generated"
@@ -83,6 +84,8 @@ jobs:
         run: pnpm test:r1-006b
       - name: R1-007B disposable PostgreSQL, Redis and supplier HTTP acceptance
         run: pnpm test:r1-007b
+      - name: R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance
+        run: pnpm test:r1-010b
       - name: R1-003 public UI acceptance
         run: pnpm ui:smoke
       - name: R1-005 public catalog browser acceptance

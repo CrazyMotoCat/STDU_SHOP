@@ -26,8 +26,10 @@ services:
       [
         sh,
         -c,
-        'exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly no --save ""',
+        'exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes --appendfsync always --save ""',
       ]
+    volumes:
+      - redis-data:/data
     networks: [backend]
     mem_limit: 128m
     cpus: 0.5
@@ -140,4 +142,5 @@ networks:
 
 volumes:
   postgres-data:
+  redis-data:
   private-files:

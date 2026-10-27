@@ -494,4 +494,119 @@ export const STAFF_OPERATION_CONTRACT_NOTES = {
       'FORBIDDEN',
     ],
   },
+  listStaffInquiries: {
+    invariants: [
+      'Read scope is the live union of inquiries.read_all and inquiries.read_assigned; default list shows the actor-assigned queue. No contact snapshot is serialized.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  getStaffInquiry: {
+    invariants: [
+      'Current read scope is revalidated before lookup; contact values are omitted without inquiries.contacts.read. Original submission and equipment lines are immutable.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  listInquiryEvents: {
+    invariants: [
+      'Only inquiry action, outcome, timestamp, actor ID and status endpoints are exposed; no AuditEvent changes or PII.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  assignInquiryManager: {
+    invariants: [
+      'ACTIVE target and actor read scope are required; If-Match, durable idempotency, assignment and audit commit atomically. Assignment cannot be cleared.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  assignInquiryEngineer: {
+    invariants: [
+      'ACTIVE target and actor read scope are required; If-Match, durable idempotency, assignment and audit commit atomically. Assignment cannot be cleared.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  setInquiryStageDeadline: {
+    invariants: [
+      'Only an explicit staff stageDueAt is accepted; no customer deadline parsing or SLA automation. OCC, audit and idempotency are atomic.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  transitionStaffInquiry: {
+    invariants: [
+      'Only approved workflow edges or typed pre-quote CLOSED reasons are accepted. QUOTE_SENT cannot be set here. Successful transition clears stageDueAt and atomically commits OCC, audit and idempotency.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  listStaffInquiryComments: {
+    invariants: [
+      'Only append-only INTERNAL comments are returned inside the actor read scope; comments require inquiries.comment and are never customer-visible.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  createStaffInquiryComment: {
+    invariants: [
+      'Comment is append-only; comment and audit commit together. Idempotency receipt contains only inquiry/comment IDs and version, never comment body.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'ORIGIN_FORBIDDEN/CSRF_INVALID',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  listStaffInquiryDocuments: {
+    invariants: [
+      'Metadata is scoped and separately permissioned. Storage keys and capability values are never serialized; files without an operational scanner remain QUARANTINED.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  downloadStaffInquiryDocument: {
+    invariants: [
+      'Requires read scope plus inquiries.documents.read and inquiries.documents.download; only CLEAN bytes stream through NestJS with no-store/nosniff and attachment disposition. No scanner means no downloadable document.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
 } as const;

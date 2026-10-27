@@ -19,7 +19,14 @@ export class HttpBoundaryFilter implements ExceptionFilter {
     const catalogRequest =
       request.path.startsWith('/v1/staff/catalog') ||
       request.path.startsWith('/v1/public/catalog');
-    if (!request.path.startsWith('/v1/staff') && !catalogRequest) {
+    const publicInquiryRequest =
+      request.path.startsWith('/v1/public/inquiries') ||
+      request.path.startsWith('/v1/public/inquiry-attachments');
+    if (
+      !request.path.startsWith('/v1/staff') &&
+      !catalogRequest &&
+      !publicInquiryRequest
+    ) {
       const legacy = exception instanceof HttpException ? exception : null;
       response.status(legacy?.getStatus() ?? 500).json(
         legacy?.getResponse() ?? {
@@ -34,12 +41,34 @@ export class HttpBoundaryFilter implements ExceptionFilter {
       exception && typeof exception === 'object' && 'code' in exception
         ? (exception as { code?: unknown }).code
         : null;
+    const parserType =
+      exception && typeof exception === 'object' && 'type' in exception
+        ? (exception as { type?: unknown }).type
+        : null;
+    const parserStatus =
+      exception && typeof exception === 'object' && 'status' in exception
+        ? (exception as { status?: unknown }).status
+        : null;
     const error =
       exception instanceof StaffError
         ? exception
-        : multerCode === 'LIMIT_FILE_SIZE'
-          ? new StaffError('FILE_TOO_LARGE')
-          : null;
+        : publicInquiryRequest && exception instanceof HttpException
+          ? new StaffError(
+              exception.getStatus() === 404
+                ? 'NOT_FOUND'
+                : exception.getStatus() === 413
+                  ? 'FILE_TOO_LARGE'
+                  : exception.getStatus() === 415
+                    ? 'UNSUPPORTED_MEDIA_TYPE'
+                    : 'VALIDATION_ERROR',
+            )
+          : multerCode === 'LIMIT_FILE_SIZE' ||
+              parserType === 'entity.too.large' ||
+              parserStatus === 413
+            ? new StaffError('FILE_TOO_LARGE')
+            : parserType === 'entity.parse.failed' || parserStatus === 400
+              ? new StaffError('VALIDATION_ERROR')
+              : null;
     const code = error?.code ?? 'INTERNAL_ERROR';
     const status = error?.getStatus() ?? 500;
     if (error?.retryAfter)

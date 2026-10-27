@@ -16,6 +16,21 @@ const supplierPermissionCodes = [
   'suppliers.offers.write',
   'suppliers.matches.decide',
 ];
+const inquiryPermissionCodes = [
+  'inquiries.read_assigned',
+  'inquiries.read_all',
+  'inquiries.contacts.read',
+  'inquiries.assign_manager',
+  'inquiries.assign_engineer',
+  'inquiries.transition',
+  'inquiries.comment',
+  'inquiries.documents.read',
+  'inquiries.documents.download',
+];
+const additivePermissionCodes = [
+  ...supplierPermissionCodes,
+  ...inquiryPermissionCodes,
+];
 
 function visitPermissionEnums(value, visit) {
   if (!value || typeof value !== 'object') return;
@@ -31,7 +46,7 @@ function visitPermissionEnums(value, visit) {
 test('T-20: generated Nest OpenAPI equals the frozen contract', () => {
   assert.deepEqual(
     compareOpenApi(contract, generated, {
-      allowedPermissionCodeAdditions: supplierPermissionCodes,
+      allowedPermissionCodeAdditions: additivePermissionCodes,
     }),
     {
       equal: true,
@@ -61,7 +76,7 @@ test('checker rejects an added permission', () => {
 test('checker permits only the approved supplier permission additions', () => {
   assert.equal(
     compareOpenApi(contract, generated, {
-      allowedPermissionCodeAdditions: supplierPermissionCodes,
+      allowedPermissionCodeAdditions: additivePermissionCodes,
     }).equal,
     true,
   );
@@ -74,7 +89,7 @@ test('checker rejects any permission outside the approved supplier addition', ()
   });
   assert.equal(
     compareOpenApi(contract, changed, {
-      allowedPermissionCodeAdditions: supplierPermissionCodes,
+      allowedPermissionCodeAdditions: additivePermissionCodes,
     }).equal,
     false,
   );
@@ -88,7 +103,7 @@ test('checker rejects a runtime Permission enum that omits an approved supplier 
   });
   assert.equal(
     compareOpenApi(contract, changed, {
-      allowedPermissionCodeAdditions: supplierPermissionCodes,
+      allowedPermissionCodeAdditions: additivePermissionCodes,
     }).equal,
     false,
   );

@@ -25,6 +25,7 @@
     "test:r1-002b": "node apps/api/scripts/run-r1-002b-runtime.mjs",
     "test:r1-006b": "node apps/api/scripts/run-r1-006b-runtime.mjs",
     "test:r1-007b": "node apps/api/scripts/run-r1-007b-runtime.mjs",
+    "test:r1-010b": "node apps/api/scripts/run-r1-010b-runtime.mjs",
     "build": "node scripts/tasks.mjs build",
     "smoke": "node scripts/smoke.mjs compose",
     "smoke:host": "node scripts/smoke.mjs host",
@@ -46,6 +47,8 @@
     "catalog:route:check": "node scripts/catalog-route-check.mjs",
     "catalog:runtime:check": "pnpm --filter @stdu/api exec node scripts/run-r1-004b-migration-check.mjs",
     "client:generate": "node scripts/contracts.mjs generate-client",
+    "inquiry:openapi:export": "node scripts/inquiry-openapi-export.mjs",
+    "inquiry:contract:check": "pnpm inquiry:openapi:export && node scripts/validate-openapi.mjs docs/contracts/R1-010-inquiries.openapi.json .local/contracts/generated-inquiry.openapi.json && node scripts/inquiry-openapi-contract.mjs docs/contracts/R1-010-inquiries.openapi.json .local/contracts/generated-inquiry.openapi.json",
     "catalog:client:generate": "pnpm exec openapi-typescript docs/contracts/R1-004-catalog.openapi.json --output packages/catalog-client/src/schema.d.ts",
     "catalog:client:check": "pnpm exec openapi-typescript docs/contracts/R1-004-catalog.openapi.json --output packages/catalog-client/src/schema.d.ts --check",
     "catalog:check": "pnpm catalog:contract:check && pnpm catalog:route:check && pnpm catalog:client:check"

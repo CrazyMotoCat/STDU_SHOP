@@ -74,6 +74,17 @@ const supplierPermissions = [
   'suppliers.offers.write',
   'suppliers.matches.decide',
 ];
+const inquiryPermissions = [
+  'inquiries.read_assigned',
+  'inquiries.read_all',
+  'inquiries.contacts.read',
+  'inquiries.assign_manager',
+  'inquiries.assign_engineer',
+  'inquiries.transition',
+  'inquiries.comment',
+  'inquiries.documents.read',
+  'inquiries.documents.download',
+];
 const controlPermissions = allPermissions.slice(0, 8);
 const apiRoot = fileURLToPath(new URL('../', import.meta.url));
 const ttyShimUrl = pathToFileURL(
@@ -613,8 +624,14 @@ describe.skipIf(
         (SELECT count(*) FROM permission)::int AS permissions,
         (SELECT count(*) FROM permission WHERE code=ANY($1::text[]))::int AS r1_002_permissions,
         (SELECT count(*) FROM permission WHERE code=ANY($2::text[]))::int AS r1_004_permissions,
-        (SELECT count(*) FROM permission WHERE code=ANY($3::text[]))::int AS r1_007_permissions`,
-      [allPermissions, catalogPermissions, supplierPermissions],
+        (SELECT count(*) FROM permission WHERE code=ANY($3::text[]))::int AS r1_007_permissions,
+        (SELECT count(*) FROM permission WHERE code=ANY($4::text[]))::int AS r1_010_permissions`,
+      [
+        allPermissions,
+        catalogPermissions,
+        supplierPermissions,
+        inquiryPermissions,
+      ],
     );
     const catalogModels = await ownerPg.query(
       `SELECT count(*)::int AS count FROM pg_tables WHERE schemaname='public' AND tablename=ANY($1::text[])`,
@@ -654,10 +671,11 @@ describe.skipIf(
     expect(counts.rows[0]).toEqual({
       users: 0,
       sessions: 0,
-      permissions: 29,
+      permissions: 38,
       r1_002_permissions: 12,
       r1_004_permissions: 12,
       r1_007_permissions: 5,
+      r1_010_permissions: 9,
     });
     expect(sentinel.rows[0]?.payload).toBe('must-survive-migration');
   });
