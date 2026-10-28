@@ -49,6 +49,8 @@
     "client:generate": "node scripts/contracts.mjs generate-client",
     "inquiry:openapi:export": "node scripts/inquiry-openapi-export.mjs",
     "inquiry:contract:check": "pnpm inquiry:openapi:export && node scripts/validate-openapi.mjs docs/contracts/R1-010-inquiries.openapi.json .local/contracts/generated-inquiry.openapi.json && node scripts/inquiry-openapi-contract.mjs docs/contracts/R1-010-inquiries.openapi.json .local/contracts/generated-inquiry.openapi.json",
+    "r1-010d:contract:check": "node docs/contracts/check-R1-010D.mjs",
+    "r1-010d:contract:test": "node --test docs/contracts/check-R1-010D.test.mjs",
     "catalog:client:generate": "pnpm exec openapi-typescript docs/contracts/R1-004-catalog.openapi.json --output packages/catalog-client/src/schema.d.ts",
     "catalog:client:check": "pnpm exec openapi-typescript docs/contracts/R1-004-catalog.openapi.json --output packages/catalog-client/src/schema.d.ts --check",
     "catalog:check": "pnpm catalog:contract:check && pnpm catalog:route:check && pnpm catalog:client:check"
