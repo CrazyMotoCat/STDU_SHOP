@@ -1,6 +1,6 @@
 # R1-010C — Public Inquiry API Integration
 
-**Status:** implementation complete locally; independent read-only review passed. Commit, branch sync, push, Draft PR and hosted CI remain. **Delivery mode:** REVIEW_REQUIRED. Do not merge.
+**Status:** implementation complete and independently reviewed PASS. Code commit `04a3d25c46993bdcaad703c61a70bd5f0be62f0f` is synchronized with `origin/main` by merge commit `f0814a27ff8f97c6c972469ea1ef9c890c87c75b`. Push, Draft PR and hosted CI remain. **Delivery mode:** REVIEW_REQUIRED. Do not merge.
 
 **Base:** approved R1-010C-PREP PR #25 merged normally at `2e5b59fc0d99e3580bbdaa6665df335192f83cbe`; post-merge GitHub run `40667837051` completed SUCCESS. Before push, `origin/main` advanced to `55281be07e8d6938c8b1a6ba6988e188b7fc642b` for R1-010D Stage A docs/contract/checker changes. Its changed paths do not overlap this task; merge latest main into this branch normally and preserve them unchanged.
 
@@ -14,4 +14,4 @@
 
 **Blocked optional runtime check:** `pnpm test:r1-010b` could not start because Docker Desktop Linux engine pipe `npipe:////./pipe/dockerDesktopLinuxEngine` is unavailable. Its generated empty Redis temp directory was removed after validating the exact path; no container or database was created. Do not start shared Docker resources just for this task.
 
-**Next:** merge latest `origin/main` normally; inspect the integrated diff; push and open Draft PR `R1-010C — Public Inquiry API Integration`; wait for hosted CI on final PR SHA. No merge until separate technical acceptance.
+**Next:** push the branch normally, open Draft PR `R1-010C — Public Inquiry API Integration`, then wait for hosted CI on the exact PR HEAD. Do not merge until separate technical acceptance.
