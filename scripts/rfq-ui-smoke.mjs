@@ -182,6 +182,11 @@ async function checkEquipmentFlow(page, baseUrl) {
   assert.match(productContext, /только подсказка/);
   assert.equal(await page.locator('input[type="file"]').count(), 1);
   assert.equal(
+    await page.getByLabel(/Контактное лицо/).getAttribute('maxlength'),
+    '180',
+  );
+  assert.equal(await page.getByLabel('Email').getAttribute('maxlength'), '254');
+  assert.equal(
     await page
       .getByRole('button', { name: 'Отправка недоступна' })
       .isDisabled(),
@@ -193,27 +198,51 @@ async function checkEquipmentFlow(page, baseUrl) {
     name: /Проверить заполнение/,
   });
   await checkButton.click();
-  await assertFieldError(page, itemName, /Добавьте хотя бы одну/);
+  await assertFieldError(page, itemName, /наименование позиции/);
+  await assertFieldError(
+    page,
+    page.getByLabel(/Контактное лицо/),
+    /контактное лицо/,
+  );
+  await assertFieldError(page, page.getByLabel('Email'), /email или телефон/);
   const validationSummary = page.getByRole('alert', {
     name: 'Проверьте отмеченные поля',
   });
-  assert.match(await validationSummary.innerText(), /Добавьте хотя бы одну/);
+  assert.match(await validationSummary.innerText(), /наименование позиции/);
   assert.ok(await itemName.getAttribute('aria-describedby'));
 
   await itemName.fill('Модульный автоматический выключатель');
+  await page.getByLabel(/Контактное лицо/).fill('Тестовый контакт');
+  await page.getByLabel('Email').fill('test@example.invalid');
   await checkButton.click();
   assert.match(
     await page.getByRole('status').innerText(),
     /Проверка доступных полей пройдена/,
   );
+  await page.getByLabel('Email').fill('');
+  await page.getByLabel('Телефон').fill('');
+  await checkButton.click();
+  await assertFieldError(page, page.getByLabel('Email'), /email или телефон/);
+  await page.getByLabel('Телефон').fill('+7 (900) 000-00-00');
+  await checkButton.click();
   assert.match(
-    await page
-      .getByText(/Обязательность контактного канала будет определена/)
-      .innerText(),
-    /контракте/,
+    await page.getByRole('status').innerText(),
+    /Проверка доступных полей пройдена/,
+  );
+  await page.getByLabel('Предпочтительный способ связи').selectOption('email');
+  await checkButton.click();
+  await assertFieldError(
+    page,
+    page.getByLabel('Предпочтительный способ связи'),
+    /корректный email/,
+  );
+  await page.getByLabel('Предпочтительный способ связи').selectOption('phone');
+  await checkButton.click();
+  assert.match(
+    await page.getByRole('status').innerText(),
+    /Проверка доступных полей пройдена/,
   );
 
-  await page.getByLabel('Контактное лицо').fill('Тестовый контакт');
   await page.getByLabel('Email').fill('не-email');
   await page.getByLabel('Телефон').fill('телефон');
   await checkButton.click();
@@ -254,7 +283,7 @@ async function checkEquipmentFlow(page, baseUrl) {
 
   await page.getByRole('button', { name: 'Добавить позицию' }).click();
   await page.getByLabel('Наименование').nth(1).fill('Реле контроля фаз');
-  await page.getByLabel('Количество').nth(1).fill('3');
+  await page.getByLabel('Количество').nth(1).fill('3,125');
   await checkButton.click();
   assert.match(
     await page.getByRole('status').innerText(),
@@ -273,6 +302,10 @@ async function checkEquipmentFlow(page, baseUrl) {
     /Модульный автоматический выключатель/,
   );
   assert.match(await equipmentPreview.innerText(), /Реле контроля фаз/);
+  assert.equal(
+    await page.getByLabel('Количество').nth(1).inputValue(),
+    '3,125',
+  );
   assert.match(await equipmentPreview.innerText(), /test@example\.invalid/);
   assert.match(
     await equipmentPreview.innerText(),
@@ -288,6 +321,32 @@ async function checkEquipmentFlow(page, baseUrl) {
     'Реле контроля фаз',
   );
   assert.equal(await page.getByText('Позиция 01', { exact: true }).count(), 1);
+
+  const addLineButton = page.getByRole('button', { name: 'Добавить позицию' });
+  for (let index = 0; index < 49; index += 1) await addLineButton.click();
+  assert.equal(await page.getByLabel('Наименование').count(), 50);
+  assert.equal(await addLineButton.isDisabled(), true);
+  assert.match(
+    await page.getByRole('status').innerText(),
+    /Достигнут лимит: не более 50 позиций/,
+  );
+  assert.equal(
+    await page.getByLabel('Наименование').first().inputValue(),
+    'Реле контроля фаз',
+  );
+  await page.getByRole('button', { name: 'Удалить позицию 50' }).click();
+  assert.equal(await page.getByLabel('Наименование').count(), 49);
+  assert.equal(await addLineButton.isDisabled(), false);
+  for (let index = 49; index >= 2; index -= 1) {
+    await page
+      .getByRole('button', { name: `Удалить позицию ${index}` })
+      .click();
+  }
+  assert.equal(await page.getByLabel('Наименование').count(), 1);
+  assert.equal(
+    await page.getByLabel('Наименование').first().inputValue(),
+    'Реле контроля фаз',
+  );
 
   return checkButton;
 }
@@ -322,7 +381,7 @@ async function checkPanelsFlow(page) {
   await quantity.fill('-1');
   await checkButton.click();
   await assertFieldError(page, quantity, /больше нуля/);
-  await quantity.fill('4');
+  await quantity.fill('4,25');
   await checkButton.click();
   const summary = page.getByRole('region', {
     name: 'Проверьте детали запроса',
@@ -333,6 +392,7 @@ async function checkPanelsFlow(page) {
     /Комплектация, Сборка|Сборка, Комплектация/,
   );
   assert.match(await summary.innerText(), /Сборка шкафа по проекту заказчика/);
+  assert.match(await summary.innerText(), /4,25/);
   assert.match(await summary.innerText(), /Тестовый контакт/);
 }
 
