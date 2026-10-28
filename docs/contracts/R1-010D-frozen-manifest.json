@@ -1,0 +1,48 @@
+{
+  "contract": "R1-010D Malware Scan Security Contract",
+  "status": "FROZEN",
+  "version": "1.0.0",
+  "approval": {
+    "approvedOn": "2026-10-28",
+    "sourceHead": "1cad9fbb210ded32b07cee3923bec8ab011768a8",
+    "decisionIds": [
+      "OD-010D-01",
+      "OD-010D-02",
+      "OD-010D-03",
+      "OD-010D-04",
+      "OD-010D-05"
+    ],
+    "statement": "Владелец утвердил ADR-005, вариант B, и OD-010D-01…05 с обязательными уточнениями A–D к Stage B: идемпотентный транзакционный backfill только QUARANTINED документов; коррелируемый контролируемый operator retry без атрибуции произвольному StaffUser и без production-разрешения; attestation готовности/движка/загруженных сигнатур в начале и перед finalize с fail-closed при разрыве непрерывности; no-write finalize replay только для точной версии, lease-token hash и результата. Одобрено на исходном PR #26 HEAD 1cad9fbb210ded32b07cee3923bec8ab011768a8.",
+    "scope": "Authorizes isolated Stage B implementation and testing only. No production migration, deployment, real-document processing, production operator retry, public launch or production permission provisioning. Existing FROZEN R1-010 1.0.2 and decisions 1–108 remain unchanged."
+  },
+  "approvedSourceSha256": {
+    "docs/adr/ADR-005-malware-scanning.md": "a8d01e9bbae0a683dfb9228349739124c84063b8f691884ca92ad111a0468a72",
+    "docs/proposals/R1-010D-malware-scanning-contract.md": "426fc4ece0dd45bc9454528e2edd89952a6835b0039aadc772da47247825cccd"
+  },
+  "frozenArtifactSha256": {
+    "docs/adr/ADR-005-malware-scanning.md": "ce0e9d05b142a8286fcf2d6b15b24d64a339d4f477c33a9c6ca4ad8ee0fd39fd",
+    "docs/contracts/R1-010D-malware-scan-contract.md": "ecf31de230a0b270dbfb62bdb086bb099368667ba571a20befb56c687c9e35d6"
+  },
+  "clarifications": [
+    {
+      "id": "OD-010D-02-A",
+      "rule": "Backfill pre-existing QUARANTINED rows in the additive migration transaction; copy immutable storage key, SHA-256 and size; exclude all terminal rows; ON CONFLICT DO NOTHING."
+    },
+    {
+      "id": "OD-010D-02-B",
+      "rule": "Operator retry requires an audit correlation ID for a controlled runbook, operator journal or incident/change ticket; it is test-profile-only until production attribution is separately approved."
+    },
+    {
+      "id": "OD-010D-02-C",
+      "rule": "Check readiness, engine and loaded-signature metadata/age before scan and immediately before finalize; changed or unprovable continuity fails closed."
+    },
+    {
+      "id": "OD-010D-02-D",
+      "rule": "No-write finalize replay is accepted only for the exact completed version, lease-token hash and canonical result fingerprint; stale, conflicting or unauthorized finalize fails."
+    }
+  ],
+  "finalization": {
+    "contractContentChanged": true,
+    "description": "Owner-approved additive clarification was incorporated into a new R1-010D 1.0.0 frozen security contract. No existing FROZEN R1-010 contract artifact or public API was changed."
+  }
+}

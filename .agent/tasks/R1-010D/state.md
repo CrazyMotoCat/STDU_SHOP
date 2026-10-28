@@ -1,72 +1,70 @@
 # R1-010D task state
 
-TASK: R1-010D Malware Scanning & Quarantine Processing — Stage A
-STATUS: READY_FOR_OWNER_APPROVAL
+TASK: R1-010D Malware Scanning & Quarantine Processing
+STATUS: STAGE_A_FROZEN_PREMERGE_VALIDATION
 DELIVERY_MODE: REVIEW_REQUIRED
-CHECKPOINT_STATUS: DRAFT_PR_OPEN / OWNER_APPROVAL_REQUIRED
-PHASE: STAGE_A_CONTRACT_PROPOSAL
-UPDATED_AT: 2026-10-27
-BRANCH: codex/r1-010d-contract-proposal
-BASE_MAIN_SHA: 81b76b5b084a0ef656c190ca63f9f71f93f092ba
-LAST_SAFE_COMMIT: 81b76b5b084a0ef656c190ca63f9f71f93f092ba
+PHASE: STAGE_A_CONTRACT_FREEZE
+UPDATED_AT: 2026-10-28
+STAGE_A_BRANCH: codex/r1-010d-contract-proposal
+STAGE_A_APPROVAL_SOURCE_HEAD: 1cad9fbb210ded32b07cee3923bec8ab011768a8
+STAGE_A_BASE_MAIN_SHA: 2e5b59fc0d99e3580bbdaa6665df335192f83cbe
+STAGE_A_LAST_SAFE_BASE: 618deecd4842dc85e89e2dae24d497bae307c6de
 
-## COMPLETED
+## Owner-approved scope
 
-- Inspected the real R1-010B model, migration guards/grants, StoragePort/private quarantine reader, staff download boundary, audit registry, Compose files and acceptance matrix.
-- Compared topology A (backend worker + clamd) and B (dedicated NestJS scanner-worker + clamd). The proposal recommends B with no worker file mount, a private lease-bound API content stream and distinct database privileges.
-- Prepared ADR-005, the proposed R1-010 amendment, resource assessment, retry/lease/audit model, and SCAN-01…20 matrix.
-- Updated the isolated proposal worktree only; the parallel R1-010C-PREP worktree was not touched.
+- ADR-005 option B and OD-010D-01…05 approved for isolated Stage B implementation.
+- Clarifications A–D are frozen in `docs/contracts/R1-010D-malware-scan-contract.md` version 1.0.0.
+- The additive migration backfills exactly existing QUARANTINED sources transactionally and idempotently, copying immutable storage key/hash/size; terminal source rows are excluded.
+- Operator retry requires an audit correlation ID and is enabled only for the isolated test profile until a separate production-attribution decision.
+- Scanner readiness and loaded engine/signature metadata are attested before and after scanning; any discontinuity or uncertainty fails closed.
+- Finalize no-write replay requires the same authorized worker, completed job version, lease-token hash and canonical result fingerprint.
+- Existing FROZEN R1-010 1.0.2, other frozen contracts, business decisions 1–108 and public API remain unchanged.
+- Stage A does not authorize production migration/deployment, real-document processing, production operator retry, public launch or production permission grants.
 
-## VERIFIED
+## Completed
 
-- Base checkout was clean, freshly fetched origin/main matched 81b76b5b084a0ef656c190ca63f9f71f93f092ba, and the proposal branch is based on that commit.
-- `pnpm contract:check`: PASS; frozen OpenAPI equality (23 staff operations, 15 Inquiry operations) and generated client reproducibility passed.
-- `pnpm contract:test`: PASS, 10/10.
-- `pnpm inquiry:contract:check`: PASS; 15-operation frozen Amendment 01 validation passed.
-- `pnpm exec prettier --check docs/adr/ADR-005-malware-scanning.md docs/proposals/R1-010D-malware-scanning-contract.md docs/spec/09_ROADMAP_BACKLOG.md .agent/tasks/R1-010D/state.md`: PASS.
+- Reconciled PR #25 and current `origin/main`; PR #25 is merged at `2e5b59fc0d99e3580bbdaa6665df335192f83cbe`.
+- Safely merged the fresh `origin/main` into the PR #26 branch; R1-010C files were integrated by Git and its worktree was not modified.
+- Promoted the approved security proposal into a frozen additive contract and accepted ADR-005 option B.
+- Added a frozen manifest with approval provenance, source checksums and final contract checksums.
+- Added `r1-010d:contract:check` and `r1-010d:contract:test` to local scripts and mandatory CI.
+
+## Verified locally
+
+- `pnpm r1-010d:contract:check`: PASS.
+- `pnpm r1-010d:contract:test`: PASS, 6/6.
 - `git diff --check`: PASS.
-- GitHub Actions `R1 foundation`, run 40512329147: SUCCESS on PR #26 HEAD `14c7bf8249ff0d5ecd299f545e4fc84d2822e80c`; all quality, contract, DB, runtime, browser, integration and three-run host lifecycle steps passed.
-- PR #26 remains OPEN / DRAFT, based on `main` at `81b76b5b084a0ef656c190ca63f9f71f93f092ba`; no merge performed. Its proposal content is the CI-passing initial commit above; commits after that contain only this checkpoint update.
-- Official ClamAV docs rechecked 2026-10-27: 1.4.6 is latest 1.4 LTS patch; official image is `clamav/clamav`; 3 GiB+ RAM, 1 CPU and 5 GiB free are recommended; INSTREAM framing and socket restrictions confirmed.
-- Node emits a non-blocking engine warning: repository expects 24.19.0; shell reports 24.22.1. The checks completed successfully.
-- Scanner-specific adapter/runtime tests and real clamd smoke: NOT RUN; Stage A has no implementation or approved DB contract. The repository-wide runtime acceptance ran successfully in CI but does not verify scanner behavior.
-- The post-CI follow-up changes only this checkpoint. Application and contract content are unchanged; per the owner's standing instruction, no duplicate full CI is awaited for this checkpoint-only update.
+- Node warning: repository expects 24.19.0; local shell provides 24.22.1.
+- Full GitHub CI for the updated exact HEAD has not yet run.
 
-## DELIVERY
+## Files changed in Stage A
 
-- Initial proposal commit: `14c7bf8249ff0d5ecd299f545e4fc84d2822e80c` (`docs(r1-010d): propose malware scan security contract`).
-- A later documentation-only checkpoint commit records the completed workflow; it changes no proposal, application, schema or migration content. The owner-directed no-duplicate-CI rule was applied to this checkpoint-only follow-up.
-- PR: https://github.com/CrazyMotoCat/STDU_SHOP/pull/26 (OPEN / DRAFT; Owner Approval required).
-- The proposal branch is pushed and tracks `origin/codex/r1-010d-contract-proposal`.
+- `docs/adr/ADR-005-malware-scanning.md`
+- `docs/contracts/R1-010D-malware-scan-contract.md`
+- `docs/contracts/R1-010D-frozen-manifest.json`
+- `docs/contracts/check-R1-010D.mjs`
+- `docs/contracts/check-R1-010D.test.mjs`
+- `docs/spec/09_ROADMAP_BACKLOG.md`
+- `package.json`
+- `.github/workflows/ci.yml`
+- `.agent/tasks/R1-010D/state.md`
 
-## DECISIONS
+## Next
 
-- FROZEN R1-002/R1-004/R1-006A/R1-007/R1-010 and decisions 1–108 remain untouched.
-- No Owner Approval yet; ADR-005 and OD-010D-01…05 remain PROPOSED.
-- Proposed B adds one InquirySourceDocumentScanJob table, four narrow stored procedures, separate API/worker/operator procedure grants, a private non-published content stream and one job-control audit action; no new business RBAC permission or public API.
-- No authorization for production migration, deployment, live scanning, production data processing or real permissions changes.
+1. Run applicable frozen contract and formatting checks, inspect the exact diff and confirm the original R1-002/R1-004/R1-006A/R1-007/R1-010 contract artifacts remain unchanged.
+2. Commit and push the Stage A amendment to existing Draft PR #26; update its description and wait for mandatory exact-HEAD GitHub CI.
+3. Mark PR #26 ready and merge only after required checks and repository rules pass; record merge SHA and post-merge CI.
+4. Create a separate worktree/branch from the merged main for Stage B and Draft PR. Stage B stops at engineering acceptance; no production operation or merge.
 
-## OPEN RISKS / APPROVAL GATES
+## Stage B gates
 
-- Owner must approve or amend OD-010D-01…05 before Stage B implementation.
-- Before any CLEAN verdict, reproduce nested XLSX/OLE2 behavior and prove limit handling against the exact pinned engine/image and signatures; upstream user reports are not confirmed vendor advisories.
-- Current VDS RAM/CPU/disk and signature-update access are unmeasured; no production readiness is asserted.
-- Operator retry audit identifies a controlled service/operator label, not an individual StaffUser. This limitation is explicit in OD-010D-02.
+- Implement the approved one-table/four-procedure design; no new public route or business permission.
+- Run generated-file HTTP/DB runtime tests and real-clamd smoke; mocks alone are insufficient.
+- Complete SCAN-01…20, existing R1-010B regression, quality gate, independent backend/database/security/DevOps reviews, exact-HEAD CI and resource measurements.
+- No production migration, deployment, real customer documents or production operator retry.
 
-## FILES_CHANGED
+## Do not repeat / protect
 
-- `docs/adr/ADR-005-malware-scanning.md`: proposed A/B review and recommended B architecture.
-- `docs/proposals/R1-010D-malware-scanning-contract.md`: proposed schema/security/worker contract, resource assessment and SCAN-01…20.
-- `docs/spec/09_ROADMAP_BACKLOG.md`: records the contract-first subtask as proposed.
-- `.agent/tasks/R1-010D/state.md`: checkpoint.
-
-## NEXT_ACTION
-
-Stop for Owner Approval on Draft PR #26. Do not merge or begin Stage B until approval.
-
-## DO_NOT_REPEAT
-
-- Do not re-inspect or modify the parallel R1-010C-PREP worktree.
-- Do not implement scanner code, migration, job table, audit registry changes, or Compose changes before Owner Approval.
-- Do not claim fake scanner tests, real clamd smoke, runtime verification, or production capacity measurement was run.
-- Do not merge the Draft PR or begin Stage B before approval.
+- Do not edit or clean the R1-010C worktree, shared project containers or shared Docker volumes.
+- Do not report Stage B accepted until the exact CI/reviews/runtime evidence exists.
+- Do not invoke production migration, deployment, public launch or real operator retry.
