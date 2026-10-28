@@ -49,6 +49,8 @@ M1 — совокупный этап задач R1-001, R1-002 и R1-003. R1-001
 
 P0 означает, что задача необходима для законченного R1; P1 допускает отдельные вертикальные итерации, но бизнес-процесс R1 не следует выпускать без необходимых уведомлений/сайта, согласованных в №19–20 и №29–35. При конфликте приоритета решение принимает оркестратор.
 
+**R1-010D — frozen additive security contract 1.0.0:** ADR-005 option B and OD-010D-01…05 are owner-approved with clarifications A–D. Stage B implements isolated malware scanning and quarantine processing under `docs/contracts/R1-010D-malware-scan-contract.md`; production migration/deployment, production operator retry, real-document processing and public launch remain separately gated.
+
 ## Уточнения после технического ревью R1-001
 
 - **R1-002:** генерация OpenAPI из реализованного NestJS API и контрактная проверка в CI относительно зафиксированного контракта, включая DTO, HTTP-коды и auth/security requirements; генерация TS-клиента из того же OpenAPI. Не подменять проверку контракта статическим health JSON.

@@ -69,6 +69,10 @@ jobs:
           trap 'rm -f "$generated"' EXIT
           pnpm exec openapi-typescript docs/contracts/R1-010-inquiries.openapi.json --output "$generated"
           pnpm exec openapi-typescript docs/contracts/R1-010-inquiries.openapi.json --output "$generated" --check
+      - name: Frozen R1-010D malware scan security contract consistency
+        run: |
+          pnpm r1-010d:contract:check
+          pnpm r1-010d:contract:test
       - name: R1-004B frozen contract trace
         run: node .agent/tasks/R1-004B/verify-contract-lock.mjs
       - name: R1-004B isolated schema and permission initializer runtime
