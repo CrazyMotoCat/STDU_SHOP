@@ -1,0 +1,17 @@
+# R1-010C — Public Inquiry API Integration
+
+**Status:** implementation complete locally; independent read-only review passed. Commit, branch sync, push, Draft PR and hosted CI remain. **Delivery mode:** REVIEW_REQUIRED. Do not merge.
+
+**Base:** approved R1-010C-PREP PR #25 merged normally at `2e5b59fc0d99e3580bbdaa6665df335192f83cbe`; post-merge GitHub run `40667837051` completed SUCCESS. Before push, `origin/main` advanced to `55281be07e8d6938c8b1a6ba6988e188b7fc642b` for R1-010D Stage A docs/contract/checker changes. Its changed paths do not overlap this task; merge latest main into this branch normally and preserve them unchanged.
+
+**Frozen boundary:** R1-010 Inquiry API/OpenAPI and attachment-policy remain unchanged. Production collection stays off: web API submission requires explicit `RFQ_API_SUBMISSION_ENABLED=true` plus `NODE_ENV=development|test`; production smoke sets the flag true and verifies no submission. Backend flags and production environment were not changed. Capabilities, PII and file bytes are not persisted/logged; client only keeps selected bytes in page memory when API submission is enabled. Receipt exposes only publicReference, createdAt and message. Uploads remain `QUARANTINED`.
+
+**Implementation:** typed browser API client for frozen create/intent/content/cancel operations; immutable idempotent create retry; transient/unknown upload retries reuse the exact intent/key/body; deterministic 400/413/415 rejections do not retry or spend another intent, and the user can safely finish the created Inquiry without that attachment. Filename length matches the API's 255 UTF-16 code-unit limit. File bytes are released after success or explicit skip. UI connected in dev/test only, default off. Upload selection uses conservative MVP_SAFE caps since the frozen API has no profile-discovery route. No status lookup, duplicate create POST on upload retry, backend/API/schema changes or R1-010D edits.
+
+**Verification:** targeted Prettier check, ESLint, frontend typecheck, production web build and 39 RFQ unit tests passed. `pnpm rfq:ui:smoke` passed for preview and production-off gate (even with the flag set), mocked dev API create/decimal quantity/upload, exact retry of unknown upload, deterministic 415 recovery without a second Inquiry or upload intent, QUARANTINED receipt, no browser storage/capability URL/third-party requests, and desktop 1440/mobile 375. Latest screenshots: `C:\Users\mvideo\.codex\worktrees\r1-010c-public-api-visuals-20261028-followup`.
+
+**Review:** independent read-only frontend/security review returned PASS after fixes; no remaining findings. `git fetch origin main` verified latest SHA `55281be07e8d6938c8b1a6ba6988e188b7fc642b`. Since base `2e5b59f`, only R1-010D Stage A checkpoint/contract/checker/CI/backlog/package paths changed upstream; no overlap with R1-010C. Merge this main advancement normally and preserve those files unchanged.
+
+**Blocked optional runtime check:** `pnpm test:r1-010b` could not start because Docker Desktop Linux engine pipe `npipe:////./pipe/dockerDesktopLinuxEngine` is unavailable. Its generated empty Redis temp directory was removed after validating the exact path; no container or database was created. Do not start shared Docker resources just for this task.
+
+**Next:** merge latest `origin/main` normally; inspect the integrated diff; push and open Draft PR `R1-010C — Public Inquiry API Integration`; wait for hosted CI on final PR SHA. No merge until separate technical acceptance.
