@@ -81,7 +81,11 @@ export async function readResourceSnapshot(
       signal: AbortSignal.timeout(remaining),
       redirect: 'error',
     });
-    if (!response.ok || !response.body) throw new Error('unavailable');
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new Error('unavailable');
+    }
+    if (!response.body) throw new Error('unavailable');
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
     let length = 0;

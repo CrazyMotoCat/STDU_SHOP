@@ -17,14 +17,16 @@ const months = [
   'Dec',
 ];
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const failAfterScan = process.env.R1_010D_FAKE_PROBE_FAIL_AFTER_SCAN === 'true';
-let resourceUnavailable = false;
+const faultMode = process.env.R1_010D_FAKE_PROBE_FAIL_AFTER_SCAN ?? 'false';
+const failAfterScan = faultMode !== 'false';
+let resourceUnavailable = faultMode === 'before';
 
 function versionReply() {
   const now = new Date();
   const pad = (value: number) => String(value).padStart(2, '0');
   return `ClamAV 1.4.6/29900/${weekdays[now.getUTCDay()]} ${months[now.getUTCMonth()]} ${pad(now.getUTCDate())} ${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} ${now.getUTCFullYear()}`;
 }
+const stableVersion = versionReply();
 
 const server = createServer((socket) => {
   let buffer = Buffer.alloc(0);
@@ -59,7 +61,7 @@ const server = createServer((socket) => {
         socket.write(`${nextId}: PONG\0`);
       } else if (command === 'zVERSION') {
         nextId++;
-        socket.write(`${nextId}: ${versionReply()}\0`);
+        socket.write(`${nextId}: ${stableVersion}\0`);
       } else if (command === 'zINSTREAM') {
         nextId++;
         scanId = nextId;
@@ -75,22 +77,43 @@ const server = createServer((socket) => {
 server.listen(3310, '0.0.0.0');
 
 const instance = `${randomUUID()}:1:1`;
+const restartedInstance = `${randomUUID()}:2:2`;
 createHttpServer((request, response) => {
   if (request.method !== 'GET' || request.url !== '/ready') {
     response.writeHead(404).end();
     return;
   }
-  if (resourceUnavailable) {
+  if (
+    resourceUnavailable &&
+    [
+      'unavailable',
+      'before',
+      'statfs',
+      'config',
+      'cgroupmissing',
+      'cgroupmalformed',
+    ].includes(faultMode)
+  ) {
     response.writeHead(503).end();
+    return;
+  }
+  if (resourceUnavailable && faultMode === 'timeout') return;
+  if (resourceUnavailable && faultMode === 'malformed') {
+    response.writeHead(200).end('{invalid');
     return;
   }
   response.writeHead(200, { 'content-type': 'application/json' }).end(
     JSON.stringify({
       ready: true,
-      instance,
-      measuredAt: Date.now(),
-      scratchAvailableBytes: 512 * 1024 * 1024,
-      oom: 0,
+      instance:
+        resourceUnavailable && faultMode === 'instance'
+          ? restartedInstance
+          : instance,
+      measuredAt:
+        Date.now() - (resourceUnavailable && faultMode === 'stale' ? 6000 : 0),
+      scratchAvailableBytes:
+        resourceUnavailable && faultMode === 'scratch' ? 0 : 512 * 1024 * 1024,
+      oom: resourceUnavailable && faultMode === 'oom' ? 1 : 0,
       oomKill: 0,
     }),
   );

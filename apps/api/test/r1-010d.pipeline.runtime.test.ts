@@ -1708,11 +1708,60 @@ describe.skipIf(!runtimeEnabled)(
       ]);
     }, 20_000);
 
-    it('R1_010D_RESOURCE_FAIL_PREP creates a quarantined fixture', async () => {
-      const inquiry = await createInquiry('resource failure fixture');
+    for (const mode of [
+      'unavailable',
+      'scratch',
+      'oom',
+      'instance',
+      'malformed',
+      'stale',
+      'timeout',
+      'statfs',
+      'config',
+      'cgroupmissing',
+      'cgroupmalformed',
+    ]) {
+      it(`R1_010D_RESOURCE_${mode}_PREP creates a quarantined fixture`, async () => {
+        const inquiry = await createInquiry('resource failure fixture');
+        const document = await uploadFixture(
+          inquiry,
+          `r1-010d-${runId}-resource-${mode}.pdf`,
+          'application/pdf',
+          minimalPdf(4096),
+        );
+        await deferOtherScanJobs(String(document.job_id));
+        expect(document.safety_state).toBe('QUARANTINED');
+      });
+
+      it(`R1_010D_RESOURCE_${mode}_VERIFY denies CLEAN after resource probe failure`, async () => {
+        const row = await waitForDocumentJob(
+          `r1-010d-${runId}-resource-${mode}.pdf`,
+          (candidate) => candidate.status === 'STOPPED',
+          20_000,
+        );
+        expect(row).toMatchObject({
+          status: 'STOPPED',
+          safety_state: 'SCAN_ERROR',
+          failure_code: 'SIGNATURES_CHANGED',
+        });
+        const audit = await owner!.query<{
+          outcome: string;
+          reason_code: string;
+        }>(
+          `SELECT outcome,reason_code FROM audit_event WHERE action='inquiry.document.scan_state_changed' AND entity_id=$1`,
+          [String(row.id)],
+        );
+        expect(audit.rows).toEqual([
+          { outcome: 'FAILURE', reason_code: 'INTERNAL_ERROR' },
+        ]);
+      }, 25_000);
+    }
+
+    it('R1_010D_RESOURCE_before_PREP creates a quarantined fixture', async () => {
+      const inquiry = await createInquiry('resource unavailable before claim');
       const document = await uploadFixture(
         inquiry,
-        `r1-010d-${runId}-resource-failure.pdf`,
+        `r1-010d-${runId}-resource-before.pdf`,
         'application/pdf',
         minimalPdf(4096),
       );
@@ -1720,28 +1769,24 @@ describe.skipIf(!runtimeEnabled)(
       expect(document.safety_state).toBe('QUARANTINED');
     });
 
-    it('R1_010D_RESOURCE_FAIL_VERIFY denies CLEAN after resource probe failure', async () => {
+    it('R1_010D_RESOURCE_before_VERIFY leaves the job unclaimed without a probe', async () => {
+      await new Promise((resolve) => setTimeout(resolve, 3500));
       const row = await waitForDocumentJob(
-        `r1-010d-${runId}-resource-failure.pdf`,
-        (candidate) => candidate.status === 'STOPPED',
-        20_000,
+        `r1-010d-${runId}-resource-before.pdf`,
+        () => true,
+        1000,
       );
       expect(row).toMatchObject({
-        status: 'STOPPED',
-        safety_state: 'SCAN_ERROR',
-        failure_code: 'SIGNATURES_CHANGED',
+        status: 'PENDING',
+        safety_state: 'QUARANTINED',
+        attempt_count: 0,
       });
-      const audit = await owner!.query<{
-        outcome: string;
-        reason_code: string;
-      }>(
-        `SELECT outcome,reason_code FROM audit_event WHERE action='inquiry.document.scan_state_changed' AND entity_id=$1`,
-        [String(row.id)],
+      const audit = await owner!.query<{ count: string }>(
+        `SELECT count(*) FROM audit_event WHERE (entity_id=$1 AND action='inquiry.document.scan_state_changed') OR (entity_id=$2 AND action='inquiry.document.scan_job_control_changed')`,
+        [String(row.id), String(row.job_id)],
       );
-      expect(audit.rows).toEqual([
-        { outcome: 'FAILURE', reason_code: 'INTERNAL_ERROR' },
-      ]);
-    }, 25_000);
+      expect(audit.rows[0]!.count).toBe('0');
+    }, 10_000);
 
     it('R1_010D_SCAN_OFFLINE leaves documents fail-closed and does not claim work', async () => {
       const inquiry = await createInquiry('scanner unavailable fixture');
@@ -1824,7 +1869,11 @@ describe.skipIf(!runtimeEnabled)(
             name.endsWith('-safe.xlsx')
           ) {
             expect(row.safety_state).toBe('CLEAN');
-          } else if (name.endsWith('-recovery.pdf')) {
+          } else if (
+            name.endsWith('-recovery.pdf') ||
+            name.endsWith('-resource-before.pdf') ||
+            name.endsWith('-offline.pdf')
+          ) {
             expect(row.safety_state).toBe('CLEAN');
           }
           if (row.status === 'COMPLETE')

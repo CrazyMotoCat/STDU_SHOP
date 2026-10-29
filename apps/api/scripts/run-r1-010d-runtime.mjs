@@ -1346,17 +1346,55 @@ async function main() {
   });
   await runRuntimeTests('R1_010D_SCAN_RESTART_VERIFY', 'MVP_SAFE');
 
-  await runRuntimeTests('R1_010D_RESOURCE_FAIL_PREP', 'MVP_SAFE');
-  composeEnv.R1_010D_FAKE_PROBE_FAIL_AFTER_SCAN = 'true';
+  for (const mode of [
+    'unavailable',
+    'scratch',
+    'oom',
+    'instance',
+    'malformed',
+    'stale',
+    'timeout',
+    'statfs',
+    'config',
+    'cgroupmissing',
+    'cgroupmalformed',
+  ]) {
+    await runRuntimeTests(`R1_010D_RESOURCE_${mode}_PREP`, 'MVP_SAFE');
+    composeEnv.R1_010D_FAKE_PROBE_FAIL_AFTER_SCAN = mode;
+    await compose(
+      ['up', '-d', '--no-deps', '--force-recreate', 'scan-stall'],
+      composeEnv,
+      { timeoutMs: 90_000 },
+    );
+    await compose(['up', '-d', '--force-recreate', 'scan-worker'], composeEnv, {
+      timeoutMs: 150_000,
+    });
+    await runRuntimeTests(`R1_010D_RESOURCE_${mode}_VERIFY`, 'MVP_SAFE');
+    await compose(['stop', '--timeout', '20', 'scan-worker'], composeEnv, {
+      timeoutMs: 45_000,
+    });
+  }
+
+  await runRuntimeTests('R1_010D_RESOURCE_before_PREP', 'MVP_SAFE');
+  composeEnv.R1_010D_FAKE_PROBE_FAIL_AFTER_SCAN = 'before';
   await compose(
-    ['up', '-d', '--no-deps', '--force-recreate', 'scan-stall'],
+    [
+      'up',
+      '-d',
+      '--no-deps',
+      '--force-recreate',
+      '--wait',
+      '--wait-timeout',
+      '30',
+      'scan-stall',
+    ],
     composeEnv,
     { timeoutMs: 90_000 },
   );
   await compose(['up', '-d', '--force-recreate', 'scan-worker'], composeEnv, {
     timeoutMs: 150_000,
   });
-  await runRuntimeTests('R1_010D_RESOURCE_FAIL_VERIFY', 'MVP_SAFE');
+  await runRuntimeTests('R1_010D_RESOURCE_before_VERIFY', 'MVP_SAFE');
   await compose(['stop', '--timeout', '20', 'scan-worker'], composeEnv, {
     timeoutMs: 45_000,
   });

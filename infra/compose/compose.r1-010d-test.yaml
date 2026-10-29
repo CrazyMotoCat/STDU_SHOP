@@ -197,6 +197,17 @@ services:
       R1_010D_FAKE_PROBE_FAIL_AFTER_SCAN: ${R1_010D_FAKE_PROBE_FAIL_AFTER_SCAN:-false}
     mem_limit: 128m
     cpus: 0.25
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "const s=require('net').connect(3310,'127.0.0.1');s.on('connect',()=>{s.destroy();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),1000)",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 10
     restart: 'no'
     networks: [scanner_internal]
 

@@ -406,6 +406,19 @@ async function applyMigration(env) {
   });
 }
 
+async function applyPreScanMigration(env) {
+  // Scanner roles are already installed in this disposable PostgreSQL cluster.
+  // The R1-010D runtime independently exercises the full migration and backfill.
+  await run(
+    process.execPath,
+    [resolve(apiRoot, 'scripts/deploy-pre-scan-migrations.mjs')],
+    {
+      cwd: apiRoot,
+      env,
+    },
+  );
+}
+
 async function verifyMigrationRollback(ownerUrl, migrationSql) {
   const databaseName = `r1_002b_fault_${suffix.replaceAll('-', '_')}`;
   const admin = new Client({ connectionString: ownerUrl });
@@ -525,7 +538,7 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
   );
   await afterFirst.end();
   if (
-    before.rowCount !== 5 ||
+    before.rowCount !== 6 ||
     before.rows.map((row) => row.migration_name).join('\0') !==
       [
         '20261022120000_staff_identity',
@@ -533,6 +546,7 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
         '20261024140000_catalog_import',
         '20261025120000_supplier_domain',
         '20261026140000_inquiry_domain',
+        '20261028120000_inquiry_scan_jobs',
       ].join('\0') ||
     sentinel.rows[0]?.payload !== 'must-survive-migration' ||
     models.rows[0]?.count !== 11 ||
@@ -745,7 +759,7 @@ async function verifyPopulatedRepeatMigration(ownerUrl, baseEnv) {
       "INSERT INTO fixture_sentinel.sentinel VALUES ('r1-002b', 'must-survive-populated-repeat')",
     );
     await fixture.end();
-    await applyMigration(fixtureEnv);
+    await applyPreScanMigration(fixtureEnv);
     fixture = new Client({ connectionString: fixtureUrl });
     await fixture.connect();
     await seedAllTableFixtures(fixture);
@@ -757,7 +771,7 @@ async function verifyPopulatedRepeatMigration(ownerUrl, baseEnv) {
       "SELECT payload FROM fixture_sentinel.sentinel WHERE key='r1-002b'",
     );
     await fixture.end();
-    await applyMigration(fixtureEnv);
+    await applyPreScanMigration(fixtureEnv);
     const afterRepeat = new Client({ connectionString: fixtureUrl });
     await afterRepeat.connect();
     const afterTables = await snapshotBusinessTables(afterRepeat);

@@ -42,6 +42,42 @@ func scratchAvailable(fs syscall.Statfs_t) (uint64, error) {
 	return available, nil
 }
 
+func validTemporaryDirectory(config string) bool {
+	count := 0
+	for _, line := range strings.Split(config, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) > 0 && fields[0] == "TemporaryDirectory" {
+			count++
+			if len(fields) != 2 || fields[1] != "/tmp" {
+				return false
+			}
+		}
+	}
+	return count == 1
+}
+
+func validScratchMount(mounts string) bool {
+	count := 0
+	for _, line := range strings.Split(mounts, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 7 || fields[4] != "/tmp" {
+			continue
+		}
+		count++
+		separator := -1
+		for i, field := range fields {
+			if field == "-" {
+				separator = i
+				break
+			}
+		}
+		if separator < 0 || separator+1 >= len(fields) || fields[separator+1] != "tmpfs" {
+			return false
+		}
+	}
+	return count == 1
+}
+
 func counters(text string) (uint64, uint64, error) {
 	values := map[string]uint64{}
 	for _, line := range strings.Split(strings.TrimSpace(text), "\n") {
@@ -108,29 +144,40 @@ func scannerIdentity() (string, error) {
 	return identities[0], nil
 }
 
+type probeInputs struct {
+	readFile        func(string) ([]byte, error)
+	statfs          func(string, *syscall.Statfs_t) error
+	scannerIdentity func() (string, error)
+	now             func() time.Time
+}
+
 func measure(instance string) (snapshot, error) {
+	return measureWith(instance, probeInputs{os.ReadFile, syscall.Statfs, scannerIdentity, time.Now})
+}
+
+func measureWith(instance string, inputs probeInputs) (snapshot, error) {
 	var out snapshot
-	config, err := os.ReadFile("/etc/clamav/clamd.conf")
-	if err != nil || !regexp.MustCompile(`(?m)^TemporaryDirectory\s+/tmp\s*$`).Match(config) {
+	config, err := inputs.readFile("/etc/clamav/clamd.conf")
+	if err != nil || !validTemporaryDirectory(string(config)) {
 		return out, errConfig
 	}
-	mounts, err := os.ReadFile("/proc/self/mountinfo")
-	if err != nil || !regexp.MustCompile(`(?m)^\S+ \S+ \S+ \S+ /tmp \S+ (.* )?- tmpfs `).Match(mounts) {
+	mounts, err := inputs.readFile("/proc/self/mountinfo")
+	if err != nil || !validScratchMount(string(mounts)) {
 		return out, errScratch
 	}
 	var fs syscall.Statfs_t
-	if err := syscall.Statfs("/tmp", &fs); err != nil {
+	if err := inputs.statfs("/tmp", &fs); err != nil {
 		return out, errScratch
 	}
 	available, err := scratchAvailable(fs)
 	if err != nil {
 		return out, err
 	}
-	group, err := os.ReadFile("/proc/self/cgroup")
+	group, err := inputs.readFile("/proc/self/cgroup")
 	if err != nil || strings.TrimSpace(string(group)) != "0::/" {
 		return out, errCgroup
 	}
-	events, err := os.ReadFile("/sys/fs/cgroup/memory.events.local")
+	events, err := inputs.readFile("/sys/fs/cgroup/memory.events.local")
 	if err != nil {
 		return out, errCgroup
 	}
@@ -138,11 +185,11 @@ func measure(instance string) (snapshot, error) {
 	if err != nil {
 		return out, err
 	}
-	scanner, err := scannerIdentity()
+	scanner, err := inputs.scannerIdentity()
 	if err != nil {
 		return out, err
 	}
-	return snapshot{true, instance + ":" + scanner, time.Now().UnixMilli(), available, oom, killed}, nil
+	return snapshot{true, instance + ":" + scanner, inputs.now().UnixMilli(), available, oom, killed}, nil
 }
 
 func main() {
