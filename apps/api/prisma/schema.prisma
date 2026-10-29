@@ -8,61 +8,61 @@ datasource db {
 }
 
 model StaffUser {
-  id                    String         @id @db.Uuid
-  email                 String         @db.VarChar(254)
-  emailNormalized       String         @unique(map: "staff_user_email_normalized_key") @map("email_normalized") @db.VarChar(254)
-  displayName           String         @map("display_name") @db.VarChar(120)
-  passwordHash          String         @map("password_hash")
-  passwordChangeRequired Boolean       @default(false) @map("password_change_required")
-  state                 String         @db.Text
-  authVersion           Int            @default(1) @map("auth_version")
-  blockedAt             DateTime?      @map("blocked_at") @db.Timestamptz(6)
-  version               Int            @default(1)
-  createdAt             DateTime       @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime       @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
-  roles                 UserRole[]
-  roleAssignments       UserRole[]     @relation("UserRoleAssignedBy")
-  sessions              StaffSession[]
-  auditEvents           AuditEvent[]   @relation("AuditActor")
-  ownedFiles            FileObject[]
-  createdFileVersions   FileVersion[]  @relation("FileVersionCreator")
-  createdFileLinks      FileLink[]     @relation("FileLinkCreator")
-  createdCatalogRevisions   CatalogProductRevision[] @relation("CatalogRevisionCreator")
-  submittedCatalogRevisions CatalogProductRevision[] @relation("CatalogRevisionSubmitter")
-  decidedCatalogRevisions   CatalogProductRevision[] @relation("CatalogRevisionReviewer")
-  createdProductMedia       ProductMedia[]           @relation("ProductMediaCreator")
-  createdProductDocuments   ProductDocumentVersion[] @relation("ProductDocumentCreator")
-  createdProductRelations   ProductRelation[]        @relation("ProductRelationCreator")
-  uploadedCatalogImports    CatalogImportRun[]       @relation("CatalogImportUploader")
-  decidedCatalogImports     CatalogImportDecision[]  @relation("CatalogImportDecisionActor")
-  createdSuppliers          Supplier[]               @relation("SupplierCreator")
-  updatedSuppliers          Supplier[]               @relation("SupplierUpdater")
-  supplierRevisions         SupplierRevision[]        @relation("SupplierRevisionCreator")
-  createdSupplierOffers     SupplierOffer[]           @relation("SupplierOfferCreator")
-  updatedSupplierOffers     SupplierOffer[]           @relation("SupplierOfferUpdater")
-  supplierOfferRevisions    SupplierOfferRevision[]   @relation("SupplierOfferRevisionCreator")
-  createdMatchProposals     ProductMatchProposal[]    @relation("MatchProposalCreator")
-  decidedMatchProposals     ProductMatchProposal[]    @relation("MatchProposalDecider")
+  id                        String                       @id @db.Uuid
+  email                     String                       @db.VarChar(254)
+  emailNormalized           String                       @unique(map: "staff_user_email_normalized_key") @map("email_normalized") @db.VarChar(254)
+  displayName               String                       @map("display_name") @db.VarChar(120)
+  passwordHash              String                       @map("password_hash")
+  passwordChangeRequired    Boolean                      @default(false) @map("password_change_required")
+  state                     String                       @db.Text
+  authVersion               Int                          @default(1) @map("auth_version")
+  blockedAt                 DateTime?                    @map("blocked_at") @db.Timestamptz(6)
+  version                   Int                          @default(1)
+  createdAt                 DateTime                     @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime                     @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  roles                     UserRole[]
+  roleAssignments           UserRole[]                   @relation("UserRoleAssignedBy")
+  sessions                  StaffSession[]
+  auditEvents               AuditEvent[]                 @relation("AuditActor")
+  ownedFiles                FileObject[]
+  createdFileVersions       FileVersion[]                @relation("FileVersionCreator")
+  createdFileLinks          FileLink[]                   @relation("FileLinkCreator")
+  createdCatalogRevisions   CatalogProductRevision[]     @relation("CatalogRevisionCreator")
+  submittedCatalogRevisions CatalogProductRevision[]     @relation("CatalogRevisionSubmitter")
+  decidedCatalogRevisions   CatalogProductRevision[]     @relation("CatalogRevisionReviewer")
+  createdProductMedia       ProductMedia[]               @relation("ProductMediaCreator")
+  createdProductDocuments   ProductDocumentVersion[]     @relation("ProductDocumentCreator")
+  createdProductRelations   ProductRelation[]            @relation("ProductRelationCreator")
+  uploadedCatalogImports    CatalogImportRun[]           @relation("CatalogImportUploader")
+  decidedCatalogImports     CatalogImportDecision[]      @relation("CatalogImportDecisionActor")
+  createdSuppliers          Supplier[]                   @relation("SupplierCreator")
+  updatedSuppliers          Supplier[]                   @relation("SupplierUpdater")
+  supplierRevisions         SupplierRevision[]           @relation("SupplierRevisionCreator")
+  createdSupplierOffers     SupplierOffer[]              @relation("SupplierOfferCreator")
+  updatedSupplierOffers     SupplierOffer[]              @relation("SupplierOfferUpdater")
+  supplierOfferRevisions    SupplierOfferRevision[]      @relation("SupplierOfferRevisionCreator")
+  createdMatchProposals     ProductMatchProposal[]       @relation("MatchProposalCreator")
+  decidedMatchProposals     ProductMatchProposal[]       @relation("MatchProposalDecider")
   supplierCommandResults    SupplierCommandIdempotency[]
-  managedInquiries           Inquiry[]                  @relation("InquiryManager")
-  engineeredInquiries        Inquiry[]                  @relation("InquiryEngineer")
-  inquiryComments            InquiryComment[]           @relation("InquiryCommentAuthor")
-  inquiryCommandResults      InquiryCommandIdempotency[]
+  managedInquiries          Inquiry[]                    @relation("InquiryManager")
+  engineeredInquiries       Inquiry[]                    @relation("InquiryEngineer")
+  inquiryComments           InquiryComment[]             @relation("InquiryCommentAuthor")
+  inquiryCommandResults     InquiryCommandIdempotency[]
 
   @@index([state, id], map: "staff_user_state_id_idx")
   @@map("staff_user")
 }
 
 model Role {
-  id              String         @id @db.Uuid
-  code            String         @unique(map: "role_code_key") @db.VarChar(64)
-  name            String         @db.VarChar(120)
-  state           String         @db.Text
-  version         Int            @default(1)
-  createdAt       DateTime       @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime       @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
-  assignments     UserRole[]
-  permissions     RolePermission[]
+  id          String           @id @db.Uuid
+  code        String           @unique(map: "role_code_key") @db.VarChar(64)
+  name        String           @db.VarChar(120)
+  state       String           @db.Text
+  version     Int              @default(1)
+  createdAt   DateTime         @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  assignments UserRole[]
+  permissions RolePermission[]
 
   @@index([state, id], map: "role_state_id_idx")
   @@map("role")
@@ -79,12 +79,12 @@ model Permission {
 }
 
 model UserRole {
-  staffUserId      String    @map("staff_user_id") @db.Uuid
-  roleId           String    @map("role_id") @db.Uuid
-  assignedByUserId String?   @map("assigned_by_user_id") @db.Uuid
-  createdAt        DateTime  @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  staffUser        StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  role             Role      @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  staffUserId      String     @map("staff_user_id") @db.Uuid
+  roleId           String     @map("role_id") @db.Uuid
+  assignedByUserId String?    @map("assigned_by_user_id") @db.Uuid
+  createdAt        DateTime   @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  staffUser        StaffUser  @relation(fields: [staffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  role             Role       @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   assignedBy       StaffUser? @relation("UserRoleAssignedBy", fields: [assignedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@id([staffUserId, roleId])
@@ -123,19 +123,19 @@ model StaffSession {
 }
 
 model SellerLegalEntity {
-  id           String    @id @db.Uuid
-  displayName  String    @map("display_name") @db.VarChar(160)
-  legalName    String?   @map("legal_name") @db.VarChar(500)
-  kind         String    @db.Text
-  inn          String?   @db.VarChar(12)
-  kpp          String?   @db.VarChar(9)
-  ogrn         String?   @db.VarChar(15)
-  legalAddress String?   @map("legal_address") @db.VarChar(1000)
-  state        String    @db.Text
-  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(6)
-  version      Int       @default(1)
-  createdAt    DateTime  @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime  @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  id           String     @id @db.Uuid
+  displayName  String     @map("display_name") @db.VarChar(160)
+  legalName    String?    @map("legal_name") @db.VarChar(500)
+  kind         String     @db.Text
+  inn          String?    @db.VarChar(12)
+  kpp          String?    @db.VarChar(9)
+  ogrn         String?    @db.VarChar(15)
+  legalAddress String?    @map("legal_address") @db.VarChar(1000)
+  state        String     @db.Text
+  archivedAt   DateTime?  @map("archived_at") @db.Timestamptz(6)
+  version      Int        @default(1)
+  createdAt    DateTime   @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
   fileLinks    FileLink[]
 
   @@index([state, id], map: "seller_legal_entity_state_id_idx")
@@ -143,22 +143,22 @@ model SellerLegalEntity {
 }
 
 model AuditEvent {
-  id           String     @id @db.Uuid
-  occurredAt   DateTime   @default(dbgenerated("transaction_timestamp()")) @map("occurred_at") @db.Timestamptz(6)
-  actorKind    String     @map("actor_kind") @db.Text
-  actorUserId  String?    @map("actor_user_id") @db.Uuid
-  operatorLabel String?   @map("operator_label") @db.VarChar(80)
-  action       String     @db.VarChar(80)
-  entityType   String?    @map("entity_type") @db.Text
-  entityId     String?    @map("entity_id") @db.Uuid
-  outcome      String     @db.Text
-  reasonCode   String?    @map("reason_code") @db.VarChar(64)
-  requestId    String     @map("request_id") @db.Uuid
-  sourceHash   Bytes?     @map("source_hash") @db.ByteA
-  changes      Json       @default("{}") @db.JsonB
-  actor        StaffUser? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  id                     String                  @id @db.Uuid
+  occurredAt             DateTime                @default(dbgenerated("transaction_timestamp()")) @map("occurred_at") @db.Timestamptz(6)
+  actorKind              String                  @map("actor_kind") @db.Text
+  actorUserId            String?                 @map("actor_user_id") @db.Uuid
+  operatorLabel          String?                 @map("operator_label") @db.VarChar(80)
+  action                 String                  @db.VarChar(80)
+  entityType             String?                 @map("entity_type") @db.Text
+  entityId               String?                 @map("entity_id") @db.Uuid
+  outcome                String                  @db.Text
+  reasonCode             String?                 @map("reason_code") @db.VarChar(64)
+  requestId              String                  @map("request_id") @db.Uuid
+  sourceHash             Bytes?                  @map("source_hash") @db.ByteA
+  changes                Json                    @default("{}") @db.JsonB
+  actor                  StaffUser?              @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   catalogImportDecisions CatalogImportDecision[] @relation("CatalogImportDecisionAudit")
-  inquiryComment InquiryComment? @relation("InquiryCommentAudit")
+  inquiryComment         InquiryComment?         @relation("InquiryCommentAudit")
 
   @@index([occurredAt(sort: Desc), id(sort: Desc)], map: "audit_event_occurred_id_idx")
   @@index([actorUserId, occurredAt(sort: Desc)], map: "audit_event_actor_occurred_idx")
@@ -168,17 +168,17 @@ model AuditEvent {
 }
 
 model FileObject {
-  id              String      @id @db.Uuid
-  ownerStaffUserId String     @map("owner_staff_user_id") @db.Uuid
-  displayName     String      @map("display_name") @db.VarChar(255)
-  visibility      String      @db.Text
-  state           String      @db.Text
-  version         Int         @default(1)
-  createdAt       DateTime    @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime    @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
-  owner           StaffUser   @relation(fields: [ownerStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  versions        FileVersion[]
-  links           FileLink[]
+  id                String             @id @db.Uuid
+  ownerStaffUserId  String             @map("owner_staff_user_id") @db.Uuid
+  displayName       String             @map("display_name") @db.VarChar(255)
+  visibility        String             @db.Text
+  state             String             @db.Text
+  version           Int                @default(1)
+  createdAt         DateTime           @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  owner             StaffUser          @relation(fields: [ownerStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  versions          FileVersion[]
+  links             FileLink[]
   catalogImportRuns CatalogImportRun[] @relation("CatalogImportSourceObject")
 
   @@unique([id, ownerStaffUserId], map: "file_object_id_owner_key")
@@ -187,23 +187,23 @@ model FileObject {
 }
 
 model FileVersion {
-  id               String      @id @db.Uuid
-  fileObjectId     String      @map("file_object_id") @db.Uuid
-  number           Int
-  storageKey       String      @unique(map: "file_version_storage_key_key") @map("storage_key") @db.VarChar(128)
-  sha256           Bytes       @db.ByteA
-  sizeBytes        BigInt      @map("size_bytes")
-  mimeType         String      @map("mime_type") @db.VarChar(127)
-  originalFilename String      @map("original_filename") @db.VarChar(255)
-  safetyState      String      @map("safety_state") @db.Text
-  createdByUserId  String      @map("created_by_user_id") @db.Uuid
-  createdAt        DateTime    @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  fileObject       FileObject  @relation(fields: [fileObjectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  createdBy        StaffUser   @relation("FileVersionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  links            FileLink[]
-  productMedia     ProductMedia[]
-  productDocuments ProductDocumentVersion[]
-  catalogImportRuns CatalogImportRun[] @relation("CatalogImportSourceVersion")
+  id                String                   @id @db.Uuid
+  fileObjectId      String                   @map("file_object_id") @db.Uuid
+  number            Int
+  storageKey        String                   @unique(map: "file_version_storage_key_key") @map("storage_key") @db.VarChar(128)
+  sha256            Bytes                    @db.ByteA
+  sizeBytes         BigInt                   @map("size_bytes")
+  mimeType          String                   @map("mime_type") @db.VarChar(127)
+  originalFilename  String                   @map("original_filename") @db.VarChar(255)
+  safetyState       String                   @map("safety_state") @db.Text
+  createdByUserId   String                   @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  fileObject        FileObject               @relation(fields: [fileObjectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy         StaffUser                @relation("FileVersionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  links             FileLink[]
+  productMedia      ProductMedia[]
+  productDocuments  ProductDocumentVersion[]
+  catalogImportRuns CatalogImportRun[]       @relation("CatalogImportSourceVersion")
 
   @@unique([fileObjectId, number], map: "file_version_object_number_key")
   @@unique([id, fileObjectId], map: "file_version_id_object_key")
@@ -212,17 +212,17 @@ model FileVersion {
 }
 
 model FileLink {
-  id                  String           @id @db.Uuid
-  fileObjectId        String           @map("file_object_id") @db.Uuid
-  fileVersionId       String           @map("file_version_id") @db.Uuid
-  sellerLegalEntityId String           @map("seller_legal_entity_id") @db.Uuid
-  visibility          String           @db.Text
-  createdByUserId     String           @map("created_by_user_id") @db.Uuid
-  createdAt           DateTime         @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  fileObject          FileObject       @relation(fields: [fileObjectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  fileVersion         FileVersion      @relation(fields: [fileVersionId, fileObjectId], references: [id, fileObjectId], onDelete: Restrict, onUpdate: Restrict)
+  id                  String            @id @db.Uuid
+  fileObjectId        String            @map("file_object_id") @db.Uuid
+  fileVersionId       String            @map("file_version_id") @db.Uuid
+  sellerLegalEntityId String            @map("seller_legal_entity_id") @db.Uuid
+  visibility          String            @db.Text
+  createdByUserId     String            @map("created_by_user_id") @db.Uuid
+  createdAt           DateTime          @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  fileObject          FileObject        @relation(fields: [fileObjectId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  fileVersion         FileVersion       @relation(fields: [fileVersionId, fileObjectId], references: [id, fileObjectId], onDelete: Restrict, onUpdate: Restrict)
   sellerLegalEntity   SellerLegalEntity @relation(fields: [sellerLegalEntityId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  createdBy           StaffUser        @relation("FileLinkCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy           StaffUser         @relation("FileLinkCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([sellerLegalEntityId, fileVersionId], map: "file_link_seller_version_key")
   @@index([fileObjectId, sellerLegalEntityId], map: "file_link_object_seller_idx")
@@ -230,15 +230,15 @@ model FileLink {
 }
 
 model Brand {
-  id        String                   @id @db.Uuid
-  slug      String                   @unique(map: "brand_slug_key") @db.VarChar(120)
-  name      String                   @db.VarChar(160)
-  state     String                   @db.Text
-  version   Int                      @default(1)
-  createdAt DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
-  products  CatalogProduct[]         @relation("CatalogProductBrand")
-  revisions CatalogProductRevision[] @relation("CatalogRevisionBrand")
+  id                     String                   @id @db.Uuid
+  slug                   String                   @unique(map: "brand_slug_key") @db.VarChar(120)
+  name                   String                   @db.VarChar(160)
+  state                  String                   @db.Text
+  version                Int                      @default(1)
+  createdAt              DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  products               CatalogProduct[]         @relation("CatalogProductBrand")
+  revisions              CatalogProductRevision[] @relation("CatalogRevisionBrand")
   supplierOfferRevisions SupplierOfferRevision[]
 
   @@index([state, name, id], map: "brand_state_name_id_idx")
@@ -310,8 +310,8 @@ model CatalogProduct {
   publishedRevision      CatalogProductRevision?  @relation("ProductPublishedRevision", fields: [publishedRevisionId, id], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
   pendingRevision        CatalogProductRevision?  @relation("ProductPendingRevision", fields: [pendingRevisionId, id], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
   currentDraftRevision   CatalogProductRevision?  @relation("ProductDraftRevision", fields: [currentDraftRevisionId, id], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
-  catalogImportRows      CatalogImportRow[]        @relation("CatalogImportMatchedProduct")
-  catalogImportDecisions CatalogImportDecision[]   @relation("CatalogImportDecisionTarget")
+  catalogImportRows      CatalogImportRow[]       @relation("CatalogImportMatchedProduct")
+  catalogImportDecisions CatalogImportDecision[]  @relation("CatalogImportDecisionTarget")
   supplierMatchProposals ProductMatchProposal[]
 
   @@index([publicationState, updatedAt, id], map: "catalog_product_state_updated_id_idx")
@@ -321,50 +321,50 @@ model CatalogProduct {
 }
 
 model CatalogProductRevision {
-  id                         String                   @id @db.Uuid
-  productId                  String                   @map("product_id") @db.Uuid
-  revisionNo                 Int                      @map("revision_no")
-  sourceRevisionId           String?                  @map("source_revision_id") @db.Uuid
-  brandId                    String?                  @map("brand_id") @db.Uuid
-  categoryId                 String                   @map("category_id") @db.Uuid
-  state                      String                   @db.Text
-  displayName                String                   @map("display_name") @db.VarChar(240)
-  summary                    String?                  @db.VarChar(500)
-  description                String?                  @db.Text
-  brandNameSnapshot          String?                  @map("brand_name_snapshot") @db.VarChar(160)
-  brandSlugSnapshot          String?                  @map("brand_slug_snapshot") @db.VarChar(120)
-  categoryNameSnapshot       String                   @map("category_name_snapshot") @db.VarChar(160)
-  categorySlugSnapshot       String                   @map("category_slug_snapshot") @db.VarChar(120)
-  manufacturerNameSnapshot   String?                  @map("manufacturer_name_snapshot") @db.VarChar(200)
-  originalPartNumberSnapshot String?                  @map("original_part_number_snapshot") @db.VarChar(160)
-  modificationSnapshot       String?                  @map("modification_snapshot") @db.VarChar(160)
-  createdByUserId            String                   @map("created_by_user_id") @db.Uuid
-  createdAt                  DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  submittedByUserId          String?                  @map("submitted_by_user_id") @db.Uuid
-  submittedAt                DateTime?                @map("submitted_at") @db.Timestamptz(6)
-  decidedByUserId            String?                  @map("decided_by_user_id") @db.Uuid
-  decidedAt                  DateTime?                @map("decided_at") @db.Timestamptz(6)
-  decision                   String?                  @db.Text
-  decisionReason             String?                  @map("decision_reason") @db.VarChar(1000)
-  expectedCatalogImportRows CatalogImportRow[] @relation("CatalogImportExpectedRevision")
-  catalogImportDecisionResults CatalogImportDecision[] @relation("CatalogImportDecisionResultRevision")
-  publishedAt                DateTime?                @map("published_at") @db.Timestamptz(6)
-  product                    CatalogProduct           @relation("CatalogProductRevisions", fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  sourceRevision             CatalogProductRevision?  @relation("RevisionSource", fields: [sourceRevisionId, productId], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
-  derivedRevisions           CatalogProductRevision[] @relation("RevisionSource")
-  brand                      Brand?                   @relation("CatalogRevisionBrand", fields: [brandId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  category                   Category                 @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  createdBy                  StaffUser                @relation("CatalogRevisionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  submittedBy                StaffUser?               @relation("CatalogRevisionSubmitter", fields: [submittedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  decidedBy                  StaffUser?               @relation("CatalogRevisionReviewer", fields: [decidedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  publishedFor               CatalogProduct[]         @relation("ProductPublishedRevision")
-  pendingFor                 CatalogProduct[]         @relation("ProductPendingRevision")
-  draftFor                   CatalogProduct[]         @relation("ProductDraftRevision")
-  attributeValues            ProductAttributeValue[]
-  media                      ProductMedia[]
-  documents                  ProductDocumentVersion[]
-  sourceRelations            ProductRelation[]        @relation("ProductRelationSource")
-  targetRelations            ProductRelation[]        @relation("ProductRelationTarget")
+  id                           String                   @id @db.Uuid
+  productId                    String                   @map("product_id") @db.Uuid
+  revisionNo                   Int                      @map("revision_no")
+  sourceRevisionId             String?                  @map("source_revision_id") @db.Uuid
+  brandId                      String?                  @map("brand_id") @db.Uuid
+  categoryId                   String                   @map("category_id") @db.Uuid
+  state                        String                   @db.Text
+  displayName                  String                   @map("display_name") @db.VarChar(240)
+  summary                      String?                  @db.VarChar(500)
+  description                  String?                  @db.Text
+  brandNameSnapshot            String?                  @map("brand_name_snapshot") @db.VarChar(160)
+  brandSlugSnapshot            String?                  @map("brand_slug_snapshot") @db.VarChar(120)
+  categoryNameSnapshot         String                   @map("category_name_snapshot") @db.VarChar(160)
+  categorySlugSnapshot         String                   @map("category_slug_snapshot") @db.VarChar(120)
+  manufacturerNameSnapshot     String?                  @map("manufacturer_name_snapshot") @db.VarChar(200)
+  originalPartNumberSnapshot   String?                  @map("original_part_number_snapshot") @db.VarChar(160)
+  modificationSnapshot         String?                  @map("modification_snapshot") @db.VarChar(160)
+  createdByUserId              String                   @map("created_by_user_id") @db.Uuid
+  createdAt                    DateTime                 @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  submittedByUserId            String?                  @map("submitted_by_user_id") @db.Uuid
+  submittedAt                  DateTime?                @map("submitted_at") @db.Timestamptz(6)
+  decidedByUserId              String?                  @map("decided_by_user_id") @db.Uuid
+  decidedAt                    DateTime?                @map("decided_at") @db.Timestamptz(6)
+  decision                     String?                  @db.Text
+  decisionReason               String?                  @map("decision_reason") @db.VarChar(1000)
+  expectedCatalogImportRows    CatalogImportRow[]       @relation("CatalogImportExpectedRevision")
+  catalogImportDecisionResults CatalogImportDecision[]  @relation("CatalogImportDecisionResultRevision")
+  publishedAt                  DateTime?                @map("published_at") @db.Timestamptz(6)
+  product                      CatalogProduct           @relation("CatalogProductRevisions", fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sourceRevision               CatalogProductRevision?  @relation("RevisionSource", fields: [sourceRevisionId, productId], references: [id, productId], onDelete: Restrict, onUpdate: Restrict)
+  derivedRevisions             CatalogProductRevision[] @relation("RevisionSource")
+  brand                        Brand?                   @relation("CatalogRevisionBrand", fields: [brandId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  category                     Category                 @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdBy                    StaffUser                @relation("CatalogRevisionCreator", fields: [createdByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  submittedBy                  StaffUser?               @relation("CatalogRevisionSubmitter", fields: [submittedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  decidedBy                    StaffUser?               @relation("CatalogRevisionReviewer", fields: [decidedByUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  publishedFor                 CatalogProduct[]         @relation("ProductPublishedRevision")
+  pendingFor                   CatalogProduct[]         @relation("ProductPendingRevision")
+  draftFor                     CatalogProduct[]         @relation("ProductDraftRevision")
+  attributeValues              ProductAttributeValue[]
+  media                        ProductMedia[]
+  documents                    ProductDocumentVersion[]
+  sourceRelations              ProductRelation[]        @relation("ProductRelationSource")
+  targetRelations              ProductRelation[]        @relation("ProductRelationTarget")
 
   // Partial unique indexes for DRAFT and PENDING_REVIEW are SQL-only.
   @@unique([productId, revisionNo], map: "catalog_product_revision_product_no_key")
@@ -705,29 +705,29 @@ model SupplierCommandIdempotency {
 }
 
 model Inquiry {
-  id                       String                     @id @db.Uuid
-  publicReference          String                     @unique(map: "inquiry_public_reference_key") @map("public_reference") @db.VarChar(32)
-  channel                  String                     @db.Text
-  kind                     String                     @db.Text
-  status                   String                     @db.Text
-  contactSnapshot          Json                       @map("contact_snapshot") @db.JsonB
-  catalogProductContext    String?                    @map("catalog_product_context") @db.VarChar(120)
-  kindDetails              Json                       @map("kind_details") @db.JsonB
-  uploadProfileCode        String                     @map("upload_profile_code") @db.Text
-  uploadCapabilityHash     Bytes?                     @unique(map: "inquiry_upload_capability_hash_key") @map("upload_capability_hash") @db.ByteA
-  uploadCapabilityExpiresAt DateTime?                 @map("upload_capability_expires_at") @db.Timestamptz(6)
-  assignedManagerUserId    String?                    @map("assigned_manager_user_id") @db.Uuid
-  assignedEngineerUserId   String?                    @map("assigned_engineer_user_id") @db.Uuid
-  stageDueAt               DateTime?                  @map("stage_due_at") @db.Timestamptz(6)
-  version                  Int                        @default(1)
-  createdAt                DateTime                   @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  updatedAt                DateTime                   @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
-  assignedManager          StaffUser?                 @relation("InquiryManager", fields: [assignedManagerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  assignedEngineer         StaffUser?                 @relation("InquiryEngineer", fields: [assignedEngineerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  lines                    InquiryLine[]
-  comments                 InquiryComment[]
-  sourceDocuments          InquirySourceDocument[]
-  uploadIntents            InquiryUploadIntent[]
+  id                        String                  @id @db.Uuid
+  publicReference           String                  @unique(map: "inquiry_public_reference_key") @map("public_reference") @db.VarChar(32)
+  channel                   String                  @db.Text
+  kind                      String                  @db.Text
+  status                    String                  @db.Text
+  contactSnapshot           Json                    @map("contact_snapshot") @db.JsonB
+  catalogProductContext     String?                 @map("catalog_product_context") @db.VarChar(120)
+  kindDetails               Json                    @map("kind_details") @db.JsonB
+  uploadProfileCode         String                  @map("upload_profile_code") @db.Text
+  uploadCapabilityHash      Bytes?                  @unique(map: "inquiry_upload_capability_hash_key") @map("upload_capability_hash") @db.ByteA
+  uploadCapabilityExpiresAt DateTime?               @map("upload_capability_expires_at") @db.Timestamptz(6)
+  assignedManagerUserId     String?                 @map("assigned_manager_user_id") @db.Uuid
+  assignedEngineerUserId    String?                 @map("assigned_engineer_user_id") @db.Uuid
+  stageDueAt                DateTime?               @map("stage_due_at") @db.Timestamptz(6)
+  version                   Int                     @default(1)
+  createdAt                 DateTime                @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime                @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  assignedManager           StaffUser?              @relation("InquiryManager", fields: [assignedManagerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  assignedEngineer          StaffUser?              @relation("InquiryEngineer", fields: [assignedEngineerUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lines                     InquiryLine[]
+  comments                  InquiryComment[]
+  sourceDocuments           InquirySourceDocument[]
+  uploadIntents             InquiryUploadIntent[]
 
   @@index([status, createdAt, id], map: "inquiry_status_created_id_idx")
   @@index([status, stageDueAt, id], map: "inquiry_status_due_id_idx")
@@ -737,19 +737,19 @@ model Inquiry {
 }
 
 model InquiryLine {
-  id                       String   @id @db.Uuid
-  inquiryId                String   @map("inquiry_id") @db.Uuid
-  sequence                 Int
-  rawTitle                 String   @map("raw_title") @db.VarChar(500)
-  originalSku              String?  @map("original_sku") @db.VarChar(160)
-  manufacturerName         String?  @map("manufacturer_name") @db.VarChar(200)
-  modification             String?  @db.VarChar(200)
-  quantityText             String   @map("quantity_text") @db.VarChar(80)
-  unitText                 String   @map("unit_text") @db.VarChar(40)
-  notes                    String?  @db.VarChar(4000)
-  catalogProductSlugContext String? @map("catalog_product_slug_context") @db.VarChar(160)
-  createdAt                DateTime @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  inquiry                  Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  id                        String   @id @db.Uuid
+  inquiryId                 String   @map("inquiry_id") @db.Uuid
+  sequence                  Int
+  rawTitle                  String   @map("raw_title") @db.VarChar(500)
+  originalSku               String?  @map("original_sku") @db.VarChar(160)
+  manufacturerName          String?  @map("manufacturer_name") @db.VarChar(200)
+  modification              String?  @db.VarChar(200)
+  quantityText              String   @map("quantity_text") @db.VarChar(80)
+  unitText                  String   @map("unit_text") @db.VarChar(40)
+  notes                     String?  @db.VarChar(4000)
+  catalogProductSlugContext String?  @map("catalog_product_slug_context") @db.VarChar(160)
+  createdAt                 DateTime @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  inquiry                   Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([inquiryId, sequence], map: "inquiry_line_sequence_key")
   @@index([inquiryId, sequence], map: "inquiry_line_inquiry_sequence_idx")
@@ -757,36 +757,36 @@ model InquiryLine {
 }
 
 model InquiryComment {
-  id                 String     @id @db.Uuid
-  inquiryId          String     @map("inquiry_id") @db.Uuid
-  authorStaffUserId  String     @map("author_staff_user_id") @db.Uuid
-  visibility         String     @default("INTERNAL") @db.Text
-  body               String     @db.VarChar(4000)
-  auditEventId       String     @unique(map: "inquiry_comment_audit_event_key") @map("audit_event_id") @db.Uuid
-  createdAt          DateTime   @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  inquiry            Inquiry    @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  author             StaffUser  @relation("InquiryCommentAuthor", fields: [authorStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  auditEvent         AuditEvent @relation("InquiryCommentAudit", fields: [auditEventId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  id                String     @id @db.Uuid
+  inquiryId         String     @map("inquiry_id") @db.Uuid
+  authorStaffUserId String     @map("author_staff_user_id") @db.Uuid
+  visibility        String     @default("INTERNAL") @db.Text
+  body              String     @db.VarChar(4000)
+  auditEventId      String     @unique(map: "inquiry_comment_audit_event_key") @map("audit_event_id") @db.Uuid
+  createdAt         DateTime   @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  inquiry           Inquiry    @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  author            StaffUser  @relation("InquiryCommentAuthor", fields: [authorStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  auditEvent        AuditEvent @relation("InquiryCommentAudit", fields: [auditEventId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([inquiryId, createdAt, id], map: "inquiry_comment_inquiry_created_idx")
   @@map("inquiry_comment")
 }
 
 model InquiryUploadIntent {
-  id                  String                    @id @db.Uuid
-  inquiryId           String                    @map("inquiry_id") @db.Uuid
-  state               String                    @db.Text
-  safeFilename        String                    @map("safe_filename") @db.VarChar(255)
-  declaredMimeType    String                    @map("declared_mime_type") @db.VarChar(127)
-  declaredSizeBytes   BigInt                    @map("declared_size_bytes")
-  expectedSha256      Bytes?                    @map("expected_sha256") @db.ByteA
-  expiresAt           DateTime                  @map("expires_at") @db.Timestamptz(6)
-  receivingStartedAt  DateTime?                 @map("receiving_started_at") @db.Timestamptz(6)
-  receivingDeadlineAt DateTime?                 @map("receiving_deadline_at") @db.Timestamptz(6)
-  version             Int                       @default(1)
-  createdAt           DateTime                  @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime                  @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
-  inquiry             Inquiry                   @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  id                  String                 @id @db.Uuid
+  inquiryId           String                 @map("inquiry_id") @db.Uuid
+  state               String                 @db.Text
+  safeFilename        String                 @map("safe_filename") @db.VarChar(255)
+  declaredMimeType    String                 @map("declared_mime_type") @db.VarChar(127)
+  declaredSizeBytes   BigInt                 @map("declared_size_bytes")
+  expectedSha256      Bytes?                 @map("expected_sha256") @db.ByteA
+  expiresAt           DateTime               @map("expires_at") @db.Timestamptz(6)
+  receivingStartedAt  DateTime?              @map("receiving_started_at") @db.Timestamptz(6)
+  receivingDeadlineAt DateTime?              @map("receiving_deadline_at") @db.Timestamptz(6)
+  version             Int                    @default(1)
+  createdAt           DateTime               @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime               @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  inquiry             Inquiry                @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   sourceDocument      InquirySourceDocument?
 
   @@unique([id, inquiryId], map: "inquiry_upload_intent_id_inquiry_key")
@@ -796,26 +796,59 @@ model InquiryUploadIntent {
 }
 
 model InquirySourceDocument {
-  id                String             @id @db.Uuid
-  inquiryId         String             @map("inquiry_id") @db.Uuid
-  uploadIntentId    String             @unique(map: "inquiry_source_document_intent_key") @map("upload_intent_id") @db.Uuid
-  uploaderKind      String             @map("uploader_kind") @db.Text
-  uploadChannel     String             @map("upload_channel") @db.Text
-  storageKey        String             @unique(map: "inquiry_source_document_storage_key_key") @map("storage_key") @db.VarChar(128)
-  sha256            Bytes              @db.ByteA
-  sizeBytes         BigInt             @map("size_bytes")
-  detectedMimeType  String             @map("detected_mime_type") @db.VarChar(127)
-  originalFilename  String             @map("original_filename") @db.VarChar(255)
-  safetyState       String             @default("QUARANTINED") @map("safety_state") @db.Text
-  uploadedAt        DateTime           @map("uploaded_at") @db.Timestamptz(6)
-  createdAt         DateTime           @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
-  inquiry           Inquiry            @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  uploadIntent      InquiryUploadIntent @relation(fields: [uploadIntentId, inquiryId], references: [id, inquiryId], onDelete: Restrict, onUpdate: Restrict)
+  id               String                        @id @db.Uuid
+  inquiryId        String                        @map("inquiry_id") @db.Uuid
+  uploadIntentId   String                        @unique(map: "inquiry_source_document_intent_key") @map("upload_intent_id") @db.Uuid
+  uploaderKind     String                        @map("uploader_kind") @db.Text
+  uploadChannel    String                        @map("upload_channel") @db.Text
+  storageKey       String                        @unique(map: "inquiry_source_document_storage_key_key") @map("storage_key") @db.VarChar(128)
+  sha256           Bytes                         @db.ByteA
+  sizeBytes        BigInt                        @map("size_bytes")
+  detectedMimeType String                        @map("detected_mime_type") @db.VarChar(127)
+  originalFilename String                        @map("original_filename") @db.VarChar(255)
+  safetyState      String                        @default("QUARANTINED") @map("safety_state") @db.Text
+  uploadedAt       DateTime                      @map("uploaded_at") @db.Timestamptz(6)
+  createdAt        DateTime                      @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  inquiry          Inquiry                       @relation(fields: [inquiryId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  uploadIntent     InquiryUploadIntent           @relation(fields: [uploadIntentId, inquiryId], references: [id, inquiryId], onDelete: Restrict, onUpdate: Restrict)
+  scanJob          InquirySourceDocumentScanJob?
 
+  @@unique([uploadIntentId, inquiryId], map: "inquiry_source_document_intent_inquiry_key")
   @@index([inquiryId, createdAt, id], map: "inquiry_source_document_inquiry_created_idx")
   @@index([safetyState, createdAt, id], map: "inquiry_source_document_state_created_idx")
-  @@unique([uploadIntentId, inquiryId], map: "inquiry_source_document_intent_inquiry_key")
   @@map("inquiry_source_document")
+}
+
+model InquirySourceDocumentScanJob {
+  id                       String                @id @db.Uuid
+  sourceDocumentId         String                @unique(map: "inquiry_source_document_scan_job_source_document_key") @map("source_document_id") @db.Uuid
+  sourceStorageKey         String                @map("source_storage_key") @db.VarChar(128)
+  sourceSha256             Bytes                 @map("source_sha256") @db.ByteA
+  sourceSizeBytes          BigInt                @map("source_size_bytes")
+  status                   String                @db.Text
+  attemptCount             Int                   @default(0) @map("attempt_count")
+  version                  Int                   @default(1)
+  availableAt              DateTime              @default(dbgenerated("transaction_timestamp()")) @map("available_at") @db.Timestamptz(6)
+  leaseTokenHash           Bytes?                @map("lease_token_hash") @db.ByteA
+  leaseExpiresAt           DateTime?             @map("lease_expires_at") @db.Timestamptz(6)
+  failureCode              String?               @map("failure_code") @db.Text
+  engineVersion            String?               @map("engine_version") @db.VarChar(80)
+  signatureDatabaseVersion String?               @map("signature_database_version") @db.VarChar(80)
+  signatureDatabaseDate    DateTime?             @map("signature_database_date") @db.Timestamptz(6)
+  signatureSetFingerprint  Bytes?                @map("signature_set_fingerprint") @db.ByteA
+  completedJobVersion      Int?                  @map("completed_job_version")
+  completedLeaseTokenHash  Bytes?                @map("completed_lease_token_hash") @db.ByteA
+  finalizeFingerprint      Bytes?                @map("finalize_fingerprint") @db.ByteA
+  lastAttemptAt            DateTime?             @map("last_attempt_at") @db.Timestamptz(6)
+  lastScanDurationMs       Int?                  @map("last_scan_duration_ms")
+  completedAt              DateTime?             @map("completed_at") @db.Timestamptz(6)
+  createdAt                DateTime              @default(dbgenerated("transaction_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime              @default(dbgenerated("transaction_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  sourceDocument           InquirySourceDocument @relation(fields: [sourceDocumentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([status, availableAt, createdAt, id], map: "inquiry_scan_job_queue_idx")
+  @@index([status, leaseExpiresAt, id], map: "inquiry_scan_job_lease_expiry_idx")
+  @@map("inquiry_source_document_scan_job")
 }
 
 model InquiryCommandIdempotency {

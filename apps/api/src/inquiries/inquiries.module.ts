@@ -7,6 +7,7 @@ import {
   StaffInquiriesController,
 } from './inquiries.controller.js';
 import { InquiriesService } from './inquiries.service.js';
+import { InquiryScanStreamServer } from './scan-stream.server.js';
 
 @Module({
   imports: [IdentityModule],
@@ -15,7 +16,7 @@ import { InquiriesService } from './inquiries.service.js';
     PublicInquiryAttachmentsController,
     StaffInquiriesController,
   ],
-  providers: [InquiriesService, PrivateFileStorage],
+  providers: [InquiriesService, PrivateFileStorage, InquiryScanStreamServer],
   exports: [InquiriesService],
 })
 export class InquiriesModule {}

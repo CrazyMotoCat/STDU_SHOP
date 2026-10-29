@@ -15,7 +15,7 @@ concurrency:
 jobs:
   quality-and-integration:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 60
     env:
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
@@ -90,6 +90,8 @@ jobs:
         run: pnpm test:r1-007b
       - name: R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance
         run: pnpm test:r1-010b
+      - name: R1-010D isolated PostgreSQL, ClamAV and scanner pipeline acceptance
+        run: pnpm test:r1-010d
       - name: R1-003 public UI acceptance
         run: pnpm ui:smoke
       - name: R1-005 public catalog browser acceptance
