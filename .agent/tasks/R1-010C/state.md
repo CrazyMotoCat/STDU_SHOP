@@ -1,5 +1,11 @@
 # R1-010C — Public Inquiry API Integration
 
+**Remediation checkpoint (2026-10-29):** IN PROGRESS, not ready for merge. Branch `codex/r1-010c-public-api`, last committed HEAD `ed9c7022b6d52c4c54a0050d9372d9ce9786832c`, fetched `origin/main` `55281be07e8d6938c8b1a6ba6988e188b7fc642b`. Four frontend files contain uncommitted task-owned changes: API signal handling, component submission guard and cleanup, submission lifecycle/unknown-outcome handling, and focused tests. These changes require further review, full concurrency/lifecycle coverage and real browser-to-NestJS E2E. No commit or push has been made for remediation. Docker daemon answered `docker info`; other agents' resources were not touched.
+
+**Remediation verification so far:** `pnpm exec vitest run apps/web/src/app/request-quote` passed 45 tests; `pnpm --filter @stdu/web typecheck`, targeted ESLint, Prettier write and `git diff --check` passed. These are not a complete quality gate. The previous hosted CI tested the old HEAD only.
+
+**Next action:** implement and run the required isolated real browser-to-NestJS E2E and remaining concurrency/lifecycle/unknown-outcome tests, then independently review all remediation before considering a commit and fresh CI. Preserve frozen contracts and the other agent's worktree and Compose resources.
+
 **Status:** implementation complete and independently reviewed PASS. Code commit `04a3d25c46993bdcaad703c61a70bd5f0be62f0f` is synchronized with `origin/main` by merge commit `f0814a27ff8f97c6c972469ea1ef9c890c87c75b`. Push, Draft PR and hosted CI remain. **Delivery mode:** REVIEW_REQUIRED. Do not merge.
 
 **Base:** approved R1-010C-PREP PR #25 merged normally at `2e5b59fc0d99e3580bbdaa6665df335192f83cbe`; post-merge GitHub run `40667837051` completed SUCCESS. Before push, `origin/main` advanced to `55281be07e8d6938c8b1a6ba6988e188b7fc642b` for R1-010D Stage A docs/contract/checker changes. Its changed paths do not overlap this task; merge latest main into this branch normally and preserve them unchanged.

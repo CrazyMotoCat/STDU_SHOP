@@ -412,7 +412,16 @@ export function RequestQuoteForm({
     (submission.phase === 'create-rejected' && submission.retryCreate);
 
   useEffect(() => {
+    return () => {
+      submissionController.current?.dispose();
+      fileBytes.current.clear();
+      uploadCapability.current = undefined;
+    };
+  }, []);
+
+  useEffect(() => {
     const shouldWarnBeforeLeaving =
+      submission.phase === 'creating' ||
       submission.phase === 'create-unknown' ||
       submission.phase === 'uploading' ||
       submission.phase === 'partial';
@@ -679,6 +688,7 @@ export function RequestQuoteForm({
       void submissionController.current?.retryCreation();
       return;
     }
+    if (submissionController.current) return;
     if (submission.phase !== 'idle' && submission.phase !== 'create-rejected')
       return;
 

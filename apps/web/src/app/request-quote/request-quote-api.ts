@@ -33,22 +33,26 @@ export interface PublicInquiryApi {
   createInquiry(
     idempotencyKey: string,
     body: string,
+    signal?: AbortSignal,
   ): Promise<PublicInquiryReceipt>;
   createUploadIntent(
     idempotencyKey: string,
     capability: string,
     body: string,
+    signal?: AbortSignal,
   ): Promise<UploadIntentReceipt>;
   uploadFile(
     intentId: string,
     idempotencyKey: string,
     capability: string,
     file: File,
+    signal?: AbortSignal,
   ): Promise<DocumentUploadReceipt>;
   cancelUploadIntent(
     intentId: string,
     idempotencyKey: string,
     capability: string,
+    signal?: AbortSignal,
   ): Promise<void>;
 }
 
@@ -303,6 +307,7 @@ export function createPublicInquiryApi(
     capability?: string,
     contentType?: string,
     expectedStatus = 201,
+    signal?: AbortSignal,
   ): Promise<unknown> {
     assertIdempotencyKey(idempotencyKey);
     if (capability !== undefined) assertCapability(capability);
@@ -326,11 +331,9 @@ export function createPublicInquiryApi(
         credentials: 'omit',
         redirect: 'error',
         referrerPolicy: 'no-referrer',
-        signal:
-          typeof AbortSignal !== 'undefined' &&
-          typeof AbortSignal.timeout === 'function'
-            ? AbortSignal.timeout(60_000)
-            : undefined,
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(60_000)])
+          : AbortSignal.timeout(60_000),
       });
     } catch {
       throw apiError('transport', null, null, [], null, true);
@@ -349,7 +352,7 @@ export function createPublicInquiryApi(
   }
 
   return {
-    async createInquiry(idempotencyKey, body) {
+    async createInquiry(idempotencyKey, body, signal) {
       const response = await request(
         '/v1/public/inquiries',
         'POST',
@@ -357,12 +360,14 @@ export function createPublicInquiryApi(
         body,
         undefined,
         'application/json',
+        201,
+        signal,
       );
       const receipt = parseInquiryReceipt(response);
       if (!receipt) throw apiError('protocol', 201, null, [], null, true);
       return receipt;
     },
-    async createUploadIntent(idempotencyKey, capability, body) {
+    async createUploadIntent(idempotencyKey, capability, body, signal) {
       const response = await request(
         '/v1/public/inquiry-attachments/upload-intents',
         'POST',
@@ -370,12 +375,14 @@ export function createPublicInquiryApi(
         body,
         capability,
         'application/json',
+        201,
+        signal,
       );
       const receipt = parseIntentReceipt(response);
       if (!receipt) throw apiError('protocol', 201, null, [], null, true);
       return receipt;
     },
-    async uploadFile(intentId, idempotencyKey, capability, file) {
+    async uploadFile(intentId, idempotencyKey, capability, file, signal) {
       const response = await request(
         `/v1/public/inquiry-attachments/upload-intents/${encodeURIComponent(intentId)}/content`,
         'PUT',
@@ -383,12 +390,14 @@ export function createPublicInquiryApi(
         file,
         capability,
         'application/octet-stream',
+        201,
+        signal,
       );
       const receipt = parseDocumentReceipt(response);
       if (!receipt) throw apiError('protocol', 201, null, [], null, true);
       return receipt;
     },
-    async cancelUploadIntent(intentId, idempotencyKey, capability) {
+    async cancelUploadIntent(intentId, idempotencyKey, capability, signal) {
       await request(
         `/v1/public/inquiry-attachments/upload-intents/${encodeURIComponent(intentId)}`,
         'DELETE',
@@ -397,6 +406,7 @@ export function createPublicInquiryApi(
         capability,
         undefined,
         204,
+        signal,
       );
     },
   };

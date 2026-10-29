@@ -30,6 +30,7 @@ export type FileUploadPhase =
   | 'uploading'
   | 'uploaded'
   | 'failed'
+  | 'unknown'
   | 'skipped';
 
 export type FileUploadView = {
@@ -40,6 +41,7 @@ export type FileUploadView = {
   message?: string;
   retryable: boolean;
   retryAfterSeconds?: number;
+  uploadOutcomeUnknown?: boolean;
 };
 
 export type SubmissionView = {
@@ -65,6 +67,7 @@ type FileAttempt = {
   retryMode: 'same-intent' | 'same-upload' | 'none';
   message?: string;
   retryAfterSeconds?: number;
+  uploadOutcomeUnknown?: boolean;
 };
 
 type SubmissionOptions = {
@@ -176,6 +179,8 @@ function errorMessage(
 }
 
 export class PublicInquirySubmission {
+  private readonly abortController = new AbortController();
+  private disposed = false;
   private readonly api: PublicInquiryApi;
   private readonly createSecret: () => string;
   private readonly notify?: (view: SubmissionView) => void;
@@ -188,6 +193,7 @@ export class PublicInquirySubmission {
   private receipt?: PublicInquiryReceipt;
   private message?: string;
   private retryCreate = false;
+  private createOutcomeUnknown = false;
   private retryAfterSeconds?: number;
   private fieldErrors: Array<{ field: string; code: string }> = [];
 
@@ -246,17 +252,18 @@ export class PublicInquirySubmission {
   }
 
   async start() {
-    if (this.phase !== 'idle') return;
+    if (this.disposed || this.phase !== 'idle') return;
     await this.createInquiry();
   }
 
   async retryCreation() {
+    if (this.disposed) return;
     if (this.phase !== 'create-unknown' && !this.retryCreate) return;
     await this.createInquiry();
   }
 
   async retryFile(fileId: number) {
-    if (this.phase !== 'partial') return;
+    if (this.disposed || this.phase !== 'partial') return;
     const attempt = this.files.find((file) => file.selected.id === fileId);
     if (!attempt || attempt.retryMode === 'none') return;
     this.phase = 'uploading';
@@ -267,13 +274,18 @@ export class PublicInquirySubmission {
     } else {
       await this.uploadExistingIntent(attempt);
     }
-    this.finishUploads();
+    if (!this.disposed) this.finishUploads();
   }
 
   async skipFailedFile(fileId: number) {
-    if (this.phase !== 'partial') return;
+    if (this.disposed || this.phase !== 'partial') return;
     const attempt = this.files.find((file) => file.selected.id === fileId);
-    if (!attempt || attempt.phase === 'done' || attempt.retryMode !== 'none')
+    if (
+      !attempt ||
+      attempt.phase === 'done' ||
+      attempt.retryMode !== 'none' ||
+      attempt.uploadOutcomeUnknown
+    )
       return;
 
     this.phase = 'uploading';
@@ -281,10 +293,19 @@ export class PublicInquirySubmission {
     this.publish();
     if (attempt.intent)
       await this.cancelIntentBestEffort(attempt.intent.intentId);
+    if (this.disposed) return;
     attempt.phase = 'skipped';
     attempt.message = 'Файл не приложен. Заявка сохранена.';
     attempt.file = undefined;
     this.finishUploads();
+  }
+
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.abortController.abort();
+    this.clearCreateSecrets();
+    for (const file of this.files) file.file = undefined;
   }
 
   private async createInquiry() {
@@ -298,14 +319,25 @@ export class PublicInquirySubmission {
       this.receipt = await this.api.createInquiry(
         this.createKey,
         this.requestBody,
+        this.abortController.signal,
       );
     } catch (error) {
+      if (this.disposed) return;
       const result = errorMessage(error, 'create');
+      if (error instanceof PublicInquiryApiError && error.outcomeUnknown)
+        this.createOutcomeUnknown = true;
       this.message = result.message;
       this.retryAfterSeconds = result.retryAfterSeconds;
       this.fieldErrors =
         error instanceof PublicInquiryApiError ? [...error.fields] : [];
       this.retryCreate = result.retry;
+      if (this.createOutcomeUnknown && !result.retry) {
+        this.message =
+          'Результат создания заявки не подтверждён. Повторная проверка недоступна; не отправляйте новую заявку.';
+        this.phase = 'create-blocked';
+        this.publish();
+        return;
+      }
       this.phase =
         error instanceof PublicInquiryApiError &&
         error.status === 409 &&
@@ -324,6 +356,9 @@ export class PublicInquirySubmission {
       return;
     }
 
+    if (this.disposed) return;
+    this.createOutcomeUnknown = false;
+
     this.requestBody = '';
     this.createKey = '';
     this.phase = this.files.length ? 'uploading' : 'complete';
@@ -331,8 +366,10 @@ export class PublicInquirySubmission {
     this.publish();
     if (this.files.length) {
       for (const attempt of this.files) {
+        if (this.disposed) return;
         await this.createIntentAndUpload(attempt);
       }
+      if (this.disposed) return;
       this.finishUploads();
     } else {
       this.clearCreateSecrets();
@@ -350,8 +387,10 @@ export class PublicInquirySubmission {
         attempt.intentKey,
         this.requireCapability(),
         attempt.intentBody,
+        this.abortController.signal,
       );
     } catch (error) {
+      if (this.disposed) return;
       const result = errorMessage(error, 'upload');
       attempt.message = result.message;
       attempt.retryAfterSeconds = result.retryAfterSeconds;
@@ -359,6 +398,8 @@ export class PublicInquirySubmission {
       this.publish();
       return;
     }
+
+    if (this.disposed) return;
 
     if (attempt.intent.maxBytes !== attempt.size) {
       attempt.message =
@@ -394,11 +435,14 @@ export class PublicInquirySubmission {
         attempt.uploadKey,
         this.requireCapability(),
         this.requireFile(attempt),
+        this.abortController.signal,
       );
+      if (this.disposed) return;
       if (receipt.sizeBytes !== attempt.size) {
         throw new PublicInquiryApiError('protocol', 201, null, [], null, true);
       }
       attempt.phase = 'done';
+      attempt.uploadOutcomeUnknown = false;
       attempt.message =
         'Файл принят сервером и находится в карантине до проверки безопасности.';
       attempt.retryMode = 'none';
@@ -406,16 +450,22 @@ export class PublicInquirySubmission {
       attempt.file = undefined;
       this.publish();
     } catch (error) {
+      if (this.disposed) return;
       const result = errorMessage(error, 'upload');
       attempt.message = result.message;
       attempt.retryAfterSeconds = result.retryAfterSeconds;
       if (error instanceof PublicInquiryApiError && error.outcomeUnknown) {
+        attempt.uploadOutcomeUnknown = true;
         // Replay the exact intent, key and File bytes after an unknown result.
         attempt.retryMode = 'same-upload';
       } else {
         // Confirmed rate limits can safely replay the exact idempotent upload.
         // Deterministic rejection must not reserve another upload intent.
         attempt.retryMode = result.retry ? 'same-upload' : 'none';
+      }
+      if (attempt.uploadOutcomeUnknown && attempt.retryMode === 'none') {
+        attempt.message =
+          'Результат загрузки не подтверждён. Файл мог быть принят сервером. Повторная проверка недоступна.';
       }
       this.publish();
     }
@@ -427,6 +477,7 @@ export class PublicInquirySubmission {
         intentId,
         this.createSecret(),
         this.requireCapability(),
+        this.abortController.signal,
       );
     } catch {
       // An unused intent expires on the server; never log its capability or ID.
@@ -445,6 +496,8 @@ export class PublicInquirySubmission {
   private fileViewPhase(attempt: FileAttempt): FileUploadPhase {
     if (attempt.phase === 'done') return 'uploaded';
     if (attempt.phase === 'skipped') return 'skipped';
+    if (attempt.uploadOutcomeUnknown && attempt.retryMode === 'none')
+      return 'unknown';
     if (attempt.message) return 'failed';
     if (attempt.phase === 'upload') return 'uploading';
     if (this.phase === 'uploading' && attempt.phase === 'intent')
@@ -477,6 +530,6 @@ export class PublicInquirySubmission {
   }
 
   private publish() {
-    this.notify?.(this.getSnapshot());
+    if (!this.disposed) this.notify?.(this.getSnapshot());
   }
 }

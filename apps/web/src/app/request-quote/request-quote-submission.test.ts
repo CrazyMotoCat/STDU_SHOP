@@ -62,6 +62,164 @@ function selectedFile(id = 1) {
 }
 
 describe('public inquiry submission and upload retry state', () => {
+  it('keeps create outcome unknown if a replay is rejected', async () => {
+    const createInquiry = vi
+      .fn<PublicInquiryApi['createInquiry']>()
+      .mockRejectedValueOnce(
+        new PublicInquiryApiError('transport', null, null, [], null, true),
+      )
+      .mockRejectedValueOnce(
+        new PublicInquiryApiError(
+          'http',
+          400,
+          'VALIDATION_ERROR',
+          [],
+          null,
+          false,
+        ),
+      );
+    const submission = new PublicInquirySubmission({
+      request,
+      files: [],
+      api: apiMock({ createInquiry }),
+      createSecret: nextSecret(),
+    });
+    await submission.start();
+    await submission.retryCreation();
+    expect(submission.getSnapshot().phase).toBe('create-blocked');
+    expect(submission.getSnapshot().message).toMatch(/не подтверждён/);
+    await submission.retryCreation();
+    expect(createInquiry).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not start another file after disposal during upload', async () => {
+    let resolveUpload!: (
+      value: Awaited<ReturnType<PublicInquiryApi['uploadFile']>>,
+    ) => void;
+    const uploadFile = vi.fn<PublicInquiryApi['uploadFile']>(
+      () =>
+        new Promise((resolve) => {
+          resolveUpload = resolve;
+        }),
+    );
+    const api = apiMock({ uploadFile });
+    const onChange = vi.fn();
+    const submission = new PublicInquirySubmission({
+      request: { ...request, uploadCapability: capability },
+      capability,
+      files: [selectedFile(1), selectedFile(2)],
+      api,
+      createSecret: nextSecret(),
+      onChange,
+    });
+    const pending = submission.start();
+    await vi.waitFor(() => expect(uploadFile).toHaveBeenCalledTimes(1));
+    const callsBeforeDispose = onChange.mock.calls.length;
+    submission.dispose();
+    resolveUpload({
+      accepted: true,
+      sizeBytes: 3,
+      securityState: 'QUARANTINED',
+    });
+    await pending;
+    expect(api.createUploadIntent).toHaveBeenCalledTimes(1);
+    expect(uploadFile.mock.calls[0]?.[4]?.aborted).toBe(true);
+    expect(onChange).toHaveBeenCalledTimes(callsBeforeDispose);
+  });
+  it('starts only one create during concurrent starts and stops after disposal', async () => {
+    let resolveCreate!: (value: PublicInquiryReceipt) => void;
+    const createInquiry = vi.fn<PublicInquiryApi['createInquiry']>(
+      () =>
+        new Promise((resolve) => {
+          resolveCreate = resolve;
+        }),
+    );
+    const api = apiMock({ createInquiry });
+    const onChange = vi.fn();
+    const submission = new PublicInquirySubmission({
+      request: { ...request, uploadCapability: capability },
+      capability,
+      files: [selectedFile()],
+      api,
+      createSecret: nextSecret(),
+      onChange,
+    });
+    const attempts = Array.from({ length: 10 }, () => submission.start());
+    expect(createInquiry).toHaveBeenCalledTimes(1);
+    const signal = createInquiry.mock.calls[0]?.[2];
+    const callsBeforeDispose = onChange.mock.calls.length;
+    submission.dispose();
+    expect(signal?.aborted).toBe(true);
+    resolveCreate(receipt);
+    await Promise.all(attempts);
+    expect(api.createUploadIntent).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledTimes(callsBeforeDispose);
+  });
+
+  it('prevents concurrent retries of an unknown create', async () => {
+    let resolveRetry!: (value: PublicInquiryReceipt) => void;
+    const createInquiry = vi
+      .fn<PublicInquiryApi['createInquiry']>()
+      .mockRejectedValueOnce(
+        new PublicInquiryApiError('transport', null, null, [], null, true),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRetry = resolve;
+          }),
+      );
+    const api = apiMock({ createInquiry });
+    const submission = new PublicInquirySubmission({
+      request,
+      files: [],
+      api,
+      createSecret: nextSecret(),
+    });
+    await submission.start();
+    const retries = [submission.retryCreation(), submission.retryCreation()];
+    expect(createInquiry).toHaveBeenCalledTimes(2);
+    expect(createInquiry.mock.calls[0]).toEqual(createInquiry.mock.calls[1]);
+    resolveRetry(receipt);
+    await Promise.all(retries);
+    expect(submission.getSnapshot().phase).toBe('complete');
+  });
+  it.each([401, 404])(
+    'preserves an unknown upload result after replay returns %i',
+    async (status) => {
+      const file = selectedFile();
+      const uploadFile = vi
+        .fn<PublicInquiryApi['uploadFile']>()
+        .mockRejectedValueOnce(
+          new PublicInquiryApiError('transport', null, null, [], null, true),
+        )
+        .mockRejectedValueOnce(
+          new PublicInquiryApiError('http', status, null, [], null, false),
+        );
+      const api = apiMock({ uploadFile });
+      const submission = new PublicInquirySubmission({
+        request: { ...request, uploadCapability: capability },
+        capability,
+        files: [file],
+        api,
+        createSecret: nextSecret(),
+      });
+      await submission.start();
+      await submission.retryFile(file.id);
+      expect(submission.getSnapshot().files[0]).toMatchObject({
+        phase: 'unknown',
+        retryable: false,
+      });
+      expect(submission.getSnapshot().files[0]?.message).toMatch(
+        /мог быть принят/,
+      );
+      await submission.skipFailedFile(file.id);
+      expect(submission.getSnapshot().files[0]?.phase).toBe('unknown');
+      expect(api.createInquiry).toHaveBeenCalledTimes(1);
+      expect(api.createUploadIntent).toHaveBeenCalledTimes(1);
+      expect(uploadFile.mock.calls[0]).toEqual(uploadFile.mock.calls[1]);
+    },
+  );
   it('retries an unknown create with the same key and exact request body', async () => {
     const createInquiry = vi
       .fn<PublicInquiryApi['createInquiry']>()
