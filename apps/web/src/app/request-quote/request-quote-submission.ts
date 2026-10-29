@@ -79,6 +79,12 @@ type SubmissionOptions = {
   onChange?: (view: SubmissionView) => void;
 };
 
+// Only a non-sensitive warning marker survives a client-side remount.
+let unconfirmedCreateAfterNavigation = false;
+export function hasUnconfirmedCreateAfterNavigation() {
+  return unconfirmedCreateAfterNavigation;
+}
+
 function errorMessage(
   error: unknown,
   operation: 'create' | 'upload' | 'cancel',
@@ -239,6 +245,7 @@ export class PublicInquirySubmission {
       message: attempt.message,
       retryable: attempt.retryMode !== 'none',
       retryAfterSeconds: attempt.retryAfterSeconds,
+      uploadOutcomeUnknown: attempt.uploadOutcomeUnknown,
     }));
     return {
       phase: this.phase,
@@ -302,6 +309,8 @@ export class PublicInquirySubmission {
 
   dispose() {
     if (this.disposed) return;
+    if (this.phase === 'creating' || this.createOutcomeUnknown)
+      unconfirmedCreateAfterNavigation = true;
     this.disposed = true;
     this.abortController.abort();
     this.clearCreateSecrets();
@@ -338,12 +347,15 @@ export class PublicInquirySubmission {
         this.publish();
         return;
       }
+      if (this.createOutcomeUnknown) {
+        this.message = `Результат создания заявки не подтверждён. Повторите ту же операцию. ${result.message}`;
+      }
       this.phase =
         error instanceof PublicInquiryApiError &&
         error.status === 409 &&
         error.code === 'IDEMPOTENCY_KEY_REUSED'
           ? 'create-blocked'
-          : error instanceof PublicInquiryApiError && error.outcomeUnknown
+          : this.createOutcomeUnknown
             ? 'create-unknown'
             : result.retry
               ? 'create-rejected'
@@ -463,9 +475,11 @@ export class PublicInquirySubmission {
         // Deterministic rejection must not reserve another upload intent.
         attempt.retryMode = result.retry ? 'same-upload' : 'none';
       }
-      if (attempt.uploadOutcomeUnknown && attempt.retryMode === 'none') {
+      if (attempt.uploadOutcomeUnknown) {
         attempt.message =
-          'Результат загрузки не подтверждён. Файл мог быть принят сервером. Повторная проверка недоступна.';
+          attempt.retryMode === 'none'
+            ? 'Результат загрузки не подтверждён. Файл мог быть принят сервером. Повторная проверка недоступна.'
+            : `Результат загрузки не подтверждён. Файл мог быть принят сервером. ${result.message}`;
       }
       this.publish();
     }
@@ -496,8 +510,7 @@ export class PublicInquirySubmission {
   private fileViewPhase(attempt: FileAttempt): FileUploadPhase {
     if (attempt.phase === 'done') return 'uploaded';
     if (attempt.phase === 'skipped') return 'skipped';
-    if (attempt.uploadOutcomeUnknown && attempt.retryMode === 'none')
-      return 'unknown';
+    if (attempt.uploadOutcomeUnknown && attempt.message) return 'unknown';
     if (attempt.message) return 'failed';
     if (attempt.phase === 'upload') return 'uploading';
     if (this.phase === 'uploading' && attempt.phase === 'intent')

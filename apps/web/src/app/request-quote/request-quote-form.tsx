@@ -30,6 +30,7 @@ import {
   type ValidationErrors,
 } from './request-quote-dto';
 import {
+  hasUnconfirmedCreateAfterNavigation,
   PublicInquirySubmission,
   type SubmissionView,
 } from './request-quote-submission';
@@ -395,6 +396,8 @@ export function RequestQuoteForm({
   const [fileError, setFileError] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [localReviewPassed, setLocalReviewPassed] = useState(false);
+  const [unconfirmedPreviousCreate, setUnconfirmedPreviousCreate] =
+    useState(false);
   const [submission, setSubmission] = useState<SubmissionView>({
     phase: 'idle',
     retryCreate: false,
@@ -412,6 +415,7 @@ export function RequestQuoteForm({
     (submission.phase === 'create-rejected' && submission.retryCreate);
 
   useEffect(() => {
+    setUnconfirmedPreviousCreate(hasUnconfirmedCreateAfterNavigation());
     return () => {
       submissionController.current?.dispose();
       fileBytes.current.clear();
@@ -684,6 +688,10 @@ export function RequestQuoteForm({
 
   function submitInquiry() {
     if (!apiSubmissionEnabled) return;
+    if (hasUnconfirmedCreateAfterNavigation()) {
+      setUnconfirmedPreviousCreate(true);
+      return;
+    }
     if (submission.phase === 'create-unknown' || submission.retryCreate) {
       void submissionController.current?.retryCreation();
       return;
@@ -1832,6 +1840,7 @@ export function RequestQuoteForm({
                 className={styles.submitButton}
                 disabled={
                   !apiSubmissionEnabled ||
+                  unconfirmedPreviousCreate ||
                   submission.phase === 'creating' ||
                   submission.phase === 'uploading' ||
                   submission.phase === 'partial' ||
@@ -1866,6 +1875,12 @@ export function RequestQuoteForm({
                 ? 'Отправка доступна только в development/test. Повтор создания использует исходный текст и ключ операции.'
                 : 'API заявок в этой среде отключён. Проверка выполняется только в браузере — запрос никуда не отправляется.'}
             </p>
+            {unconfirmedPreviousCreate ? (
+              <p className={styles.submissionError} role="alert">
+                Результат предыдущей отправки не подтверждён: заявка могла быть
+                создана. Не отправляйте её повторно.
+              </p>
+            ) : null}
             {submission.message ? (
               <p
                 aria-live="polite"
