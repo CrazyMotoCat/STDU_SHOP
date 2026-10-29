@@ -26,6 +26,7 @@
     "test:r1-006b": "node apps/api/scripts/run-r1-006b-runtime.mjs",
     "test:r1-007b": "node apps/api/scripts/run-r1-007b-runtime.mjs",
     "test:r1-010b": "node apps/api/scripts/run-r1-010b-runtime.mjs",
+    "test:r1-010c:e2e": "node scripts/run-r1-010c-e2e.mjs",
     "build": "node scripts/tasks.mjs build",
     "smoke": "node scripts/smoke.mjs compose",
     "smoke:host": "node scripts/smoke.mjs host",

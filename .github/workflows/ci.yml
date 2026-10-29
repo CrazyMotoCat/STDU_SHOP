@@ -90,6 +90,8 @@ jobs:
         run: pnpm test:r1-007b
       - name: R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance
         run: pnpm test:r1-010b
+      - name: R1-010C isolated Chromium, Next.js, NestJS, PostgreSQL and private-storage E2E
+        run: pnpm test:r1-010c:e2e
       - name: R1-003 public UI acceptance
         run: pnpm ui:smoke
       - name: R1-005 public catalog browser acceptance

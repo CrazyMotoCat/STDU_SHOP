@@ -40,6 +40,10 @@ export default async function RequestQuotePage({
   const previewEnabled =
     process.env.NODE_ENV === 'development' ||
     process.env.RFQ_PREVIEW_ENABLED === 'true';
+  const apiSubmissionEnabled =
+    (process.env.NODE_ENV === 'development' ||
+      process.env.NODE_ENV === 'test') &&
+    process.env.RFQ_API_SUBMISSION_ENABLED === 'true';
 
   return (
     <PublicLayout>
@@ -55,6 +59,7 @@ export default async function RequestQuotePage({
           <RequestQuoteForm
             initialKind={initialKind}
             previewEnabled={previewEnabled}
+            apiSubmissionEnabled={apiSubmissionEnabled}
             productHint={productHint || undefined}
           />
         </Container>

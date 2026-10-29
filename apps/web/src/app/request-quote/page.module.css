@@ -175,6 +175,24 @@
   gap: 1rem;
 }
 
+.formFieldset {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.formLegend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .directionSection,
 .detailSection,
 .contactSection,
@@ -695,6 +713,13 @@ textarea.control {
   background: #eff7f7;
 }
 
+.fileSelectButton:disabled,
+.removeFile:disabled,
+.retryFileButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .fileInput {
   position: absolute;
   width: 1px;
@@ -762,6 +787,32 @@ textarea.control {
   font-size: 0.67rem;
 }
 
+.fileDetails .fileStatus {
+  color: #477a7d;
+}
+
+.fileDetails .fileStatusError {
+  color: #9a3835;
+}
+
+.retryFileButton {
+  flex: 0 0 auto;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #86aaad;
+  border-radius: 0.32rem;
+  background: #f3f8f8;
+  color: #216c72;
+  cursor: pointer;
+  font-size: 0.69rem;
+  font-weight: 700;
+}
+
+.retryFileButton:hover:not(:disabled) {
+  border-color: #177a83;
+  background: #e9f3f3;
+}
+
 .finalActions {
   padding: 0.15rem 0.15rem 0.4rem;
 }
@@ -826,11 +877,61 @@ textarea.control {
   cursor: not-allowed;
 }
 
+.submitButton:not(:disabled) {
+  border-color: #177a83;
+  background: #177a83;
+  color: #fff;
+  cursor: pointer;
+}
+
+.submitButton:not(:disabled):hover {
+  transform: translateY(-1px);
+  border-color: #105e66;
+  background: #105e66;
+}
+
 .unavailableNote {
   margin: 0.55rem 0 0;
   color: #77868c;
   font-size: 0.73rem;
   line-height: 1.45;
+}
+
+.submissionNotice,
+.submissionError,
+.receiptPanel {
+  margin: 0.75rem 0 0;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #d7e4e4;
+  border-radius: 0.4rem;
+  background: #f5f9f9;
+  color: #3c565e;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.submissionError {
+  border-color: #e6b6b1;
+  background: #fff7f6;
+  color: #85302e;
+}
+
+.receiptPanel {
+  display: grid;
+  gap: 0.35rem;
+  border-color: #a9ccca;
+  background: #f1f8f7;
+  color: #254d50;
+}
+
+.receiptPanel strong {
+  font-size: 0.86rem;
+}
+
+.receiptPanel small {
+  margin-top: 0.2rem;
+  color: #617678;
+  font-size: 0.7rem;
 }
 
 .summaryColumn {
@@ -1384,6 +1485,18 @@ textarea.control {
 
   .fileDetails span {
     font-size: 0.63rem;
+  }
+
+  .fileDetails .fileStatus {
+    font-size: 0.66rem;
+    line-height: 1.4;
+  }
+
+  .retryFileButton {
+    max-width: 6.5rem;
+    padding: 0.35rem 0.45rem;
+    font-size: 0.63rem;
+    white-space: normal;
   }
 
   .removeFile {
