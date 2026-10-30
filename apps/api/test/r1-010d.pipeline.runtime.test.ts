@@ -635,6 +635,22 @@ async function clearPublicInquiryCreateRateKeys() {
   } while (cursor !== '0');
 }
 
+async function clearDisposableIntentHourKeys() {
+  if (!testRedis) throw new Error('Disposable R1-010D Redis is not connected.');
+  let cursor = '0';
+  do {
+    const [next, keys] = await testRedis.scan(
+      cursor,
+      'MATCH',
+      'stdu:inquiry:intent-hour:*',
+      'COUNT',
+      '100',
+    );
+    cursor = next;
+    if (keys.length) await testRedis.del(...keys);
+  } while (cursor !== '0');
+}
+
 describe.skipIf(!runtimeEnabled)(
   'R1-010D isolated PostgreSQL/HTTP/ClamAV acceptance',
   () => {
@@ -837,6 +853,9 @@ describe.skipIf(!runtimeEnabled)(
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           minimalXlsx([], eicarFixture.toString('ascii')),
         );
+        // This isolated synthetic batch exceeds a real single-source hourly
+        // quota. Reset only that quota in the disposable test Redis.
+        await clearDisposableIntentHourKeys();
 
         const legacy =
           documents.find((row) =>
