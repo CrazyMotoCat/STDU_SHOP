@@ -435,6 +435,7 @@ export class ScanWorkerService implements OnApplicationShutdown {
     // Until completeness is demonstrated for each accepted content class, no
     // filename, client MIME or source hash can safely authorize CLEAN.
     if (result === 'CLEAN') {
+      this.log('scan.completeness_policy_denied');
       const gated = enforceScanCompleteness(result);
       result = gated.result;
       failureCode = gated.failureCode;

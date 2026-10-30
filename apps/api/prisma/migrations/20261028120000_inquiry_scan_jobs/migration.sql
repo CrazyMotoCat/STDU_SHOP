@@ -404,6 +404,11 @@ BEGIN
      OR p_scan_duration_ms IS NULL OR p_scan_duration_ms NOT BETWEEN 0 AND 180000 THEN
     RAISE EXCEPTION 'INQUIRY_SCAN_FINALIZE_ARGUMENT_INVALID' USING ERRCODE = '22023';
   END IF;
+  -- Completeness has not been established for any accepted input class.
+  -- This must precede the completed-result replay path as well as new writes.
+  IF p_result='CLEAN' THEN
+    RAISE EXCEPTION 'INQUIRY_SCAN_COMPLETENESS_POLICY_DENIED' USING ERRCODE = '42501';
+  END IF;
   SELECT j.* INTO v_job FROM public.inquiry_source_document_scan_job j WHERE j.id=p_job_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'INQUIRY_SCAN_JOB_NOT_FOUND' USING ERRCODE = 'P0002'; END IF;
   v_now := clock_timestamp();

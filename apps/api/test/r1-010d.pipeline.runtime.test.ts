@@ -661,6 +661,8 @@ describe.skipIf(!runtimeEnabled)(
         return minimalXlsx([{ name: 'embedded/large.bin', data: content }]);
       };
       const fixtures = {
+        DIRECT_EICAR: eicar,
+        ZIP_EICAR: singleStoredZip('eicar.txt', eicar),
         OLE_LIMIT: wrap(oleWorkbookWithXz()),
         OLE_EICAR: wrap(oleWorkbookWithXz(false)),
         FILE_COUNT: minimalXlsx([{ name: 'embedded/many.zip', data: count }]),
@@ -1321,6 +1323,148 @@ describe.skipIf(!runtimeEnabled)(
         );
       } finally {
         await Promise.all([secondWorker.end(), secondOperator.end()]);
+      }
+    });
+
+    it('R1_010D_DB_COMPLETENESS_POLICY denies a valid worker CLEAN without mutations', async () => {
+      const inquiry = await createInquiry('completeness policy fixture');
+      const bytes = minimalPdf(4096);
+      const document = await uploadFixture(
+        inquiry,
+        `r1-010d-${runId}-completeness.pdf`,
+        'application/pdf',
+        bytes,
+      );
+      const jobId = String(document.job_id);
+      await deferOtherScanJobs(jobId);
+      const secondWorker = new Client({
+        connectionString: requiredEnv('SCAN_DATABASE_URL'),
+      });
+      await secondWorker.connect();
+      try {
+        const tokenHash = randomBytes(32);
+        const claim = await worker!.query<QueryRow>(
+          'SELECT * FROM inquiry_scan_claim($1::bytea,$2::uuid)',
+          [tokenHash, randomUUID()],
+        );
+        expect(claim.rowCount).toBe(1);
+        const row = claim.rows[0]!;
+        expect(String(row.job_id)).toBe(jobId);
+        const timestamp = new Date();
+        const signatureFingerprint = createHash('sha256')
+          .update(
+            JSON.stringify(['ClamAV 1.4.6', '12345', timestamp.toISOString()]),
+          )
+          .digest();
+        const finalize = `SELECT * FROM inquiry_scan_finalize(
+          $1::uuid,$2::integer,$3::bytea,$4::text,$5::text,$6::bytea,$7::bigint,
+          $8::text,$9::text,$10::timestamptz,$11::bytea,$12::integer,$13::boolean,
+          $14::text,$15::text,$16::timestamptz,$17::bytea,$18::integer,$19::boolean,
+          $20::integer,$21::bytea,$22::uuid)`;
+        const argsFor = (result: 'CLEAN' | 'REJECTED') => {
+          const canonical = {
+            jobId,
+            sourceDocumentId: String(row.source_document_id),
+            completedJobVersion: Number(row.job_version),
+            leaseTokenHash: tokenHash.toString('hex'),
+            sourceSha256: Buffer.from(row.expected_sha256 as Buffer).toString(
+              'hex',
+            ),
+            sourceSizeBytes: String(row.expected_size_bytes),
+            result,
+            failureCode: null,
+            engineVersion: 'ClamAV 1.4.6',
+            signatureDatabaseVersion: '12345',
+            signatureDatabaseDate: timestamp.toISOString(),
+            signatureSetFingerprint: signatureFingerprint.toString('hex'),
+            signatureAgeSeconds: 0,
+            startReady: true,
+            endReady: true,
+            scanDurationMs: 0,
+          };
+          return [
+            jobId,
+            Number(row.job_version),
+            tokenHash,
+            result,
+            null,
+            row.expected_sha256,
+            row.expected_size_bytes,
+            'ClamAV 1.4.6',
+            '12345',
+            timestamp,
+            signatureFingerprint,
+            0,
+            true,
+            'ClamAV 1.4.6',
+            '12345',
+            timestamp,
+            signatureFingerprint,
+            0,
+            true,
+            0,
+            createHash('sha256').update(canonicalJson(canonical)).digest(),
+            randomUUID(),
+          ];
+        };
+        const snapshot = async () =>
+          (
+            await owner!.query(
+              `SELECT j.status,j.version,d.safety_state,
+            (SELECT count(*) FROM audit_event WHERE entity_id IN (j.id,d.id)) AS audit_count
+           FROM inquiry_source_document_scan_job j JOIN inquiry_source_document d ON d.id=j.source_document_id
+           WHERE j.id=$1`,
+              [jobId],
+            )
+          ).rows[0];
+        const before = await snapshot();
+        const clean = argsFor('CLEAN');
+        for (const call of [
+          () => worker!.query(finalize, clean),
+          () => worker!.query(finalize, clean),
+        ])
+          await expect(call()).rejects.toThrow(
+            'INQUIRY_SCAN_COMPLETENESS_POLICY_DENIED',
+          );
+        const concurrent = await Promise.allSettled([
+          worker!.query(finalize, clean),
+          secondWorker.query(finalize, clean),
+        ]);
+        expect(
+          concurrent.every(
+            (x) =>
+              x.status === 'rejected' &&
+              String(x.reason).includes(
+                'INQUIRY_SCAN_COMPLETENESS_POLICY_DENIED',
+              ),
+          ),
+        ).toBe(true);
+        expect(await snapshot()).toEqual(before);
+        expect(before).toMatchObject({
+          status: 'LEASED',
+          safety_state: 'QUARANTINED',
+        });
+        const staff = await makeDownloadActor();
+        const denied = await staff.request(
+          'GET',
+          `/v1/staff/inquiries/${String(inquiry.id)}/documents/${String(document.id)}/download`,
+        );
+        expect(denied.status).toBe(404);
+        expect(denied.body.code).toBe('FILE_NOT_ACCESSIBLE');
+        // The same lease and attestation must actually finalize a permitted result.
+        const rejectedArgs = argsFor('REJECTED');
+        const rejected = await worker!.query(finalize, rejectedArgs);
+        expect(rejected.rows[0]).toMatchObject({ source_state: 'REJECTED' });
+        const replay = await worker!.query(finalize, rejectedArgs);
+        expect(replay.rows[0]).toMatchObject({
+          source_state: 'REJECTED',
+          replayed: true,
+        });
+        await expect(worker!.query(finalize, clean)).rejects.toThrow(
+          'INQUIRY_SCAN_COMPLETENESS_POLICY_DENIED',
+        );
+      } finally {
+        await secondWorker.end();
       }
     });
 
