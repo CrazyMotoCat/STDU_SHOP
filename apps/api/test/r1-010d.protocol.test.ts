@@ -12,6 +12,7 @@ import {
   attestationMatches,
   classifyClamReply,
   classifyClamSessionCloseFailure,
+  enforceScanCompleteness,
   ClamSession,
   parseClamVersionReply,
   requestScanContent,
@@ -20,6 +21,23 @@ import {
 import { InquiryScanStreamServer } from '../src/inquiries/scan-stream.server.js';
 
 const now = Date.UTC(2026, 9, 28, 9, 0, 0);
+
+describe('R1-010D completeness gate', () => {
+  it('fails closed for every apparently clean scan, independent of filename and MIME', () => {
+    expect(enforceScanCompleteness('CLEAN')).toEqual({
+      result: 'SCAN_ERROR',
+      failureCode: 'ENCRYPTED_OR_UNSCANNABLE',
+    });
+    expect(enforceScanCompleteness('REJECTED').result).toBe('REJECTED');
+  });
+
+  it('does not label unknown heuristic alerts as confirmed malware', () => {
+    expect(classifyClamReply('stream: Heuristics.Unknown FOUND')).toEqual({
+      result: 'SCAN_ERROR',
+      failureCode: 'ENCRYPTED_OR_UNSCANNABLE',
+    });
+  });
+});
 
 describe('R1-010D bounded private response completion', () => {
   it('settles successfully after the response finishes', async () => {
@@ -269,6 +287,9 @@ describe('R1-010D ClamAV protocol classification', () => {
     });
     expect(
       classifyClamReply('stream: Heuristics.Limits.Exceeded.MaxScanSize FOUND'),
+    ).toEqual({ result: 'SCAN_ERROR', failureCode: 'SCAN_LIMIT_EXCEEDED' });
+    expect(
+      classifyClamReply('stream: Heuristics.XZ.DicSizeLimit FOUND'),
     ).toEqual({ result: 'SCAN_ERROR', failureCode: 'SCAN_LIMIT_EXCEEDED' });
     expect(classifyClamReply('stream: Heuristics.Encrypted.PDF FOUND')).toEqual(
       {

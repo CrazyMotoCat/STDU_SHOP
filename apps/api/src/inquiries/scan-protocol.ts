@@ -111,15 +111,27 @@ export function classifyClamReply(reply: string): {
   if (normalized === 'stream: OK')
     return { result: 'CLEAN', failureCode: null };
   if (/^stream: .+ FOUND$/.test(normalized)) {
-    if (/Heuristics\.Limits\.Exceeded/i.test(normalized))
+    if (/Heuristics\.(?:Limits\.Exceeded|XZ\.DicSizeLimit)/i.test(normalized))
       return { result: 'SCAN_ERROR', failureCode: 'SCAN_LIMIT_EXCEEDED' };
     if (/Heuristics\.(?:Encrypted|OLE2\.Encrypted)/i.test(normalized))
+      return { result: 'SCAN_ERROR', failureCode: 'ENCRYPTED_OR_UNSCANNABLE' };
+    if (/^stream: Heuristics\./i.test(normalized))
       return { result: 'SCAN_ERROR', failureCode: 'ENCRYPTED_OR_UNSCANNABLE' };
     return { result: 'REJECTED', failureCode: null };
   }
   if (/INSTREAM size limit exceeded|size limit exceeded/i.test(normalized))
     return { result: 'SCAN_ERROR', failureCode: 'SCAN_LIMIT_EXCEEDED' };
   return { result: 'SCAN_ERROR', failureCode: 'PROTOCOL_ERROR' };
+}
+
+// No accepted input class has yet demonstrated complete nested analysis.
+export function enforceScanCompleteness(result: ScanResultCode): {
+  result: ScanResultCode;
+  failureCode: ScanFailureCode | null;
+} {
+  return result === 'CLEAN'
+    ? { result: 'SCAN_ERROR', failureCode: 'ENCRYPTED_OR_UNSCANNABLE' }
+    : { result, failureCode: null };
 }
 
 export function attestationMatches(

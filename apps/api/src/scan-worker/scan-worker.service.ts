@@ -8,6 +8,7 @@ import {
   canonicalJson,
   ClamSession,
   classifyClamSessionCloseFailure,
+  enforceScanCompleteness,
   MAX_SCAN_DEADLINE_MS,
   requestScanContent,
   ScanProtocolError,
@@ -429,6 +430,14 @@ export class ScanWorkerService implements OnApplicationShutdown {
     ) {
       result = 'SCAN_ERROR';
       failureCode = 'SIGNATURES_CHANGED';
+    }
+    // A clean clamd reply does not attest complete analysis of nested content.
+    // Until completeness is demonstrated for each accepted content class, no
+    // filename, client MIME or source hash can safely authorize CLEAN.
+    if (result === 'CLEAN') {
+      const gated = enforceScanCompleteness(result);
+      result = gated.result;
+      failureCode = gated.failureCode;
     }
     if (result === 'SCAN_ERROR' && !failureCode) failureCode = 'INTERNAL_ERROR';
     const durationMs = Math.max(
