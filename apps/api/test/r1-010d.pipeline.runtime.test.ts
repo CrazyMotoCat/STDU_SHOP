@@ -252,6 +252,76 @@ function nestedArchive(depth: number) {
   return content;
 }
 
+// Equivalent to the nested Workbook/XZ scenario described in ClamAV issue 1848.
+// Generated from CFB structures and the public EICAR test string only.
+function oleWorkbookWithXz(oversized = true) {
+  const free = 0xffffffff;
+  const end = 0xfffffffe;
+  const fatSector = 0xfffffffd;
+  const header = Buffer.alloc(512);
+  Buffer.from('d0cf11e0a1b11ae1', 'hex').copy(header);
+  [0x3e, 3, 0xfffe, 9, 6].forEach((v, i) =>
+    header.writeUInt16LE(v, 24 + i * 2),
+  );
+  [0, 1, 1, 0, 4096, end, 0, end, 0].forEach((v, i) =>
+    header.writeUInt32LE(v, 40 + i * 4),
+  );
+  for (let i = 0; i < 109; i++)
+    header.writeUInt32LE(i === 0 ? 0 : free, 76 + i * 4);
+  const fat = Buffer.alloc(512, 0xff);
+  [
+    fatSector,
+    end,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    end,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    end,
+  ].forEach((v, i) => fat.writeUInt32LE(v, i * 4));
+  const directory = Buffer.alloc(512);
+  function entry(
+    index: number,
+    name: string,
+    kind: number,
+    right: number,
+    child: number,
+    start: number,
+    size: number,
+  ) {
+    const offset = index * 128;
+    const encoded = Buffer.from(`${name}\0`, 'utf16le');
+    encoded.copy(directory, offset);
+    directory.writeUInt16LE(encoded.length, offset + 64);
+    directory.writeUInt8(kind, offset + 66);
+    directory.writeUInt8(1, offset + 67);
+    directory.writeUInt32LE(free, offset + 68);
+    directory.writeUInt32LE(right, offset + 72);
+    directory.writeUInt32LE(child, offset + 76);
+    directory.writeUInt32LE(start, offset + 116);
+    directory.writeBigUInt64LE(BigInt(size), offset + 120);
+  }
+  entry(0, 'Root Entry', 5, free, 1, end, 0);
+  entry(1, 'Workbook', 2, 2, free, 2, 4096);
+  entry(2, 'Data', 2, free, free, 10, 4096);
+  const payload = Buffer.alloc(4096);
+  const encoded = oversized
+    ? '/Td6WFoAAAFpIt42AgAhASgAAADmoBGzAQBDWDVPIVAlQEFQWzRcUFpYNTQoUF4pN0NDKTd9JEVJQ0FSLVNUQU5EQVJELUFOVElWSVJVUy1URVNULUZJTEUhJEgrSCoAPM9RaAABWET+51UjkEKZDQEAAAAAAVla'
+    : '/Td6WFoAAAFpIt42AgAhAQgAAADYDyMTAQBDWDVPIVAlQEFQWzRcUFpYNTQoUF4pN0NDKTd9JEVJQ0FSLVNUQU5EQVJELUFOVElWSVJVUy1URVNULUZJTEUhJEgrSCoAPM9RaAABWET+51UjkEKZDQEAAAAAAVla';
+  Buffer.from(encoded, 'base64').copy(payload);
+  return Buffer.concat([header, fat, directory, Buffer.alloc(4096), payload]);
+}
+
 async function createInquiry(label: string) {
   const capability = randomBytes(32).toString('base64url');
   const key = `r1-010d-create-${randomUUID()}`;
@@ -572,6 +642,43 @@ describe.skipIf(!runtimeEnabled)(
       ]);
     });
 
+    it('R1_010D_PINNED_CLAMD_FIXTURES emits generated test-only inputs', () => {
+      const wrap = (data: Buffer) =>
+        minimalXlsx([{ name: 'xl/embeddings/workbook.bin', data }]);
+      const count = minimalXlsx(
+        Array.from({ length: 10_100 }, (_, index) => ({
+          name: `entries/${index}.txt`,
+          data: Buffer.from('a'),
+        })),
+      );
+      const eicar = Buffer.from(
+        'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*',
+        'ascii',
+      );
+      const sizedEntry = (size: number) => {
+        const content = Buffer.alloc(size, 0x61);
+        eicar.copy(content, content.length - eicar.length);
+        return minimalXlsx([{ name: 'embedded/large.bin', data: content }]);
+      };
+      const fixtures = {
+        OLE_LIMIT: wrap(oleWorkbookWithXz()),
+        OLE_EICAR: wrap(oleWorkbookWithXz(false)),
+        FILE_COUNT: minimalXlsx([{ name: 'embedded/many.zip', data: count }]),
+        FILE_SIZE_CONTROL: sizedEntry(MiB),
+        FILE_SIZE: sizedEntry(64 * MiB + 1),
+        SCAN_SIZE: minimalXlsx(
+          Array.from({ length: 5 }, (_, index) => ({
+            name: `embedded/expanded-${index}.bin`,
+            data: Buffer.alloc(54 * MiB, 0x61 + index),
+          })),
+        ),
+      };
+      for (const [name, bytes] of Object.entries(fixtures))
+        process.stdout.write(
+          `R1_010D_GENERATED_${name}=${bytes.toString('base64')}\n`,
+        );
+    }, 120_000);
+
     it('R1_010D_UPLOAD profile bounds and atomic scan-job creation', async () => {
       const activeProfile = requiredEnv('R1_010D_UPLOAD_PROFILE');
       expect(activeProfile).toBe(profile);
@@ -662,6 +769,31 @@ describe.skipIf(!runtimeEnabled)(
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           minimalXlsx([
             { name: 'embedded/depth.zip', data: nestedArchive(12) },
+          ]),
+        );
+
+        const manyFiles = minimalXlsx(
+          Array.from({ length: 10_100 }, (_, index) => ({
+            name: `entries/${index}.txt`,
+            data: Buffer.from('a'),
+          })),
+        );
+        await uploadFixture(
+          depthInquiry,
+          `${prefix}-file-count.xlsx`,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          minimalXlsx([{ name: 'embedded/many.zip', data: manyFiles }]),
+        );
+
+        await uploadFixture(
+          depthInquiry,
+          `${prefix}-ole-limit.xlsx`,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          minimalXlsx([
+            {
+              name: 'xl/embeddings/workbook.bin',
+              data: oleWorkbookWithXz(),
+            },
           ]),
         );
 
@@ -1835,15 +1967,30 @@ describe.skipIf(!runtimeEnabled)(
     }, 10_000);
 
     it(
-      'R1_010D_SCAN_FINAL completes real files, rejects EICAR, and denies rejected downloads',
+      'R1_010D_SCAN_FINAL fails closed for unproven completeness, rejects EICAR, and denies downloads',
       async () => {
         const rows = await waitForTerminalDocuments();
         expect(rows.length).toBeGreaterThan(0);
+        for (const suffix of [
+          '-depth.xlsx',
+          '-file-count.xlsx',
+          '-ole-limit.xlsx',
+        ]) {
+          expect(
+            rows.filter((row) =>
+              String(row.original_filename).endsWith(suffix),
+            ),
+          ).toHaveLength(1);
+        }
         for (const row of rows) {
           const name = String(row.original_filename);
           if (name.endsWith('-eicar.csv')) {
             expect(row.safety_state).toBe('REJECTED');
-          } else if (name.endsWith('-depth.xlsx')) {
+          } else if (
+            name.endsWith('-depth.xlsx') ||
+            name.endsWith('-file-count.xlsx') ||
+            name.endsWith('-ole-limit.xlsx')
+          ) {
             expect(row.safety_state).toBe('SCAN_ERROR');
             expect(row.failure_code).toBe('SCAN_LIMIT_EXCEEDED');
             const stateAudit = await owner!.query<{ reason_code: string }>(
@@ -1868,13 +2015,15 @@ describe.skipIf(!runtimeEnabled)(
             name.endsWith('-safe.csv') ||
             name.endsWith('-safe.xlsx')
           ) {
-            expect(row.safety_state).toBe('CLEAN');
+            expect(row.safety_state).toBe('SCAN_ERROR');
+            expect(row.failure_code).toBe('ENCRYPTED_OR_UNSCANNABLE');
           } else if (
             name.endsWith('-recovery.pdf') ||
             name.endsWith('-resource-before.pdf') ||
             name.endsWith('-offline.pdf')
           ) {
-            expect(row.safety_state).toBe('CLEAN');
+            expect(row.safety_state).toBe('SCAN_ERROR');
+            expect(row.failure_code).toBe('ENCRYPTED_OR_UNSCANNABLE');
           }
           if (row.status === 'COMPLETE')
             expect(Number(row.attempt_count)).toBeGreaterThan(0);
@@ -1900,6 +2049,34 @@ describe.skipIf(!runtimeEnabled)(
         );
         expect(denied.status).toBe(404);
         expect(denied.body.code).toBe('FILE_NOT_ACCESSIBLE');
+        // The temporary completeness restriction also denies clean-looking
+        // originals; this is a functional limitation, not successful scanning.
+        for (const suffix of ['-safe.pdf', '-safe.csv', '-safe.xlsx']) {
+          const document = rows.find((row) =>
+            String(row.original_filename).endsWith(suffix),
+          );
+          expect(document, suffix).toBeTruthy();
+          expect(document!.safety_state).toBe('SCAN_ERROR');
+          expect(document!.failure_code).toBe('ENCRYPTED_OR_UNSCANNABLE');
+          const parent = await owner!.query<{ inquiry_id: string }>(
+            'SELECT inquiry_id FROM inquiry_source_document WHERE id=$1',
+            [String(document!.id)],
+          );
+          const download = await staff.request(
+            'GET',
+            `/v1/staff/inquiries/${parent.rows[0]!.inquiry_id}/documents/${String(document!.id)}/download`,
+          );
+          expect(download.status).toBe(404);
+          expect(download.body.code).toBe('FILE_NOT_ACCESSIBLE');
+          const audit = await owner!.query<{ reason_code: string }>(
+            `SELECT reason_code FROM audit_event
+             WHERE action='inquiry.document.scan_state_changed' AND entity_id=$1`,
+            [String(document!.id)],
+          );
+          expect(audit.rows.map((event) => event.reason_code)).toEqual([
+            'INTERNAL_ERROR',
+          ]);
+        }
       },
       13 * 60_000,
     );

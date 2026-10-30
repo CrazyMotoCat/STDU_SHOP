@@ -1415,6 +1415,47 @@ async function main() {
     timeoutMs: 150_000,
   });
   await runRuntimeTests('R1_010D_SCAN_FINAL', 'MVP_SAFE');
+  const generated = await runInTestRunner([
+    'pnpm',
+    'exec',
+    'vitest',
+    'run',
+    '--silent=false',
+    'apps/api/test/r1-010d.pipeline.runtime.test.ts',
+    '--testNamePattern=R1_010D_PINNED_CLAMD_FIXTURES',
+  ]);
+  for (const [name, expected] of [
+    ['OLE_LIMIT', 'Heuristics.XZ.DicSizeLimit FOUND'],
+    ['OLE_EICAR', 'Eicar-Test-Signature FOUND'],
+    ['FILE_COUNT', 'Heuristics.Limits.Exceeded.MaxFiles FOUND'],
+    ['FILE_SIZE_CONTROL', 'Eicar-Test-Signature FOUND'],
+    ['FILE_SIZE', 'Heuristics.Limits.Exceeded.MaxFileSize FOUND'],
+    ['SCAN_SIZE', 'Heuristics.Limits.Exceeded.MaxScanSize FOUND'],
+  ]) {
+    const match = new RegExp(
+      `R1_010D_GENERATED_${name}=([A-Za-z0-9+/=]+)`,
+    ).exec(generated);
+    if (!match) throw new Error(`Missing generated ${name} scanner fixture.`);
+    const output = await compose(
+      [
+        'exec',
+        '-T',
+        'clamav',
+        '/bin/sh',
+        '-c',
+        'clamdscan --no-summary --stream -; code=$?; [ "$code" -eq 1 ]',
+      ],
+      composeEnv,
+      { input: Buffer.from(match[1], 'base64'), timeoutMs: 60_000 },
+    );
+    if (!output.includes(expected))
+      throw new Error(
+        `Pinned clamd ${name} fixture did not produce its expected exact alert.`,
+      );
+    console.log(
+      `Pinned clamd generated ${name} fixture: expected alert observed.`,
+    );
+  }
   await compose(
     ['exec', '-T', 'scan-worker', 'node', 'dist/scan-worker/healthcheck.js'],
     composeEnv,

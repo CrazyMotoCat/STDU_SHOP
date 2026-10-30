@@ -16,7 +16,7 @@ Draft CI run 40874413215 failed in the catalog migration harness: its two tempor
 | SCAN-06 | pipeline `SCAN_HARD_TIMEOUT_PREP/VERIFY`, short deadline and fake clamd | PASS locally |
 | SCAN-07 | protocol unknown/invalid response fixtures | PASS locally |
 | SCAN-08 | protocol truncated input/reply and integrity trailer fixtures | PASS locally |
-| SCAN-09 | pipeline real nested XLSX depth limit; protocol classifies limit alerts | PARTIAL: individual real file-count and scanner-time limits not separately demonstrated |
+| SCAN-09 | real nested XLSX depth, exact MaxFiles and XZ dictionary limit alerts; protocol classifies limit alerts | PARTIAL: real individual/expanded size, scanner-time, encrypted and PCRE behavior have not been demonstrated individually |
 | SCAN-10 | pipeline `UPLOAD` runs for both 10 MiB and 50 MiB profiles | PASS locally |
 | SCAN-11 | storage hash/size mismatch and pipeline `DB_SOURCE_MISMATCH_AUDIT` | PASS locally |
 | SCAN-12 | pipeline `DB_PROCEDURES`, claim/finalize replay and fencing | PASS locally |
@@ -54,4 +54,4 @@ Draft CI run 40874413215 failed in the catalog migration harness: its two tempor
 | RSC-17 | pipeline `SCAN_FINAL`, real clamd and safe PDF | PASS locally |
 | RSC-18 | pipeline `SCAN_FINAL`, real clamd and EICAR | PASS locally |
 
-The application checks and fake fault modes do not replace independent backend/security and DevOps reviews. Exact-HEAD GitHub CI is required before acceptance.
+Independent security review confirmed the pinned-engine OLE2 finding closed: a synthetic nested Workbook/XZ fixture produced the exact XZ dictionary-limit alert, a control fixture produced the EICAR alert, and PostgreSQL runtime verified SCAN_ERROR and audit. The protocol classifies the XZ dictionary limit alert as incomplete rather than malware. Exact MaxFiles was also observed. A separate real 64 MiB + 1 expanded-entry fixture returned `stream: OK`, without the required MaxFileSize alert. This is an open P1; it does not alone prove which bytes were examined. The remaining version-specific bounds require real evidence or the applicable fail-closed gate. Independent DevOps review found no P0/P1/P2 in the probe but did not find a dedicated graceful SIGTERM/orphan test. Exact-HEAD GitHub CI is required before acceptance.
