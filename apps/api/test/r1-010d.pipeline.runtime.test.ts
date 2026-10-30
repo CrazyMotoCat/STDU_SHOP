@@ -149,7 +149,10 @@ function crc32(bytes: Buffer) {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-function minimalXlsx(extraEntries: Array<{ name: string; data: Buffer }> = []) {
+function minimalXlsx(
+  extraEntries: Array<{ name: string; data: Buffer }> = [],
+  worksheetValue?: string,
+) {
   const entries: Array<{ name: string; data: Buffer }> = [
     {
       name: '[Content_Types].xml',
@@ -176,6 +179,30 @@ function minimalXlsx(extraEntries: Array<{ name: string; data: Buffer }> = []) {
       ),
     },
   ];
+  if (worksheetValue !== undefined) {
+    entries[0]!.data = Buffer.from(
+      '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+    );
+    entries[1]!.data = Buffer.from(
+      '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+    );
+    entries[2]!.data = Buffer.from(
+      '<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>',
+    );
+    entries[3]!.data = Buffer.from(
+      '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+    );
+    const escaped = worksheetValue
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+    entries.push({
+      name: 'xl/worksheets/sheet1.xml',
+      data: Buffer.from(
+        `<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>${escaped}</t></is></c></row></sheetData></worksheet>`,
+      ),
+    });
+  }
   entries.push(...extraEntries);
   const local: Buffer[] = [];
   const central: Buffer[] = [];
@@ -483,6 +510,11 @@ class StaffAgent {
   }
 
   async request(method: string, path: string, body?: unknown) {
+    const response = await this.requestRaw(method, path, body);
+    return { status: response.status, body: parseJson(await response.text()) };
+  }
+
+  async requestRaw(method: string, path: string, body?: unknown) {
     const headers = new Headers({ Origin: origin, Accept: 'application/json' });
     if (method !== 'GET' && method !== 'HEAD') {
       headers.set('Content-Type', 'application/json');
@@ -502,7 +534,7 @@ class StaffAgent {
       },
     );
     this.remember(response);
-    return { status: response.status, body: parseJson(await response.text()) };
+    return response;
   }
 
   async login(email: string, password: string) {
@@ -663,6 +695,7 @@ describe.skipIf(!runtimeEnabled)(
       const fixtures = {
         DIRECT_EICAR: eicar,
         ZIP_EICAR: singleStoredZip('eicar.txt', eicar),
+        XLSX_EICAR: minimalXlsx([], eicar.toString('ascii')),
         OLE_LIMIT: wrap(oleWorkbookWithXz()),
         OLE_EICAR: wrap(oleWorkbookWithXz(false)),
         FILE_COUNT: minimalXlsx([{ name: 'embedded/many.zip', data: count }]),
@@ -727,7 +760,7 @@ describe.skipIf(!runtimeEnabled)(
               [
                 `${prefix}-safe.xlsx`,
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                minimalXlsx(),
+                minimalXlsx([], 'synthetic safe'),
               ],
               [`${prefix}-eicar.csv`, 'text/csv', eicarFixture],
               [
@@ -797,6 +830,12 @@ describe.skipIf(!runtimeEnabled)(
               data: oleWorkbookWithXz(),
             },
           ]),
+        );
+        await uploadFixture(
+          depthInquiry,
+          `${prefix}-cell-eicar.xlsx`,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          minimalXlsx([], eicarFixture.toString('ascii')),
         );
 
         const legacy =
@@ -880,6 +919,19 @@ describe.skipIf(!runtimeEnabled)(
           [String(terminal.id)],
         );
         expect(terminalJob.rowCount).toBe(0);
+        // Demonstrate the legacy risk on this disposable database only.
+        const legacyActor = await makeDownloadActor();
+        const legacyDownload = await legacyActor.requestRaw(
+          'GET',
+          `/v1/staff/inquiries/${terminalInquiry.id}/documents/${String(terminal.id)}/download`,
+        );
+        expect(legacyDownload.status).toBe(200);
+        expect(legacyDownload.headers.get('content-type')).toContain(
+          'application/pdf',
+        );
+        expect(Buffer.from(await legacyDownload.arrayBuffer())).toEqual(
+          minimalPdf(),
+        );
       }
     });
 
@@ -1340,7 +1392,10 @@ describe.skipIf(!runtimeEnabled)(
       const secondWorker = new Client({
         connectionString: requiredEnv('SCAN_DATABASE_URL'),
       });
-      await secondWorker.connect();
+      const runtime = new Client({
+        connectionString: requiredEnv('STAFF_DATABASE_URL'),
+      });
+      await Promise.all([secondWorker.connect(), runtime.connect()]);
       try {
         const tokenHash = randomBytes(32);
         const claim = await worker!.query<QueryRow>(
@@ -1439,6 +1494,17 @@ describe.skipIf(!runtimeEnabled)(
               ),
           ),
         ).toBe(true);
+        const stale = [...clean];
+        stale[1] = Number(row.job_version) - 1;
+        await expect(worker!.query(finalize, stale)).rejects.toThrow(
+          'INQUIRY_SCAN_COMPLETENESS_POLICY_DENIED',
+        );
+        await expect(runtime.query(finalize, clean)).rejects.toThrow(
+          /permission denied/i,
+        );
+        await expect(operator!.query(finalize, clean)).rejects.toThrow(
+          /permission denied/i,
+        );
         expect(await snapshot()).toEqual(before);
         expect(before).toMatchObject({
           status: 'LEASED',
@@ -1460,11 +1526,19 @@ describe.skipIf(!runtimeEnabled)(
           source_state: 'REJECTED',
           replayed: true,
         });
+        // Synthetic historical replay metadata: all three replay keys match
+        // the CLEAN command, so the policy guard must precede replay itself.
+        await owner!.query(
+          'UPDATE inquiry_source_document_scan_job SET finalize_fingerprint=$2 WHERE id=$1',
+          [jobId, clean[20]],
+        );
+        const beforeReplayDenial = await snapshot();
         await expect(worker!.query(finalize, clean)).rejects.toThrow(
           'INQUIRY_SCAN_COMPLETENESS_POLICY_DENIED',
         );
+        expect(await snapshot()).toEqual(beforeReplayDenial);
       } finally {
-        await secondWorker.end();
+        await Promise.all([secondWorker.end(), runtime.end()]);
       }
     });
 
@@ -2157,7 +2231,8 @@ describe.skipIf(!runtimeEnabled)(
             name.includes('-boundary.pdf') ||
             name.endsWith('-safe.pdf') ||
             name.endsWith('-safe.csv') ||
-            name.endsWith('-safe.xlsx')
+            name.endsWith('-safe.xlsx') ||
+            name.endsWith('-cell-eicar.xlsx')
           ) {
             expect(row.safety_state).toBe('SCAN_ERROR');
             expect(row.failure_code).toBe('ENCRYPTED_OR_UNSCANNABLE');

@@ -1427,6 +1427,7 @@ async function main() {
   for (const [name, expected] of [
     ['DIRECT_EICAR', 'Eicar-Test-Signature FOUND'],
     ['ZIP_EICAR', 'Eicar-Test-Signature FOUND'],
+    ['XLSX_EICAR', null],
     ['OLE_LIMIT', 'Heuristics.XZ.DicSizeLimit FOUND'],
     ['OLE_EICAR', 'Eicar-Test-Signature FOUND'],
     ['FILE_COUNT', 'Heuristics.Limits.Exceeded.MaxFiles FOUND'],
