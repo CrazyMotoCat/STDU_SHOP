@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { createServer as createHttpServer } from 'node:http';
 import { createServer } from 'node:net';
 import { mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -63,6 +65,8 @@ async function withPreviewServer(enabled, operation) {
   const serverEnv = {
     ...process.env,
     NEXT_TELEMETRY_DISABLED: '1',
+    // Confirm the server-side NODE_ENV gate wins even if a flag is mis-set.
+    RFQ_API_SUBMISSION_ENABLED: 'true',
   };
   if (enabled) serverEnv.RFQ_PREVIEW_ENABLED = 'true';
   else delete serverEnv.RFQ_PREVIEW_ENABLED;
@@ -101,6 +105,212 @@ async function withPreviewServer(enabled, operation) {
         await exited;
       }
     }
+  }
+}
+
+async function withDevelopmentServer(apiUrl, operation) {
+  const webPort = await reservePort();
+  const baseUrl = `http://127.0.0.1:${webPort}`;
+  const serverEnv = {
+    ...process.env,
+    NEXT_TELEMETRY_DISABLED: '1',
+    RFQ_API_SUBMISSION_ENABLED: 'true',
+    NEXT_PUBLIC_API_BASE_URL: apiUrl,
+  };
+  const child = spawn(
+    process.execPath,
+    [nextCli, 'dev', '--hostname', '127.0.0.1', '--port', String(webPort)],
+    {
+      cwd: web,
+      env: serverEnv,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  let output = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => (output += chunk));
+  child.stderr.on('data', (chunk) => (output += chunk));
+  const getOutput = () => output.slice(-5000);
+
+  try {
+    await waitForPage(`${baseUrl}/request-quote`, child, getOutput);
+    const browser = await chromium.launch({ headless: true });
+    try {
+      await operation(browser, baseUrl);
+    } finally {
+      await browser.close();
+    }
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = new Promise((accept) => child.once('exit', accept));
+      child.kill('SIGTERM');
+      await Promise.race([exited, delay(5000)]);
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill('SIGKILL');
+        await exited;
+      }
+    }
+  }
+}
+
+async function withMockInquiryApi(operation) {
+  const records = [];
+  const origin = { current: '' };
+  const intentIds = [
+    'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+    '0f8fad5b-d9cb-469f-a165-70867728950e',
+  ];
+  let intentCount = 0;
+  const server = createHttpServer(async (request, response) => {
+    const requestOrigin = request.headers.origin;
+    if (
+      requestOrigin &&
+      (!origin.current || requestOrigin === origin.current)
+    ) {
+      response.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      response.setHeader('Vary', 'Origin');
+    }
+    response.setHeader(
+      'Access-Control-Allow-Methods',
+      'POST, PUT, DELETE, OPTIONS',
+    );
+    response.setHeader(
+      'Access-Control-Allow-Headers',
+      'Accept, Content-Type, Idempotency-Key, X-Inquiry-Upload-Capability',
+    );
+    if (request.method === 'OPTIONS') {
+      response.writeHead(204).end();
+      return;
+    }
+
+    const chunks = [];
+    let bodyBytes = 0;
+    for await (const chunk of request) {
+      const bytes = Buffer.from(chunk);
+      bodyBytes += bytes.byteLength;
+      chunks.push(bytes);
+    }
+    const body = Buffer.concat(chunks);
+    const record = {
+      method: request.method,
+      url: request.url ?? '',
+      headers: { ...request.headers },
+      bodyBytes,
+      bodyHash: createHash('sha256').update(body).digest('hex'),
+      bodyText:
+        request.method === 'POST' && request.url === '/v1/public/inquiries'
+          ? body.toString('utf8')
+          : undefined,
+    };
+    records.push(record);
+
+    if (request.method === 'POST' && request.url === '/v1/public/inquiries') {
+      response.writeHead(201, { 'Content-Type': 'application/json' }).end(
+        JSON.stringify({
+          data: {
+            publicReference: 'RFQ-2026-000000000001',
+            createdAt: '2026-10-28T02:00:00.000Z',
+            message: 'Заявка принята.',
+          },
+          meta: { requestId: 'b37b4b47-bc89-4acc-a030-82d38d32bfbb' },
+        }),
+      );
+      return;
+    }
+    if (
+      request.method === 'POST' &&
+      request.url === '/v1/public/inquiry-attachments/upload-intents'
+    ) {
+      const intentRequest = JSON.parse(body.toString('utf8'));
+      const intentId = intentIds[intentCount++];
+      assert.ok(intentId, 'Unexpected upload intent request.');
+      response.writeHead(201, { 'Content-Type': 'application/json' }).end(
+        JSON.stringify({
+          data: {
+            intentId,
+            expiresAt: '2026-10-28T02:10:00.000Z',
+            maxBytes: intentRequest.sizeBytes,
+          },
+          meta: { requestId: 'b37b4b47-bc89-4acc-a030-82d38d32bfbb' },
+        }),
+      );
+      return;
+    }
+    if (
+      request.method === 'PUT' &&
+      /^\/v1\/public\/inquiry-attachments\/upload-intents\/[0-9a-f-]+\/content$/.test(
+        request.url ?? '',
+      )
+    ) {
+      const uploadCount = records.filter(
+        (item) => item.method === 'PUT',
+      ).length;
+      if (uploadCount === 1) {
+        response.writeHead(503, { 'Content-Type': 'application/json' }).end(
+          JSON.stringify({
+            code: 'DEPENDENCY_UNAVAILABLE',
+            message: 'Fixture transient failure',
+            requestId: 'b37b4b47-bc89-4acc-a030-82d38d32bfbb',
+          }),
+        );
+        return;
+      }
+      if (uploadCount === 3) {
+        response.writeHead(415, { 'Content-Type': 'application/json' }).end(
+          JSON.stringify({
+            code: 'MIME_MISMATCH',
+            message: 'Fixture rejected media',
+            requestId: 'b37b4b47-bc89-4acc-a030-82d38d32bfbb',
+          }),
+        );
+        return;
+      }
+      response.writeHead(201, { 'Content-Type': 'application/json' }).end(
+        JSON.stringify({
+          data: {
+            accepted: true,
+            sizeBytes: bodyBytes,
+            securityState: 'QUARANTINED',
+          },
+          meta: { requestId: 'b37b4b47-bc89-4acc-a030-82d38d32bfbb' },
+        }),
+      );
+      return;
+    }
+    if (
+      request.method === 'DELETE' &&
+      /^\/v1\/public\/inquiry-attachments\/upload-intents\/[0-9a-f-]+$/.test(
+        request.url ?? '',
+      )
+    ) {
+      response.writeHead(204).end();
+      return;
+    }
+    response.writeHead(404, { 'Content-Type': 'application/json' }).end(
+      JSON.stringify({
+        code: 'NOT_FOUND',
+        message: 'Fixture route not found',
+        requestId: 'b37b4b47-bc89-4acc-a030-82d38d32bfbb',
+      }),
+    );
+  });
+  await new Promise((accept, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', accept);
+  });
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+  const apiUrl = `http://127.0.0.1:${address.port}`;
+  try {
+    await operation(apiUrl, records, (webOrigin) => {
+      origin.current = webOrigin;
+    });
+  } finally {
+    await new Promise((accept, reject) =>
+      server.close((error) => (error ? reject(error) : accept())),
+    );
   }
 }
 
@@ -486,7 +696,7 @@ async function checkFiles(page, baseUrl) {
   });
 
   const fileList = page.getByRole('list', {
-    name: 'Выбранные файлы, локальный предпросмотр',
+    name: 'Выбранные файлы',
   });
   assert.equal(await fileList.getByRole('listitem').count(), 4);
   assert.equal(
@@ -506,10 +716,7 @@ async function checkFiles(page, baseUrl) {
     .click();
   assert.equal(await fileList.getByRole('listitem').count(), 3);
   await page.getByRole('button', { name: 'Проверить заполнение' }).click();
-  assert.equal(
-    await page.getByText('3 · локально', { exact: true }).count(),
-    1,
-  );
+  assert.equal(await page.getByText('3 · выбраны', { exact: true }).count(), 1);
   const mobileReview = page.getByRole('region', {
     name: 'Проверьте детали запроса',
   });
@@ -529,8 +736,8 @@ async function checkFiles(page, baseUrl) {
     buffer: Buffer.from('ignored'),
   });
   assert.match(
-    await page.getByText(/неподдерживаемого формата/).innerText(),
-    /неподдерживаемого формата/,
+    await page.getByText(/формат не поддерживается/).innerText(),
+    /формат не поддерживается/,
   );
   assert.equal(await fileList.getByRole('listitem').count(), 3);
 
@@ -672,6 +879,273 @@ async function runDisabledPreview(browser, baseUrl) {
   );
 }
 
+async function runApiIntegrationPreview(apiUrl, records, setWebOrigin) {
+  await mkdir(artifacts, { recursive: true });
+  await withDevelopmentServer(apiUrl, async (browser, baseUrl) => {
+    setWebOrigin(new URL(baseUrl).origin);
+    const consoleMessages = [];
+    const consoleErrors = [];
+    const expectedFixtureResponseWarnings = [];
+    const browserErrors = [];
+    const unexpectedRequests = [];
+    const desktop = await browser.newPage({
+      viewport: { width: 1440, height: 1000 },
+    });
+    desktop.on('request', (request) => {
+      const requestOrigin = new URL(request.url()).origin;
+      if (
+        requestOrigin !== new URL(baseUrl).origin &&
+        requestOrigin !== new URL(apiUrl).origin
+      )
+        unexpectedRequests.push(request.url());
+    });
+    desktop.on('console', (message) => {
+      consoleMessages.push(message.text());
+      if (message.type() === 'error') {
+        if (
+          message.text().includes('503 (Service Unavailable)') ||
+          message.text().includes('415 (Unsupported Media Type)')
+        )
+          expectedFixtureResponseWarnings.push(message.text());
+        else consoleErrors.push(message.text());
+      }
+    });
+    desktop.on('pageerror', (error) => browserErrors.push(error.message));
+    desktop.setDefaultTimeout(15000);
+    const response = await desktop.goto(`${baseUrl}/request-quote`, {
+      waitUntil: 'domcontentloaded',
+    });
+    assert.equal(response?.status(), 200);
+    await assertNoindex(desktop);
+    await assertNoOverflow(desktop, 1440);
+    await desktop.screenshot({
+      path: resolve(artifacts, 'request-quote-api-desktop.png'),
+      caret: 'initial',
+      style: 'nextjs-portal { display: none !important; }',
+    });
+    assert.equal(
+      await desktop
+        .getByRole('button', { name: 'Отправить в тестовую среду' })
+        .isEnabled(),
+      true,
+    );
+
+    await desktop
+      .getByLabel('Наименование')
+      .first()
+      .fill('Тестовый автомат защиты');
+    await desktop.getByLabel('Количество').first().fill('2,125');
+    await desktop.getByLabel(/Контактное лицо/).fill('Тестовый контакт');
+    await desktop.getByLabel('Email').fill('test@example.invalid');
+    await desktop.locator('input[type="file"]').setInputFiles({
+      name: 'fixture.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.7 test fixture'),
+    });
+    await desktop
+      .getByRole('button', { name: 'Отправить в тестовую среду' })
+      .click();
+    await desktop.getByRole('button', { name: 'Повторить файл' }).waitFor();
+
+    const createRequests = records.filter(
+      (record) =>
+        record.method === 'POST' && record.url === '/v1/public/inquiries',
+    );
+    assert.equal(createRequests.length, 1);
+    const createBody = JSON.parse(createRequests[0].bodyText);
+    assert.equal(createBody.kind, 'EQUIPMENT');
+    assert.equal(createBody.equipmentLines[0].quantity, '2,125');
+    assert.equal(createBody.privacyNotice, undefined);
+    assert.match(createBody.uploadCapability, /^[A-Za-z0-9_-]{43}$/);
+    const capability = createBody.uploadCapability;
+
+    const intentRequests = records.filter(
+      (record) =>
+        record.method === 'POST' &&
+        record.url === '/v1/public/inquiry-attachments/upload-intents',
+    );
+    assert.equal(intentRequests.length, 1);
+    assert.equal(
+      intentRequests[0].headers['x-inquiry-upload-capability'],
+      capability,
+    );
+    const uploadRequests = records.filter((record) => record.method === 'PUT');
+    assert.equal(uploadRequests.length, 1);
+    assert.equal(
+      uploadRequests[0].headers['x-inquiry-upload-capability'],
+      capability,
+    );
+    assert.equal(uploadRequests[0].headers['idempotency-key']?.length, 43);
+    assert.equal(
+      uploadRequests[0].bodyBytes,
+      Buffer.byteLength('%PDF-1.7 test fixture'),
+    );
+
+    await desktop.getByRole('button', { name: 'Повторить файл' }).click();
+    await desktop
+      .getByText(/Принят · карантин до проверки безопасности/)
+      .waitFor();
+    const receiptPanel = desktop.getByText(
+      /Публичный номер: RFQ-2026-000000000001/,
+    );
+    await receiptPanel.waitFor();
+    await receiptPanel.scrollIntoViewIfNeeded();
+    await assertNoOverflow(desktop, 1440);
+    await desktop.screenshot({
+      path: resolve(artifacts, 'request-quote-api-receipt-desktop.png'),
+      caret: 'initial',
+      style: 'nextjs-portal { display: none !important; }',
+    });
+
+    const finalUploads = records.filter((record) => record.method === 'PUT');
+    assert.equal(finalUploads.length, 2);
+    assert.equal(
+      finalUploads[0].headers['idempotency-key'],
+      finalUploads[1].headers['idempotency-key'],
+    );
+    assert.equal(finalUploads[0].bodyHash, finalUploads[1].bodyHash);
+    assert.equal(
+      finalUploads[1].headers['x-inquiry-upload-capability'],
+      capability,
+    );
+    assert.equal(
+      records.filter(
+        (record) =>
+          record.method === 'POST' && record.url === '/v1/public/inquiries',
+      ).length,
+      1,
+      'Retrying a file must never create a second inquiry.',
+    );
+    assert.equal(
+      records.some((record) => record.url.includes(capability)),
+      false,
+    );
+    assert.deepEqual(
+      records.map(({ method, url }) => [method, url]),
+      [
+        ['POST', '/v1/public/inquiries'],
+        ['POST', '/v1/public/inquiry-attachments/upload-intents'],
+        [
+          'PUT',
+          '/v1/public/inquiry-attachments/upload-intents/f47ac10b-58cc-4372-a567-0e02b2c3d479/content',
+        ],
+        [
+          'PUT',
+          '/v1/public/inquiry-attachments/upload-intents/f47ac10b-58cc-4372-a567-0e02b2c3d479/content',
+        ],
+      ],
+    );
+    assert.equal(new URL(desktop.url()).search.includes(capability), false);
+    assert.deepEqual(
+      await desktop.evaluate(() => ({
+        local: localStorage.length,
+        session: sessionStorage.length,
+      })),
+      { local: 0, session: 0 },
+    );
+    assert.equal(
+      consoleMessages.some((message) => message.includes(capability)),
+      false,
+    );
+    assert.deepEqual(consoleErrors, [], consoleErrors.join('\n'));
+    assert.deepEqual(unexpectedRequests, []);
+    assert.equal(expectedFixtureResponseWarnings.length, 1);
+    assert.deepEqual(browserErrors, []);
+
+    await desktop.reload({ waitUntil: 'domcontentloaded' });
+    await desktop.getByLabel('Наименование').first().fill('Тестовый автомат');
+    await desktop.getByLabel(/Контактное лицо/).fill('Тестовый контакт');
+    await desktop.getByLabel('Email').fill('test@example.invalid');
+    await desktop.locator('input[type="file"]').setInputFiles({
+      name: 'fixture-rejected.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.7 rejected fixture'),
+    });
+    await desktop
+      .getByRole('button', { name: 'Отправить в тестовую среду' })
+      .click();
+    const continueWithoutFile = desktop.getByRole('button', {
+      name: 'Продолжить без файла fixture-rejected.pdf',
+    });
+    await continueWithoutFile.waitFor();
+    await continueWithoutFile.click();
+    await desktop.getByText('Не приложен').waitFor();
+    assert.equal(
+      records.filter(
+        (record) =>
+          record.method === 'POST' && record.url === '/v1/public/inquiries',
+      ).length,
+      2,
+      'Skipping a rejected file must not create another inquiry.',
+    );
+    assert.equal(
+      records.filter(
+        (record) =>
+          record.method === 'POST' &&
+          record.url === '/v1/public/inquiry-attachments/upload-intents',
+      ).length,
+      2,
+      'A deterministic upload rejection must not spend a second intent.',
+    );
+    assert.equal(records.filter((record) => record.method === 'PUT').length, 3);
+    assert.equal(
+      records.filter((record) => record.method === 'DELETE').length,
+      1,
+    );
+    assert.equal(expectedFixtureResponseWarnings.length, 2);
+
+    const mobile = await browser.newPage({
+      viewport: { width: 375, height: 812 },
+    });
+    mobile.on('request', (request) => {
+      const requestOrigin = new URL(request.url()).origin;
+      if (
+        requestOrigin !== new URL(baseUrl).origin &&
+        requestOrigin !== new URL(apiUrl).origin
+      )
+        unexpectedRequests.push(request.url());
+    });
+    mobile.on('console', (message) => {
+      consoleMessages.push(message.text());
+      if (message.type() === 'error') {
+        if (
+          message.text().includes('503 (Service Unavailable)') ||
+          message.text().includes('415 (Unsupported Media Type)')
+        )
+          expectedFixtureResponseWarnings.push(message.text());
+        else consoleErrors.push(message.text());
+      }
+    });
+    mobile.on('pageerror', (error) => browserErrors.push(error.message));
+    const mobileResponse = await mobile.goto(`${baseUrl}/request-quote`, {
+      waitUntil: 'domcontentloaded',
+    });
+    assert.equal(mobileResponse?.status(), 200);
+    await assertNoindex(mobile);
+    await assertNoOverflow(mobile, 375);
+    await mobile.screenshot({
+      path: resolve(artifacts, 'request-quote-api-mobile.png'),
+      caret: 'initial',
+      style: 'nextjs-portal { display: none !important; }',
+    });
+    assert.equal(
+      await mobile
+        .getByRole('button', { name: 'Отправить в тестовую среду' })
+        .isEnabled(),
+      true,
+    );
+    assert.deepEqual(browserErrors, []);
+    assert.deepEqual(consoleErrors, [], consoleErrors.join('\n'));
+    assert.deepEqual(unexpectedRequests, []);
+    assert.equal(expectedFixtureResponseWarnings.length, 2);
+    await mobile.close();
+    await desktop.close();
+  });
+  console.log(
+    'RFQ development API browser smoke: create, decimal quantity, upload capability, unknown retry, deterministic rejection recovery, QUARANTINED receipt, no duplicate inquiry, no browser storage and 1440/375 layout passed.',
+  );
+}
+
 async function main() {
   if (!existsSync(buildId))
     throw new Error(
@@ -679,6 +1153,9 @@ async function main() {
     );
   await withPreviewServer(true, runEnabledPreview);
   await withPreviewServer(false, runDisabledPreview);
+  await withMockInquiryApi(async (apiUrl, records, setWebOrigin) => {
+    await runApiIntegrationPreview(apiUrl, records, setWebOrigin);
+  });
   console.log(`RFQ screenshots saved to ${artifacts}`);
 }
 
