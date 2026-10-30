@@ -2289,7 +2289,12 @@ describe.skipIf(!runtimeEnabled)(
         expect(denied.body.code).toBe('FILE_NOT_ACCESSIBLE');
         // The temporary completeness restriction also denies clean-looking
         // originals; this is a functional limitation, not successful scanning.
-        for (const suffix of ['-safe.pdf', '-safe.csv', '-safe.xlsx']) {
+        for (const suffix of [
+          '-safe.pdf',
+          '-safe.csv',
+          '-safe.xlsx',
+          '-cell-eicar.xlsx',
+        ]) {
           const document = rows.find((row) =>
             String(row.original_filename).endsWith(suffix),
           );

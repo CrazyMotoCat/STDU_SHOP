@@ -1462,6 +1462,47 @@ async function main() {
     composeEnv,
     { timeoutMs: 25_000 },
   );
+  // Exercise a real SIGTERM only against this run's scanner container, after
+  // all test jobs have reached terminal states. Never select by process name.
+  const scannerId = await compose(['ps', '-q', 'clamav'], composeEnv);
+  if (!/^[a-f0-9]{12,64}$/.test(scannerId))
+    throw new Error('Could not identify the owned scanner container.');
+  const scannerInspect = JSON.parse(
+    await run('docker', ['inspect', scannerId], { timeoutMs: 10_000 }),
+  );
+  if (
+    scannerInspect[0]?.Config?.Labels?.['com.docker.compose.project'] !==
+    project
+  )
+    throw new Error(
+      'Scanner SIGTERM target is not owned by this test project.',
+    );
+  const processesBefore = await run('docker', ['top', scannerId], {
+    timeoutMs: 10_000,
+  });
+  if (
+    !processesBefore.includes('resource-probe') ||
+    !processesBefore.includes('clamd')
+  )
+    throw new Error(
+      'Scanner and resource probe must both be running before SIGTERM.',
+    );
+  await run('docker', ['kill', '--signal=SIGTERM', scannerId], {
+    timeoutMs: 10_000,
+  });
+  const exitCode = Number(
+    await run('docker', ['wait', scannerId], { timeoutMs: 30_000 }),
+  );
+  const stopped = JSON.parse(
+    await run('docker', ['inspect', scannerId], { timeoutMs: 10_000 }),
+  );
+  if (stopped[0]?.State?.Running || ![0, 143].includes(exitCode))
+    throw new Error(
+      `Scanner container did not exit as expected after SIGTERM (exit ${exitCode}).`,
+    );
+  console.log(
+    `Owned scanner container exited after SIGTERM (exit ${exitCode}); child-level graceful shutdown is not established.`,
+  );
   await stopResourceMonitor();
   printResourcePeaks();
 }
