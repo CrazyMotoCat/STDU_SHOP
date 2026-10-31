@@ -488,10 +488,16 @@ async function applyMigrationState(port, database, baseSql, populated) {
     ],
     { cwd: apiRoot, env },
   );
-  await run(process.execPath, [prismaCli, 'migrate', 'deploy'], {
-    cwd: apiRoot,
-    env,
-  });
+  // Scanner roles are cluster-wide; this catalog harness uses two databases in
+  // one disposable cluster. R1-010D has its own full-migration runtime gate.
+  await run(
+    process.execPath,
+    [resolve(apiRoot, 'scripts/deploy-pre-scan-migrations.mjs')],
+    {
+      cwd: apiRoot,
+      env,
+    },
+  );
 
   const verify = createClient({ connectionString: url });
   await verify.connect();

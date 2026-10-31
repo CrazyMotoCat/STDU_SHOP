@@ -10,6 +10,7 @@ import {
 } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { Transform, type Readable } from 'node:stream';
+import { PassThrough } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { Injectable } from '@nestjs/common';
 import type { StoragePort, StoredObject } from './storage.port.js';
@@ -28,6 +29,15 @@ export class PrivateStorageUnavailableError extends Error {
   constructor(cause: unknown) {
     super('Private file storage is unavailable.', { cause });
     this.name = 'PrivateStorageUnavailableError';
+  }
+}
+
+export class PrivateStorageIntegrityError extends Error {
+  constructor() {
+    super(
+      'Private inquiry quarantine object did not match its immutable descriptor.',
+    );
+    this.name = 'PrivateStorageIntegrityError';
   }
 }
 
@@ -89,6 +99,63 @@ export class PrivateFileStorage implements StoragePort {
       );
       return handle.createReadStream();
     } catch (error) {
+      throw new PrivateStorageUnavailableError(error);
+    }
+  }
+
+  /** Opens and verifies one quarantine object through a single file handle. */
+  async openInquiryQuarantineForScan(
+    key: string,
+    expectedSha256: Uint8Array,
+    expectedSizeBytes: bigint,
+  ): Promise<Readable> {
+    let handle;
+    try {
+      handle = await openFile(this.filePath(key, 'inquiry-quarantine'), 'r');
+      const metadata = await handle.stat();
+      if (!metadata.isFile() || BigInt(metadata.size) !== expectedSizeBytes) {
+        await handle.close();
+        throw new PrivateStorageIntegrityError();
+      }
+      const hash = createHash('sha256');
+      let size = 0n;
+      const verifier = new Transform({
+        transform(chunk: Buffer, _encoding, callback) {
+          size += BigInt(chunk.length);
+          hash.update(chunk);
+          callback(null, chunk);
+        },
+        flush(callback) {
+          const actualHash = hash.digest();
+          if (
+            size !== expectedSizeBytes ||
+            !actualHash.equals(Buffer.from(expectedSha256))
+          ) {
+            callback(new PrivateStorageIntegrityError());
+            return;
+          }
+          callback();
+        },
+      });
+      const output = new PassThrough({ highWaterMark: 64 * 1024 });
+      const source = handle.createReadStream({ autoClose: true });
+      void pipeline(source, verifier, output).catch((error: unknown) => {
+        output.destroy(
+          error instanceof PrivateStorageIntegrityError
+            ? error
+            : new PrivateStorageUnavailableError(error),
+        );
+      });
+      return output;
+    } catch (error) {
+      await handle?.close().catch(() => undefined);
+      if ((error as NodeJS.ErrnoException)?.code === 'ENOENT')
+        throw new PrivateStorageIntegrityError();
+      if (
+        error instanceof PrivateStorageIntegrityError ||
+        error instanceof PrivateStorageUnavailableError
+      )
+        throw error;
       throw new PrivateStorageUnavailableError(error);
     }
   }

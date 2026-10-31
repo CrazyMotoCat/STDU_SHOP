@@ -11,7 +11,12 @@ export const REDIS = Symbol('REDIS');
 export class PrismaDatabase extends PrismaClient implements OnModuleDestroy {
   constructor() {
     const config = readConfig(process.env);
-    super({ adapter: new PrismaPg({ connectionString: config.databaseUrl }) });
+    super({
+      adapter: new PrismaPg({
+        connectionString: config.databaseUrl,
+        connectionTimeoutMillis: 5_000,
+      }),
+    });
   }
 
   async onModuleDestroy() {
