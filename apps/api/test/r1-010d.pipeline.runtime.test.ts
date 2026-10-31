@@ -853,9 +853,39 @@ describe.skipIf(!runtimeEnabled)(
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           minimalXlsx([], eicarFixture.toString('ascii')),
         );
+        await uploadFixture(
+          depthInquiry,
+          `${prefix}-large-entry.xlsx`,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          minimalXlsx([
+            {
+              name: 'embedded/large.bin',
+              data: Buffer.alloc(64 * MiB + 1, 0x61),
+            },
+          ]),
+        );
         // This isolated synthetic batch exceeds a real single-source hourly
         // quota. Reset only that quota in the disposable test Redis.
         await clearDisposableIntentHourKeys();
+        await clearPublicInquiryCreateRateKeys();
+        const encryptedInquiry = await createInquiry(
+          'encrypted synthetic fixture',
+        );
+        // Synthetic AES ZIP (password: synthetic-test-only), independently
+        // decrypted and verified; this is not a real document or secret.
+        const encryptedZip = Buffer.from(
+          'UEsDBBQAAQBjAG6+Xl0AAAAAPgAAACAAAAALAAsAZml4dHVyZS50eHQBmQcAAgBBRQMIAFuT/XR0Jolktg4eSGvavyK+3H+73E46WX49kfOzj4Ct7irZ4dSa3ebNa4yt9cKNtPA1cZVsELSkhx7UmC+6UEsBAhQAFAABAGMAbr5eXQAAAAA+AAAAIAAAAAsACwAAAAAAAAAAAIABAAAAAGZpeHR1cmUudHh0AZkHAAIAQUUDCABQSwUGAAAAAAEAAQBEAAAAcgAAAAAA',
+          'base64',
+        );
+        await uploadFixture(
+          encryptedInquiry,
+          `${prefix}-encrypted.xlsx`,
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          minimalXlsx(
+            [{ name: 'embedded/encrypted.zip', data: encryptedZip }],
+            'synthetic',
+          ),
+        );
 
         const legacy =
           documents.find((row) =>
@@ -2212,6 +2242,8 @@ describe.skipIf(!runtimeEnabled)(
           '-depth.xlsx',
           '-file-count.xlsx',
           '-ole-limit.xlsx',
+          '-large-entry.xlsx',
+          '-encrypted.xlsx',
         ]) {
           expect(
             rows.filter((row) =>
@@ -2223,6 +2255,12 @@ describe.skipIf(!runtimeEnabled)(
           const name = String(row.original_filename);
           if (name.endsWith('-eicar.csv')) {
             expect(row.safety_state).toBe('REJECTED');
+          } else if (name.endsWith('-large-entry.xlsx')) {
+            expect(row.safety_state).toBe('SCAN_ERROR');
+            expect([
+              'SCAN_LIMIT_EXCEEDED',
+              'ENCRYPTED_OR_UNSCANNABLE',
+            ]).toContain(row.failure_code);
           } else if (
             name.endsWith('-depth.xlsx') ||
             name.endsWith('-file-count.xlsx') ||
@@ -2251,7 +2289,8 @@ describe.skipIf(!runtimeEnabled)(
             name.endsWith('-safe.pdf') ||
             name.endsWith('-safe.csv') ||
             name.endsWith('-safe.xlsx') ||
-            name.endsWith('-cell-eicar.xlsx')
+            name.endsWith('-cell-eicar.xlsx') ||
+            name.endsWith('-encrypted.xlsx')
           ) {
             expect(row.safety_state).toBe('SCAN_ERROR');
             expect(row.failure_code).toBe('ENCRYPTED_OR_UNSCANNABLE');
@@ -2294,13 +2333,22 @@ describe.skipIf(!runtimeEnabled)(
           '-safe.csv',
           '-safe.xlsx',
           '-cell-eicar.xlsx',
+          '-large-entry.xlsx',
+          '-encrypted.xlsx',
         ]) {
           const document = rows.find((row) =>
             String(row.original_filename).endsWith(suffix),
           );
           expect(document, suffix).toBeTruthy();
           expect(document!.safety_state).toBe('SCAN_ERROR');
-          expect(document!.failure_code).toBe('ENCRYPTED_OR_UNSCANNABLE');
+          if (suffix === '-large-entry.xlsx') {
+            expect([
+              'SCAN_LIMIT_EXCEEDED',
+              'ENCRYPTED_OR_UNSCANNABLE',
+            ]).toContain(document!.failure_code);
+          } else {
+            expect(document!.failure_code).toBe('ENCRYPTED_OR_UNSCANNABLE');
+          }
           const parent = await owner!.query<{ inquiry_id: string }>(
             'SELECT inquiry_id FROM inquiry_source_document WHERE id=$1',
             [String(document!.id)],

@@ -24,6 +24,7 @@ const redisPassword = randomBytes(32).toString('base64url');
 const sessionKey = randomBytes(32).toString('hex');
 const rateLimitKey = randomBytes(32).toString('hex');
 const testRunId = randomUUID();
+const boundaryOwnerToken = randomBytes(32).toString('hex');
 let networkSubnets;
 let apiStreamIp;
 let testNetworkProbeIds = [];
@@ -985,6 +986,7 @@ function testEnv(uploadProfile) {
     R1_010D_API_IMAGE: image,
     R1_010D_RUNNER_IMAGE: runnerImage,
     R1_010D_TEST_RUN_ID: testRunId,
+    R1_010D_BOUNDARY_OWNER: boundaryOwnerToken,
     R1_010D_UPLOAD_PROFILE: uploadProfile,
     R1_010D_TEST_COMPOSE_PROJECT: project,
     R1_010D_TEST_COMPOSE_FILE: composeFile,
@@ -1203,6 +1205,7 @@ async function main() {
     R1_010D_RUNNER_IMAGE: runnerImage,
     R1_010D_CLAMAV_IMAGE: clamavImage,
     R1_010D_TEST_RUN_ID: testRunId,
+    R1_010D_BOUNDARY_OWNER: boundaryOwnerToken,
     R1_010D_UPLOAD_PROFILE: 'MVP_SAFE',
   };
   const config = await compose(['config', '--quiet'], composeEnv, {
@@ -1451,12 +1454,22 @@ async function main() {
       composeEnv,
       { input: Buffer.from(match[1], 'base64'), timeoutMs: 60_000 },
     );
+    if (!/^stream: (?:OK|[^\r\n]+ FOUND)$/.test(output.trim()))
+      throw new Error(
+        `Pinned clamd ${name} returned an invalid or multiple reply.`,
+      );
     if (expected && !output.includes(expected))
       throw new Error(
         `Pinned clamd ${name} fixture did not produce its expected exact alert.`,
       );
     console.log(`Pinned clamd generated ${name} fixture: ${output.trim()}`);
   }
+  const boundaryOutput = await run(
+    'python',
+    ['apps/api/scripts/r1-010d-boundaries.py', project, `${project}-clamav-1`],
+    { env: composeEnv, timeoutMs: 300_000 },
+  );
+  console.log(`Pinned clamd direct boundary observations:\n${boundaryOutput}`);
   await compose(
     ['exec', '-T', 'scan-worker', 'node', 'dist/scan-worker/healthcheck.js'],
     composeEnv,
@@ -1477,15 +1490,126 @@ async function main() {
     throw new Error(
       'Scanner SIGTERM target is not owned by this test project.',
     );
-  const processesBefore = await run('docker', ['top', scannerId], {
-    timeoutMs: 10_000,
-  });
+  const processesBefore = await run(
+    'docker',
+    ['top', scannerId, '-eo', 'pid,ppid,pgid,stat,args'],
+    {
+      timeoutMs: 10_000,
+    },
+  );
   if (
     !processesBefore.includes('resource-probe') ||
     !processesBefore.includes('clamd')
   )
     throw new Error(
       'Scanner and resource probe must both be running before SIGTERM.',
+    );
+  const processRows = processesBefore
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => {
+      const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(.+)$/.exec(line);
+      if (!match) throw new Error('Unexpected scanner process tree output.');
+      return {
+        pid: match[1],
+        ppid: match[2],
+        pgid: match[3],
+        state: match[4],
+        command: match[5],
+      };
+    });
+  const probes = processRows.filter((row) =>
+    row.command.includes('/opt/stdu/resource-probe'),
+  );
+  const scanners = processRows.filter((row) =>
+    /(?:^|\/)clamd --foreground/.test(row.command),
+  );
+  if (probes.length !== 1 || scanners.length !== 1)
+    throw new Error('Expected exactly one scanner and one resource probe.');
+  const tracked = processRows;
+  const observe = async () => {
+    const script =
+      'awk \'$2=="/proc" && $3=="proc" {found++; if ($4 ~ /hidepid=/) exit 3} END {if (found!=1) exit 4}\' /proc/mounts || exit 3; for p in "$@"; do ok=0; for n in 1 2 3; do if [ ! -d "/proc/$p" ]; then echo "$p MISSING"; ok=1; break; fi; if v=$(awk \'{s=$0; sub(/^.*\\) /,"",s); n=split(s,a," "); if(n<20 || a[20] !~ /^[0-9]+$/) exit 2; print a[20]}\' "/proc/$p/stat" 2>/dev/null); then echo "$p $v"; ok=1; break; fi; done; [ "$ok" = 1 ] || exit 2; done';
+    const output = await compose(
+      [
+        'run',
+        '--rm',
+        '--no-deps',
+        '-T',
+        'process-observer',
+        'sh',
+        '-c',
+        script,
+        'observer',
+        ...tracked.map((row) => row.pid),
+      ],
+      composeEnv,
+      { timeoutMs: 20_000 },
+    );
+    const rows = output.split(/\r?\n/).map((line) => line.trim().split(/\s+/));
+    if (
+      rows.length !== tracked.length ||
+      rows.some(
+        (row) =>
+          row.length !== 2 ||
+          !tracked.some((process) => process.pid === row[0]) ||
+          !/^(?:MISSING|\d+)$/.test(row[1] ?? ''),
+      ) ||
+      new Set(rows.map((row) => row[0])).size !== tracked.length
+    )
+      throw new Error(
+        'Scanner process observation is missing, duplicated or malformed.',
+      );
+    return Object.fromEntries(rows);
+  };
+  const identitiesBefore = await observe();
+  if (tracked.some((row) => !/^\d+$/.test(identitiesBefore[row.pid] ?? '')))
+    throw new Error('Cannot establish scanner child process start times.');
+  console.log(
+    `Scanner process tree before SIGTERM: ${JSON.stringify(tracked)}`,
+  );
+  console.log(
+    `Scanner PID/start-time observations before SIGTERM: ${JSON.stringify(identitiesBefore)}`,
+  );
+  const observeSockets = async () => {
+    const script = `import net from 'node:net';
+const host = process.argv[1];
+const results = await Promise.all([3310, 3311].map(port => new Promise(resolve => {
+  const socket = net.createConnection({host, port});
+  let settled = false;
+  const finish = status => { if (!settled) { settled = true; socket.destroy(); resolve({port, status}); } };
+  socket.setTimeout(2000, () => finish('TIMEOUT'));
+  socket.on('connect', () => finish('CONNECTED'));
+  socket.on('error', error => finish(error.code || 'ERROR'));
+})));
+console.log(JSON.stringify(results));`;
+    return JSON.parse(
+      await compose(
+        [
+          'exec',
+          '-T',
+          'scan-worker',
+          'node',
+          '--input-type=module',
+          '-e',
+          script,
+          networkSubnets.scanner_internal.address,
+        ],
+        composeEnv,
+        { timeoutMs: 10_000 },
+      ),
+    );
+  };
+  const socketsBefore = await observeSockets();
+  console.log(
+    `Scanner TCP reachability before SIGTERM: ${JSON.stringify(socketsBefore)}`,
+  );
+  if (
+    socketsBefore.length !== 2 ||
+    socketsBefore.some((item) => item.status !== 'CONNECTED')
+  )
+    throw new Error(
+      'Scanner and probe ports must be reachable before SIGTERM.',
     );
   await run('docker', ['kill', '--signal=SIGTERM', scannerId], {
     timeoutMs: 10_000,
@@ -1500,8 +1624,64 @@ async function main() {
     throw new Error(
       `Scanner container did not exit as expected after SIGTERM (exit ${exitCode}).`,
     );
+  const socketsAfter = await observeSockets();
   console.log(
-    `Owned scanner container exited after SIGTERM (exit ${exitCode}); child-level graceful shutdown is not established.`,
+    `Scanner TCP reachability after SIGTERM: ${JSON.stringify(socketsAfter)}`,
+  );
+  const unavailableStatuses = new Set([
+    'ECONNREFUSED',
+    'EHOSTUNREACH',
+    'ENETUNREACH',
+    'TIMEOUT',
+  ]);
+  if (
+    socketsAfter.length !== 2 ||
+    socketsAfter.some((item) => !unavailableStatuses.has(item.status))
+  )
+    throw new Error('Unexpected scanner TCP result after SIGTERM.');
+  const identitiesAfter = await observe();
+  console.log(
+    `Scanner PID/start-time observations after SIGTERM: ${JSON.stringify(identitiesAfter)}`,
+  );
+  if (
+    tracked.some(
+      (row) => identitiesAfter[row.pid] === identitiesBefore[row.pid],
+    )
+  )
+    throw new Error(
+      'An owned scanner child retained the same PID and start time after SIGTERM.',
+    );
+  console.log(
+    `Owned scanner container exited after SIGTERM (exit ${exitCode}); tracked child PID/start identities disappeared. Individual signal handling remains unproven.`,
+  );
+  await compose(['start', 'clamav'], composeEnv, { timeoutMs: 30_000 });
+  const restartDeadline = Date.now() + 120_000;
+  let restarted = false;
+  while (Date.now() < restartDeadline) {
+    try {
+      await compose(
+        [
+          'exec',
+          '-T',
+          'scan-worker',
+          'node',
+          'dist/scan-worker/healthcheck.js',
+        ],
+        composeEnv,
+        { timeoutMs: 10_000 },
+      );
+      restarted = true;
+      break;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
+  }
+  if (!restarted)
+    throw new Error(
+      'Scanner and resource probe did not become ready after restart.',
+    );
+  console.log(
+    'Owned scanner and resource probe recovered readiness after restart.',
   );
   await stopResourceMonitor();
   printResourcePeaks();
