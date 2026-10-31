@@ -982,7 +982,9 @@ describe.skipIf(!runtimeEnabled)(
           minimalPdf(),
         );
       }
-    });
+      // This integration case uploads multiple fixtures and compresses a
+      // synthetic 64 MiB entry; CI exceeded Vitest's 5 s default.
+    }, 120_000);
 
     it('R1_010D_DB_ROLE_BOUNDARIES grants only the four intended procedures', async () => {
       for (const client of [owner!, worker!, operator!])
