@@ -2337,17 +2337,28 @@ describe.skipIf(!runtimeEnabled)(
           '-cell-eicar.xlsx',
           '-large-entry.xlsx',
           '-encrypted.xlsx',
+          '-depth.xlsx',
+          '-file-count.xlsx',
+          '-ole-limit.xlsx',
         ]) {
           const document = rows.find((row) =>
             String(row.original_filename).endsWith(suffix),
           );
           expect(document, suffix).toBeTruthy();
           expect(document!.safety_state).toBe('SCAN_ERROR');
+          expect(document!.status).toBe('STOPPED');
+          expect(Number(document!.attempt_count)).toBeGreaterThan(0);
           if (suffix === '-large-entry.xlsx') {
             expect([
               'SCAN_LIMIT_EXCEEDED',
               'ENCRYPTED_OR_UNSCANNABLE',
             ]).toContain(document!.failure_code);
+          } else if (
+            ['-depth.xlsx', '-file-count.xlsx', '-ole-limit.xlsx'].includes(
+              suffix,
+            )
+          ) {
+            expect(document!.failure_code).toBe('SCAN_LIMIT_EXCEEDED');
           } else {
             expect(document!.failure_code).toBe('ENCRYPTED_OR_UNSCANNABLE');
           }
@@ -2361,13 +2372,16 @@ describe.skipIf(!runtimeEnabled)(
           );
           expect(download.status).toBe(404);
           expect(download.body.code).toBe('FILE_NOT_ACCESSIBLE');
-          const audit = await owner!.query<{ reason_code: string }>(
-            `SELECT reason_code FROM audit_event
+          const audit = await owner!.query<{
+            outcome: string;
+            reason_code: string;
+          }>(
+            `SELECT outcome, reason_code FROM audit_event
              WHERE action='inquiry.document.scan_state_changed' AND entity_id=$1`,
             [String(document!.id)],
           );
-          expect(audit.rows.map((event) => event.reason_code)).toEqual([
-            'INTERNAL_ERROR',
+          expect(audit.rows).toEqual([
+            { outcome: 'FAILURE', reason_code: 'INTERNAL_ERROR' },
           ]);
         }
       },
