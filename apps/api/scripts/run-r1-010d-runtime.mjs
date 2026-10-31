@@ -1417,6 +1417,45 @@ async function main() {
   await compose(['up', '-d', '--force-recreate', 'scan-worker'], composeEnv, {
     timeoutMs: 150_000,
   });
+  // Diagnose the real dependencies before the expensive final pipeline. This
+  // is a failing precondition, not a substitute for the mandatory runtime.
+  const preflight = `import { ClamSession } from './dist/inquiries/scan-protocol.js';
+import { readResourceSnapshot } from './dist/scan-worker/resource-readiness.js';
+let session;
+try {
+  const deadline = Date.now() + 12000;
+  session = await ClamSession.connect(process.env.CLAMD_HOST, Number(process.env.CLAMD_PORT ?? '3310'), 2000, 12000);
+  const attestation = await session.attest(deadline);
+  console.log(JSON.stringify({event:'scanner.preflight', engine:attestation.engineVersion, signatureVersion:attestation.signatureDatabaseVersion, signatureDate:attestation.signatureDatabaseDate.toISOString(), signatureAgeSeconds:attestation.signatureAgeSeconds, ready:attestation.ready}));
+  try {
+    await readResourceSnapshot(deadline);
+    console.log('RESOURCE_PROBE_PREFLIGHT_READY');
+  } catch (error) {
+    console.error('RESOURCE_PROBE_PREFLIGHT_FAILED', error?.code || error?.name || 'UNKNOWN');
+    process.exitCode = 1;
+  }
+  if (!attestation.ready) {
+    console.error(attestation.engineVersion === 'ClamAV 1.4.6' && attestation.signatureAgeSeconds > 86400 ? 'SCANNER_SIGNATURES_STALE' : 'SCANNER_ATTESTATION_NOT_READY');
+    process.exitCode = 1;
+  }
+} catch (error) {
+  console.error('SCANNER_PREFLIGHT_FAILED', error?.code || error?.name || 'UNKNOWN');
+  process.exitCode = 1;
+} finally { await session?.close().catch(() => {}); }`;
+  const preflightOutput = await compose(
+    [
+      'exec',
+      '-T',
+      'scan-worker',
+      'node',
+      '--input-type=module',
+      '-e',
+      preflight,
+    ],
+    composeEnv,
+    { timeoutMs: 20_000 },
+  );
+  console.log(`Scanner preflight:\n${preflightOutput}`);
   await runRuntimeTests('R1_010D_SCAN_FINAL', 'MVP_SAFE');
   const generated = await runInTestRunner([
     'pnpm',

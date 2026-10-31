@@ -259,6 +259,17 @@ describe('R1-010D ClamAV protocol classification', () => {
     );
   });
 
+  it('accepts the exact freshness boundary and rejects one second older', () => {
+    const version = 'ClamAV 1.4.6/29900/Wed Oct 28 08:30:00 2026';
+    const databaseTime = Date.parse('2026-10-28T08:30:00Z');
+    expect(
+      parseClamVersionReply(version, databaseTime + 86_400_000).ready,
+    ).toBe(true);
+    expect(
+      parseClamVersionReply(version, databaseTime + 86_401_000).ready,
+    ).toBe(false);
+  });
+
   it('requires unchanged ready engine and database metadata across a scan', () => {
     const start = parseClamVersionReply(
       'ClamAV 1.4.6/29900/Wed Oct 28 08:30:00 2026',
