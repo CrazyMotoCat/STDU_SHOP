@@ -1,6 +1,6 @@
 # QUALITY-2026-Q4 — verification matrix
 
-**Verification source:** isolated branch based on `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`. Final source changes are uncommitted at time of this update.
+**Verification source:** isolated branch based on `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`. Implementation and local checks were committed as `87f905b`; task checkpoint commits may follow. The exact-HEAD hosted gate must always be read from the latest SHA on [Draft PR #30](https://github.com/CrazyMotoCat/STDU_SHOP/pull/30).
 
 | Gate | Command/evidence | Result |
 |---|---|---|
@@ -16,7 +16,7 @@
 | Build | `pnpm build` | PASS: API, staff client, Next.js optimized build, and ingestion wheel/sdist. |
 | Whitespace | `git diff --check` | PASS after final documentation edits. |
 | Independent review | `review_q0_01` read-only review and focused response-drop re-review | PASS; no BLOCKER/HIGH findings. Proxy confirms actual response loss; no API/DB contract changed. |
-| Hosted exact-HEAD CI | GitHub PR checks | NOT_RUN yet; push and Draft PR still pending. |
+| Hosted exact-HEAD CI | GitHub PR #30 check suite for the latest PR HEAD | Recheck live on the latest SHA before handoff; earlier runs are insufficient after any later commit. |
 | Browser-mounted Staff UI test | Playwright against authenticated Staff UI | NOT_RUN. Helper unit coverage and API/PG runtime cover the requested retry/DB boundary; no mounted browser integration was added. |
 | Production/merge | Production action or merge | NOT_RUN; explicitly excluded. |
 

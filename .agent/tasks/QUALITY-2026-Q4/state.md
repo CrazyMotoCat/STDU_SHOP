@@ -2,8 +2,8 @@
 
 **Дата:** 1 ноября 2026 (Asia/Vladivostok)
 
-**Текущий этап:** Phase 0 завершена; Q0-01 реализован, локально проверен и прошёл независимый read-only review; commit, Draft PR и hosted CI ещё не созданы.
-**Статус:** `IN_PROGRESS`
+**Текущий этап:** Phase 0 завершена; Q0-01 реализован, локально проверен и прошёл независимый read-only review; Draft PR #30 открыт и остаётся Draft. Перед handoff нужно сверить CI с текущим SHA PR HEAD.
+**Статус:** `REVIEW_REQUIRED`
 
 ## Репозиторий и доставка
 
@@ -11,6 +11,7 @@
 - Текущий `origin/main` после свежего fetch: `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`; совпадает с базой перепроверки 30 октября.
 - Рабочая ветка: `codex/quality-q0-01-supplier-idempotency`, создана от `origin/main` в изолированном worktree `C:\Users\mvideo\.codex\worktrees\quality-q0-01-supplier-idempotency\SHOP STDU`.
 - Режим доставки: `REVIEW_REQUIRED`; merge запрещён задачей. Production и миграции не затрагивались.
+- PR: [#30](https://github.com/CrazyMotoCat/STDU_SHOP/pull/30), base `main` (`336ec8ed`), head `codex/quality-q0-01-supplier-idempotency`; PR создан как Draft. Проверять только актуальные проверки последнего SHA PR HEAD.
 - Исходный checkout `codex/r1-006b-catalog-import` оставлен без изменений. PR #28 и его worktree не редактировались.
 
 ## Перепроверка
@@ -29,6 +30,5 @@
 
 ## Следующие действия
 
-1. Проверить и зафиксировать task-owned diff; выполнить commit.
-2. Повторно fetch `origin/main`, подтвердить отсутствие продвижения базы, push ветки и открыть Draft PR.
-3. Проверить GitHub CI именно для SHA PR HEAD; не переводить PR в Ready и не выполнять merge.
+1. Проверить GitHub CI именно для последнего SHA PR HEAD и записать результат в handoff.
+2. Оставить PR #30 в Draft; merge и production не выполнять.
