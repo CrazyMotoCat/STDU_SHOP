@@ -1,5 +1,9 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
+import {
+  createServer as createHttpServer,
+  request as httpRequest,
+} from 'node:http';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -126,6 +130,64 @@ class StaffAgent {
     });
   }
 
+  async writeAndDropHttp201(
+    method: string,
+    path: string,
+    body: unknown,
+    idempotencyKey: string,
+  ) {
+    const csrf = await this.csrf();
+    const api = new URL(this.baseUrl);
+    let droppedHttp201 = false;
+    const proxy = createHttpServer((incoming, outgoing) => {
+      const upstream = httpRequest(
+        {
+          hostname: api.hostname,
+          port: Number(api.port),
+          path: incoming.url,
+          method: incoming.method,
+          headers: { ...incoming.headers, host: api.host },
+        },
+        (response) => {
+          if (response.statusCode === 201) {
+            response.once('end', () => {
+              droppedHttp201 = true;
+              outgoing.destroy();
+            });
+            response.resume();
+            return;
+          }
+          outgoing.writeHead(response.statusCode ?? 502, response.headers);
+          response.pipe(outgoing);
+        },
+      );
+      upstream.once('error', () => outgoing.destroy());
+      incoming.pipe(upstream);
+    });
+    await new Promise<void>((resolve, reject) => {
+      proxy.once('error', reject);
+      proxy.listen(0, '127.0.0.1', resolve);
+    });
+    const address = proxy.address();
+    if (!address || typeof address === 'string')
+      throw new Error('Could not start the lost-response test proxy.');
+
+    const originalBaseUrl = this.baseUrl;
+    this.baseUrl = `http://127.0.0.1:${address.port}`;
+    try {
+      try {
+        await this.request(method, path, body, { csrf, idempotencyKey });
+      } catch (error) {
+        if (droppedHttp201 && error instanceof TypeError) return;
+        throw error;
+      }
+      throw new Error('The test proxy did not drop the HTTP 201 response.');
+    } finally {
+      this.baseUrl = originalBaseUrl;
+      proxy.closeAllConnections();
+      await new Promise<void>((resolve) => proxy.close(() => resolve()));
+    }
+  }
   async login(email: string, password: string) {
     return this.request(
       'POST',
@@ -441,53 +503,47 @@ describe.skipIf(!runtimeEnabled)('R1-007B disposable PostgreSQL + HTTP', () => {
     await migrationDb?.$disconnect();
   });
 
-  it('SUP-01/02/03: canonical Russian tax identity, OCC, durable idempotency, and archive reuse', async () => {
+  it('SUP-01/02/03: lost create response replays one durable supplier operation', async () => {
     const key = `tax-retry-${randomUUID()}`;
     const createBody = {
       legalName: '  Northwind Trading  ',
       taxIdentifier: '7707083893',
       taxJurisdiction: 'RU',
     };
-    const first = await actor.agent.write(
-      'POST',
-      '/v1/staff/suppliers',
-      createBody,
-      key,
-    );
-    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    await expect(
+      actor.agent.writeAndDropHttp201(
+        'POST',
+        '/v1/staff/suppliers',
+        createBody,
+        key,
+      ),
+    ).resolves.toBeUndefined();
+
+    const committed = await db!.supplier.findFirstOrThrow({
+      where: {
+        taxIdentifier: createBody.taxIdentifier,
+        taxJurisdiction: createBody.taxJurisdiction,
+      },
+      select: { id: true },
+    });
+    expect(
+      await db!.supplier.count({
+        where: {
+          taxIdentifier: createBody.taxIdentifier,
+          taxJurisdiction: createBody.taxJurisdiction,
+        },
+      }),
+    ).toBe(1);
+
     await restartApi();
     actor.agent.baseUrl = apiUrl;
     readerWithoutSupplierRead.agent.baseUrl = apiUrl;
-    const replay = await actor.agent.write(
-      'POST',
-      '/v1/staff/suppliers',
-      createBody,
-      key,
-    );
-    expect(replay).toMatchObject({ status: first.status, body: first.body });
-    const supplier = payload(first) as unknown as Supplier;
-    const profile = await actor.agent.request(
-      'GET',
-      `/v1/staff/suppliers/${supplier.id}`,
-    );
-    expect(profile.status).toBe(200);
-    expect(payload(profile).legalName).toBe('Northwind Trading');
-    expect(
-      await db!.supplierRevision.count({ where: { supplierId: supplier.id } }),
-    ).toBe(1);
-    expect(
-      await db!.auditEvent.count({
-        where: { action: 'supplier.created', entityId: supplier.id },
-      }),
-    ).toBe(1);
-    const createdUpdatedAt = new Date(
-      String(payload(profile).updatedAt),
-    ).getTime();
+
     const offerBeforeSupplierArchive = await actor.agent.write(
       'POST',
       '/v1/staff/supplier-offers',
       {
-        supplierId: supplier.id,
+        supplierId: committed.id,
         brandId: null,
         manufacturerName: null,
         originalPartNumber: null,
@@ -497,6 +553,45 @@ describe.skipIf(!runtimeEnabled)('R1-007B disposable PostgreSQL + HTTP', () => {
     );
     expect(offerBeforeSupplierArchive.status).toBe(201);
 
+    const replay = await actor.agent.write(
+      'POST',
+      '/v1/staff/suppliers',
+      createBody,
+      key,
+    );
+    expect(replay.status).toBe(201);
+    const supplier = payload(replay) as unknown as Supplier;
+    expect(supplier.id).toBe(committed.id);
+    const profile = await actor.agent.request(
+      'GET',
+      `/v1/staff/suppliers/${supplier.id}`,
+    );
+    expect(profile.status).toBe(200);
+    expect(payload(profile).legalName).toBe('Northwind Trading');
+    expect(await db!.supplier.count({ where: { id: supplier.id } })).toBe(1);
+    expect(
+      await db!.supplierRevision.count({ where: { supplierId: supplier.id } }),
+    ).toBe(1);
+    expect(
+      await db!.supplierCommandIdempotency.count({
+        where: {
+          actorStaffUserId: actor.id,
+          scope: 'R1-007',
+          idempotencyKey: key,
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await db!.auditEvent.count({
+        where: { action: 'supplier.created', entityId: supplier.id },
+      }),
+    ).toBe(1);
+    expect(
+      await db!.supplierOffer.count({ where: { supplierId: supplier.id } }),
+    ).toBe(1);
+    const createdUpdatedAt = new Date(
+      String(payload(profile).updatedAt),
+    ).getTime();
     const reused = await actor.agent.write(
       'POST',
       '/v1/staff/suppliers',
@@ -580,6 +675,36 @@ describe.skipIf(!runtimeEnabled)('R1-007B disposable PostgreSQL + HTTP', () => {
       taxJurisdiction: 'RU',
     });
     expect(invalidInn.status).toBe(400);
+  });
+
+  it('SUP-03: concurrent same-key create requests replay one supplier and audit event', async () => {
+    const key = `supplier-double-submit-${randomUUID()}`;
+    const createBody = { legalName: `Concurrent same key ${randomUUID()}` };
+    const [first, second] = await Promise.all([
+      actor.agent.write('POST', '/v1/staff/suppliers', createBody, key),
+      actor.agent.write('POST', '/v1/staff/suppliers', createBody, key),
+    ]);
+    expect(first.status).toBe(201);
+    expect(second).toMatchObject({ status: 201, body: first.body });
+    const supplier = payload(first) as unknown as Supplier;
+    expect(await db!.supplier.count({ where: { id: supplier.id } })).toBe(1);
+    expect(
+      await db!.supplierRevision.count({ where: { supplierId: supplier.id } }),
+    ).toBe(1);
+    expect(
+      await db!.supplierCommandIdempotency.count({
+        where: {
+          actorStaffUserId: actor.id,
+          scope: 'R1-007',
+          idempotencyKey: key,
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await db!.auditEvent.count({
+        where: { action: 'supplier.created', entityId: supplier.id },
+      }),
+    ).toBe(1);
   });
 
   it('SUP-01/02: concurrent duplicate tax identity registration serializes to one active supplier', async () => {

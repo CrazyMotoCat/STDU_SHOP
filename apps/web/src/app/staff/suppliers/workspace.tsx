@@ -4,6 +4,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './workspace.module.css';
+import {
+  clearSupplierCreateAttempt,
+  prepareSupplierCreateAttempt,
+  replaceSupplierCreateAttempt,
+  runSupplierCreateSingleFlight,
+} from './supplier-create-idempotency';
 
 type RecordValue = Record<string, unknown>;
 type View = 'directory' | 'detail' | 'offers' | 'matches';
@@ -38,6 +44,17 @@ type Candidate = RecordValue & {
   identityEvidenceKind: string;
 };
 type Reference = { id: string; name: string; state: string };
+
+class SupplierApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+  ) {
+    super(message);
+    this.name = 'SupplierApiError';
+  }
+}
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:3001';
 
@@ -100,6 +117,7 @@ export default function SupplierWorkspace({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const supplierCreateSubmissionRef = useRef<Promise<void> | null>(null);
 
   const request = useCallback(async (path: string, init: RequestInit = {}) => {
     const requestEpoch = sessionEpoch.current;
@@ -133,10 +151,12 @@ export default function SupplierWorkspace({
     if (requestEpoch !== sessionEpoch.current)
       throw new Error('Запрос отменён после смены сессии.');
     if (!response.ok)
-      throw new Error(
+      throw new SupplierApiError(
         typeof body.message === 'string'
           ? `${String(body.code ?? response.status)}: ${body.message}`
           : `HTTP ${response.status}`,
+        response.status,
+        typeof body.code === 'string' ? body.code : undefined,
       );
     return body;
   }, []);
@@ -358,35 +378,88 @@ export default function SupplierWorkspace({
 
   async function submitSupplier(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setBusy(true);
-    setError('');
-    try {
-      const taxIdentifier = nullable(form.get('taxIdentifier'));
-      const created = data<{ id: string }>(
-        await request('/v1/staff/suppliers', {
-          method: 'POST',
-          body: JSON.stringify({
+    const formElement = event.currentTarget;
+    await runSupplierCreateSingleFlight(
+      supplierCreateSubmissionRef,
+      async () => {
+        const actorId = String(identity?.id ?? '');
+        setBusy(true);
+        setError('');
+        setNotice('');
+        try {
+          const form = new FormData(formElement);
+          const taxIdentifier = nullable(form.get('taxIdentifier'));
+          const body = JSON.stringify({
             legalName: form.get('legalName'),
             shortName: nullable(form.get('shortName')),
             taxIdentifier,
             taxJurisdiction: taxIdentifier
               ? nullable(form.get('taxJurisdiction'))
               : null,
-          }),
-        }),
-      );
-      setNotice('Поставщик создан.');
-      router.push(`/staff/suppliers/${created.id}`);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Не удалось создать поставщика.',
-      );
-    } finally {
-      setBusy(false);
-    }
+          });
+          let attempt = await prepareSupplierCreateAttempt(
+            actorId,
+            body,
+            window.sessionStorage,
+          );
+          if (attempt.kind === 'replacement-required') {
+            const confirmed = window.confirm(
+              'Результат предыдущей отправки не подтверждён. Новый запрос может создать вторую запись. Проверьте список поставщиков и подтвердите создание отдельной операции.',
+            );
+            if (!confirmed) {
+              setError(
+                'Изменённые данные не отправлены. Предыдущий запрос всё ещё можно повторить с исходными данными.',
+              );
+              return;
+            }
+            attempt = replaceSupplierCreateAttempt(
+              actorId,
+              attempt.bodyHash,
+              window.sessionStorage,
+            );
+          }
+
+          if (attempt.kind === 'retry')
+            setNotice('Повторяем исходный запрос с тем же ключом.');
+          const created = data<{ id?: string }>(
+            await request('/v1/staff/suppliers', {
+              method: 'POST',
+              headers: { 'Idempotency-Key': attempt.idempotencyKey },
+              body,
+            }),
+          );
+          if (!created?.id)
+            throw new Error(
+              'Ответ не подтвердил результат. Повторите отправку без изменения данных.',
+            );
+
+          const cleared = clearSupplierCreateAttempt(
+            actorId,
+            window.sessionStorage,
+          );
+          setNotice(
+            cleared
+              ? 'Поставщик создан.'
+              : 'Поставщик создан; состояние повтора не удалось очистить.',
+          );
+          router.push(`/staff/suppliers/${created.id}`);
+        } catch (caught) {
+          if (
+            caught instanceof SupplierApiError &&
+            caught.status < 500 &&
+            caught.code !== 'IDEMPOTENCY_KEY_REUSED'
+          )
+            clearSupplierCreateAttempt(actorId, window.sessionStorage);
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : 'Не удалось создать поставщика.',
+          );
+        } finally {
+          setBusy(false);
+        }
+      },
+    );
   }
 
   async function updateSupplier(event: React.FormEvent<HTMLFormElement>) {
