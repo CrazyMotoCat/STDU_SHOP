@@ -1,6 +1,6 @@
 # OD-010D-07 — поэтапный допуск CLEAN
 
-**Статус:** PROPOSED / OWNER APPROVAL REQUIRED. Основание — [future completeness proposal](R1-010D-future-completeness-proposal.md), R1-010D PR #28 `3f2b2aae143d038871eccfb2b7f786527343afc4`, [CI 41277255463](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41277255463). Настоящий документ не меняет контракт, код или действующий запрет CLEAN и не утверждает, что файл не содержит malware.
+**Статус:** APPROVED — вариант A, решение владельца в текущем обсуждении, для документа на SHA `dd8afa1256519622b49321a0adec2935c0fe0994`. Основание — [future completeness proposal](R1-010D-future-completeness-proposal.md), R1-010D PR #28 `3f2b2aae143d038871eccfb2b7f786527343afc4`, [CI 41277255463](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41277255463). Утверждён порядок CSV → отдельный профиль PDF → XLSX после достаточных доказательств. Каждый профиль требует отдельного security/database review, утверждённых ограничений, сквозных тестов, согласованных изменений worker и PostgreSQL и отдельного решения о включении. Контракт, код и действующий запрет CLEAN не меняются; отсутствие malware не утверждается.
 
 ## Предлагаемое решение
 
@@ -40,4 +40,4 @@
 
 Текущие ограничения не становятся PASS: реальный engine trigger MaxScanTime **NOT_PROVEN**; отдельные exact replies worker для boundary fixtures не доказаны; результаты PCRE относятся к тестовой сигнатуре. CI без подмены времени и сигнатур должен честно сообщать внешний freshness blocker. Rollout, наблюдаемость и rollback должны быть спроектированы так, чтобы отказ и откат не открывали непроверенные файлы. OD-010D-06 должен быть решён до допуска legacy CLEAN.
 
-**Формулировка на утверждение:** «Утверждаю OD-010D-07, вариант A, как поэтапный план; CSV, PDF и XLSX требуют отдельных контрактных поправок и отдельного разрешения на включение». Владелец может выбрать B/C или указать поправки. Это утверждение не разрешает production migration, deployment или включение CLEAN.
+**Решение владельца:** вариант A утверждён как поэтапный план. Утверждение не разрешает включение CLEAN, изменение production, deployment или merge PR #28.
