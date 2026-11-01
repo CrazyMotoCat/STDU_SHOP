@@ -210,6 +210,7 @@ services:
     environment:
       NODE_ENV: production
       R1_010D_FAKE_PROBE_FAIL_AFTER_SCAN: ${R1_010D_FAKE_PROBE_FAIL_AFTER_SCAN:-false}
+      R1_010D_FAKE_SIGNATURE_CONTROL: ${R1_010D_FAKE_SIGNATURE_CONTROL:-false}
     mem_limit: 128m
     cpus: 0.25
     healthcheck:

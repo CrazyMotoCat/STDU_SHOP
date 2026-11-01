@@ -2189,6 +2189,257 @@ describe.skipIf(!runtimeEnabled)(
       expect(audit.rows[0]!.count).toBe('0');
     }, 10_000);
 
+    for (const scenario of ['before', 'after']) {
+      it(`R1_010D_SIGNATURE_${scenario}_PREP creates one isolated job`, async () => {
+        const inquiry = await createInquiry(`signature ${scenario} fixture`);
+        const document = await uploadFixture(
+          inquiry,
+          `r1-010d-${runId}-signature-${scenario}.pdf`,
+          'application/pdf',
+          minimalPdf(4096),
+        );
+        await deferOtherScanJobs(String(document.job_id));
+        expect(document).toMatchObject({
+          safety_state: 'QUARANTINED',
+          job_status: 'PENDING',
+          attempt_count: 0,
+        });
+        if (scenario === 'before')
+          await owner!.query(
+            'CREATE TABLE r1_010d_test_before_job AS SELECT id FROM inquiry_source_document_scan_job WHERE id=$1',
+            [String(document.job_id)],
+          );
+      });
+    }
+
+    it('R1_010D_SIGNATURE_before_VERIFY rejects access without a claim', async () => {
+      const row = await waitForDocumentJob(
+        `r1-010d-${runId}-signature-before.pdf`,
+        () => true,
+        1000,
+      );
+      expect(row).toMatchObject({
+        status: 'PENDING',
+        safety_state: 'QUARANTINED',
+        attempt_count: 0,
+      });
+      const audit = await owner!.query<{ count: string }>(
+        `SELECT count(*) FROM audit_event WHERE (entity_id=$1 AND action='inquiry.document.scan_state_changed') OR (entity_id=$2 AND action='inquiry.document.scan_job_control_changed')`,
+        [String(row.id), String(row.job_id)],
+      );
+      expect(audit.rows[0]!.count).toBe('0');
+      const original = await owner!.query<{ id: string }>(
+        'SELECT id FROM r1_010d_test_before_job',
+      );
+      expect(String(row.job_id)).toBe(original.rows[0]!.id);
+      const parent = await owner!.query<{ inquiry_id: string }>(
+        'SELECT inquiry_id FROM inquiry_source_document WHERE id=$1',
+        [String(row.id)],
+      );
+      const staff = await makeDownloadActor();
+      const download = await staff.request(
+        'GET',
+        `/v1/staff/inquiries/${parent.rows[0]!.inquiry_id}/documents/${String(row.id)}/download`,
+      );
+      expect(download.status).toBe(404);
+      expect(download.body.code).toBe('FILE_NOT_ACCESSIBLE');
+    }, 20_000);
+
+    it('R1_010D_SIGNATURE_after_VERIFY records stale retry and denies download', async () => {
+      const row = await waitForDocumentJob(
+        `r1-010d-${runId}-signature-after.pdf`,
+        (candidate) => candidate.status === 'RETRY_WAIT',
+        30_000,
+      );
+      expect(row).toMatchObject({
+        status: 'RETRY_WAIT',
+        safety_state: 'QUARANTINED',
+        failure_code: 'SIGNATURES_STALE',
+        attempt_count: 1,
+      });
+      const audit = await owner!.query<{
+        outcome: string;
+        reason_code: string;
+      }>(
+        `SELECT outcome,reason_code FROM audit_event WHERE action='inquiry.document.scan_job_control_changed' AND entity_id=$1 ORDER BY occurred_at`,
+        [String(row.job_id)],
+      );
+      expect(audit.rows).toEqual([
+        { outcome: 'SUCCESS', reason_code: 'SCAN_ATTEMPT_CLAIMED' },
+        { outcome: 'SUCCESS', reason_code: 'SCAN_RETRY_SCHEDULED' },
+      ]);
+      const terminalAudit = await owner!.query<{ count: string }>(
+        `SELECT count(*) FROM audit_event WHERE action='inquiry.document.scan_state_changed' AND entity_id=$1`,
+        [String(row.id)],
+      );
+      expect(terminalAudit.rows[0]!.count).toBe('0');
+      const parent = await owner!.query<{ inquiry_id: string }>(
+        'SELECT inquiry_id FROM inquiry_source_document WHERE id=$1',
+        [String(row.id)],
+      );
+      const staff = await makeDownloadActor();
+      const download = await staff.request(
+        'GET',
+        `/v1/staff/inquiries/${parent.rows[0]!.inquiry_id}/documents/${String(row.id)}/download`,
+      );
+      expect(download.status).toBe(404);
+      expect(download.body.code).toBe('FILE_NOT_ACCESSIBLE');
+      await owner!.query(
+        `CREATE TABLE r1_010d_test_old_lease AS SELECT id,source_document_id,source_sha256,source_size_bytes,completed_job_version,completed_lease_token_hash FROM inquiry_source_document_scan_job WHERE id=$1`,
+        [String(row.job_id)],
+      );
+    }, 35_000);
+
+    it('R1_010D_SIGNATURE_FENCE rejects the old lease without mutation', async () => {
+      const old = (
+        await owner!.query<QueryRow>('SELECT * FROM r1_010d_test_old_lease')
+      ).rows[0]!;
+      expect(old.completed_job_version).not.toBeNull();
+      const row = await waitForDocumentJob(
+        `r1-010d-${runId}-signature-after.pdf`,
+        (candidate) =>
+          candidate.status === 'LEASED' &&
+          Number(candidate.attempt_count) === 2,
+        20_000,
+      );
+      expect(String(row.job_id)).toBe(String(old.id));
+      expect(Number(row.version)).toBeGreaterThan(
+        Number(old.completed_job_version),
+      );
+      const token = Buffer.from(old.completed_lease_token_hash as Buffer);
+      const current = await owner!.query<{
+        lease_token_hash: Buffer;
+        lease_valid: boolean;
+      }>(
+        'SELECT lease_token_hash, lease_expires_at > clock_timestamp() AS lease_valid FROM inquiry_source_document_scan_job WHERE id=$1',
+        [String(old.id)],
+      );
+      expect(current.rows[0]!.lease_token_hash).toHaveLength(32);
+      expect(current.rows[0]!.lease_token_hash.equals(token)).toBe(false);
+      expect(current.rows[0]!.lease_valid).toBe(true);
+      const requestId = randomUUID();
+      const fingerprint = createHash('sha256')
+        .update(
+          canonicalJson({
+            jobId: String(old.id),
+            sourceDocumentId: String(old.source_document_id),
+            completedJobVersion: Number(old.completed_job_version),
+            leaseTokenHash: token.toString('hex'),
+            sourceSha256: Buffer.from(old.source_sha256 as Buffer).toString(
+              'hex',
+            ),
+            sourceSizeBytes: String(old.source_size_bytes),
+            result: 'RETRY',
+            failureCode: 'SCANNER_UNAVAILABLE',
+            engineVersion: null,
+            signatureDatabaseVersion: null,
+            signatureDatabaseDate: null,
+            signatureSetFingerprint: null,
+            signatureAgeSeconds: null,
+            startReady: false,
+            endReady: false,
+            scanDurationMs: 0,
+          }),
+        )
+        .digest();
+      const snapshot = async () =>
+        (
+          await owner!.query<{ snapshot: string }>(
+            `SELECT md5(row_to_json(j)::text || row_to_json(d)::text || COALESCE((SELECT json_agg(a ORDER BY a.occurred_at,a.id)::text FROM audit_event a WHERE a.entity_id IN (j.id,d.id)),'[]')) AS snapshot FROM inquiry_source_document_scan_job j JOIN inquiry_source_document d ON d.id=j.source_document_id WHERE j.id=$1`,
+            [String(old.id)],
+          )
+        ).rows[0]!.snapshot;
+      const before = await snapshot();
+      await expect(
+        worker!.query(
+          `SELECT * FROM inquiry_scan_finalize($1::uuid,$2::integer,$3::bytea,$4::text,$5::text,$6::bytea,$7::bigint,$8::text,$9::text,$10::timestamptz,$11::bytea,$12::integer,$13::boolean,$14::text,$15::text,$16::timestamptz,$17::bytea,$18::integer,$19::boolean,$20::integer,$21::bytea,$22::uuid)`,
+          [
+            String(old.id),
+            Number(old.completed_job_version),
+            token,
+            'RETRY',
+            'SCANNER_UNAVAILABLE',
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            0,
+            fingerprint,
+            requestId,
+          ],
+        ),
+      ).rejects.toMatchObject({ message: 'INQUIRY_SCAN_FENCING_CONFLICT' });
+      expect(await snapshot()).toBe(before);
+      const requestAudit = await owner!.query<{ count: string }>(
+        'SELECT count(*) FROM audit_event WHERE request_id=$1',
+        [requestId],
+      );
+      expect(requestAudit.rows[0]!.count).toBe('0');
+    }, 25_000);
+
+    for (const scenario of ['before', 'after']) {
+      it(`R1_010D_SIGNATURE_${scenario}_RECOVER finalizes one job fail-closed`, async () => {
+        const row = await waitForDocumentJob(
+          `r1-010d-${runId}-signature-${scenario}.pdf`,
+          (candidate) => candidate.status === 'STOPPED',
+          30_000,
+        );
+        expect(row).toMatchObject({
+          status: 'STOPPED',
+          safety_state: 'SCAN_ERROR',
+          failure_code: 'ENCRYPTED_OR_UNSCANNABLE',
+          attempt_count: scenario === 'before' ? 1 : 2,
+        });
+        const jobs = await owner!.query<{ count: string }>(
+          'SELECT count(*) FROM inquiry_source_document_scan_job WHERE source_document_id=$1',
+          [String(row.id)],
+        );
+        expect(jobs.rows[0]!.count).toBe('1');
+        if (scenario === 'after') {
+          const old = await owner!.query<{ id: string }>(
+            'SELECT id FROM r1_010d_test_old_lease',
+          );
+          expect(String(row.job_id)).toBe(old.rows[0]!.id);
+        } else {
+          const original = await owner!.query<{ id: string }>(
+            'SELECT id FROM r1_010d_test_before_job',
+          );
+          expect(String(row.job_id)).toBe(original.rows[0]!.id);
+        }
+        const audit = await owner!.query<{
+          outcome: string;
+          reason_code: string;
+        }>(
+          `SELECT outcome,reason_code FROM audit_event WHERE action='inquiry.document.scan_state_changed' AND entity_id=$1`,
+          [String(row.id)],
+        );
+        expect(audit.rows).toEqual([
+          { outcome: 'FAILURE', reason_code: 'INTERNAL_ERROR' },
+        ]);
+        const parent = await owner!.query<{ inquiry_id: string }>(
+          'SELECT inquiry_id FROM inquiry_source_document WHERE id=$1',
+          [String(row.id)],
+        );
+        const staff = await makeDownloadActor();
+        const download = await staff.request(
+          'GET',
+          `/v1/staff/inquiries/${parent.rows[0]!.inquiry_id}/documents/${String(row.id)}/download`,
+        );
+        expect(download.status).toBe(404);
+        expect(download.body.code).toBe('FILE_NOT_ACCESSIBLE');
+      }, 35_000);
+    }
+
     it('R1_010D_SCAN_OFFLINE leaves documents fail-closed and does not claim work', async () => {
       const inquiry = await createInquiry('scanner unavailable fixture');
       const offlineFilename = `r1-010d-${runId}-offline.pdf`;

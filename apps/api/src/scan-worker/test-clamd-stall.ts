@@ -18,15 +18,20 @@ const months = [
 ];
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const faultMode = process.env.R1_010D_FAKE_PROBE_FAIL_AFTER_SCAN ?? 'false';
+const controlled = process.env.R1_010D_FAKE_SIGNATURE_CONTROL === 'true';
+let signaturesStale = controlled;
+let holdScan = false;
+let heldScan: { socket: import('node:net').Socket; id: number } | undefined;
 const failAfterScan = faultMode !== 'false';
 let resourceUnavailable = faultMode === 'before';
 
-function versionReply() {
-  const now = new Date();
+function versionReply(ageMs = 0) {
+  const now = new Date(Date.now() - ageMs);
   const pad = (value: number) => String(value).padStart(2, '0');
   return `ClamAV 1.4.6/29900/${weekdays[now.getUTCDay()]} ${months[now.getUTCMonth()]} ${pad(now.getUTCDate())} ${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} ${now.getUTCFullYear()}`;
 }
 const stableVersion = versionReply();
+const staleVersion = versionReply(25 * 60 * 60 * 1000);
 
 const server = createServer((socket) => {
   let buffer = Buffer.alloc(0);
@@ -47,6 +52,11 @@ const server = createServer((socket) => {
           if (failAfterScan) {
             resourceUnavailable = true;
             socket.write(`${scanId}: stream: OK\0`);
+          } else if (controlled && holdScan) {
+            heldScan = { socket, id: scanId };
+            process.stdout.write('R1_010D_FAKE_SCAN_HELD\n');
+          } else if (controlled) {
+            socket.write(`${scanId}: stream: OK\0`);
           }
         }
         continue;
@@ -61,7 +71,9 @@ const server = createServer((socket) => {
         socket.write(`${nextId}: PONG\0`);
       } else if (command === 'zVERSION') {
         nextId++;
-        socket.write(`${nextId}: ${stableVersion}\0`);
+        socket.write(
+          `${nextId}: ${controlled && signaturesStale ? staleVersion : stableVersion}\0`,
+        );
       } else if (command === 'zINSTREAM') {
         nextId++;
         scanId = nextId;
@@ -79,6 +91,21 @@ server.listen(3310, '0.0.0.0');
 const instance = `${randomUUID()}:1:1`;
 const restartedInstance = `${randomUUID()}:2:2`;
 createHttpServer((request, response) => {
+  if (controlled && request.method === 'POST') {
+    if (request.url === '/test/stale') signaturesStale = true;
+    else if (request.url === '/test/fresh') signaturesStale = false;
+    else if (request.url === '/test/hold') holdScan = true;
+    else if (request.url === '/test/release') {
+      holdScan = false;
+      if (heldScan) heldScan.socket.write(`${heldScan.id}: stream: OK\0`);
+      heldScan = undefined;
+    } else {
+      response.writeHead(404).end();
+      return;
+    }
+    response.writeHead(204).end();
+    return;
+  }
   if (request.method !== 'GET' || request.url !== '/ready') {
     response.writeHead(404).end();
     return;

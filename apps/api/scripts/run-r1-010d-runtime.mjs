@@ -51,7 +51,11 @@ function ownedSpawn(command, args, options = {}) {
   const child = spawn(command, args, {
     cwd: options.cwd ?? repoRoot,
     env: options.env ?? process.env,
-    stdio: [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+    stdio: [
+      options.input === undefined && !options.interactive ? 'ignore' : 'pipe',
+      'pipe',
+      'pipe',
+    ],
     windowsHide: true,
     detached: process.platform !== 'win32',
   });
@@ -403,6 +407,7 @@ async function runPsql(sql, options = {}) {
     {
       input: sql.endsWith('\n') ? sql : sql + '\n',
       timeoutMs: options.timeoutMs ?? 30_000,
+      ignoreInterrupt: options.ignoreInterrupt,
     },
   );
 }
@@ -1401,6 +1406,317 @@ async function main() {
   await compose(['stop', '--timeout', '20', 'scan-worker'], composeEnv, {
     timeoutMs: 45_000,
   });
+
+  // Controlled signature state is available only in the task-owned fake.
+  composeEnv.R1_010D_FAKE_PROBE_FAIL_AFTER_SCAN = 'false';
+  composeEnv.R1_010D_FAKE_SIGNATURE_CONTROL = 'true';
+  let signatureError;
+  let signatureCleanupError;
+  try {
+    await runRuntimeTests('R1_010D_SIGNATURE_before_PREP', 'MVP_SAFE');
+    await compose(
+      ['up', '-d', '--no-deps', '--force-recreate', 'scan-stall'],
+      composeEnv,
+      { timeoutMs: 90_000 },
+    );
+    await compose(['up', '-d', '--force-recreate', 'scan-worker'], composeEnv, {
+      timeoutMs: 150_000,
+    });
+    const controlFake = async (
+      action,
+      timeoutMs = 10_000,
+      ignoreInterrupt = false,
+    ) => {
+      if (!['stale', 'fresh', 'hold', 'release'].includes(action))
+        throw new Error('Invalid fake control.');
+      await compose(
+        [
+          'exec',
+          '-T',
+          'scan-stall',
+          'node',
+          '-e',
+          `fetch('http://127.0.0.1:3311/test/${action}',{method:'POST'}).then(r=>{if(r.status!==204)process.exitCode=1}).catch(()=>process.exitCode=1)`,
+        ],
+        composeEnv,
+        { timeoutMs, ignoreInterrupt },
+      );
+    };
+    const stalePreflight = await compose(
+      [
+        'exec',
+        '-T',
+        'scan-worker',
+        'node',
+        '--input-type=module',
+        '-e',
+        `import {ClamSession} from './dist/inquiries/scan-protocol.js';import {readResourceSnapshot} from './dist/scan-worker/resource-readiness.js';const s=await ClamSession.connect(process.env.CLAMD_HOST,3310,2000,5000);try { const a=await s.attest(Date.now()+5000);await readResourceSnapshot(Date.now()+5000);if(a.ready||a.signatureAgeSeconds<=86400)throw Error('expected stale signatures');console.log(JSON.stringify({event:'controlled.stale_preflight',ready:a.ready,ageSeconds:a.signatureAgeSeconds,probeReady:true})); } finally {await s.close()}`,
+      ],
+      composeEnv,
+      { timeoutMs: 10_000 },
+    );
+    console.log(stalePreflight);
+    const metricsDeadline = Date.now() + 90_000;
+    let observedStaleLoops = false;
+    let staleMetrics;
+    while (Date.now() < metricsDeadline) {
+      const logs = await compose(
+        ['logs', '--no-color', 'scan-worker'],
+        composeEnv,
+        { timeoutMs: 10_000 },
+      );
+      observedStaleLoops = logs.split(/\r?\n/).some((line) => {
+        try {
+          const v = JSON.parse(line.slice(line.indexOf('{')));
+          const match =
+            v.event === 'scan.metrics' &&
+            v.claims === 0 &&
+            v.emptyPolls >= 2 &&
+            v.emptyPolls <= 40 &&
+            v.errors === 0;
+          if (match)
+            staleMetrics = {
+              claims: v.claims,
+              emptyPolls: v.emptyPolls,
+              errors: v.errors,
+            };
+          return match;
+        } catch {
+          return false;
+        }
+      });
+      if (observedStaleLoops) break;
+      await delay(1000);
+    }
+    if (!observedStaleLoops)
+      throw new Error('Stale signature worker loops were not observed.');
+    console.log(
+      `Controlled stale worker metrics: ${JSON.stringify(staleMetrics)}`,
+    );
+    await runRuntimeTests('R1_010D_SIGNATURE_before_VERIFY', 'MVP_SAFE');
+    await controlFake('fresh');
+    await runRuntimeTests('R1_010D_SIGNATURE_before_RECOVER', 'MVP_SAFE');
+    await compose(['stop', '--timeout', '20', 'scan-worker'], composeEnv, {
+      timeoutMs: 45_000,
+    });
+
+    await runRuntimeTests('R1_010D_SIGNATURE_after_PREP', 'MVP_SAFE');
+    const signatureFilename = `r1-010d-${testRunId}-signature-after.pdf`;
+    const targetRows = parsePsqlRows(
+      await runPsql(
+        `SELECT j.id::text FROM inquiry_source_document_scan_job j JOIN inquiry_source_document d ON d.id=j.source_document_id WHERE d.original_filename=${sqlLiteral(signatureFilename)};`,
+      ),
+    );
+    const targetId = targetRows[0]?.[0];
+    if (!/^[0-9a-f-]{36}$/.test(targetId ?? ''))
+      throw new Error('Missing controlled signature job.');
+    const lockKey = 910010202;
+    const beforeStaleStreams = await scanStallLogCount();
+    const coordinatorInfo = ownedSpawn(
+      'docker',
+      [
+        'exec',
+        '-i',
+        '--user',
+        'postgres',
+        postgresContainerId,
+        'psql',
+        '-X',
+        '-A',
+        '-t',
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-d',
+        'stdu_r1_010d_test',
+      ],
+      { interactive: true },
+    );
+    const coordinator = coordinatorInfo.child;
+    coordinator.stdin.on('error', () => {});
+    const coordinatorClosed = coordinatorInfo.closed.then(
+      (result) => ({ result }),
+      (error) => ({ error }),
+    );
+    const abortCoordinator = () => coordinator.stdin.end();
+    shutdownController.signal.addEventListener('abort', abortCoordinator, {
+      once: true,
+    });
+    let unlocked = false;
+    let barrierError;
+    const barrierCleanupErrors = [];
+    const unlock = async () => {
+      if (!unlocked) {
+        unlocked = true;
+        try {
+          if (!coordinator.stdin.writableEnded)
+            coordinator.stdin.end(
+              `SELECT pg_advisory_unlock(${lockKey});\n\\q\n`,
+            );
+          const result = await Promise.race([
+            coordinatorClosed,
+            delay(10_000).then(() => null),
+          ]);
+          if (result?.result?.code !== 0)
+            throw new Error(
+              `Test coordinator did not close cleanly: ${result?.result?.code ?? 'timeout or spawn failure'} ${coordinatorInfo.stderr}`,
+            );
+        } catch (error) {
+          try {
+            await terminateOwned(coordinatorInfo);
+          } catch (terminationError) {
+            throw new AggregateError(
+              [error, terminationError],
+              'Test coordinator termination failed.',
+              { cause: terminationError },
+            );
+          }
+          throw error;
+        }
+      }
+    };
+    try {
+      await runPsql(
+        `CREATE FUNCTION public.r1_010d_test_claim_barrier() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id=${sqlLiteral(targetId)}::uuid AND OLD.status='PENDING' AND NEW.status='LEASED' THEN PERFORM pg_advisory_xact_lock(${lockKey}); END IF; RETURN NEW; END $$; CREATE TRIGGER r1_010d_test_claim_barrier BEFORE UPDATE ON inquiry_source_document_scan_job FOR EACH ROW EXECUTE FUNCTION public.r1_010d_test_claim_barrier();`,
+      );
+      coordinator.stdin.write(
+        `SELECT pg_advisory_lock(${lockKey}); SELECT 'R1_COORDINATOR_PID='||pg_backend_pid();\n`,
+      );
+      const start = Date.now() + 15_000;
+      while (
+        !/R1_COORDINATOR_PID=\d+/.test(coordinatorInfo.stdout) &&
+        Date.now() < start
+      )
+        await delay(100);
+      const pid = /R1_COORDINATOR_PID=(\d+)/.exec(coordinatorInfo.stdout)?.[1];
+      if (!pid)
+        throw new Error('Test advisory lock coordinator did not become ready.');
+      await compose(
+        ['up', '-d', '--force-recreate', 'scan-worker'],
+        composeEnv,
+        {
+          timeoutMs: 150_000,
+        },
+      );
+      const waitUntil = Date.now() + 5000;
+      let blocked = false;
+      while (Date.now() < waitUntil) {
+        const rows = parsePsqlRows(
+          await runPsql(
+            `SELECT count(*)::text FROM pg_locks l JOIN pg_stat_activity a ON a.pid=l.pid WHERE l.locktype='advisory' AND NOT l.granted AND a.usename='stdu_scan_worker_test' AND a.query LIKE '%inquiry_scan_claim%' AND ${pid} = ANY(pg_blocking_pids(l.pid));`,
+            { timeoutMs: 2000 },
+          ),
+        );
+        if (Number(rows[0]?.[0]) > 0) {
+          blocked = true;
+          break;
+        }
+        await delay(100);
+      }
+      if (!blocked)
+        throw new Error('Worker did not wait on the controlled claim barrier.');
+      await controlFake('stale', 2000);
+      await unlock();
+      await runRuntimeTests('R1_010D_SIGNATURE_after_VERIFY', 'MVP_SAFE');
+      if ((await scanStallLogCount()) !== beforeStaleStreams)
+        throw new Error(
+          'A stale signature attempt unexpectedly started INSTREAM.',
+        );
+    } catch (error) {
+      barrierError = error;
+    } finally {
+      try {
+        await unlock();
+      } catch (error) {
+        barrierCleanupErrors.push(error);
+      }
+      shutdownController.signal.removeEventListener('abort', abortCoordinator);
+      try {
+        await runPsql(
+          'DROP TRIGGER IF EXISTS r1_010d_test_claim_barrier ON inquiry_source_document_scan_job; DROP FUNCTION IF EXISTS public.r1_010d_test_claim_barrier();',
+          { ignoreInterrupt: true },
+        );
+      } catch (error) {
+        barrierCleanupErrors.push(error);
+      }
+    }
+    if (barrierError && barrierCleanupErrors.length)
+      throw new AggregateError(
+        [barrierError, ...barrierCleanupErrors],
+        'Controlled claim and barrier cleanup failed.',
+        { cause: barrierError },
+      );
+    if (barrierError) throw barrierError;
+    if (barrierCleanupErrors.length)
+      throw new AggregateError(
+        barrierCleanupErrors,
+        'Controlled claim barrier cleanup failed.',
+      );
+    let heldError;
+    let releaseError;
+    try {
+      await controlFake('hold');
+      await controlFake('fresh');
+      await runPsql(
+        `UPDATE inquiry_source_document_scan_job SET available_at=clock_timestamp() WHERE id=${sqlLiteral(targetId)}::uuid AND status='RETRY_WAIT';`,
+      );
+      const heldDeadline = Date.now() + 30_000;
+      let held = false;
+      while (Date.now() < heldDeadline) {
+        const logs = await compose(
+          ['logs', '--no-color', 'scan-stall'],
+          composeEnv,
+          { timeoutMs: 10_000 },
+        );
+        if (logs.includes('R1_010D_FAKE_SCAN_HELD')) {
+          held = true;
+          break;
+        }
+        await delay(250);
+      }
+      if (!held) throw new Error('Controlled recovery scan was not held.');
+      await runRuntimeTests('R1_010D_SIGNATURE_FENCE', 'MVP_SAFE');
+    } catch (error) {
+      heldError = error;
+    } finally {
+      try {
+        await controlFake('release', 10_000, true);
+      } catch (error) {
+        releaseError = error;
+      }
+    }
+    if (heldError && releaseError)
+      throw new AggregateError(
+        [heldError, releaseError],
+        'Recovery scan and release failed.',
+        { cause: heldError },
+      );
+    if (heldError) throw heldError;
+    if (releaseError) throw releaseError;
+    await runRuntimeTests('R1_010D_SIGNATURE_after_RECOVER', 'MVP_SAFE');
+    await compose(['stop', '--timeout', '20', 'scan-worker'], composeEnv, {
+      timeoutMs: 45_000,
+    });
+    composeEnv.R1_010D_FAKE_SIGNATURE_CONTROL = 'false';
+  } catch (error) {
+    signatureError = error;
+  } finally {
+    try {
+      await runPsql(
+        'DROP TABLE IF EXISTS r1_010d_test_old_lease; DROP TABLE IF EXISTS r1_010d_test_before_job;',
+        { ignoreInterrupt: true },
+      );
+    } catch (cleanupError) {
+      signatureCleanupError = cleanupError;
+    }
+  }
+  if (signatureError && signatureCleanupError)
+    throw new AggregateError(
+      [signatureError, signatureCleanupError],
+      'Controlled signature test and cleanup failed.',
+      { cause: signatureError },
+    );
+  if (signatureError) throw signatureError;
+  if (signatureCleanupError) throw signatureCleanupError;
 
   composeEnv.R1_010D_CLAMD_HOST = 'clamav';
   composeEnv.R1_010D_SCAN_DEADLINE_MS = '180000';
