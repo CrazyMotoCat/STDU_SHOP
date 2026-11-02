@@ -968,19 +968,35 @@ describe.skipIf(!runtimeEnabled)(
           [String(terminal.id)],
         );
         expect(terminalJob.rowCount).toBe(0);
-        // Demonstrate the legacy risk on this disposable database only.
+        // Post-L0: even historical CLEAN without a scan job cannot authorize
+        // original bytes. Preserve the original row and its audit history.
+        const legacySnapshot = await owner!.query(
+          `SELECT row_to_json(d) AS document,
+                  (SELECT json_agg(a ORDER BY a.occurred_at,a.id)
+                   FROM audit_event a WHERE a.entity_id=d.id) AS audit
+           FROM inquiry_source_document d WHERE d.id=$1`,
+          [String(terminal.id)],
+        );
         const legacyActor = await makeDownloadActor();
         const legacyDownload = await legacyActor.requestRaw(
           'GET',
           `/v1/staff/inquiries/${terminalInquiry.id}/documents/${String(terminal.id)}/download`,
         );
-        expect(legacyDownload.status).toBe(200);
+        expect(legacyDownload.status).toBe(404);
         expect(legacyDownload.headers.get('content-type')).toContain(
-          'application/pdf',
+          'application/json',
         );
-        expect(Buffer.from(await legacyDownload.arrayBuffer())).toEqual(
-          minimalPdf(),
+        expect(await legacyDownload.json()).toMatchObject({
+          code: 'FILE_NOT_ACCESSIBLE',
+        });
+        const legacyAfter = await owner!.query(
+          `SELECT row_to_json(d) AS document,
+                  (SELECT json_agg(a ORDER BY a.occurred_at,a.id)
+                   FROM audit_event a WHERE a.entity_id=d.id) AS audit
+           FROM inquiry_source_document d WHERE d.id=$1`,
+          [String(terminal.id)],
         );
+        expect(legacyAfter.rows).toEqual(legacySnapshot.rows);
       }
       // This integration case uploads multiple fixtures and compresses a
       // synthetic 64 MiB entry; CI exceeded Vitest's 5 s default.

@@ -1,10 +1,10 @@
 # R1-010D task state
 
 TASK: R1-010D Malware Scanning & Quarantine Processing
-STATUS: L0_INTEGRATED; STAGE_B_NOT_ACCEPTED
+STATUS: POST_L0_LOCAL_GATES_PASS; STAGE_B_NOT_ACCEPTED
 DELIVERY_MODE: REVIEW_REQUIRED
-PHASE: L0_POLICY_INTEGRATED
-UPDATED_AT: 2026-11-02
+PHASE: POST_L0_COMPATIBILITY_REVIEW_REQUIRED
+UPDATED_AT: 2026-11-03
 STAGE_A_BRANCH: codex/r1-010d-contract-proposal
 STAGE_A_APPROVAL_SOURCE_HEAD: 1cad9fbb210ded32b07cee3923bec8ab011768a8
 STAGE_A_BASE_MAIN_SHA: 2e5b59fc0d99e3580bbdaa6665df335192f83cbe
@@ -39,7 +39,7 @@ L0_POST_MERGE_CI: 41450647400 SUCCESS
 - Updated and synchronized a clean local `main` worktree to `e9af3a7dbe0eee29bb3cacceb3d608662502b0b3`.
 - The PR exact-head and post-merge GitHub Actions runs both succeeded: #41446534457 and #41450647400. The post-merge workflow completed all 38 steps successfully.
 - FROZEN R1-010 1.0.3 and R1-010D 1.0.1 checkers and Inquiry OpenAPI validation pass on the new `main`.
-- PR #28 remains Draft. Its current branch still contains the pre-L0 positive CLEAN download path and must be synchronized and re-tested before any separate owner decision.
+- Historical pre-reconciliation warning: PR #28 required L0 synchronization. The post-L0 entry below supersedes that warning; PR #28 remains Draft and NOT_ACCEPTED.
 
 ## Verified locally
 
@@ -332,3 +332,11 @@ NEXT: Finish the running test; correct and validate fixture tests without maskin
 - `runtime-recovery-final.log` PASS, exit 0, on final local C1–C3 code. C1 real worker metrics: claims=0, emptyPolls=31, errors=0 with stale fake signatures and ready probe; same job recovered. C2 barrier yielded RETRY_WAIT/SIGNATURES_STALE with audit and download denial. C3 previous version/token failed with FENCING_CONFLICT under real worker DB role after new lease, without state/audit mutation; controlled scan finished fail-closed. Separate real ClamAV 28170 stage, scanner PID/TCP stop and restart passed. Fake does not establish a real FreshClam upgrade.
 - Independent read-only security (`security_recovery`) and backend (`backend_recovery`) reviews on base f6282b1: no P0/P1/P2 in final test/infra/script diff Git hash `57788a1a09cab5768e4e3685c6625b6a25f0de9b`. Earlier cleanup aggregation and ID/hash concerns were fixed and re-reviewed. Lint, format, typecheck, unit tests, build, frozen contract checker and six contract tests passed locally; post-change R1-010B/010C and exact-head CI are pending. No merge or production authorization.
 - Follow-up verification: `pnpm test:r1-010b` and `pnpm test:r1-010c:e2e` both PASS (exit 0), with owned projects cleaned. Local `pnpm test` PASS: 150 Vitest passed / 132 skipped and 15 pytest passed; lint, format, typecheck, build and R1-010D contract checker plus six tests PASS. An earlier 010B attempt failed before setup because Docker Desktop was stopped; no test ran in that attempt. Exact-head GitHub CI after commit remains mandatory.
+
+## Post-L0 local gate completed — 2026-11-03
+
+- Main baseline 74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d integrated by a1a70c731448fbb5c3caaba8e250c674d7dcdbe1, no runtime/FROZEN conflict. All pre-existing evidence retained.
+- Corrected one obsolete Stage B historical-CLEAN download test; no runtime/security policy change. L0 refuses before storage with original row/audit snapshot unchanged.
+- Fresh local R1-010B34/34, R1-010C13 checks, full staged R1-010D exit0, ClamAV1.4.6/daily28172, quality gate and FROZEN checks PASS. Details: post-l0-verification.md and verification-matrix.md.
+- Independent backend/PostgreSQL, application security and DevOps/contract reviews PASS; prior test mismatch fixed and re-reviewed. No unresolved HIGH/BLOCKER findings.
+- NEXT_ACTION: publish consolidated branch; verify hosted CI for exact final HEAD and record its URL/result in PR28 description and owner report. Remain Draft; stop for separate owner decision. No merge/production/CLEAN authorization.
