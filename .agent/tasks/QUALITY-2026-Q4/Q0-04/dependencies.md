@@ -1,21 +1,21 @@
 # Q0-04 dependencies and frozen boundaries
 
-## Base and ownership
+## Current integration base
 
-- Dedicated branch `codex/quality-q0-04-csv-boolean-sku`, initially created from freshly fetched `origin/main` `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`, then rebased onto fresh `origin/main` `74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d`. Intervening changes affected inquiry download/security and R1-010D task state only; none overlap Q0-04 implementation paths. Required local checks were rerun after synchronization.
-- Q0-03 PR #35 remains a separate Draft PR. No Q0-03 commit is cherry-picked into this branch; a temporary detached worktree at its published head plus the Q0-04 commit passed 66 Python tests and the disposable R1-006B runtime.
-- Agent 2 owns the independent public catalog / Product Media work; do not edit its worktrees or files.
+- Branch `codex/quality-q0-04-csv-boolean-sku`; PR #38 remains Draft, preparation only, no merge authorization.
+- Owner-authorized PR #35 merged as main `d88a5b40eef6ba7db091d5dfb6a1b41249cfd617`; exact post-merge CI 41466967787 SUCCESS, Q0-03 INTEGRATED / VERIFIED.
+- After that success, a normal merge of main into Q0-04 created `a27af9cc459d8ee14e1daac17fe12678c4166566` from old HEAD `de32d16e64e687e044e0313fcbe01d938949b78b`. No conflicts or force push; entire tree equals earlier combined proof 2abfdecb.
+- Both packages' regressions reran successfully on this synchronized branch; current exact-head CI outcome is recorded externally in PR checks and final verification comment.
 
 ## Frozen contracts and behavior
 
-- Existing CSV encodings remain UTF-8 and Windows-1251. Explicit delimiter values remain comma, semicolon, and TAB; the current controlled `ENCODING_REQUIRED` behavior is used when inference is ambiguous.
-- Existing internal NDJSON v1 cell shape and enum remain unchanged (`TEXT`, `NUMBER`, `BOOLEAN`, `FORMULA`, `BLANK`); `numberFormat` is already an optional field.
-- No schema, migration, OpenAPI, DTO, authentication, or permission changes. NestJS remains responsible for business state and preview transactions; Python remains staged parsing only.
-- SKU identity remains the existing exact tuple: brand + manufacturer name + original part number + modification, with current NFC and edge-space semantics. No case folding, SKU grammar invention, silent fix-up, or existing-catalog rewrite.
-- Catalog import remains private and manually reviewed. Preview does not publish products or create a product revision/decision.
+- CSV encodings remain UTF-8 and Windows-1251. Explicit delimiters remain comma, semicolon and TAB. Ambiguous inference uses existing controlled ENCODING_REQUIRED behavior.
+- NDJSON v1 shape and enums unchanged: TEXT, NUMBER, BOOLEAN, FORMULA, BLANK; optional numberFormat unchanged.
+- No schema/migration/OpenAPI/DTO/auth/permission changes. NestJS owns business state, authorization and transactions; Python returns staged parsing records only.
+- Exact SKU tuple remains brand + manufacturer name + original part number + modification, with existing NFC/edge-space semantics. No case folding, silent SKU fix-up or catalog rewrite.
+- Import remains private, manually approved per row. Preview does not publish products or create ProductRevision/ImportDecision.
+- Q0-03 strict XLSX relationships, coordinates, style/shared-string bounds, supported types and pre-NDJSON late rejection are preserved unchanged.
 
-## Neighboring work and safety
+## Neighbor safety
 
-- Do not touch Q0-01 PR #30 or Q0-03 PR #35 files/worktrees, R1-010D/CLEAN, or the public catalog / Product Media worktrees.
-- Runtime proof uses the existing R1-006B disposable PostgreSQL harness; no production database or named production volume. The final runtime review confirms the isolated project and both CSV/XLSX preview no-revision/no-decision/no-revision-audit assertions pass.
-- Delivery stays `REVIEW_REQUIRED / DRAFT_PR / NO_MERGE`; unresolved P0/P1/P2 review findings block completion.
+Disposable R1-006B PostgreSQL only, no production or named shared volumes. No changes to PR #30, R1-010D, VIS-CAT, Q0-02/Q0-05 or other agents' worktrees. Owner must separately decide any merge of PR #38.

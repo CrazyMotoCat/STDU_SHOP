@@ -1,19 +1,30 @@
-# Q0-04 verification matrix
+# Q0-04 verification after Q0-03 merge
 
-Initial investigation base: `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`. The branch is synchronized on `origin/main` `74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d`; the seven earlier commits touched inquiry-download/security files and the latest commit touched only `.agent/tasks/R1-010D/state.md`. No Q0-04 implementation paths overlap. Local gates below were rerun after this synchronization on branch HEAD `31e42d5ac2d6d3d2875f70588c4a3cc4f3cc24da`.
+Date: 2026-11-03 (Asia/Vladivostok). Source commit: `a27af9cc459d8ee14e1daac17fe12678c4166566`; base main `d88a5b40eef6ba7db091d5dfb6a1b41249cfd617`.
 
-| Gate | Evidence | Result |
-|---|---|---|
-| Python parser + FastAPI | `.venv\Scripts\python.exe -m pytest tests -q` | PASS — 30 passed; one existing Starlette/httpx deprecation warning. Includes a direct 25-record sample-boundary regression. |
-| Python static checks | `.venv\Scripts\python.exe -m mypy src`; `.venv\Scripts\python.exe -m ruff check src tests` | PASS — no issues |
-| Nest/API | Upload inference, explicit override, typed Boolean cells, numeric/text SKU preservation, preview identity and audit checks via `pnpm test:r1-006b` | PASS — disposable harness exit 0; database sentinel preserved |
-| Full Vitest | `pnpm exec vitest run` | PASS — 114 passed, 90 skipped across 20 files |
-| Lint / format / typecheck | `pnpm lint`; `pnpm format:check`; `pnpm typecheck` | PASS — Node engine warning only (installed 24.22.1; repository pins 24.19.0) |
-| Build | `pnpm build` | PASS — API, staff client, web, ingestion package built |
-| Frozen contracts | `pnpm contract:check` | PASS — frozen OpenAPI equality and generated client reproducibility |
-| Diff hygiene | `git diff --check` | PASS |
-| Independent read-only reviews | Python/Data Parsing; Nest/Data Integrity; PostgreSQL/transactions; Security | PASS — no unresolved P0/P1/P2 findings; final PostgreSQL review reran disposable R1-006B |
-| Q0-03 compatibility | Detached temp worktree at Q0-03 head `3f8b9b569ab932a7cac223405cc7f36408e0a50a` plus the Q0-04 implementation patch; Python path explicitly pointed at combined worktree source | PASS — 66 Python tests and `pnpm test:r1-006b` passed; sentinel preserved; no cherry-pick conflict |
-| Hosted CI | PR #38, first head `3df493c2cc20068a0df433a018c37ecca94cecc9` | IN PROGRESS — Actions run `41454494983`; recheck the exact head after pushing this documentation checkpoint |
+| Gate | Actual result |
+| --- | --- |
+| `pnpm lint` | PASS, ESLint and Ruff |
+| `pnpm format:check` | PASS, Prettier and Ruff format |
+| `pnpm typecheck` | PASS, TypeScript and mypy; normal Prisma generation |
+| `pnpm contract:check` | PASS, frozen OpenAPI equality and generated-client reproducibility |
+| `pnpm test` Python/FastAPI | 66 passed, 0 skipped; one existing Starlette/httpx warning |
+| `pnpm test` Vitest | 114 passed, 91 environment-gated skips; 15 files passed, 5 skipped |
+| `pnpm build` | PASS, API/web/staff client and ingestion wheel/sdist |
+| `pnpm test:r1-006b` | PASS, isolated PostgreSQL/Redis/parser/API/browser harness, database sentinel preserved |
+| Observed dedicated runtime repetition | 7 passed, 0 skipped; captured child Vitest stdout using an ignored observer, no tracked harness changes |
+| `git diff --check` | PASS |
+| Independent Python review | PASS, explicit local-module path check and independent 66 passed / 0 skipped |
+| Independent Nest integrity review | PASS, final diff and runtime assertion retention |
+| Independent PostgreSQL review | PASS, transaction/staging/audit/owned-file compensation retained; executable runtime supplied by lead |
+| Independent security/regression review | PASS, no frozen/schema/RBAC/storage changes; no P0/P1/P2 |
 
-No production database, named volume, or production service was used. PR #38 is open as Draft on `main`; final hosted CI must be confirmed against the exact pushed head after this documentation checkpoint. Compatibility worktree cleanup hit Windows `Filename too long`; its Git registration was removed, but an unregistered temp directory remains because the automatic command review rejected manual junction removal.
+Observed disposable project `stdu-r1-006b-test-79220-24006e95`, loopback PostgreSQL/Redis ports 53269/53270, no named volumes, sentinel preserved, normal owned-resource cleanup. No production/shared database or global Docker cleanup.
+
+Dedicated runtime executes all seven tests: E2E-03 manual preview/decision; late XLSX row rejection before persistence; private idempotent replay; visibility race; pg_temp shadowing resistance; Q0-04 quoted CSV/override/exact identity; Q0-04 typed Boolean/numeric SKU. The 91 skips from the ordinary unit command do not describe this separately enabled runtime.
+
+Independent retention checks: all 27 Q0-03 parser and 6 health test functions remain; two reviewed fixture/assertion updates strengthen existing coverage. All 15 Q0-04 parser and 13 health functions retained unchanged. Parametrization yields 66 total Python cases. Runtime diff against new main is +744/-0; Q0-03 late-failure test remains. All XLSX parser functions are unchanged against new main; only CSV inference/parsing functions differ.
+
+Full successful local output is retained in lead-owned integration worktree `.local/integration-evidence/q004-after-main-*.log`. Earlier Q0-03/Q0-04 preparation evidence is preserved publicly in https://github.com/CrazyMotoCat/STDU_SHOP/pull/35#issuecomment-6580327869 .
+
+Hosted current-head CI is an external gate: inspect exact PR #38 HEAD and its workflow runs. The final PR verification comment records the resulting SHA/run/outcome without changing that verified HEAD. Prior run 41454777559 applies only to historical de32d16e HEAD.
