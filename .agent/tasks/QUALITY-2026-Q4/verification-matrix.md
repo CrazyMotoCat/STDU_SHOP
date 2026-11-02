@@ -12,7 +12,7 @@
 | TypeScript formatting | `pnpm exec prettier --check apps/api/test/r1-006b.import.runtime.test.ts` | PASS. |
 | Whitespace | `git diff --check` | PASS. |
 | Aggregate lint / format | `pnpm lint`; `pnpm format:check` | PASS after fixing 21 UP012 and 3 E501 reported by the first hosted run. |
-| Hosted exact-head CI | PR #35 run #41434591569 on `cbce62abe9daabbb9236c897aaf54e701d8bc3a6` | FAIL at `pnpm lint`; local fixes are complete and verified. New exact-head run is pending after the next push. |
+| Hosted exact-head CI history | PR #35 run #156 `#41434591569` on `cbce62abe9daabbb9236c897aaf54e701d8bc3a6`; run #158 `#41435435716` on `a20ecafb50989b0e1c5b6a76cebab2c40e85d5d4` | First run failed at `pnpm lint`; fixes passed locally. Second exact-head run completed success. |
 | Contracts, migrations, production | Contract generation/check, migration apply, production action | NOT RUN / OUT OF SCOPE; публичные и DB контракты не менялись. |
 | Independent review | Read-only reviewer по финальному diff | First pass found two P2 relationship path issues; source-relative resolution and relationship-based styles/shared strings fixes and collision/orphan regressions added. Final read-only re-review PASS, no actionable P1/P2. Subsequent edits are lint/format and a type-safe byte copy in the runtime fixture. |
 

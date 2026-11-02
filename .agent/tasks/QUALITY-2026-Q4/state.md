@@ -9,7 +9,7 @@
 
 - База: свежий `origin/main` `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`.
 - Ветка: `codex/quality-q0-03-xlsx-strict-structure`.
-- Draft PR: [#35](https://github.com/CrazyMotoCat/STDU_SHOP/pull/35); первый pushed SHA `cbce62abe9daabbb9236c897aaf54e701d8bc3a6`.
+- Draft PR: [#35](https://github.com/CrazyMotoCat/STDU_SHOP/pull/35); latest code-bearing SHA `a20ecafb50989b0e1c5b6a76cebab2c40e85d5d4`.
 - Изолированный worktree: `C:\Users\mvideo\.codex\worktrees\quality-q0-03-xlsx-strict-structure\SHOP STDU`.
 - Режим: `AUTO_MERGE` подготовка; явная граница задачи требует собственного Draft PR и запрещает merge.
 - Изменения затрагивают только Python ingestion parser, его тесты, disposable R1-006B runtime test и `.agent/tasks/QUALITY-2026-Q4/*`.
@@ -36,12 +36,11 @@
 - После review fixes R1-006B disposable runtime повторно завершился с exit 0, sentinel сохранён.
 - Полная команда `pnpm exec vitest run`: 15 files passed, 5 skipped; 114 passed, 89 skipped. R1-006B disposable runtime завершился с exit 0, sentinel сохранён.
 - После lint/type fixes проходят `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, ingestion suite (51 passed), и повторный `pnpm test:r1-006b` с disposable PostgreSQL (exit 0; sentinel сохранён). Typecheck fix: тестовая XLSX Buffer копируется в `Uint8Array` перед созданием Blob.
-- Первый exact-head CI run #41434591569 на `cbce62a` завершился failure в `pnpm lint`; локально воспроизведены 21 UP012 и 3 E501 в новых Python файлах и исправлены. Hosted CI для следующего pushed SHA ожидается.
+- Первый exact-head CI run #41434591569 на `cbce62a` завершился failure в `pnpm lint`; локально воспроизведены 21 UP012 и 3 E501 в новых Python файлах и исправлены. Повторный exact-head CI run #158 (`41435435716`) на `a20ecaf` завершился success.
 - Полный `pnpm exec vitest run` ранее прошёл: 15 files passed, 5 skipped; 114 passed, 89 skipped. Upstream Node 24.22.1 отличается от закреплённого 24.19.0; предупреждение engine не блокировало проверки.
 - Одна upstream Starlette/httpx deprecation warning в локальной TestClient suite; тесты прошли.
 
-## Следующий шаг
+## Handoff
 
-1. Зафиксировать только lint/type fixes и актуальный checkpoint, отправить их в PR #35.
-2. Проверить все обязательные hosted checks для нового точного PR HEAD.
-3. Оставить PR открытым Draft, не merge-ить и остановиться.
+- Q0-03 подготовлен в отдельном Draft PR #35; оба точных CI run записаны в `verification-matrix.md`.
+- Сохранить PR открытым в статусе Draft; merge и следующий audit-пакет не входят в эту задачу.

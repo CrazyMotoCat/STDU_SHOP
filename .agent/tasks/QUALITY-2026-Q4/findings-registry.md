@@ -14,7 +14,7 @@
 ## Independent review history
 
 - Первый read-only review нашёл P2: target с префиксом `xl/` мог обойти source-relative разрешение, и parser мог прочитать stale `xl/styles.xml`/`xl/sharedStrings.xml` вместо частей, связанных workbook relationships.
-- Оба исправлены и покрыты тестами: относительный путь разрешается от source part; worksheet, styles и shared strings загружаются через relationship types. Финальный read-only re-review: PASS, actionable P1/P2 не осталось. Первый hosted exact-head run #41434591569 упал на lint; 21 UP012 и 3 E501 исправлены, typecheck также исправлен с копированием fixture Buffer в Uint8Array. Новый exact-head CI run ждёт следующего push.
+- Оба исправлены и покрыты тестами: относительный путь разрешается от source part; worksheet, styles и shared strings загружаются через relationship types. Финальный read-only re-review: PASS, actionable P1/P2 не осталось. Первый hosted exact-head run #41434591569 упал на lint; 21 UP012 и 3 E501 исправлены, typecheck также исправлен с копированием fixture Buffer в Uint8Array. Повторный exact-head run #158 / #41435435716 на `a20ecaf` завершился success.
 
 ## Сводка
 
