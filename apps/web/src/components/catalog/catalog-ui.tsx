@@ -197,18 +197,24 @@ export function ProductImage({
       aria-label={
         state === 'loading'
           ? `Загрузка изображения: ${label}`
-          : `Публичная фотография товара не подключена: ${label}`
+          : `Изображение товара не предоставлено: ${label}`
       }
       aria-busy={state === 'loading'}
     >
-      <svg aria-hidden="true" viewBox="0 0 64 64" fill="none">
-        <path d="M13 14h12M13 14v12m38-12H39m12 0v12M13 50h12m-12 0V38m38 12H39m12 0V38" />
-        <path d="M19 32h8l5-8 8 16 5-8h1" />
-        <circle cx="19" cy="32" r="2" />
-        <circle cx="45" cy="32" r="2" />
-      </svg>
+      <span className={styles.productImageMark} aria-hidden="true">
+        <svg aria-hidden="true" viewBox="0 0 64 64" fill="none">
+          <path d="M13 14h12M13 14v12m38-12H39m12 0v12M13 50h12m-12 0V38m38 12H39m12 0V38" />
+          <path d="M19 32h8l5-8 8 16 5-8h1" />
+          <circle cx="19" cy="32" r="2" />
+          <circle cx="45" cy="32" r="2" />
+        </svg>
+      </span>
       <span>
-        {state === 'loading' ? 'Загрузка изображения' : 'Фото не подключено'}
+        {state === 'loading'
+          ? 'Загрузка изображения'
+          : compact
+            ? 'Фото нет'
+            : 'Фото не предоставлено'}
       </span>
     </div>
   );
@@ -236,7 +242,11 @@ function ProductIdentity({ product }: { product: PublicProductCard }) {
         {product.originalPartNumber ? (
           <div>
             <dt>Артикул</dt>
-            <dd>{product.originalPartNumber}</dd>
+            <dd className={styles.productPartNumber}>
+              <code className={styles.productCode}>
+                {product.originalPartNumber}
+              </code>
+            </dd>
           </div>
         ) : null}
         {product.modification ? (
@@ -835,15 +845,9 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
       <main id="main" className={styles.content}>
         <div className={styles.productDetailHeader}>
           <section
-            className={styles.detailMedia}
-            aria-label="Изображения и документы"
+            className={styles.detailIdentity}
+            aria-label="Идентификация товара"
           >
-            <ProductImage label={product.displayName} />
-            <p className={styles.mediaNote}>
-              Публичные фото и документы не подключены.
-            </p>
-          </section>
-          <section aria-label="Идентификация товара">
             <p className={styles.eyebrow}>ИДЕНТИФИКАЦИЯ</p>
             <h1 className={styles.productTitle}>{product.displayName}</h1>
             <p className={styles.productSubtitle}>
@@ -853,7 +857,15 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
             <dl className={styles.productFacts}>
               <div>
                 <dt>Оригинальный артикул</dt>
-                <dd>{product.originalPartNumber ?? 'Не указан'}</dd>
+                <dd>
+                  {product.originalPartNumber ? (
+                    <code className={styles.productCode}>
+                      {product.originalPartNumber}
+                    </code>
+                  ) : (
+                    'Не указан'
+                  )}
+                </dd>
               </div>
               <div>
                 <dt>Модификация</dt>
@@ -863,12 +875,6 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
                 <dt>Категория</dt>
                 <dd>{product.category.name}</dd>
               </div>
-              {product.brand ? (
-                <div>
-                  <dt>Бренд</dt>
-                  <dd>{product.brand.name}</dd>
-                </div>
-              ) : null}
             </dl>
             <div className={styles.priceCallout}>
               <span>Стоимость</span>
@@ -877,6 +883,15 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
                 Запросить коммерческое предложение — скоро
               </button>
             </div>
+          </section>
+          <section
+            className={styles.detailMedia}
+            aria-label="Изображения и документы"
+          >
+            <ProductImage label={product.displayName} />
+            <p className={styles.mediaNote}>
+              Материалы и документы для этой позиции пока не опубликованы.
+            </p>
           </section>
         </div>
 
