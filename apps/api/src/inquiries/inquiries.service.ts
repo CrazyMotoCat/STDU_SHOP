@@ -1908,57 +1908,33 @@ export class InquiriesService implements OnModuleInit, OnModuleDestroy {
     documentId: string,
   ): Promise<{ stream: Readable; mimeType: string; filename: string }> {
     const actor = this.actor(request);
-    const opened = { stream: null as Readable | null };
-    try {
-      return await this.db.$transaction(async (tx) => {
-        const permissions = await assertCurrentActor(
-          tx,
-          {
-            id: actor.id,
-            sessionId: actor.sessionId,
-            authVersion: actor.authVersion,
-          },
-          'inquiries.documents.download',
-        );
-        if (!permissions.includes('inquiries.documents.read'))
-          throw new StaffError('FORBIDDEN');
-        if (
-          !permissions.includes('inquiries.read_all') &&
-          !permissions.includes('inquiries.read_assigned')
-        )
-          throw new StaffError('FORBIDDEN');
-        await tx.$queryRaw`SELECT id FROM inquiry WHERE id=${inquiryId}::uuid FOR UPDATE`;
-        await this.assertScope(tx, inquiryId, actor.id);
-        const document = await tx.inquirySourceDocument.findFirst({
-          where: { id: documentId, inquiryId },
-        });
-        if (!document || document.safetyState !== 'CLEAN')
-          throw new StaffError('FILE_NOT_ACCESSIBLE');
-        opened.stream = await this.storage.openInquiryQuarantine(
-          document.storageKey,
-        );
-        await createAuditEvent(tx, {
-          actorKind: 'STAFF',
-          actorUserId: actor.id,
-          action: 'inquiry.document.downloaded',
-          entityType: 'InquirySourceDocument',
-          entityId: documentId,
-          outcome: 'SUCCESS',
-          reasonCode: 'DOWNLOAD_ALLOWED',
-          requestId: request.requestId,
-        });
-        return {
-          stream: opened.stream,
-          mimeType: document.detectedMimeType,
-          filename: document.originalFilename,
-        };
+    return this.db.$transaction(async (tx) => {
+      const permissions = await assertCurrentActor(
+        tx,
+        {
+          id: actor.id,
+          sessionId: actor.sessionId,
+          authVersion: actor.authVersion,
+        },
+        'inquiries.documents.download',
+      );
+      if (!permissions.includes('inquiries.documents.read'))
+        throw new StaffError('FORBIDDEN');
+      if (
+        !permissions.includes('inquiries.read_all') &&
+        !permissions.includes('inquiries.read_assigned')
+      )
+        throw new StaffError('FORBIDDEN');
+      await tx.$queryRaw`SELECT id FROM inquiry WHERE id=${inquiryId}::uuid FOR UPDATE`;
+      await this.assertScope(tx, inquiryId, actor.id);
+      const document = await tx.inquirySourceDocument.findFirst({
+        where: { id: documentId, inquiryId },
       });
-    } catch (error) {
-      opened.stream?.destroy();
-      if (error instanceof PrivateStorageUnavailableError)
-        throw new StaffError('DEPENDENCY_UNAVAILABLE');
-      throw error;
-    }
+      if (!document) throw new StaffError('FILE_NOT_ACCESSIBLE');
+      // No approved eligibility mechanism exists yet. CLEAN alone cannot
+      // authorize the release of an inquiry original.
+      throw new StaffError('FILE_NOT_ACCESSIBLE');
+    });
   }
 
   async assignManager(
