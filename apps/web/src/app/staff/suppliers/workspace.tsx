@@ -346,6 +346,7 @@ export default function SupplierWorkspace({
         headers: { 'X-CSRF-Token': token },
         body: JSON.stringify({ email, password }),
       });
+      await refreshCsrf();
       setIdentity(data<RecordValue>(response));
       setAuthenticated(true);
       setPassword('');
@@ -383,6 +384,7 @@ export default function SupplierWorkspace({
       supplierCreateSubmissionRef,
       async () => {
         const actorId = String(identity?.id ?? '');
+        let requestStarted = false;
         setBusy(true);
         setError('');
         setNotice('');
@@ -421,6 +423,7 @@ export default function SupplierWorkspace({
 
           if (attempt.kind === 'retry')
             setNotice('Повторяем исходный запрос с тем же ключом.');
+          requestStarted = true;
           const created = data<{ id?: string }>(
             await request('/v1/staff/suppliers', {
               method: 'POST',
@@ -450,10 +453,21 @@ export default function SupplierWorkspace({
             caught.code !== 'IDEMPOTENCY_KEY_REUSED'
           )
             clearSupplierCreateAttempt(actorId, window.sessionStorage);
-          setError(
+          const message =
             caught instanceof Error
               ? caught.message
-              : 'Не удалось создать поставщика.',
+              : 'Не удалось создать поставщика.';
+          const resultIsUncertain =
+            requestStarted &&
+            !(
+              caught instanceof SupplierApiError &&
+              caught.status < 500 &&
+              caught.code !== 'IDEMPOTENCY_KEY_REUSED'
+            );
+          setError(
+            resultIsUncertain
+              ? 'Результат создания не подтверждён. Поставщик мог быть создан. Повторите отправку без изменения данных; перед новой операцией сначала проверьте список поставщиков.'
+              : message,
           );
         } finally {
           setBusy(false);

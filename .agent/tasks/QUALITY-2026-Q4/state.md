@@ -1,8 +1,8 @@
 # QUALITY-2026-Q4 — состояние
 
-**Дата:** 1 ноября 2026 (Asia/Vladivostok)
+**Дата:** 2 ноября 2026 (Asia/Vladivostok)
 
-**Текущий этап:** Phase 0 завершена; Q0-01 реализован, локально проверен и прошёл независимый read-only review; Draft PR #30 открыт и остаётся Draft. Перед handoff нужно сверить CI с текущим SHA PR HEAD.
+**Текущий этап:** Phase 0 завершена; Q0-01 прошёл финальную Playwright-приёмку на смонтированном Staff UI и disposable PostgreSQL, независимый focused re-review и применимые local gates. Остались commit/push и hosted CI на точном новом HEAD.
 **Статус:** `REVIEW_REQUIRED`
 
 ## Репозиторий и доставка
@@ -21,14 +21,20 @@
 ## Q0-01
 
 - Root cause подтверждён: `SupplierWorkspace` создавал новый `Idempotency-Key` на каждый mutation request; submit создания поставщика не удерживал ключ и тело между повторами.
+- Browser acceptance выявила связанный UI-дефект: после входа оставался login-bound CSRF token, непригодный для staff-bound supplier mutation. После успешного входа UI теперь запрашивает session-bound CSRF token; API/auth contracts и backend не менялись.
+- При начавшемся запросе без подтверждённого результата UI показывает явное предупреждение неопределённого исхода и сохраняет ключ/хэш для same-body retry. Определённый клиентский отказ (<500, кроме `IDEMPOTENCY_KEY_REUSED`) очищает попытку.
 - Изменение ограничено Staff UI и регрессионной проверкой runtime API. OpenAPI, DTO, RBAC, схема/миграции, серверный алгоритм idempotency, audit и security boundaries не менялись.
 - Клиент хранит в `sessionStorage`, привязанном к ID сотрудника, только случайный ключ и SHA-256 отпечаток тела; исходное тело поставщика не сохраняется.
 - При повторе того же тела повторно используется тот же ключ. При изменённом теле незавершённой операции пользователь должен явно подтвердить новую операцию.
 - RED зафиксирован до исправления: 2 из 4 новых helper-тестов падали на повторе ключа и тихой замене операции. После исправления все 4 проходят.
-- Runtime acceptance использует disposable PostgreSQL и реальный API. Одноразовый HTTP proxy получает upstream 201 после commit и уничтожает downstream-соединение до передачи ответа клиенту; затем API перезапускается и тот же ключ/тело повторяются.
-- Независимый review: PASS, замечаний BLOCKER/HIGH нет. Повторный read-only просмотр обновлённого response-drop helper завершён: PASS, блокирующих замечаний нет.
+- Runtime acceptance использует disposable PostgreSQL, реальный Next.js Staff UI и реальный API. Playwright `route.fetch()` получает фактический upstream 201/body после commit, затем `route.abort('connectionreset')`; browser фиксирует `requestfailed` и не получает HTTP success response. После reload и повторного входа тот же ключ/тело воспроизводят прежнюю запись. Отдельный сценарий проверяет double-click, changed-body cancel/confirm и новый ключ.
+- `pnpm test:r1-007b`: PASS 14/14 в двух последовательных запусках (12 API/PostgreSQL сценариев + 2 browser acceptance); disposable DB sentinel сохранён в обоих.
+- `pnpm typecheck`, `pnpm format:check`, `pnpm lint`, `pnpm test`, `pnpm build`, `pnpm supplier:contract:check`, `pnpm contract:check`, `git diff --check`: PASS на текущих изменениях. Hosted CI для нового HEAD ещё предстоит.
+- Первый независимый review выявил P2 mismatch в тестовом proxy; исправлено на реальный upstream response + client-side connection abort. Focused re-review: PASS, замечание закрыто, иных замечаний нет.
 
 ## Следующие действия
 
-1. Проверить GitHub CI именно для последнего SHA PR HEAD и записать результат в handoff.
-2. Оставить PR #30 в Draft; merge и production не выполнять.
+1. Зафиксировать только task-owned файлы и push в существующую ветку PR #30.
+2. Проверить GitHub CI на новом точном SHA.
+3. После результата Q0-01 начать отдельный Q0-03 worktree/branch от заново подтверждённого `origin/main`.
+4. Оставить оба PR в Draft; merge и production не выполнять.
