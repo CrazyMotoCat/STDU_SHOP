@@ -3609,10 +3609,10 @@ describe.skipIf(!runtimeEnabled)(
       expect(denied.body.code).toBe('FILE_NOT_ACCESSIBLE');
     });
 
-    it('REQB-22: CLEAN download requires inquiry scope and both document permissions, and streams protected bytes', async () => {
+    it('R1-010D-L0: originals remain inaccessible after authorization in every state', async () => {
       const capability = randomBytes(32).toString('base64url');
       const created = await createInquiry({
-        ...equipmentPayload('clean download boundary'),
+        ...equipmentPayload('L0 download boundary'),
         uploadCapability: capability,
       });
       const inquiry = await ownerDb!.inquiry.findUniqueOrThrow({
@@ -3622,99 +3622,306 @@ describe.skipIf(!runtimeEnabled)(
         },
       });
       const bytes = minimalPdf();
-      const intent = await publicRequest(
-        'POST',
-        `/v1/public/inquiry-attachments/upload-intents`,
-        {
-          filename: 'clean-fixture.pdf',
-          declaredMimeType: 'application/pdf',
-          sizeBytes: bytes.length,
-        },
-        {
-          'Idempotency-Key': `inq-clean-intent-${randomUUID()}`,
-          'X-Inquiry-Upload-Capability': capability,
-        },
-      );
-      const intentId = String(obj(intent.body.data).intentId);
-      const uploaded = await publicRequest(
-        'PUT',
-        `/v1/public/inquiry-attachments/upload-intents/${intentId}/content`,
-        bytes,
-        {
-          'Content-Type': 'application/octet-stream',
-          'Idempotency-Key': `inq-clean-upload-${randomUUID()}`,
-          'X-Inquiry-Upload-Capability': capability,
-        },
-      );
-      expect(uploaded.status, JSON.stringify(uploaded.body)).toBe(201);
-      const document = await ownerDb!.inquirySourceDocument.findFirstOrThrow({
-        where: { inquiryId: inquiry.id },
-      });
-      await ownerDb!.inquirySourceDocument.update({
-        where: { id: document.id },
-        data: { safetyState: 'CLEAN' },
-      });
-      const path = `/v1/staff/inquiries/${inquiry.id}/documents/${document.id}/download`;
-      const missingReadPermission = await makeActor(
-        ['inquiries.read_all', 'inquiries.documents.download'],
-        'download-only',
-      );
-      const missingDownloadPermission = await makeActor(
-        ['inquiries.read_all', 'inquiries.documents.read'],
-        'read-only-documents',
-      );
-      const outOfScope = await makeActor(
-        [
-          'inquiries.read_assigned',
-          'inquiries.documents.read',
-          'inquiries.documents.download',
-        ],
-        'assigned-documents',
-      );
-      expect(
-        (await missingReadPermission.agent.request('GET', path)).status,
-      ).toBe(403);
-      expect(
-        (await missingDownloadPermission.agent.request('GET', path)).status,
-      ).toBe(403);
-      expect((await outOfScope.agent.request('GET', path)).status).toBe(404);
-      const download = await fullActor.agent.request('GET', path);
-      expect(download.status, JSON.stringify(download.body)).toBe(200);
-      expect(download.rawBody).toBe(bytes.toString('utf8'));
-      expect(download.headers.get('cache-control')).toContain('no-store');
-      expect(download.headers.get('content-disposition')).toMatch(
-        /^attachment;/,
-      );
-      expect(download.headers.get('x-content-type-options')).toBe('nosniff');
-      const successAuditsBeforeMissingObject = await ownerDb!.auditEvent.count({
-        where: {
-          action: 'inquiry.document.downloaded',
-          entityId: document.id,
-          outcome: 'SUCCESS',
-        },
-      });
-      await new PrivateFileStorage().removeInquiryQuarantineObject(
-        document.storageKey,
-      );
-      const missingObject = await fullActor.agent.request('GET', path);
-      expect(missingObject.status).toBe(503);
-      expect(
-        await ownerDb!.auditEvent.count({
-          where: {
-            action: 'inquiry.document.downloaded',
-            entityId: document.id,
-            outcome: 'SUCCESS',
+      const documents = [];
+      for (const state of ['QUARANTINED', 'CLEAN', 'SCAN_ERROR', 'REJECTED']) {
+        const intent = await publicRequest(
+          'POST',
+          '/v1/public/inquiry-attachments/upload-intents',
+          {
+            filename: `l0-${state}.pdf`,
+            declaredMimeType: 'application/pdf',
+            sizeBytes: bytes.length,
           },
-        }),
-      ).toBe(successAuditsBeforeMissingObject);
-      expect(
-        (
-          await fullActor.agent.request(
-            'GET',
-            '/v1/staff/inquiries/' + inquiry.id + '/documents',
-          )
-        ).status,
-      ).toBe(200);
+          {
+            'Idempotency-Key': `l0-intent-${randomUUID()}`,
+            'X-Inquiry-Upload-Capability': capability,
+          },
+        );
+        expect(intent.status).toBe(201);
+        const intentId = String(obj(intent.body.data).intentId);
+        const uploaded = await publicRequest(
+          'PUT',
+          `/v1/public/inquiry-attachments/upload-intents/${intentId}/content`,
+          bytes,
+          {
+            'Content-Type': 'application/octet-stream',
+            'Idempotency-Key': `l0-upload-${randomUUID()}`,
+            'X-Inquiry-Upload-Capability': capability,
+          },
+        );
+        expect(uploaded.status).toBe(201);
+        const document = await ownerDb!.inquirySourceDocument.findUniqueOrThrow(
+          { where: { uploadIntentId: intentId } },
+        );
+        if (state !== 'QUARANTINED')
+          await ownerDb!.inquirySourceDocument.update({
+            where: { id: document.id },
+            data: { safetyState: state },
+          });
+        documents.push({ ...document, safetyState: state });
+      }
+      const storage = app!.get(PrivateFileStorage);
+      const clean = documents.find(
+        (document) => document.safetyState === 'CLEAN',
+      )!;
+      const stream = await storage.openInquiryQuarantine(clean.storageKey);
+      const actual = [];
+      for await (const chunk of stream) actual.push(Buffer.from(chunk));
+      expect(Buffer.concat(actual)).toEqual(bytes);
+      // Preserve a synthetic pre-existing download history entry while denying
+      // any new download under L0.
+      await ownerDb!.auditEvent.create({
+        data: {
+          id: randomUUID(),
+          actorKind: 'STAFF',
+          actorUserId: fullActor.id,
+          action: 'inquiry.document.downloaded',
+          entityType: 'InquirySourceDocument',
+          entityId: clean.id,
+          outcome: 'SUCCESS',
+          reasonCode: 'DOWNLOAD_ALLOWED',
+          requestId: randomUUID(),
+        },
+      });
+      const documentIds = documents.map((document) => document.id);
+      const originalDocuments = await ownerDb!.inquirySourceDocument.findMany({
+        where: { id: { in: documentIds } },
+        orderBy: { id: 'asc' },
+      });
+      const originalAudit = await ownerDb!.auditEvent.findMany({
+        where: { entityId: { in: documentIds } },
+        orderBy: { id: 'asc' },
+      });
+      const open = vi.spyOn(storage, 'openInquiryQuarantine');
+      try {
+        for (const document of documents) {
+          const path = `/v1/staff/inquiries/${inquiry.id}/documents/${document.id}/download`;
+          const response = await fullActor.agent.request('GET', path);
+          expect(response.status).toBe(404);
+          expect(response.body.code).toBe('FILE_NOT_ACCESSIBLE');
+          expect(response.headers.get('content-type')).toContain(
+            'application/json',
+          );
+          expect(response.rawBody).not.toContain(
+            bytes.subarray(0, 11).toString('utf8'),
+          );
+          expect(
+            (
+              await ownerDb!.inquirySourceDocument.findUniqueOrThrow({
+                where: { id: document.id },
+              })
+            ).safetyState,
+          ).toBe(document.safetyState);
+        }
+        const path = `/v1/staff/inquiries/${inquiry.id}/documents/${clean.id}/download`;
+        const missingRead = await makeActor(
+          ['inquiries.read_all', 'inquiries.documents.download'],
+          'l0-download-only',
+        );
+        const missingDownload = await makeActor(
+          ['inquiries.read_all', 'inquiries.documents.read'],
+          'l0-read-only',
+        );
+        const noScope = await makeActor(
+          [
+            'inquiries.read_assigned',
+            'inquiries.documents.read',
+            'inquiries.documents.download',
+          ],
+          'l0-no-scope',
+        );
+        expect((await missingRead.agent.request('GET', path)).status).toBe(403);
+        expect((await missingDownload.agent.request('GET', path)).status).toBe(
+          403,
+        );
+        expect((await noScope.agent.request('GET', path)).status).toBe(404);
+        const anonymous = new StaffAgent();
+        anonymous.baseUrl = apiUrl;
+        expect((await anonymous.request('GET', path)).status).toBe(401);
+        expect(
+          (
+            await fullActor.agent.request(
+              'GET',
+              `/v1/staff/inquiries/${inquiry.id}/documents/${randomUUID()}/download`,
+            )
+          ).status,
+        ).toBe(404);
+        const other = await createInquiry(equipmentPayload('other inquiry'));
+        const otherInquiry = await ownerDb!.inquiry.findUniqueOrThrow({
+          where: {
+            publicReference: data<{ publicReference: string }>(other)
+              .publicReference,
+          },
+        });
+        expect(
+          (
+            await fullActor.agent.request(
+              'GET',
+              `/v1/staff/inquiries/${otherInquiry.id}/documents/${clean.id}/download`,
+            )
+          ).status,
+        ).toBe(404);
+        const head = await fullActor.agent.request('HEAD', path);
+        expect(head.status).toBe(404);
+        expect(head.rawBody).toBe('');
+        const range = await fullActor.agent.request('GET', path, undefined, {
+          Range: 'bytes=0-10',
+        });
+        expect(range.status).toBe(404);
+        expect(range.body.code).toBe('FILE_NOT_ACCESSIBLE');
+        expect(range.headers.get('content-type')).toContain('application/json');
+        expect(range.rawBody).not.toContain(
+          bytes.subarray(0, 11).toString('utf8'),
+        );
+        const encoded = await fullActor.agent.request(
+          'GET',
+          path.replace('/download', '/%64ownload'),
+        );
+        // The existing boundary maps this encoded route to INTERNAL_ERROR.
+        // The security property here is that it cannot return file bytes.
+        expect(encoded.status).toBe(500);
+        expect(encoded.body.code).toBe('INTERNAL_ERROR');
+        expect(encoded.rawBody).not.toContain(
+          bytes.subarray(0, 11).toString('utf8'),
+        );
+        expect(open).not.toHaveBeenCalled();
+        expect(
+          await ownerDb!.auditEvent.count({
+            where: {
+              action: 'inquiry.document.downloaded',
+              entityId: { in: documents.map((document) => document.id) },
+              outcome: 'SUCCESS',
+            },
+          }),
+        ).toBe(1);
+        expect(
+          await ownerDb!.inquirySourceDocument.findMany({
+            where: { id: { in: documentIds } },
+            orderBy: { id: 'asc' },
+          }),
+        ).toEqual(originalDocuments);
+        expect(
+          await ownerDb!.auditEvent.findMany({
+            where: { entityId: { in: documentIds } },
+            orderBy: { id: 'asc' },
+          }),
+        ).toEqual(originalAudit);
+        const metadata = await fullActor.agent.request(
+          'GET',
+          `/v1/staff/inquiries/${inquiry.id}/documents`,
+        );
+        expect(metadata.status).toBe(200);
+        expect(metadata.body.data).toBeInstanceOf(Array);
+        expect(metadata.body.data as Json[]).toHaveLength(4);
+        // Simulate a real loss of PostgreSQL access for the API role only, on
+        // the explicitly owned disposable database. The owner connection stays
+        // available to restore the role and verify the audit after the request.
+        const project = env('R1_010B_TEST_COMPOSE_PROJECT');
+        if (!/^stdu-r1-010b-test-\d+-[a-f0-9]{8}$/.test(project))
+          throw new Error(
+            'Refusing database fault outside the disposable project.',
+          );
+        const [dbIdentity] = await ownerDb!.$queryRawUnsafe<{ name: string }[]>(
+          'SELECT current_database() AS name',
+        );
+        if (dbIdentity?.name !== 'stdu_r1_010b_test')
+          throw new Error(
+            'Refusing database fault outside the disposable database.',
+          );
+        const { stdout: postgresId } = await execFileAsync(
+          'docker',
+          [
+            'compose',
+            '-p',
+            project,
+            '-f',
+            env('R1_010B_TEST_COMPOSE_FILE'),
+            'ps',
+            '-q',
+            'postgres',
+          ],
+          { timeout: 10_000, windowsHide: true },
+        );
+        const inspected = await execFileAsync(
+          'docker',
+          ['inspect', postgresId.trim()],
+          {
+            timeout: 10_000,
+            windowsHide: true,
+          },
+        );
+        const [owned] = JSON.parse(inspected.stdout) as {
+          Id?: string;
+          Config?: { Labels?: Record<string, string> };
+          HostConfig?: { Tmpfs?: Record<string, string> };
+          Mounts?: unknown[];
+          NetworkSettings?: {
+            Ports?: Record<
+              string,
+              { HostIp: string; HostPort: string }[] | null
+            >;
+          };
+        }[];
+        const bindings = owned?.NetworkSettings?.Ports?.['5432/tcp'] ?? [];
+        const ownerUrl = new URL(env('MIGRATION_DATABASE_URL'));
+        const runtimeUrl = new URL(env('STAFF_DATABASE_URL'));
+        if (
+          !/^[a-f0-9]{64}$/.test(postgresId.trim()) ||
+          owned?.Id !== postgresId.trim() ||
+          owned.Config?.Labels?.['com.docker.compose.project'] !== project ||
+          owned.Config.Labels['com.docker.compose.service'] !== 'postgres' ||
+          !owned.HostConfig?.Tmpfs?.['/var/lib/postgresql'] ||
+          !owned.Mounts ||
+          owned.Mounts.length !== 0 ||
+          bindings.length !== 1 ||
+          bindings[0]?.HostIp !== '127.0.0.1' ||
+          [ownerUrl, runtimeUrl].some(
+            (url) =>
+              url.hostname !== '127.0.0.1' ||
+              url.port !== bindings[0]?.HostPort ||
+              url.pathname !== '/stdu_r1_010b_test',
+          ) ||
+          ownerUrl.username !== 'postgres' ||
+          runtimeUrl.username !== 'stdu_runtime'
+        )
+          throw new Error(
+            'Refusing database fault against a foreign or non-disposable container.',
+          );
+        try {
+          await ownerDb!.$executeRawUnsafe(
+            'ALTER ROLE stdu_runtime CONNECTION LIMIT 0',
+          );
+          await ownerDb!.$queryRawUnsafe(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=current_database() AND usename='stdu_runtime' AND pid<>pg_backend_pid()",
+          );
+          const unavailable = await fullActor.agent.request('GET', path);
+          expect(unavailable.status).toBe(503);
+          expect(unavailable.body.code).toBe('DEPENDENCY_UNAVAILABLE');
+          expect(unavailable.rawBody).not.toContain(
+            bytes.subarray(0, 11).toString('utf8'),
+          );
+          expect(open).not.toHaveBeenCalled();
+          expect(
+            await ownerDb!.auditEvent.findMany({
+              where: { entityId: { in: documentIds } },
+              orderBy: { id: 'asc' },
+            }),
+          ).toEqual(originalAudit);
+        } finally {
+          await ownerDb!.$executeRawUnsafe(
+            'ALTER ROLE stdu_runtime CONNECTION LIMIT -1',
+          );
+        }
+      } finally {
+        open.mockRestore();
+      }
+      const preservedStream = await storage.openInquiryQuarantine(
+        clean.storageKey,
+      );
+      const preserved = [];
+      for await (const chunk of preservedStream)
+        preserved.push(Buffer.from(chunk));
+      expect(Buffer.concat(preserved)).toEqual(bytes);
     });
 
     it('REQB-21: scanner state is not writable by the API runtime and original document fields remain immutable', async () => {

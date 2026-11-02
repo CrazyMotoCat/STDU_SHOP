@@ -1,6 +1,6 @@
 {
   "status": "FROZEN",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "extends": "FROZEN R1-002 AuditEvent",
   "entityTypes": [
     "Inquiry",
@@ -251,6 +251,8 @@
     },
     {
       "action": "inquiry.document.downloaded",
+      "contractStatus": "RESERVED_FUTURE_USE",
+      "note": "No R1-010 operation may emit this success event while exact-original eligibility is absent; CLEAN alone never permits download. Preserve historical events without creating new ones.",
       "outcomes": {
         "SUCCESS": ["DOWNLOAD_ALLOWED"]
       },
