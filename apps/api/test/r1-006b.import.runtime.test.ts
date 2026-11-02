@@ -1329,9 +1329,10 @@ describe('R1-006B disposable PostgreSQL + HTTP + Staff UI', () => {
       const idempotencyKey = randomUUID();
       const filename = `late-invalid-${randomUUID()}.xlsx`;
       const form = new FormData();
+      const invalidXlsx = malformedLateRowOverflowXlsx();
       form.set(
         'file',
-        new Blob([malformedLateRowOverflowXlsx()], {
+        new Blob([new Uint8Array(invalidXlsx)], {
           type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         }),
         filename,

@@ -131,33 +131,33 @@ def test_xlsx_preserves_supported_cell_kinds_and_blank_values() -> None:
     content = _rewrite_xlsx(
         {
             "xl/_rels/workbook.xml.rels": (
-                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                '<Relationship Id="rId1" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
-                'worksheet" Target="worksheets/sheet1.xml"/>'
-                '<Relationship Id="rId2" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
-                'styles" Target="styles.xml"/>'
-                '<Relationship Id="rId3" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
-                'sharedStrings" Target="sharedStrings.xml"/>'
-                "</Relationships>"
-            ).encode(),
+                b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                b'<Relationship Id="rId1" '
+                b'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                b'worksheet" Target="worksheets/sheet1.xml"/>'
+                b'<Relationship Id="rId2" '
+                b'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                b'styles" Target="styles.xml"/>'
+                b'<Relationship Id="rId3" '
+                b'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                b'sharedStrings" Target="sharedStrings.xml"/>'
+                b"</Relationships>"
+            ),
             "xl/sharedStrings.xml": (
-                '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                "<si><t>shared</t></si></sst>"
-            ).encode(),
+                b'<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b"<si><t>shared</t></si></sst>"
+            ),
             "xl/worksheets/sheet1.xml": (
-                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                '<sheetData><row r="1"><c r="A1" t="n"><v>12</v></c>'
-                '<c r="B1" t="s"><v>0</v></c>'
-                '<c r="C1" t="inlineStr"><is><t>inline</t></is></c>'
-                '<c r="D1" t="b"><v>1</v></c>'
-                '<c r="E1" t="str"><v>formula text</v></c>'
-                '<c r="F1" t="e"><v>#N/A</v></c>'
-                '<c r="G1"><f>SUM(1,2)</f><v>3</v></c>'
-                '<c r="H1"/></row></sheetData></worksheet>'
-            ).encode(),
+                b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b'<sheetData><row r="1"><c r="A1" t="n"><v>12</v></c>'
+                b'<c r="B1" t="s"><v>0</v></c>'
+                b'<c r="C1" t="inlineStr"><is><t>inline</t></is></c>'
+                b'<c r="D1" t="b"><v>1</v></c>'
+                b'<c r="E1" t="str"><v>formula text</v></c>'
+                b'<c r="F1" t="e"><v>#N/A</v></c>'
+                b'<c r="G1"><f>SUM(1,2)</f><v>3</v></c>'
+                b'<c r="H1"/></row></sheetData></worksheet>'
+            ),
         }
     )
     row = next(record for record in parse_xlsx_records(content) if record["type"] == "ROW")
@@ -187,17 +187,17 @@ def test_xlsx_resolves_workbook_relationship_target_from_source_part() -> None:
     content = _rewrite_xlsx(
         {
             "xl/_rels/workbook.xml.rels": (
-                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                '<Relationship Id="rId1" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
-                'worksheet" Target="xl/worksheets/sheet1.xml"/>'
-                "</Relationships>"
-            ).encode(),
+                b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                b'<Relationship Id="rId1" '
+                b'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                b'worksheet" Target="xl/worksheets/sheet1.xml"/>'
+                b"</Relationships>"
+            ),
             "xl/xl/worksheets/sheet1.xml": (
-                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                '<sheetData><row r="9"><c r="A9"><v>linked part</v></c></row>'
-                "</sheetData></worksheet>"
-            ).encode(),
+                b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b'<sheetData><row r="9"><c r="A9"><v>linked part</v></c></row>'
+                b"</sheetData></worksheet>"
+            ),
         }
     )
     rows = [record for record in parse_xlsx_records(content) if record["type"] == "ROW"]
@@ -209,41 +209,41 @@ def test_xlsx_resolves_styles_and_shared_strings_from_relationships() -> None:
     content = _rewrite_xlsx(
         {
             "xl/_rels/workbook.xml.rels": (
-                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                '<Relationship Id="rId1" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
-                'worksheet" Target="worksheets/sheet1.xml"/>'
-                '<Relationship Id="rId2" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
-                'styles" Target="custom/styles.xml"/>'
-                '<Relationship Id="rId3" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
-                'sharedStrings" Target="custom/sharedStrings.xml"/>'
-                "</Relationships>"
-            ).encode(),
+                b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                b'<Relationship Id="rId1" '
+                b'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                b'worksheet" Target="worksheets/sheet1.xml"/>'
+                b'<Relationship Id="rId2" '
+                b'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                b'styles" Target="custom/styles.xml"/>'
+                b'<Relationship Id="rId3" '
+                b'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                b'sharedStrings" Target="custom/sharedStrings.xml"/>'
+                b"</Relationships>"
+            ),
             "xl/styles.xml": (
-                '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                '<cellXfs count="1"><xf numFmtId="0"/></cellXfs></styleSheet>'
-            ).encode(),
+                b'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b'<cellXfs count="1"><xf numFmtId="0"/></cellXfs></styleSheet>'
+            ),
             "xl/sharedStrings.xml": (
-                '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                "<si><t>stale orphan</t></si></sst>"
-            ).encode(),
+                b'<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b"<si><t>stale orphan</t></si></sst>"
+            ),
             "xl/custom/styles.xml": (
-                '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                '<numFmts count="1"><numFmt numFmtId="164" formatCode="00000"/>'
-                '</numFmts><cellXfs count="2"><xf numFmtId="0"/>'
-                '<xf numFmtId="164"/></cellXfs></styleSheet>'
-            ).encode(),
+                b'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b'<numFmts count="1"><numFmt numFmtId="164" formatCode="00000"/>'
+                b'</numFmts><cellXfs count="2"><xf numFmtId="0"/>'
+                b'<xf numFmtId="164"/></cellXfs></styleSheet>'
+            ),
             "xl/custom/sharedStrings.xml": (
-                '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                "<si><t>linked shared string</t></si></sst>"
-            ).encode(),
+                b'<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b"<si><t>linked shared string</t></si></sst>"
+            ),
             "xl/worksheets/sheet1.xml": (
-                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                '<sheetData><row r="3"><c r="A3" t="s"><v>0</v></c>'
-                '<c r="B3" s="1"><v>17</v></c></row></sheetData></worksheet>'
-            ).encode(),
+                b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b'<sheetData><row r="3"><c r="A3" t="s"><v>0</v></c>'
+                b'<c r="B3" s="1"><v>17</v></c></row></sheetData></worksheet>'
+            ),
         }
     )
     row = next(record for record in parse_xlsx_records(content) if record["type"] == "ROW")
@@ -272,19 +272,19 @@ def test_xlsx_rejects_invalid_shared_string_index(shared_index: str) -> None:
     content = _rewrite_xlsx(
         {
             "xl/_rels/workbook.xml.rels": (
-                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                '<Relationship Id="rId1" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
-                'worksheet" Target="worksheets/sheet1.xml"/>'
-                '<Relationship Id="rId2" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
-                'sharedStrings" Target="sharedStrings.xml"/>'
-                "</Relationships>"
-            ).encode(),
+                b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                b'<Relationship Id="rId1" '
+                b'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                b'worksheet" Target="worksheets/sheet1.xml"/>'
+                b'<Relationship Id="rId2" '
+                b'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                b'sharedStrings" Target="sharedStrings.xml"/>'
+                b"</Relationships>"
+            ),
             "xl/sharedStrings.xml": (
-                '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                "<si><t>part</t></si></sst>"
-            ).encode(),
+                b'<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b"<si><t>part</t></si></sst>"
+            ),
             "xl/worksheets/sheet1.xml": (
                 '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
                 '<sheetData><row r="3"><c r="A3" t="s"><v>'
@@ -319,10 +319,10 @@ def test_xlsx_preserves_sparse_cells_even_when_their_xml_order_is_unusual() -> N
     content = _rewrite_xlsx(
         {
             "xl/worksheets/sheet1.xml": (
-                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                '<sheetData><row r="5"><c r="C5"><v>3</v></c><c r="A5"><v>1</v></c>'
-                "</row></sheetData></worksheet>"
-            ).encode()
+                b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b'<sheetData><row r="5"><c r="C5"><v>3</v></c><c r="A5"><v>1</v></c>'
+                b"</row></sheetData></worksheet>"
+            )
         }
     )
     row = next(record for record in parse_xlsx_records(content) if record["type"] == "ROW")
@@ -334,10 +334,10 @@ def test_xlsx_preserves_sparse_rows_even_when_their_xml_order_is_unusual() -> No
     content = _rewrite_xlsx(
         {
             "xl/worksheets/sheet1.xml": (
-                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                '<sheetData><row r="8"><c r="C8"><v>8</v></c></row>'
-                '<row r="3"><c r="A3"><v>3</v></c></row></sheetData></worksheet>'
-            ).encode()
+                b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b'<sheetData><row r="8"><c r="C8"><v>8</v></c></row>'
+                b'<row r="3"><c r="A3"><v>3</v></c></row></sheetData></worksheet>'
+            )
         }
     )
     rows = [record for record in parse_xlsx_records(content) if record["type"] == "ROW"]
@@ -366,10 +366,10 @@ def test_xlsx_accepts_postgres_integer_max_and_sparse_row_numbers() -> None:
     content = _rewrite_xlsx(
         {
             "xl/worksheets/sheet1.xml": (
-                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                '<sheetData><row r="2147483647"><c r="A2147483647"><v>1</v></c>'
-                "</row></sheetData></worksheet>"
-            ).encode()
+                b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b'<sheetData><row r="2147483647"><c r="A2147483647"><v>1</v></c>'
+                b"</row></sheetData></worksheet>"
+            )
         }
     )
     row = next(record for record in parse_xlsx_records(content) if record["type"] == "ROW")
@@ -396,10 +396,10 @@ def test_xlsx_rejects_cell_reference_row_above_postgres_integer_max() -> None:
     content = _rewrite_xlsx(
         {
             "xl/worksheets/sheet1.xml": (
-                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                '<sheetData><row r="1"><c r="A2147483648"><v>1</v></c></row>'
-                "</sheetData></worksheet>"
-            ).encode()
+                b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b'<sheetData><row r="1"><c r="A2147483648"><v>1</v></c></row>'
+                b"</sheetData></worksheet>"
+            )
         }
     )
     with pytest.raises(ImportParseError, match="FILE_REJECTED"):
@@ -408,9 +408,7 @@ def test_xlsx_rejects_cell_reference_row_above_postgres_integer_max() -> None:
 
 @pytest.mark.parametrize("cell_type", ["z", "d"])
 @pytest.mark.parametrize("formula", [False, True])
-def test_xlsx_rejects_unknown_cell_type_even_with_formula(
-    cell_type: str, formula: bool
-) -> None:
+def test_xlsx_rejects_unknown_cell_type_even_with_formula(cell_type: str, formula: bool) -> None:
     formula_xml = "<f>1+1</f>" if formula else ""
     content = _rewrite_xlsx(
         {
@@ -466,8 +464,8 @@ def test_xlsx_rejects_relationship_target_that_is_not_a_worksheet_part() -> None
     content = _rewrite_xlsx(
         {
             "xl/worksheets/sheet1.xml": (
-                '<styles xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>'
-            ).encode()
+                b'<styles xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>'
+            )
         }
     )
     with pytest.raises(ImportParseError, match="FILE_REJECTED"):
@@ -484,12 +482,12 @@ def test_xlsx_rejects_relationship_path_traversal() -> None:
     content = _rewrite_xlsx(
         {
             "xl/_rels/workbook.xml.rels": (
-                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                '<Relationship Id="rId1" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
-                'worksheet" Target="worksheets/../worksheets/sheet1.xml"/>'
-                "</Relationships>"
-            ).encode()
+                b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                b'<Relationship Id="rId1" '
+                b'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                b'worksheet" Target="worksheets/../worksheets/sheet1.xml"/>'
+                b"</Relationships>"
+            )
         }
     )
     with pytest.raises(ImportParseError, match="FILE_REJECTED"):
@@ -500,8 +498,8 @@ def test_xlsx_rejects_worksheet_without_required_sheet_data() -> None:
     content = _rewrite_xlsx(
         {
             "xl/worksheets/sheet1.xml": (
-                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>'
-            ).encode()
+                b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>'
+            )
         }
     )
     with pytest.raises(ImportParseError, match="FILE_REJECTED"):
@@ -512,11 +510,11 @@ def test_xlsx_late_structure_error_returns_json_before_any_ndjson() -> None:
     content = _rewrite_xlsx(
         {
             "xl/worksheets/sheet1.xml": (
-                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                '<sheetData><row r="1"><c r="A1"><v>1</v></c></row>'
-                '<row r="2"><c r="B2"><v>2</v></c></row>'
-                '<row r="3"><c r="A4"><v>3</v></c></row></sheetData></worksheet>'
-            ).encode()
+                b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                b'<sheetData><row r="1"><c r="A1"><v>1</v></c></row>'
+                b'<row r="2"><c r="B2"><v>2</v></c></row>'
+                b'<row r="3"><c r="A4"><v>3</v></c></row></sheetData></worksheet>'
+            )
         }
     )
     with TestClient(create_app("http://api:3001")) as client:
@@ -525,7 +523,9 @@ def test_xlsx_late_structure_error_returns_json_before_any_ndjson() -> None:
             content=content,
             headers={
                 "x-source-filename": "late-invalid.xlsx",
-                "x-source-mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "x-source-mime": (
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ),
             },
         )
     assert response.status_code == 415
@@ -561,7 +561,9 @@ def test_xlsx_malformed_sheet_relationship_returns_controlled_http_error(
             content=content,
             headers={
                 "x-source-filename": "invalid-relationship.xlsx",
-                "x-source-mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "x-source-mime": (
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ),
             },
         )
     assert response.status_code == 415

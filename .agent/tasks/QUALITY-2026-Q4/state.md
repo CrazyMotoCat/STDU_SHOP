@@ -3,12 +3,13 @@
 **Дата:** 2 ноября 2026 (Asia/Vladivostok)
 
 **Задача:** Q0-03 — строгая структура XLSX.
-**Статус:** `READY_FOR_DRAFT_PR`.
+**Статус:** `DRAFT_PR_OPEN`.
 
 ## Репозиторий и доставка
 
 - База: свежий `origin/main` `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`.
 - Ветка: `codex/quality-q0-03-xlsx-strict-structure`.
+- Draft PR: [#35](https://github.com/CrazyMotoCat/STDU_SHOP/pull/35); первый pushed SHA `cbce62abe9daabbb9236c897aaf54e701d8bc3a6`.
 - Изолированный worktree: `C:\Users\mvideo\.codex\worktrees\quality-q0-03-xlsx-strict-structure\SHOP STDU`.
 - Режим: `AUTO_MERGE` подготовка; явная граница задачи требует собственного Draft PR и запрещает merge.
 - Изменения затрагивают только Python ingestion parser, его тесты, disposable R1-006B runtime test и `.agent/tasks/QUALITY-2026-Q4/*`.
@@ -34,12 +35,13 @@
 - Первый независимый review нашёл две P2 в OPC target resolution и выборе styles/shared strings. Исправлено: source-relative разрешение и relationship-based part lookup; добавлены фикстуры с конфликтующими и orphan ZIP entries. Финальный independent read-only review: PASS, actionable P1/P2 не осталось.
 - После review fixes R1-006B disposable runtime повторно завершился с exit 0, sentinel сохранён.
 - Полная команда `pnpm exec vitest run`: 15 files passed, 5 skipped; 114 passed, 89 skipped. R1-006B disposable runtime завершился с exit 0, sentinel сохранён.
-- `pnpm --filter @stdu/api exec tsc --noEmit`, Prettier для изменённого TypeScript-файла и `git diff --check` прошли.
-- Локальный `uv` отсутствует: `ruff`/`mypy` и агрегирующие `pnpm lint|format:check|typecheck|test|build` не выдаются за выполненные. Использовались эквивалентные доступные parser/API checks; обязательные hosted checks будут проверены на точном PR HEAD.
+- После lint/type fixes проходят `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, ingestion suite (51 passed), и повторный `pnpm test:r1-006b` с disposable PostgreSQL (exit 0; sentinel сохранён). Typecheck fix: тестовая XLSX Buffer копируется в `Uint8Array` перед созданием Blob.
+- Первый exact-head CI run #41434591569 на `cbce62a` завершился failure в `pnpm lint`; локально воспроизведены 21 UP012 и 3 E501 в новых Python файлах и исправлены. Hosted CI для следующего pushed SHA ожидается.
+- Полный `pnpm exec vitest run` ранее прошёл: 15 files passed, 5 skipped; 114 passed, 89 skipped. Upstream Node 24.22.1 отличается от закреплённого 24.19.0; предупреждение engine не блокировало проверки.
 - Одна upstream Starlette/httpx deprecation warning в локальной TestClient suite; тесты прошли.
 
 ## Следующий шаг
 
-1. Зафиксировать task-owned diff и отправить собственную ветку.
-2. Создать отдельный Draft PR и проверить обязательные hosted CI для точного PR HEAD.
+1. Зафиксировать только lint/type fixes и актуальный checkpoint, отправить их в PR #35.
+2. Проверить все обязательные hosted checks для нового точного PR HEAD.
 3. Оставить PR открытым Draft, не merge-ить и остановиться.

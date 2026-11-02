@@ -260,11 +260,7 @@ def _number_formats(archive: zipfile.ZipFile, part: str | None) -> list[str]:
 def _relationship_target(base_dir: str, value: str) -> str:
     target = value.replace("\\", "/")
     parts = target.split("/")
-    if (
-        not target
-        or target.startswith("/")
-        or any(part in ("", ".", "..") for part in parts)
-    ):
+    if not target or target.startswith("/") or any(part in ("", ".", "..") for part in parts):
         raise ImportParseError("FILE_REJECTED", 415)
     return f"{base_dir}/{target}" if base_dir else target
 
@@ -365,7 +361,11 @@ def _workbook_parts(archive: zipfile.ZipFile) -> XlsxWorkbookParts:
 def _optional_relationship_part(
     relationships: dict[str, tuple[str, str]], rel_type: str
 ) -> str | None:
-    targets = [target for relationship_type, target in relationships.values() if relationship_type == rel_type]
+    targets = [
+        target
+        for relationship_type, target in relationships.values()
+        if relationship_type == rel_type
+    ]
     if len(targets) > 1:
         raise ImportParseError("FILE_REJECTED", 415)
     return targets[0] if targets else None
