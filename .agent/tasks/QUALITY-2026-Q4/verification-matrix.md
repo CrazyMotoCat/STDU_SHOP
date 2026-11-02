@@ -16,7 +16,7 @@
 | Build | `pnpm build` | PASS: API, staff client, Next.js optimized build, and ingestion wheel/sdist. |
 | Whitespace | `git diff --check` | PASS after current code and checkpoint edits. |
 | Independent review | `review_q0_01` read-only review and focused response-drop re-review | First review found P2 mismatch when the proxy returned empty 201. Replaced with Playwright upstream fetch + connection abort and browser `requestfailed` assertion. Focused re-review PASS; no remaining findings. |
-| Hosted exact-HEAD CI | GitHub PR #30 check suite for the latest PR HEAD | Pending push of current browser-acceptance commit; then verify latest SHA. Earlier runs are insufficient after any later commit. |
+| Hosted exact-HEAD CI | [PR #30 run #41427550204](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41427550204) | PASS: `quality-and-integration` succeeded on exact Q0-01 code SHA `36abf7d738299e0db74e4974112b75b1fd883107`. A subsequent docs-only checkpoint commit is pending its own exact-head run. |
 | Browser-mounted Staff UI test | `pnpm test:r1-007b` | PASS: 2/2 browser scenarios. Authenticated Next.js Staff UI; double-click single-flight; dropped upstream 201 with browser `requestfailed`; uncertain-result alert; same-body/same-key retry after logout/login and full reload; one supplier/revision/receipt/audit; no supplier PII in browser storage; changed-body cancel causes no request; explicit confirmation creates a separate supplier with a new key. Staff identity isolation is covered by the helper unit test. |
 | Production/merge | Production action or merge | NOT_RUN; explicitly excluded. |
 

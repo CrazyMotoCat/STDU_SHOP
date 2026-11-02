@@ -2,7 +2,7 @@
 
 **Дата:** 2 ноября 2026 (Asia/Vladivostok)
 
-**Текущий этап:** Phase 0 завершена; Q0-01 прошёл финальную Playwright-приёмку на смонтированном Staff UI и disposable PostgreSQL, независимый focused re-review и применимые local gates. Остались commit/push и hosted CI на точном новом HEAD.
+**Текущий этап:** Q0-01 завершён как owner-review package; Playwright acceptance, independent focused re-review, local gates и exact-head hosted CI прошли. PR #30 остаётся Draft. Далее — отдельный Q0-03 worktree от свежего `origin/main`.
 **Статус:** `REVIEW_REQUIRED`
 
 ## Репозиторий и доставка
@@ -29,12 +29,12 @@
 - RED зафиксирован до исправления: 2 из 4 новых helper-тестов падали на повторе ключа и тихой замене операции. После исправления все 4 проходят.
 - Runtime acceptance использует disposable PostgreSQL, реальный Next.js Staff UI и реальный API. Playwright `route.fetch()` получает фактический upstream 201/body после commit, затем `route.abort('connectionreset')`; browser фиксирует `requestfailed` и не получает HTTP success response. После reload и повторного входа тот же ключ/тело воспроизводят прежнюю запись. Отдельный сценарий проверяет double-click, changed-body cancel/confirm и новый ключ.
 - `pnpm test:r1-007b`: PASS 14/14 в двух последовательных запусках (12 API/PostgreSQL сценариев + 2 browser acceptance); disposable DB sentinel сохранён в обоих.
-- `pnpm typecheck`, `pnpm format:check`, `pnpm lint`, `pnpm test`, `pnpm build`, `pnpm supplier:contract:check`, `pnpm contract:check`, `git diff --check`: PASS на текущих изменениях. Hosted CI для нового HEAD ещё предстоит.
+- `pnpm typecheck`, `pnpm format:check`, `pnpm lint`, `pnpm test`, `pnpm build`, `pnpm supplier:contract:check`, `pnpm contract:check`, `git diff --check`: PASS на Q0-01 code commit `36abf7d738299e0db74e4974112b75b1fd883107`.
+- Hosted exact-head CI: PASS, run [#41427550204](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41427550204), check `quality-and-integration`, SHA `36abf7d738299e0db74e4974112b75b1fd883107`. PR remains Draft and unmerged.
 - Первый независимый review выявил P2 mismatch в тестовом proxy; исправлено на реальный upstream response + client-side connection abort. Focused re-review: PASS, замечание закрыто, иных замечаний нет.
 
 ## Следующие действия
 
-1. Зафиксировать только task-owned файлы и push в существующую ветку PR #30.
-2. Проверить GitHub CI на новом точном SHA.
-3. После результата Q0-01 начать отдельный Q0-03 worktree/branch от заново подтверждённого `origin/main`.
-4. Оставить оба PR в Draft; merge и production не выполнять.
+1. Зафиксировать checkpoint Q0-01 и проверить documentation commit на точном HEAD CI.
+2. Начать отдельный Q0-03 worktree/branch от заново подтверждённого `origin/main`.
+3. Оставить оба PR в Draft; merge и production не выполнять.
