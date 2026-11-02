@@ -8,6 +8,7 @@
 - Initial safe commit: `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`.
 - Current implementation commit: `76c290dba3186e0b1f5e1b1f9eb70fee82ededf7`; verification checkpoint commit: `31e42d5ac2d6d3d2875f70588c4a3cc4f3cc24da`.
 - Current base: `origin/main` `74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d` (fresh fetch 2026-11-02); local checks were rerun after sync. Intervening base commits affect inquiry download/security and R1-010D task state only; no Q0-04 implementation paths overlap.
+- Draft PR: [#38](https://github.com/CrazyMotoCat/STDU_SHOP/pull/38), base `main`; created at head `3df493c2cc20068a0df433a018c37ecca94cecc9`. The first hosted run was `41454494983`; its exact-head status must be refreshed after this documentation checkpoint is pushed.
 
 ## Verified on the synchronized implementation commit
 
@@ -21,7 +22,7 @@
 
 ## Next action
 
-Q0-03 compatibility passed in a temporary combined worktree: 66 Python tests and `pnpm test:r1-006b` passed with Python imports directed to the combined source tree. Commit the final documentation checkpoint, push/open Draft PR, and wait for exact-head hosted CI. Do not merge.
+Q0-03 compatibility passed in a temporary combined worktree: 66 Python tests and `pnpm test:r1-006b` passed with Python imports directed to the combined source tree. Push this documentation checkpoint, then verify all required hosted checks on the exact resulting PR head. Keep PR #38 Draft and do not merge.
 
 The temporary worktree is no longer registered, but its directory remains because Git cleanup hit Windows `Filename too long` and automatic command review rejected manual junction removal.
 

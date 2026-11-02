@@ -14,6 +14,6 @@ Initial investigation base: `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`. The bran
 | Diff hygiene | `git diff --check` | PASS |
 | Independent read-only reviews | Python/Data Parsing; Nest/Data Integrity; PostgreSQL/transactions; Security | PASS — no unresolved P0/P1/P2 findings; final PostgreSQL review reran disposable R1-006B |
 | Q0-03 compatibility | Detached temp worktree at Q0-03 head `3f8b9b569ab932a7cac223405cc7f36408e0a50a` plus the Q0-04 implementation patch; Python path explicitly pointed at combined worktree source | PASS — 66 Python tests and `pnpm test:r1-006b` passed; sentinel preserved; no cherry-pick conflict |
-| Hosted CI | Exact final Draft PR head SHA | PENDING — push/Draft PR not created yet |
+| Hosted CI | PR #38, first head `3df493c2cc20068a0df433a018c37ecca94cecc9` | IN PROGRESS — Actions run `41454494983`; recheck the exact head after pushing this documentation checkpoint |
 
-No production database, named volume, or production service was used. Hosted CI remains pending until the branch is pushed and the Draft PR is created. Compatibility worktree cleanup hit Windows `Filename too long`; its Git registration was removed, but an unregistered temp directory remains because the automatic command review rejected manual junction removal.
+No production database, named volume, or production service was used. PR #38 is open as Draft on `main`; final hosted CI must be confirmed against the exact pushed head after this documentation checkpoint. Compatibility worktree cleanup hit Windows `Filename too long`; its Git registration was removed, but an unregistered temp directory remains because the automatic command review rejected manual junction removal.
