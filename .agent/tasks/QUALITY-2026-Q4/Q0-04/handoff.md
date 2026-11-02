@@ -4,13 +4,13 @@
 
 - Task: Q0-04, limited to AUD-010, AUD-021, AUD-024.
 - Worktree: `C:\Users\mvideo\.codex\worktrees\quality-q0-04-csv-boolean-sku\SHOP STDU`; branch `codex/quality-q0-04-csv-boolean-sku`.
-- Start HEAD was `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`; the branch is rebased on `origin/main` `e9af3a7dbe0eee29bb3cacceb3d608662502b0b3`. Current implementation commit is `0c394dee0e70ea08ab3112384fb0426fa4157f97`, with local gates and Q0-03 compatibility passing. A fresh fetch now shows `origin/main` at `74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d`, with one R1-010D state-doc update; rebase onto it and rerun checks before push.
+- Start HEAD was `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`; the branch is synchronized on `origin/main` `74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d`. Implementation commit is `76c290dba3186e0b1f5e1b1f9eb70fee82ededf7`; verification checkpoint commit is `31e42d5ac2d6d3d2875f70588c4a3cc4f3cc24da`. Local gates were rerun after synchronization.
 - Expected source/test changes and evidence are documented in `findings.md` and `verification.md`.
 - Independent Python, Nest/Data Integrity, PostgreSQL/transactions, and Security reviews report PASS; no unresolved P0/P1/P2 findings.
 
 ## Next actions
 
-1. Rebase onto latest `origin/main` `74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d`, rerun checks, then commit the final verification checkpoint.
+1. Commit this final synchronized evidence checkpoint.
 2. Push the branch and open a Draft PR based on `main`.
 3. Verify hosted CI for the exact final head SHA and leave the PR Draft/unmerged.
 
