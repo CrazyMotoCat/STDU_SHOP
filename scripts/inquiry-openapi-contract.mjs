@@ -91,6 +91,28 @@ if (JSON.stringify(expected) !== JSON.stringify(actual)) {
       ({ expected: wanted, actual: found }) =>
         JSON.stringify(wanted) !== JSON.stringify(found),
     );
+  const downloadOperations = expected.filter(
+    ({ operationId }) => operationId === 'downloadStaffInquiryDocument',
+  );
+  const mismatchedAuditPolicies = downloadOperations
+    .map(({ path, method }) => ({
+      path,
+      method,
+      expected: contract.paths[path]?.[method]?.['x-audit'] ?? null,
+      actual: generated.paths[path]?.[method]?.['x-audit'] ?? null,
+    }))
+    .filter(({ expected: wanted, actual: found }) => wanted !== found);
+  const mismatchedDownloadInvariants = downloadOperations
+    .map(({ path, method }) => ({
+      path,
+      method,
+      expected: contract.paths[path]?.[method]?.['x-invariants'] ?? [],
+      actual: generated.paths[path]?.[method]?.['x-invariants'] ?? [],
+    }))
+    .filter(
+      ({ expected: wanted, actual: found }) =>
+        JSON.stringify(wanted) !== JSON.stringify(found),
+    );
   const missingErrorBodies = expected.flatMap(({ path, method }) => {
     const expectedOperation = contract.paths[path]?.[method];
     const actualOperation = generated.paths[path]?.[method];
@@ -109,6 +131,8 @@ if (JSON.stringify(expected) !== JSON.stringify(actual)) {
   const responseParityFailure = Boolean(
     mismatchedResponses.length ||
     mismatchedRequiredParameters.length ||
+    mismatchedAuditPolicies.length ||
+    mismatchedDownloadInvariants.length ||
     missingErrorBodies.length,
   );
   if (responseParityFailure) {
@@ -118,6 +142,8 @@ if (JSON.stringify(expected) !== JSON.stringify(actual)) {
         {
           mismatchedResponses,
           mismatchedRequiredParameters,
+          mismatchedAuditPolicies,
+          mismatchedDownloadInvariants,
           missingErrorBodies,
         },
         null,

@@ -601,7 +601,7 @@ export const STAFF_OPERATION_CONTRACT_NOTES = {
   },
   downloadStaffInquiryDocument: {
     invariants: [
-      'Requires read scope plus inquiries.documents.read and inquiries.documents.download; only CLEAN bytes stream through NestJS with no-store/nosniff and attachment disposition. No scanner means no downloadable document.',
+      'Requires a current staff session, inquiries.documents.read and inquiries.documents.download, and Inquiry scope. CLEAN alone never authorizes download. Until separately approved eligibility is implemented for this exact original, return FILE_NOT_ACCESSIBLE after document ownership checks and before storage open or bytes; emit no successful-download audit.',
     ],
     errorsBeforeObjectLookup: [
       'AUTH_REQUIRED',
