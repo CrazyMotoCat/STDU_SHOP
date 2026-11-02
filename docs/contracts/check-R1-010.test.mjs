@@ -40,7 +40,7 @@ test('FROZEN contract approval pins the exact owner-approved source and OD packa
 });
 
 test('Contract Amendment 01 uses capability-only paths and profile-bound byte receipts', () => {
-  assert.equal(baseline.frozenManifest.version, '1.0.2');
+  assert.equal(baseline.frozenManifest.version, '1.0.3');
   assert.equal(baseline.frozenManifest.baseVersion, '1.0.0');
   assert.equal(
     baseline.frozenManifest.amendments[0].id,
@@ -77,6 +77,67 @@ test('Contract Amendment 01 uses capability-only paths and profile-bound byte re
     baseline.model.tables.Inquiry.immutability,
     /one-way revocation/,
   );
+});
+
+test('Contract Amendment 02 denies CLEAN downloads until exact-original eligibility exists', () => {
+  assert.equal(
+    baseline.frozenManifest.amendments[1].id,
+    'R1-010 Contract Amendment 02',
+  );
+  assert.equal(baseline.frozenManifest.amendments[1].version, '1.0.3');
+  const operation =
+    baseline.openapi.paths[
+      '/v1/staff/inquiries/{inquiryId}/documents/{documentId}/download'
+    ].get;
+  assert.equal(operation.responses['200'], undefined);
+  assert.equal(operation.responses['409'], undefined);
+  assert.ok(operation.responses['404']);
+  assert.equal(
+    operation.responses['404'].$ref,
+    '#/components/responses/FileNotAccessible',
+  );
+  assert.match(
+    baseline.openapi.components.responses.FileNotAccessible.description,
+    /FILE_NOT_ACCESSIBLE/,
+  );
+  assert.equal(operation['x-audit'], 'none');
+  assert.match(operation.description, /CLEAN alone is not authorization/);
+  assert.match(
+    operation['x-invariants'][0],
+    /CLEAN alone never authorizes download/,
+  );
+  assert.match(operation['x-invariants'][0], /before storage open or bytes/);
+  assert.match(operation.description, /before opening storage/);
+  assert.match(baseline.attachment, /including historical CLEAN documents/);
+  assert.match(baseline.domain, /no successful-download audit/);
+  assert.match(baseline.alignmentReport, /OLD REQUIREMENT/);
+  assert.match(baseline.matrix, /REQB-46/);
+  assert.match(baseline.matrix, /REQB-50/);
+});
+
+test('checker rejects restoring a positive download response or clean-only authorization', () => {
+  rejects((contract) => {
+    contract.openapi.paths[
+      '/v1/staff/inquiries/{inquiryId}/documents/{documentId}/download'
+    ].get.responses['200'] = {
+      description: 'Binary download',
+    };
+  });
+  rejects((contract) => {
+    contract.openapi.paths[
+      '/v1/staff/inquiries/{inquiryId}/documents/{documentId}/download'
+    ].get.description = 'CLEAN permits download.';
+  });
+  rejects((contract) => {
+    contract.openapi.paths[
+      '/v1/staff/inquiries/{inquiryId}/documents/{documentId}/download'
+    ].get['x-invariants'] = ['CLEAN permits download.'];
+  });
+  rejects((contract) => {
+    contract.audit.actions.find(
+      (entry) => entry.action === 'inquiry.document.downloaded',
+    ).contractStatus = 'ACTIVE';
+  });
 });
 
 test('checker rejects Inquiry IDs in attachment paths and a client-expanded byte ceiling', () => {
@@ -190,7 +251,7 @@ test('owner-supplied and added security acceptance cases are traced', () => {
   assert.deepEqual(
     ids,
     Array.from(
-      { length: 45 },
+      { length: 50 },
       (_, i) => `REQB-${String(i + 1).padStart(2, '0')}`,
     ),
   );

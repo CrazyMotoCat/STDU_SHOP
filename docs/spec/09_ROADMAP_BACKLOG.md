@@ -49,7 +49,11 @@ M1 — совокупный этап задач R1-001, R1-002 и R1-003. R1-001
 
 P0 означает, что задача необходима для законченного R1; P1 допускает отдельные вертикальные итерации, но бизнес-процесс R1 не следует выпускать без необходимых уведомлений/сайта, согласованных в №19–20 и №29–35. При конфликте приоритета решение принимает оркестратор.
 
-**R1-010D — frozen additive security contract 1.0.0:** ADR-005 option B and OD-010D-01…05 are owner-approved with clarifications A–D. Stage B implements isolated malware scanning and quarantine processing under `docs/contracts/R1-010D-malware-scan-contract.md`; production migration/deployment, production operator retry, real-document processing and public launch remain separately gated.
+**R1-010D — frozen additive security contract 1.0.1:** ADR-005 option B and OD-010D-01…05 are owner-approved with clarifications A–D. L0 Contract Amendment 01 aligns staff original downloads: CLEAN alone never authorizes bytes; until exact-original eligibility is separately approved and implemented, all downloads are denied before storage open. Stage B scanner finalization remains isolated; production migration/deployment, production operator retry, real-document processing, external gate tests and public launch remain separately gated.
+
+## Separate security follow-up
+
+- **SEC-API-ROUTE-001 — отдельная задача:** исследовать percent-encoded static staff-route path normalization и безопасную 404-обработку unmatched staff routes. `%64ownload` сейчас не достигает handler и не открывает storage/байты, но общий `HttpBoundaryFilter` возвращает 500 `INTERNAL_ERROR` вместо non-enumerating 404. Не расширять R1-010D-L0; закрыть отдельной матрицей всех staff маршрутов и регрессионными тестами.
 
 ## Уточнения после технического ревью R1-001
 

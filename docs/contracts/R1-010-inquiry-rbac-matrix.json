@@ -1,6 +1,6 @@
 {
   "status": "FROZEN",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "defaultDeny": true,
   "automaticRoleGrants": false,
   "permissions": {
@@ -12,14 +12,14 @@
     "inquiries.transition": "Perform only the approved staff lifecycle transitions or set the current stage due date; requires read scope and transition preconditions.",
     "inquiries.comment": "Append internal-only comments; requires read scope.",
     "inquiries.documents.read": "Read attachment metadata and security state; requires read scope.",
-    "inquiries.documents.download": "Download only an authorized CLEAN source document; also requires inquiries.documents.read and read scope."
+    "inquiries.documents.download": "Necessary but insufficient for any future source-original download; also requires inquiries.documents.read, current inquiry scope and separately approved eligibility for the exact original. CLEAN alone never authorizes access; while eligibility is absent every original download is denied before storage is opened."
   },
   "rules": [
     "Public inquiry creation has no staff permission and cannot read, enumerate, update or transition an inquiry.",
     "Knowledge of inquiry UUID or publicReference never grants staff or customer access.",
     "The anonymous upload capability is bound to one inquiry and permits only creating, uploading or cancelling its attachments; it grants no read/status/download access.",
     "Contact PII requires an explicit contact permission in addition to inquiry visibility.",
-    "Attachment metadata and byte access are separate permissions; byte access additionally requires CLEAN state and domain policy authorization.",
+    "Attachment metadata and byte access are separate permissions; CLEAN is not authorization. Byte access requires separate owner-approved eligibility for the exact original, and all byte access is denied before storage is opened until that mechanism is approved and implemented.",
     "No permission is automatically added to any role. Owner approval and ordinary R1-002 RBAC administration are required to grant codes."
   ]
 }
