@@ -1,26 +1,28 @@
 # VIS-CAT-02A — Task checkpoint
 
-* TASK: VIS-CAT-02A Media Contract Proposal
+* TASK: VIS-CAT-02A owner review and contract finalization preparation
 * DELIVERY_MODE: REVIEW_REQUIRED
 * BRANCH: `codex/vis-cat-02a-media-contracts`
-* INITIAL_BASE: `origin/main` at `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`
-* LATEST_BASE: `origin/main` at `e9af3a7dbe0eee29bb3cacceb3d608662502b0b3`
-* LAST_SAFE_COMMIT: `e9af3a7dbe0eee29bb3cacceb3d608662502b0b3` (latest base before this task commit)
-* TASK_COMMIT: `64f35eb5a05e6838cda76c7d1875476541610cc9`
+* PR: [#37](https://github.com/CrazyMotoCat/STDU_SHOP/pull/37), Draft
+* LAST_PUSHED_HEAD: `6eec82e2a02f863c5c95969ca4f41b850b982c97`
+* LAST_PUSHED_CI: [run 41451924247](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41451924247), SUCCESS on `LAST_PUSHED_HEAD`
+* TASK_BRANCH_BASE: `e9af3a7dbe0eee29bb3cacceb3d608662502b0b3`
+* LATEST_ORIGIN_MAIN: `74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d` (fetched 2026-11-03)
 
-## Scope and status
+## Owner decision provenance
 
-Owner approved MEDIA-01–06 as the design basis and authorized a separate DRAFT PR only. Runtime, Prisma/migrations, frozen contract files, Docker, production flags, permissions/grants, PR #36, R1-010D, QUALITY and other agent work are excluded.
+The earlier `VIS-CAT-02 OWNER REVIEW / Decision Proposal + VIS-CAT-02A Contract Preparation` says its MEDIA-01–06 policies are not approved before confirmation. The current owner response accepts architecture A as a design basis only and provides OD-MEDIA-07–14 directions. The revised roadmap records exact confirmed scope and outstanding proof. No amendment is frozen and no runtime implementation is authorized.
 
-Four contract/roadmap documents are drafted under `docs/plans/`; each is explicitly `DRAFT / REVIEW_REQUIRED / NOT FROZEN`. Three independent read-only review streams completed; P1/P2 findings were corrected. Final targeted follow-ups confirmed the proxy timeout/cancellation clause and clarified that ADR-004 exception approval remains pending. Formatting, frozen R1-004 contract/client checks, and `git diff --check` pass. The task commit is rebased onto `origin/main` and pushed normally. Draft PR creation is blocked pending interactive GitHub authentication in Git Credential Manager; no PR exists yet, and exact-head CI has not started.
+## Scope and repository state
 
-## Verified repository state
+Four existing `docs/plans/VIS-CAT-02A-*.md` documents and this checkpoint are the only task-owned paths. Runtime, Prisma, API/OpenAPI frozen artifacts, migrations, Docker, production, roles, PR #36, R1-010D, QUALITY, R1-006B, and other worktrees remain excluded.
 
-- Worktree is isolated at `C:\Users\mvideo\.codex\worktrees\vis-cat-02a-media-contracts\SHOP STDU`.
-- The branch started clean at `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`. During review, `origin/main` advanced by seven commits to `e9af3a7dbe0eee29bb3cacceb3d608662502b0b3`; the task commit was safely rebased onto it with no conflicts. Current branch is one task commit ahead of base and has only the five task-owned documentation/checkpoint paths in its diff. The remote task branch points at the same SHA.
-- Current Compose/web source has no configured same-origin reverse proxy for public catalog media; the proposal uses a fixed Next.js Route Handler with server-only `API_INTERNAL_URL`.
-- PR #36 worktree remains on `e248147cfcb2cb2ac200f9e14ea373b7668cb1e5`; it has not been edited.
+At continuation, the worktree was clean at `6eec82e`. `origin/main` advanced by one commit to `74dd704`, which changes only `.agent/tasks/R1-010D/state.md`. No rebase or merge was performed; PR #37 was clean/mergeable at its last GitHub check and its file diff contained only the five VIS-CAT-02A documentation/checkpoint paths. Do not edit the R1-010D file or worktree.
 
-VERIFIED: `pnpm format:check` PASS; `pnpm catalog:contract:check` PASS; `pnpm catalog:client:check` PASS; `git diff --check` PASS. Node reported v24.22.1 while package engines request v24.19.0; commands completed successfully. Three independent review streams and final targeted follow-ups reported no remaining P1/P2 findings. GitHub CI has not started because a PR is not yet created.
+The four contract drafts now correct MEDIA approval provenance; record OD-MEDIA-07–14; use V1-preserving/V2-proposed API responses; replace public-read row locks with a short MVCC snapshot; define storage capability/fencing gates; compare worker/verifier boundaries; and add a reproducible isolated benchmark plan. Independent read-only data/infrastructure, security/operations, and API compatibility reviews found no remaining P0/P1/P2 issues. API review identified an ambiguous revoke path parameter; it was corrected to `publicAssetId` and rechecked with no remaining findings. Prettier check and `git diff --check` passed on the final candidate before this checkpoint update; they will be repeated before commit. The prior CI pass applies only to `6eec82e`, not to these corrections.
 
-NEXT_ACTION: after Git Credential Manager completes sign-in, update this checkpoint if needed, create and attach the Draft PR, and wait for exact-head GitHub CI. Do not merge or implement runtime/migrations.
+The previous exact-head CI run on `6eec82e` passed, but it does not verify the pending document changes. No benchmark or production filesystem/network proof has been run or claimed.
+
+No benchmark, production filesystem/network proof, runtime change, or runtime test has been run or claimed. Those are VIS-CAT-02B proof candidates, which requires a separate owner decision.
+
+NEXT_ACTION: repeat formatting and diff checks, commit and push this documentation-only candidate once, then query required GitHub CI against the exact new PR head. Leave PR #37 Draft; do not merge or start VIS-CAT-02B.
