@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "STDU_SHOP Public Inquiry and Staff Workflow API",
-    "version": "1.0.2",
-    "description": "FROZEN R1-010 Contract Amendment 01, refined by the owner-approved one-way revocation rule. Inquiry submission has no public read/status endpoint; attachment upload routes resolve the Inquiry only from the header capability."
+    "version": "1.0.3",
+    "description": "FROZEN R1-010 Contract Amendments 01-02. Inquiry submission has no public read/status endpoint; attachment upload routes resolve the Inquiry only from the header capability. Staff original downloads require separately approved eligibility bound to the exact original; CLEAN alone is insufficient and all downloads are denied until eligibility is implemented."
   },
   "servers": [
     {
@@ -654,7 +654,9 @@
       "get": {
         "tags": ["Staff inquiries"],
         "operationId": "downloadStaffInquiryDocument",
-        "summary": "Download one authorized CLEAN source",
+        "summary": "Deny source download until exact-original eligibility is implemented",
+        "description": "Requires a current staff session, both document permissions and inquiry scope. CLEAN alone is not authorization. Until separately approved and implemented eligibility is available for this exact original, the operation returns the safe FILE_NOT_ACCESSIBLE response after document ownership checks and before opening storage or sending bytes. No successful-download audit is written. A future positive path requires a separate owner-approved contract amendment.",
+        "x-audit": "none",
         "security": [
           {
             "StaffSessionCookie": []
@@ -669,17 +671,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Authorized private stream; attachment disposition, no-store, nosniff, no public URL",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
@@ -687,12 +678,12 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "description": "Document not CLEAN; body uses Error envelope"
+            "$ref": "#/components/responses/FileNotAccessible"
           }
-        }
+        },
+        "x-invariants": [
+          "Requires a current staff session, inquiries.documents.read and inquiries.documents.download, and Inquiry scope. CLEAN alone never authorizes download. Until separately approved eligibility is implemented for this exact original, return FILE_NOT_ACCESSIBLE after document ownership checks and before storage open or bytes; emit no successful-download audit."
+        ]
       }
     },
     "/v1/public/inquiry-attachments/upload-intents": {
@@ -1968,11 +1959,21 @@
             }
           }
         }
+      },
+      "FileNotAccessible": {
+        "description": "FILE_NOT_ACCESSIBLE; safely hides a missing, foreign or ineligible Inquiry original",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
       }
     }
   },
   "x-contract-status": "FROZEN",
-  "x-contract-version": "1.0.2",
+  "x-contract-version": "1.0.3",
   "x-upload-profile-contract": {
     "file": "R1-010-inquiry-upload-profiles.json",
     "defaultProfile": "MVP_SAFE",
@@ -2013,7 +2014,7 @@
     "Assignments cannot be cleared; setInquiryStageDeadline manages optional human-set current-stage due dates without SLA automation.",
     "Staff unsafe requests follow FROZEN R1-002 cookie, exact Origin and CSRF rules.",
     "Every public write validates exact configured Origin; no credentialed wildcard CORS.",
-    "No source file download unless CLEAN and both document permissions plus inquiry scope pass.",
+    "CLEAN alone never authorizes source download. Until a separate owner-approved eligibility mechanism exists for the exact original, all staff original downloads are denied after current-session, permission, inquiry-scope and document-relation checks but before opening storage or sending bytes; no successful-download audit is emitted.",
     "No external parser, malware result is never assumed, no automatic notification provider.",
     "Public inquiry create JSON is limited to 2 MiB and at most 50 equipment lines; file bytes use the immutable server-selected profile in x-upload-profile-contract and are streamed with backpressure rather than buffered as whole bodies.",
     "The per-source/UTC-day byte budget charges declared upload-intent bytes exactly once at accepted intent creation across all Inquiries for the HMAC source fingerprint. The atomic Redis bucket never resets, refunds or widens during that UTC day; when profile caps differ, the effective cap is the lowest cap seen for that source/day.",

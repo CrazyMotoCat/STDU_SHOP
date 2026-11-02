@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const approvedSourceHead = '68fb60f87c7821044939dd5d95f8e67e6bb73685';
-const frozenContractVersion = '1.0.2';
+const frozenContractVersion = '1.0.3';
 const frozenArtifactPaths = [
   'docs/contracts/R1-010-attachment-security-policy.md',
   'docs/contracts/R1-010-inquiries.openapi.json',
@@ -47,6 +47,19 @@ export async function loadR1_010(root = here) {
       }),
     );
   }
+  const l0SourcePath =
+    'docs/plans/R1-010D-L0-implementation-amendment-draft.md';
+  const l0SourceSha256 = sha256(
+    execFileSync(
+      'git',
+      ['show', `1be16abdb4732086cb2f721ab0f6eeae4e21c9a4:${l0SourcePath}`],
+      { cwd: repositoryRoot, maxBuffer: 5 * 1024 * 1024 },
+    ),
+  );
+  const alignmentReport = await readFile(
+    path.resolve(base, '../plans/R1-010D-L0-contract-alignment.md'),
+    'utf8',
+  );
   return {
     model: await readJson('R1-010-inquiry-data-model.json'),
     rbac: await readJson('R1-010-inquiry-rbac-matrix.json'),
@@ -78,6 +91,9 @@ export async function loadR1_010(root = here) {
       path.resolve(base, '../plans/R1-010B-01-review-verification.md'),
       'utf8',
     ),
+    alignmentReport,
+    alignmentReportSha256: sha256(Buffer.from(alignmentReport, 'utf8')),
+    l0SourceSha256,
     implementationPlan: await readFile(
       path.resolve(base, '../plans/R1-010B-implementation-plan.md'),
       'utf8',
@@ -159,10 +175,18 @@ export function validateR1_010(c) {
       'does not authorize production migrations',
     ) ||
     c.frozenManifest.finalization.contractContentChanged !== true ||
-    c.frozenManifest.amendments?.length !== 1 ||
+    c.frozenManifest.amendments?.length !== 2 ||
     c.frozenManifest.amendments?.[0]?.id !== 'R1-010 Contract Amendment 01' ||
-    c.frozenManifest.amendments?.[0]?.version !== frozenContractVersion ||
+    c.frozenManifest.amendments?.[0]?.version !== '1.0.2' ||
     c.frozenManifest.amendments?.[0]?.approvedOn !== '2026-10-27' ||
+    c.frozenManifest.amendments?.[1]?.id !== 'R1-010 Contract Amendment 02' ||
+    c.frozenManifest.amendments?.[1]?.version !== frozenContractVersion ||
+    c.frozenManifest.amendments?.[1]?.approvedOn !== '2026-11-02' ||
+    c.frozenManifest.amendments?.[1]?.sourceHead !==
+      '1be16abdb4732086cb2f721ab0f6eeae4e21c9a4' ||
+    c.frozenManifest.amendments?.[1]?.approvedSourceSha256 !==
+      c.l0SourceSha256 ||
+    c.frozenManifest.alignmentTraceabilitySha256 !== c.alignmentReportSha256 ||
     JSON.stringify(c.frozenManifest.approval.decisionIds) !==
       JSON.stringify([
         'OD-010-01',
@@ -214,11 +238,14 @@ export function validateR1_010(c) {
       `# R1-010 Owner Decisions — FROZEN ${frozenContractVersion}`,
     ) ||
     !c.decisions.includes('**Owner decision: APPROVED.**') ||
+    !c.decisions.includes('R1-010 Contract Amendment 01 — FROZEN 1.0.2') ||
     !c.decisions.includes(
-      `R1-010 Contract Amendment 01 — FROZEN ${frozenContractVersion}`,
+      `R1-010 Contract Amendment 02 — FROZEN ${frozenContractVersion}`,
     ) ||
     !c.implementationPlan.includes(`FROZEN R1-010 ${frozenContractVersion}`) ||
-    !c.reviewReport.includes('Contract Amendment 01')
+    !c.reviewReport.includes('Contract Amendment 02') ||
+    !c.alignmentReport.includes('OLD REQUIREMENT') ||
+    !c.alignmentReport.includes('REQB-46–50')
   ) {
     fail(
       `FROZEN ${frozenContractVersion} status must be synchronized across contract and decision docs`,
@@ -533,6 +560,45 @@ export function validateR1_010(c) {
   ) {
     fail('OpenAPI must state the no-enumeration and no-parser boundaries');
   }
+  const downloadOperation =
+    c.openapi.paths[
+      '/v1/staff/inquiries/{inquiryId}/documents/{documentId}/download'
+    ]?.get;
+  const reservedDownloadAudit = c.audit.actions.find(
+    (action) => action.action === 'inquiry.document.downloaded',
+  );
+  if (
+    !downloadOperation ||
+    downloadOperation.responses?.['200'] ||
+    downloadOperation.responses?.['409'] ||
+    !downloadOperation.responses?.['404'] ||
+    downloadOperation.responses['404'].$ref !==
+      '#/components/responses/FileNotAccessible' ||
+    !c.openapi.components.responses.FileNotAccessible?.description?.includes(
+      'FILE_NOT_ACCESSIBLE',
+    ) ||
+    downloadOperation['x-audit'] !== 'none' ||
+    !downloadOperation['x-invariants']?.some((rule) =>
+      rule.includes('CLEAN alone never authorizes download'),
+    ) ||
+    !downloadOperation['x-invariants']?.some((rule) =>
+      rule.includes('before storage open or bytes'),
+    ) ||
+    !downloadOperation.description?.includes('before opening storage') ||
+    !downloadOperation.description?.includes(
+      'CLEAN alone is not authorization',
+    ) ||
+    !c.openapi['x-invariants'].some((rule) =>
+      rule.includes('CLEAN alone never authorizes source download'),
+    ) ||
+    !reservedDownloadAudit ||
+    reservedDownloadAudit.contractStatus !== 'RESERVED_FUTURE_USE' ||
+    !reservedDownloadAudit.note?.includes('No R1-010 operation may emit')
+  ) {
+    fail(
+      'L0 must deny all current downloads before storage, remove positive/clean-only responses, and reserve success audit for a later approved amendment',
+    );
+  }
   if (
     c.openapi.paths['/v1/staff/inquiries/{inquiryId}/stage-deadline']?.put
       ?.operationId !== 'setInquiryStageDeadline' ||
@@ -827,15 +893,15 @@ export function validateR1_010(c) {
     (match) => match[1],
   );
   const expectedMatrixIds = Array.from(
-    { length: 45 },
+    { length: 50 },
     (_, i) => `REQB-${String(i + 1).padStart(2, '0')}`,
   );
   if (matrixIds.join('|') !== expectedMatrixIds.join('|')) {
     fail(
-      'acceptance matrix must contain exactly REQB-01 through REQB-45 once and in order',
+      'acceptance matrix must contain exactly REQB-01 through REQB-50 once and in order',
     );
   }
-  for (let i = 1; i <= 45; i += 1) {
+  for (let i = 1; i <= 50; i += 1) {
     const id = `REQB-${String(i).padStart(2, '0')}`;
     if (!c.matrix.includes(id)) fail(`acceptance scenario ${id} is missing`);
   }
@@ -856,6 +922,6 @@ if (
 ) {
   const result = validateR1_010(await loadR1_010());
   console.log(
-    `FROZEN R1-010 ${frozenContractVersion} contract PASS: ${result.tableCount} new tables; ${result.operationCount} API operations (${result.publicOperationCount} public, ${result.staffOperationCount} staff); ${result.permissionCount} additive permissions; REQB-01..45, Amendment 01 and approved-source/frozen-artifact checksums verified.`,
+    `FROZEN R1-010 ${frozenContractVersion} contract PASS: ${result.tableCount} new tables; ${result.operationCount} API operations (${result.publicOperationCount} public, ${result.staffOperationCount} staff); ${result.permissionCount} additive permissions; REQB-01..50, Amendments 01-02 and approved-source/frozen-artifact checksums verified.`,
   );
 }

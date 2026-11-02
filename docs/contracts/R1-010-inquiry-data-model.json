@@ -1,6 +1,6 @@
 {
   "status": "FROZEN",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "task": "R1-010B-01",
   "baseline": "4b358f16a90998fdae2d2981601e9ccf3bfdf7f0",
   "extends": [

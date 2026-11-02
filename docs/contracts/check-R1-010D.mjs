@@ -14,9 +14,9 @@ const approvedSourceArtifacts = {
 };
 const frozenArtifacts = {
   'docs/adr/ADR-005-malware-scanning.md':
-    'ce0e9d05b142a8286fcf2d6b15b24d64a339d4f477c33a9c6ca4ad8ee0fd39fd',
+    'b720782c178b467563025978da9317893f2965dda129a6a972a99798278272f9',
   'docs/contracts/R1-010D-malware-scan-contract.md':
-    'ecf31de230a0b270dbfb62bdb086bb099368667ba571a20befb56c687c9e35d6',
+    '38c038a7b978b2dcaec95cef697cd4a763e4eb70b598304510d2ba921d071815',
 };
 const decisions = [
   'OD-010D-01',
@@ -25,6 +25,10 @@ const decisions = [
   'OD-010D-04',
   'OD-010D-05',
 ];
+const contractVersion = '1.0.1';
+const l0ApprovalHead = '1be16abdb4732086cb2f721ab0f6eeae4e21c9a4';
+const l0SourceArtifact =
+  'docs/plans/R1-010D-L0-implementation-amendment-draft.md';
 const sha256 = (text) =>
   createHash('sha256')
     .update(Buffer.from(text.replace(/\r\n/g, '\n'), 'utf8'))
@@ -56,7 +60,20 @@ export async function loadR1_010D() {
       return [path, sha256(source)];
     }),
   );
-  return { manifest, contract, adr, actualHashes, actualApprovedSourceHashes };
+  const actualL0SourceSha256 = sha256(
+    execFileSync('git', ['show', `${l0ApprovalHead}:${l0SourceArtifact}`], {
+      cwd: root,
+      maxBuffer: 5 * 1024 * 1024,
+    }).toString('utf8'),
+  );
+  return {
+    manifest,
+    contract,
+    adr,
+    actualHashes,
+    actualApprovedSourceHashes,
+    actualL0SourceSha256,
+  };
 }
 
 export function validateR1_010D(c) {
@@ -64,8 +81,8 @@ export function validateR1_010D(c) {
   const fail = (message) => errors.push(message);
   if (c.manifest.contract !== 'R1-010D Malware Scan Security Contract')
     fail('wrong contract identity');
-  if (c.manifest.status !== 'FROZEN' || c.manifest.version !== '1.0.0')
-    fail('contract is not FROZEN 1.0.0');
+  if (c.manifest.status !== 'FROZEN' || c.manifest.version !== contractVersion)
+    fail(`contract is not FROZEN ${contractVersion}`);
   if (
     c.manifest.approval?.sourceHead !==
     '1cad9fbb210ded32b07cee3923bec8ab011768a8'
@@ -78,6 +95,26 @@ export function validateR1_010D(c) {
     fail('OD-010D-01…05 approval record changed');
   if (c.manifest.approval?.scope?.includes('production migration') !== true)
     fail('production boundary is missing');
+  if (
+    c.manifest.approval.scope !==
+    'Authorizes isolated Stage B implementation and testing only. No production migration, deployment, real-document processing, production operator retry, public launch or production permission provisioning. Existing FROZEN R1-010 1.0.2 and decisions 1–108 remain unchanged.'
+  )
+    fail(
+      'original R1-010D owner approval scope must remain historically unchanged',
+    );
+  const l0Amendment = c.manifest.amendments?.find(
+    (amendment) => amendment.id === 'R1-010D Contract Amendment 01',
+  );
+  if (
+    !l0Amendment ||
+    l0Amendment.version !== contractVersion ||
+    l0Amendment.sourceHead !== l0ApprovalHead ||
+    l0Amendment.approvedOn !== '2026-11-02' ||
+    l0Amendment.approvedSourceSha256 !== c.actualL0SourceSha256 ||
+    !l0Amendment.rule?.includes('CLEAN alone never authorizes download') ||
+    !l0Amendment.rule?.includes('before opening private storage')
+  )
+    fail('R1-010D L0 owner-approved amendment provenance or policy changed');
   const actualContentHashes = {
     'docs/adr/ADR-005-malware-scanning.md': sha256(c.adr),
     'docs/contracts/R1-010D-malware-scan-contract.md': sha256(c.contract),
@@ -114,7 +151,18 @@ export function validateR1_010D(c) {
   for (const term of required) {
     if (!c.contract.includes(term)) fail(`frozen contract is missing ${term}`);
   }
-  for (let i = 1; i <= 20; i++) {
+  if (
+    !c.contract.includes('CLEAN alone never authorizes download') ||
+    !c.contract.includes('including historical CLEAN') ||
+    !c.contract.includes('No successful-download AuditEvent is created') ||
+    !c.contract.includes('SCAN-21') ||
+    !c.adr.includes('Scanner state CLEAN records a scan result only') ||
+    !c.adr.includes('before storage open')
+  )
+    fail(
+      'R1-010D CLEAN finalization must remain separate from staff download eligibility',
+    );
+  for (let i = 1; i <= 21; i++) {
     if (!c.contract.includes(`SCAN-${String(i).padStart(2, '0')}`))
       fail(`SCAN-${String(i).padStart(2, '0')} is missing`);
   }
@@ -129,5 +177,7 @@ if (
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
   validateR1_010D(await loadR1_010D());
-  process.stdout.write('R1-010D FROZEN 1.0.0 contract and checksums: PASS\n');
+  process.stdout.write(
+    `R1-010D FROZEN ${contractVersion} contract and checksums: PASS\n`,
+  );
 }
