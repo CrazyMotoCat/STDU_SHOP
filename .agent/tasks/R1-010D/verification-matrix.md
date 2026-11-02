@@ -136,3 +136,7 @@ Expanded totals exclude container overhead and therefore are not the engine's in
 ## Post-L0 compatibility regression — 2026-11-03
 
 See [post-l0-verification.md](post-l0-verification.md) for fresh combined-branch evidence. Baseline main74dd704/source270131d merged as a1a70c7; FROZEN1.0.3/1.0.1 retained without artifact edits. R1-010B34/34, R1-010C13, full staged R1-010D corrected run exit0, quality gate and40 contract regressions PASS. Real ClamAV1.4.6/daily28172; historical CLEAN now denied404 and document/audit snapshots preserved. Initial run reproduced obsolete200 test expectation, fixed and independently re-reviewed. Controlled recovery remains separate from real FreshClam upgrade. Existing NOT_PROVEN limits remain unchanged. Exact final hosted CI must be checked after publication and is reported in PR28 description. No merge, functional acceptance or production operation authorized.
+
+## Migration approval gate follow-up — 2026-11-03
+
+Default migration path now excludes unchanged scan SQL; explicit disposable application and pre-Prisma approval/target checks are documented in migration-gate-verification.md. Local dedicated gate test and required regression/quality suites PASS; exact-head hosted CI is tracked in PR28 description and owner report after publication. See review-coverage.md for full StageB review inventory and bounded current-patch PASS. No new positive CLEAN, FROZEN edit, production operation or merge permission.

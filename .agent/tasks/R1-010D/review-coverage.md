@@ -1,0 +1,28 @@
+# R1-010D Stage B independent review coverage
+
+Baseline main: 74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d. Post-L0 approved evidence HEAD: b7e048a70b91680203a0917088d87f9fb406c0fc. Current migration-gate follow-up is reviewed separately. This matrix inventories the complete current Stage B file groups, including new gate files. Coverage means inspected source/evidence, not independent test execution or exhaustive security acceptance.
+
+| Current Stage B paths / group | Independent review evidence | Coverage and limit |
+| --- | --- | --- |
+| apps/api/prisma/schema.prisma; prisma/scan-migrations/.../migration.sql; prisma.config.ts | Historical database review in state.md; post_l0_backend; migration_history_review; migration_security_review | Historical full initial DB review plus finalizer/fencing/L0 inspection; current gate/history/checksum patch fully reviewed. Not a new exhaustive audit of every finalizer branch. |
+| apps/api/scripts/deploy-pre-scan-migrations.mjs; deploy-scan-migration.mjs; check-scan-migration-gate.mjs; run-r1-002b-runtime.mjs; run-r1-004b-migration-check.mjs | migration_history_review / migration_security_review / migration_devops_review | Entire current migration/deployment patch reviewed; all reported P2 corrected and re-reviewed PASS. |
+| apps/api/src/database/database.module.ts; inquiries/inquiries.module.ts; response-lifecycle.ts; scan-protocol.ts | Historical backend/security reviews; post_l0_backend/security; current security selected-boundary review | Wiring/session/stream boundary inspected; no fresh exhaustive parser/lifecycle audit for entire final diff. |
+| apps/api/src/inquiries/scan-stream.server.ts; storage/private-file-storage.ts | post_l0_backend/security; migration_security_review | Lease authorization before storage and one-handle hash/size verification inspected. Privileged immutable-storage proof remains NOT_PROVEN. |
+| apps/api/src/scan-worker/healthcheck.ts; main.ts; resource-readiness.ts; scan-worker.module.ts; scan-worker.service.ts; test-clamd-stall.ts | Historical containment/recovery reviews; post_l0_backend/security/devops; current selected security review | CLEAN containment, leases and readiness reviewed in stages. Entire final worker state machine not re-audited in one fresh review. |
+| apps/api/test/r1-010d.pipeline.runtime.test.ts; protocol.test.ts; resource-readiness.test.ts; storage.test.ts | Historical follow-up/recovery reviews; post-L0 reviewers; gate reviewers | Targeted assertions and regressions reviewed; 26-line legacy CLEAN correction re-reviewed. No claim every final test assertion independently audited. |
+| apps/api/scripts/run-r1-010d-runtime.mjs; r1-010d-boundaries.py | Historical evidence/recovery reviewers; post_l0_devops; migration_devops_review | Ownership/network/resource/cleanup and explicit migration handoff reviewed. Entire harness and every fixture algorithm not exhaustively reviewed. |
+| README.md; .github/workflows/ci.yml; apps/api/Dockerfile; package.json; infra/compose/compose.r1-010d-test.yaml; r1-010d-clamav.Dockerfile; r1-010d-clamav-entrypoint.sh | post_l0_devops; migration_devops_review | Full infrastructure/release diff inspected. No repository production deployment path found. External host automation not inspected. |
+| infra/scan-resource-probe/main.go; main_test.go; go.mod; README.md | Historical resource-probe review; post_l0_devops; migration_devops_review | Go implementation/test design and resource boundaries inspected. Production capacity, all timing/resource interleavings NOT_PROVEN. |
+| .agent/tasks/R1-010D/*.ps1 experiments | Historical evidence_review/limit_research, hashes in state.md | Bounded historical experiment review only; no current exhaustive audit, no renewed MaxScanTime experiments, results do not prove format completeness. |
+| docs/plans/OD-010D-06*; OD-010D-07*; future-completeness-proposal; legacy-clean-predeployment; signature-freshness-operational-risk | Historical owner decisions and policy review; post-L0 compatibility review | Design/evidence documents; no positive eligibility or production authorization. |
+| .agent/tasks/R1-010D/state.md; verification-matrix.md; post-l0-verification.md; migration-gate-verification.md; this matrix; docs/plans/R1-010D-migration-approval-gate.md | Lead evidence reconciliation; reviewers' scope statements | Reports cross-reference actual tests; not executable security acceptance. |
+
+## Current independent patch dispositions
+
+- migration_history_review: PASS after P2 corrections. Original SQL/checksum and history unchanged; ordinary future deploy works; default automatic authoring is explicitly blocked.
+- migration_security_review: PASS after P2 corrections. Explicit approval is intent, not migration-admin authorization. No unresolved P0/P1/P2 in inspected patch.
+- migration_devops_review: PASS after P2 corrections. Dedicated test/harness is the only automatic caller that explicitly supplies disposable approval; no production deployment added.
+
+Reviewers read runtime output but did not independently execute Docker tests. The lead executed the reported suites; hosted CI is a separate evidence source.
+
+A unified inventory does not imply unified exhaustive review. Historical initial reviews, containment follow-ups, post-L0 reconciliation and the current migration gate reviews have different scopes. No fresh exhaustive full-Stage-B security acceptance is claimed. Existing format/scanner/verifier/storage/production NOT_PROVEN and BLOCKED limits remain.

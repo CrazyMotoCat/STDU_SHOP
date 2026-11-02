@@ -547,7 +547,7 @@ async function verifyReservedScannerRolePreflight() {
       const migrationSql = await readFile(
         resolve(
           apiRoot,
-          'prisma/migrations/20261028120000_inquiry_scan_jobs/migration.sql',
+          'prisma/scan-migrations/20261028120000_inquiry_scan_jobs/migration.sql',
         ),
         'utf8',
       );
@@ -1257,15 +1257,11 @@ async function main() {
   await verifyReservedScannerRolePreflight();
   await runInTestRunner(
     [
-      'pnpm',
-      '--filter',
-      '@stdu/api',
-      'exec',
-      'prisma',
-      'migrate',
-      'deploy',
-      '--config',
-      'prisma.config.ts',
+      'env',
+      'STDU_SCAN_MIGRATION_APPROVAL=R1-010D-DISPOSABLE-ONLY',
+      'STDU_SCAN_MIGRATION_TARGET=stdu_r1_010d_test',
+      'node',
+      'apps/api/scripts/deploy-scan-migration.mjs',
     ],
     'MVP_SAFE',
     240_000,

@@ -1,9 +1,9 @@
 # R1-010D task state
 
 TASK: R1-010D Malware Scanning & Quarantine Processing
-STATUS: POST_L0_LOCAL_GATES_PASS; STAGE_B_NOT_ACCEPTED
+STATUS: MIGRATION_GATE_LOCAL_PASS; STAGE_B_NOT_ACCEPTED
 DELIVERY_MODE: REVIEW_REQUIRED
-PHASE: POST_L0_COMPATIBILITY_REVIEW_REQUIRED
+PHASE: MIGRATION_APPROVAL_REVIEW_REQUIRED
 UPDATED_AT: 2026-11-03
 STAGE_A_BRANCH: codex/r1-010d-contract-proposal
 STAGE_A_APPROVAL_SOURCE_HEAD: 1cad9fbb210ded32b07cee3923bec8ab011768a8
@@ -340,3 +340,14 @@ NEXT: Finish the running test; correct and validate fixture tests without maskin
 - Fresh local R1-010B34/34, R1-010C13 checks, full staged R1-010D exit0, ClamAV1.4.6/daily28172, quality gate and FROZEN checks PASS. Details: post-l0-verification.md and verification-matrix.md.
 - Independent backend/PostgreSQL, application security and DevOps/contract reviews PASS; prior test mismatch fixed and re-reviewed. No unresolved HIGH/BLOCKER findings.
 - NEXT_ACTION: publish consolidated branch; verify hosted CI for exact final HEAD and record its URL/result in PR28 description and owner report. Remain Draft; stop for separate owner decision. No merge/production/CLEAN authorization.
+
+## Targeted migration gate fix — 2026-11-03
+
+- Owner authorized targeted migration approval fix only, no merge/Ready/production. Source HEAD b7e048a70b91680203a0917088d87f9fb406c0fc; main74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d.
+- Prisma7.10.1 experiment before selection: isolated default history and future ordinary deploy work before/after explicit scan apply. Original scan SQL moved byte-identically to prisma/scan-migrations. Default deploy cannot discover it; no failed history for missing approval.
+- Dedicated disposable-only helper checks explicit intent, exact allowlisted URL+SQL target before Prisma. No in-migration SQL guard added, preserving checksum. Privileged custom config/raw SQL is outside intent protection. No production authorization.
+- Default migrate dev now fails before shadow diff; automatic authoring requires separately reviewed plan. Reviewed ordinary future SQL deploy remains supported.
+- Dedicated gate runtime PASS, actual root package/direct deploy, absence of scan objects/procedures/trigger/roles/FAILED history, explicit apply/replay, persistent-volume restart and future migration; original checksum preserved.
+- Fresh R1-002B27/27; R1-004B migration and12/12HTTP; R1-010B34/34; R1-010C13; full R1-010Dexit0. FROZEN/OpenAPI/TS, lint/format/typecheck/unit/build PASS. Real ClamAV1.4.6/daily28172.
+- Independent migration_history_review, migration_security_review, migration_devops_review PASS after P2 fixes. No unresolved P0/P1/P2 in targeted patch. review-coverage.md explicitly records broader StageB review gaps.
+- Evidence: migration-gate-verification.md and docs/plans/R1-010D-migration-approval-gate.md. Published final SHA/hosted CI to be recorded in PR28 description/owner report. NEXT_ACTION: commit/push task files only, verify exact-head hosted CI, then stop for owner decision. No CI result inferred from earlier HEAD.
