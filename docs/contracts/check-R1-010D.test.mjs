@@ -6,6 +6,29 @@ const baseline = await loadR1_010D();
 
 test('R1-010D frozen contract, approval provenance and checksums agree', () => {
   assert.doesNotThrow(() => validateR1_010D(baseline));
+  assert.equal(baseline.manifest.version, '1.0.1');
+  const amendment = baseline.manifest.amendments.find(
+    (entry) => entry.id === 'R1-010D Contract Amendment 01',
+  );
+  assert.equal(
+    amendment.sourceHead,
+    '1be16abdb4732086cb2f721ab0f6eeae4e21c9a4',
+  );
+  assert.match(amendment.rule, /CLEAN alone never authorizes download/);
+});
+
+test('L0 preserves scan finalization but denies every staff download before storage', () => {
+  assert.match(baseline.contract, /successful scan may continue to set/);
+  assert.match(baseline.contract, /including historical CLEAN/);
+  assert.match(
+    baseline.contract,
+    /No successful-download AuditEvent is created/,
+  );
+  assert.match(
+    baseline.contract,
+    /private lease-bound scanner stream is not a staff download/,
+  );
+  assert.match(baseline.contract, /SCAN-21/);
 });
 
 test('checker rejects drift in the frozen contract checksum', () => {

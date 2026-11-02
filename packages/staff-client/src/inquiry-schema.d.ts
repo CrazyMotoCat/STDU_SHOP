@@ -191,7 +191,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Download one authorized CLEAN source */
+        /**
+         * Deny source download until exact-original eligibility is implemented
+         * @description Requires a current staff session, both document permissions and inquiry scope. CLEAN alone is not authorization. Until separately approved and implemented eligibility is available for this exact original, the operation returns the safe FILE_NOT_ACCESSIBLE response after document ownership checks and before opening storage or sending bytes. No successful-download audit is written. A future positive path requires a separate owner-approved contract amendment.
+         */
         get: operations["downloadStaffInquiryDocument"];
         put?: never;
         post?: never;
@@ -591,6 +594,15 @@ export interface components {
         };
         /** @description NOT_FOUND; does not reveal whether another inquiry or intent exists */
         NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description FILE_NOT_ACCESSIBLE; safely hides a missing, foreign or ineligible Inquiry original */
+        FileNotAccessible: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1012,25 +1024,9 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Authorized private stream; attachment disposition, no-store, nosniff, no public URL */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/octet-stream": string;
-                };
-            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description Document not CLEAN; body uses Error envelope */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
+            404: components["responses"]["FileNotAccessible"];
         };
     };
     createInquiryUploadIntent: {

@@ -1,7 +1,7 @@
 # R1-010 — Public Inquiry Domain Contract
 
 **Status:** FROZEN.
-**Version:** 1.0.2.
+**Version:** 1.0.3.
 **Task:** R1-010B-01.
 **Baseline:** origin/main after R1-010A merge `4b358f16a90998fdae2d2981601e9ccf3bfdf7f0`.
 **Approval provenance:** owner approved the complete package at source SHA `68fb60f87c7821044939dd5d95f8e67e6bb73685`; see [the frozen manifest](R1-010-frozen-manifest.json).
@@ -9,7 +9,7 @@
 
 ## Source and compatibility
 
-This contract covers REQ-01…04, CAT-01, CAT-03, CAT-07, R1-010 in the backlog, and REQB-01…45. It extends but does not amend FROZEN R1-002, R1-004, R1-006A or R1-007A, nor decisions 1–108. It uses the R1-010A proposal in PR #18 as read-only input. The compatibility matrix is recorded in the review report; the front-end proposal remains preview-only, owned by its author and is not edited here.
+This contract covers REQ-01…04, CAT-01, CAT-03, CAT-07, R1-010 in the backlog, and REQB-01…50. It extends but does not amend FROZEN R1-002, R1-004, R1-006A or R1-007A, nor decisions 1–108. It uses the R1-010A proposal in PR #18 as read-only input. The compatibility matrix is recorded in the review report; the front-end proposal remains preview-only, owned by its author and is not edited here.
 
 The application remains the existing modular monolith: Next.js calls NestJS; NestJS owns Inquiry authorization, validation, transactions and audit; PostgreSQL is the business source of truth; Redis backs bounded anti-abuse counters; the configured private StoragePort stores original bytes. R1-010 does not call FastAPI. Customer document parsing is R1-011.
 
@@ -46,7 +46,7 @@ The public client generates a 256-bit CSPRNG upload capability when an attachmen
 
 The file is streamed through NestJS into an opaque private quarantine key, bounded while reading, sniffed against the approved allowlist and hashed. The intent receipt's `maxBytes` is the minimum of the immutable declared size, profile per-file cap and byte quota remaining for the Inquiry and source/UTC day when the intent is reserved; the declared size is enforced exactly during streaming. A completed attachment is a separate immutable InquirySourceDocument. It is never stored as a staff-owned R1-002 FileObject or linked through generic FileLink: those frozen tables require staff ownership. Only the existing private StoragePort implementation is reusable. There are no static or public object URLs. Incomplete temporary bytes are removed after 24 hours by ownership-checked cleanup. A failed attachment does not roll back the Inquiry or prior attachments.
 
-New public files start QUARANTINED. Only the configured malware-scanner integration may move a file to CLEAN or REJECTED. Without an operational scanner, the contract fails closed: files remain unavailable for download and R1-011 extraction. Structural MIME checks are not a malware verdict. Download requires inquiry visibility plus both document permissions and CLEAN state, streams through NestJS with no-store/nosniff and attachment disposition, and never returns storage keys. OD-010-03 proposes MVP_SAFE as the default (10 MiB/file, five files, 25 MiB/Inquiry, 100 MiB/source/day) and an opt-in ENGINEERING_DOCUMENTS profile (50 MiB/file, 20 files, 250 MiB/Inquiry, 1 GiB/source/day). Both allow only PDF/CSV/XLSX. Without a real scanner, neither profile permits staff download. DOCX, DWG/DXF and archives remain excluded pending separate content-validation and safe-handling review.
+New public files start QUARANTINED. Only the configured malware-scanner integration may move a file to CLEAN or REJECTED. Without an operational scanner, the contract fails closed: files remain unavailable for download and R1-011 extraction. Structural MIME checks are not a malware verdict. Staff download requires a current staff session, inquiry visibility, both document permissions and separately approved eligibility for the exact original; CLEAN alone is insufficient. Until eligibility is approved and implemented, every staff original download, including historical CLEAN, returns the existing safe 404 FILE_NOT_ACCESSIBLE after authorization and document relation checks but before opening storage or sending bytes. This denial creates no successful-download audit and preserves originals, metadata, safety states and prior audit. OD-010-03 proposes MVP_SAFE as the default (10 MiB/file, five files, 25 MiB/Inquiry, 100 MiB/source/day) and an opt-in ENGINEERING_DOCUMENTS profile (50 MiB/file, 20 files, 250 MiB/Inquiry, 1 GiB/source/day). Both allow only PDF/CSV/XLSX. Without a real scanner, neither profile permits staff download; a future positive download path also requires a separately approved eligibility amendment. DOCX, DWG/DXF and archives remain excluded pending separate content-validation and safe-handling review.
 
 ## Anti-abuse and privacy defaults
 

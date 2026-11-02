@@ -1,4 +1,4 @@
-# R1-010 Inquiry State Machine — FROZEN 1.0.2
+# R1-010 Inquiry State Machine — FROZEN 1.0.3
 
 ## States and transitions
 

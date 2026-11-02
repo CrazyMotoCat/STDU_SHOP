@@ -1,7 +1,7 @@
 {
   "contract": "R1-010 Public Inquiry Domain Contract",
   "status": "FROZEN",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "approval": {
     "approvedOn": "2026-10-26",
     "sourceHead": "68fb60f87c7821044939dd5d95f8e67e6bb73685",
@@ -30,22 +30,22 @@
     "docs/plans/R1-010B-implementation-plan.md": "173d7d2698ff9f5f1def1dbf15f641b575f517837ddddad4f1d4309ba200a942"
   },
   "frozenArtifactSha256": {
-    "docs/contracts/R1-010-attachment-security-policy.md": "e7e8439292ec8b7d3b855c5ce0c5f911c54abb6e50e70ffbde9649df9d515a85",
-    "docs/contracts/R1-010-inquiries.openapi.json": "43de9c50e5f826d71258bb20c213d426387fd7fb1a79b77bdefd4ad2b88ba580",
-    "docs/contracts/R1-010-inquiry-audit-registry.json": "29edb473b41de1add652a896ae33a777c40ca790082e31c3bd8ccbb394d55d3a",
-    "docs/contracts/R1-010-inquiry-data-model.json": "769d57867387e79951a771fdd4aa9307d0fda06aa47145b71121315c0ad1a9d9",
-    "docs/contracts/R1-010-inquiry-domain-contract.md": "d8c8c4c6af4f1f0e35797f32e3bac65da8c89cb8a5ae58939616cfde414dd934",
-    "docs/contracts/R1-010-inquiry-rbac-matrix.json": "67b15000b819046d4c09755a269aff5dd8cb6c1bbb27f9b5bcb9e0c1b085f31c",
-    "docs/contracts/R1-010-inquiry-rbac-matrix.md": "5849125473cc04889d43ee8fb10045a5d0c89c5a2d4d8e361edc577416ae2a2b",
-    "docs/contracts/R1-010-inquiry-state-machine.md": "8239eabf71b70f51246800f4fafc6a3050d552422d1501288e40fdbb27f25db1",
-    "docs/contracts/R1-010-inquiry-upload-profiles.json": "0b1a84130eca3c04dd5eab0c956479c2530d68ebeaed09e2b9cdb90966149bc3",
-    "docs/contracts/R1-010-test-matrix.md": "ca5d83e5478e9927b71edb75330ddcc58e27306d1329c285d4f54d58fd1f56f6",
-    "docs/plans/R1-010-owner-decisions.md": "eb0ec75b4ddfaee7fb492931a40df9cca50c62b2af01f1daccf716b2eae90b0c",
-    "docs/plans/R1-010B-implementation-plan.md": "2ade5afb51784e52d46368d2fe79b0ee5874882bdfdafc181bc8458ae164f52e"
+    "docs/contracts/R1-010-attachment-security-policy.md": "385438f6f8d6f671a4b73718c6d092ad395d69484d34b3689bf708f3c9889849",
+    "docs/contracts/R1-010-inquiries.openapi.json": "4a2f48823a2699f6a5995a3ff01da329b7fc3f7905b664dcf6b43bb1f5542792",
+    "docs/contracts/R1-010-inquiry-audit-registry.json": "c8686adb447651c2d96cc2a1e36b5e3daf9138ea734204d70047472f67cf4f2c",
+    "docs/contracts/R1-010-inquiry-data-model.json": "3f5129a463e4c51c8bf6fe6e2ed3207643b988df6896cbd85f63387ac2e7f50b",
+    "docs/contracts/R1-010-inquiry-domain-contract.md": "89b4b30dea94c52ea3f246b49b6ef7edff71efa513572944b3a7ec98ea31ddbf",
+    "docs/contracts/R1-010-inquiry-rbac-matrix.json": "c0d666b1afc2b6d51ad4afaee8913ad3744067af31a3b93c45ecd1eddca5761f",
+    "docs/contracts/R1-010-inquiry-rbac-matrix.md": "bb6e631d0ec6e90863cac53e90d9d12ad2593f3cd8cfb0dcd152caa16197b18a",
+    "docs/contracts/R1-010-inquiry-state-machine.md": "647e12d9bed6f8aca624f1e6148468b5c93e7feecc7c460d10f61dc76c564efc",
+    "docs/contracts/R1-010-inquiry-upload-profiles.json": "7917732cbc8e52d751f5e14d45acadd3071ff8d7c099a09de0a17e873e419d84",
+    "docs/contracts/R1-010-test-matrix.md": "474b1cc588d0703edbe4850439828419f4c6f0e90c04ecaf10bf52f26c55bd09",
+    "docs/plans/R1-010-owner-decisions.md": "72319f7706f3755e9e98b56fbfdc2c32f25d06b946f2831a3caab58e2b10f8c8",
+    "docs/plans/R1-010B-implementation-plan.md": "f830e1e85b6c6018d7cfc49bde45e53a18a442bc4ac2c540ef18c89050bb2df2"
   },
   "finalization": {
     "contractContentChanged": true,
-    "description": "The owner-approved 1.0.0 package is preserved as baseVersion. Contract Amendment 01 and its owner-approved 1.0.2 refinement correct capability-only upload route resolution, permit only one-way capability revocation through the authorized pre-quote close transaction, and set the OpenAPI maxBytes ceiling to 50 MiB. MVP_SAFE remains capped at 10 MiB/file and ENGINEERING_DOCUMENTS at 50 MiB/file; each receipt is further bounded by its declared size and remaining Inquiry/source-day quotas. All other approved business, security, RBAC and lifecycle rules are unchanged."
+    "description": "Owner-approved R1-010 Contract Amendment 02 adds L0 default-deny staff original downloads. CLEAN alone is insufficient; current authorization and document binding are checked before a safe 404, storage is never opened, and no success download audit is emitted until separate exact-original eligibility is approved and implemented. Existing bytes, metadata, safety state and historical audit are preserved. Amendment 01 and all OD-010-01…05 rules remain unchanged."
   },
   "baseVersion": "1.0.0",
   "amendments": [
@@ -70,6 +70,27 @@
         "RBAC, lifecycle, personal-data rules, upload formats and limits, quarantine and launch gates"
       ],
       "scope": "No production migration, deployment, real permission grant or public launch authorization."
+    },
+    {
+      "id": "R1-010 Contract Amendment 02",
+      "version": "1.0.3",
+      "approvedOn": "2026-11-02",
+      "sourceHead": "1be16abdb4732086cb2f721ab0f6eeae4e21c9a4",
+      "sourceArtifact": "docs/plans/R1-010D-L0-implementation-amendment-draft.md",
+      "approvedSourceSha256": "a6f2f03ddb251907c603329062c30a0717d4c489eb88de84394b30fc4fe1a27a",
+      "changes": [
+        "CLEAN scan state no longer authorizes staff original download",
+        "Until separately approved and implemented exact-original eligibility exists, all staff downloads including historical CLEAN return safe 404 after authorization and document relation checks, before storage open or bytes",
+        "No success download AuditEvent; preserve original bytes, metadata, safety state and historical audit",
+        "Retain current 401/403, FILE_NOT_ACCESSIBLE and infrastructure error handling"
+      ],
+      "preserves": [
+        "No schema, RBAC grant, route, worker, scanner, storage or public DTO changes",
+        "No positive download path",
+        "OD-010-01…05 and decisions 1–108 unchanged"
+      ],
+      "scope": "No production inventory, migration, deployment, external gate change, mixed-version/old-binary operation or CLEAN enablement."
     }
-  ]
+  ],
+  "alignmentTraceabilitySha256": "82b3671a2e6a3d21b633aac1570bf56fd8f0c219df4a493bd2e13ac97016403a"
 }
