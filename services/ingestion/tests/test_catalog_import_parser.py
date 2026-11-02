@@ -25,8 +25,23 @@ def _xlsx_fixture(*, macro: bool = False) -> bytes:
             "[Content_Types].xml",
             (
                 '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                '<Default Extension="rels" '
+                'ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                '<Default Extension="xml" ContentType="application/xml"/>'
                 f'<Override PartName="/xl/workbook.xml" ContentType="{content_type}"/>'
+                '<Override PartName="/xl/worksheets/sheet1.xml" '
+                'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
                 "</Types>"
+            ),
+        )
+        archive.writestr(
+            "_rels/.rels",
+            (
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" '
+                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                'officeDocument" Target="xl/workbook.xml"/>'
+                "</Relationships>"
             ),
         )
         archive.writestr(
@@ -46,6 +61,9 @@ def _xlsx_fixture(*, macro: bool = False) -> bytes:
                 'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
                 'worksheet" '
                 'Target="worksheets/sheet1.xml"/>'
+                '<Relationship Id="rId2" '
+                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+                'styles" Target="styles.xml"/>'
                 "</Relationships>"
             ),
         )
@@ -64,7 +82,8 @@ def _xlsx_fixture(*, macro: bool = False) -> bytes:
                 '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
                 '<sheetData><row r="3"><c r="A3" t="inlineStr"><is><t>Part</t>'
                 '</is></c><c r="B3" s="1"><v>17</v></c><c r="C3"><f>1+1</f>'
-                "<v>2</v></c></row></sheetData></worksheet>"
+                '<v>2</v></c><c r="D3" t="b"><v>1</v></c>'
+                '<c r="E3" t="b"><v>0</v></c></row></sheetData></worksheet>'
             ),
         )
     return output.getvalue()
@@ -82,6 +101,162 @@ def test_csv_preserves_cp1251_and_logical_rows() -> None:
     assert records[3]["cells"][1]["rawValue"] == "00017"
 
 
+def test_csv_auto_detects_delimiter_outside_quoted_multiline_fields() -> None:
+    content = (
+        "\ufeffName;SKU;Description\r\n"
+        'Relay;RX-1;"comma, comma, comma, comma, comma, comma, comma, comma, comma, comma; '
+        'semicolon; escaped quote ""inside""\r\n'
+        'continued"\r\n'
+        ";;empty fields\r\n"
+        "Short final record"
+    ).encode("utf-8")
+
+    records = list(parse_csv_records(content, CsvOptions("UTF-8", None)))
+    rows = [record for record in records if record["type"] == "ROW"]
+
+    assert len(rows) == 4
+    assert [cell["rawValue"] for cell in rows[0]["cells"]] == [
+        "Name",
+        "SKU",
+        "Description",
+    ]
+    assert [cell["rawValue"] for cell in rows[1]["cells"]] == [
+        "Relay",
+        "RX-1",
+        "comma, comma, comma, comma, comma, comma, comma, comma, comma, comma; "
+        "semicolon; escaped quote "
+        '"inside"\r\ncontinued',
+    ]
+    assert [cell["rawValue"] for cell in rows[2]["cells"]] == ["", "", "empty fields"]
+    assert [cell["rawValue"] for cell in rows[3]["cells"]] == ["Short final record"]
+
+
+def test_csv_auto_detection_preserves_windows_1251_and_rejects_ambiguous_shapes() -> None:
+    rows = [
+        record
+        for record in parse_csv_records(
+            "Имя;Артикул\r\nРеле;RX-1\r\n".encode("cp1251"),
+            CsvOptions("WINDOWS-1251", None),
+        )
+        if record["type"] == "ROW"
+    ]
+    assert rows[1]["cells"][0]["rawValue"] == "Реле"
+
+    for content in (b"one column only\nsecond row\n", b"Name,Part;Price\nRelay,1;100\n"):
+        with pytest.raises(ImportParseError) as error:
+            list(parse_csv_records(content, CsvOptions("UTF-8", None)))
+        assert error.value.code == "ENCODING_REQUIRED"
+
+
+def test_csv_auto_detection_uses_consistent_record_widths_for_unquoted_punctuation() -> None:
+    records = list(
+        parse_csv_records(
+            b"Name;SKU;Description\n"
+            b"Relay;RX-1;pressure, 230V, indoor, assembly, IP65, terminal, panel\n",
+            CsvOptions("UTF-8", None),
+        )
+    )
+    rows = [record for record in records if record["type"] == "ROW"]
+    assert [cell["rawValue"] for cell in rows[0]["cells"]] == [
+        "Name",
+        "SKU",
+        "Description",
+    ]
+    assert [cell["rawValue"] for cell in rows[1]["cells"]] == [
+        "Relay",
+        "RX-1",
+        "pressure, 230V, indoor, assembly, IP65, terminal, panel",
+    ]
+
+
+def test_csv_auto_detection_matches_unicode_whitespace_record_skipping() -> None:
+    content = (
+        "Name;SKU;Description\nRelay;RX-1;actual product\n"
+        + '"\u2003";"\u2003";"\u2003"\n'
+        + '"\u0085";"\u0085";"\u0085"\n'
+        + '"\u00a0";"\u00a0";"\u00a0"\n'
+    ).encode("utf-8")
+    records = list(parse_csv_records(content, CsvOptions("UTF-8", None)))
+    rows = [record for record in records if record["type"] == "ROW"]
+
+    assert len(rows) == 2
+    assert [cell["rawValue"] for cell in rows[1]["cells"]] == [
+        "Relay",
+        "RX-1",
+        "actual product",
+    ]
+    assert records[-1]["type"] == "COMPLETE"
+    assert records[-1]["sourceParseIssues"] == []
+
+
+def test_csv_auto_detection_fails_closed_on_unicode_whitespace_mixed_dialect_rows() -> None:
+    content = (
+        "Name;SKU;Description\nRelay;RX-1;actual product\n" + '"\u0085","\u0085","\u0085"\n' * 3
+    ).encode("utf-8")
+    records = list(parse_csv_records(content, CsvOptions("UTF-8", None)))
+    rows = [record for record in records if record["type"] == "ROW"]
+
+    assert len(rows) == 2
+    assert [cell["rawValue"] for cell in rows[1]["cells"]] == [
+        "Relay",
+        "RX-1",
+        "actual product",
+    ]
+    assert records[-1]["type"] == "PARTIAL"
+    assert records[-1]["sourceParseIssues"][0]["code"] == "MALFORMED_CSV"
+
+
+def test_csv_auto_detection_caps_sampling_at_25_nonempty_logical_records() -> None:
+    content = (
+        "Name;SKU\n"
+        + "".join(f"Relay {index};SKU-{index}\n" for index in range(24))
+        + "".join(f"Late {index},SKU-{index}\n" for index in range(30))
+    ).encode("utf-8")
+    records = list(parse_csv_records(content, CsvOptions("UTF-8", None)))
+    rows = [record for record in records if record["type"] == "ROW"]
+
+    assert len(rows) == 55
+    assert [cell["rawValue"] for cell in rows[0]["cells"]] == ["Name", "SKU"]
+    assert [cell["rawValue"] for cell in rows[1]["cells"]] == [
+        "Relay 0",
+        "SKU-0",
+    ]
+    assert [cell["rawValue"] for cell in rows[-1]["cells"]] == ["Late 29,SKU-29"]
+    assert records[-1]["type"] == "COMPLETE"
+    assert records[-1]["sourceParseIssues"] == []
+
+
+def test_csv_auto_detection_keeps_malformed_quoted_tail_as_partial() -> None:
+    for content in (
+        b'Name;SKU\nRelay;"unterminated',
+        b'Name;SKU\nRelay;"closed"extra\n',
+    ):
+        records = list(
+            parse_csv_records(
+                content,
+                CsvOptions("UTF-8", None),
+            )
+        )
+        assert records[-1]["type"] == "PARTIAL"
+        assert records[-1]["sourceParseIssues"][0]["code"] == "MALFORMED_CSV"
+
+
+def test_csv_explicit_delimiter_overrides_inference() -> None:
+    rows = [
+        record
+        for record in parse_csv_records(
+            b"Name;SKU\nRelay, RX-1\n",
+            CsvOptions("UTF-8", ";"),
+        )
+        if record["type"] == "ROW"
+    ]
+    assert [cell["rawValue"] for cell in rows[1]["cells"]] == ["Relay, RX-1"]
+
+    with pytest.raises(ImportParseError) as error:
+        list(parse_csv_records(b"Name;SKU\nRelay;1\n", CsvOptions("UTF-8", "")))
+    assert error.value.code == "VALIDATION_ERROR"
+
+
 def test_xlsx_preserves_formula_and_zero_mask_without_calculating() -> None:
     records = list(parse_xlsx_records(_xlsx_fixture()))
     row = records[2]
@@ -95,6 +270,18 @@ def test_xlsx_preserves_formula_and_zero_mask_without_calculating() -> None:
     }
     assert row["cells"][2]["cellType"] == "FORMULA"
     assert row["cells"][2]["rawValue"] == "=1+1"
+    assert row["cells"][3] == {
+        "columnIndex": 3,
+        "cellType": "BOOLEAN",
+        "rawValue": "1",
+        "numberFormat": "General",
+    }
+    assert row["cells"][4] == {
+        "columnIndex": 4,
+        "cellType": "BOOLEAN",
+        "rawValue": "0",
+        "numberFormat": "General",
+    }
 
 
 def test_xlsx_macro_enabled_content_is_rejected() -> None:
