@@ -1927,6 +1927,11 @@
   margin-top: 1.5rem;
 }
 
+.detailIdentity,
+.detailMedia {
+  min-width: 0;
+}
+
 .detailIdentity {
   grid-area: identity;
 }
@@ -1944,6 +1949,7 @@
 }
 
 .detailMedia .productImage {
+  width: 100%;
   min-height: 19rem;
   aspect-ratio: 4 / 3;
   border-radius: 0.6rem;

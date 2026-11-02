@@ -395,7 +395,7 @@ async function main() {
             fullPage: true,
             animations: 'disabled',
           });
-          for (const width of [1024, 768, 390]) {
+          for (const width of [1024, 768, 375, 320]) {
             await captureAndCheck(
               page,
               `${baseUrl}/catalog`,
@@ -471,7 +471,7 @@ async function main() {
             1440,
             1000,
           );
-          for (const width of [1024, 768, 390]) {
+          for (const width of [1024, 768, 375, 320]) {
             await captureAndCheck(
               page,
               `${baseUrl}/catalog/category/breakers`,
@@ -569,7 +569,7 @@ async function main() {
           await page.waitForURL(/view=table/);
 
           await captureAndCheck(page, page.url(), 'category-table', 1440, 1000);
-          for (const width of [1024, 768, 390]) {
+          for (const width of [1024, 768, 375, 320]) {
             await captureAndCheck(
               page,
               page.url(),
@@ -590,6 +590,17 @@ async function main() {
               mobileTableScroll.tabIndex === 0,
             `Mobile table must keep its own keyboard-scrollable viewport: ${JSON.stringify(mobileTableScroll)}`,
           );
+          for (const view of ['list', 'table']) {
+            for (const width of [1440, 1024, 768, 375, 320]) {
+              await captureAndCheck(
+                page,
+                `${baseUrl}/catalog?view=${view}`,
+                `catalog-${view}`,
+                width,
+                900,
+              );
+            }
+          }
           await page.setViewportSize({ width: 1440, height: 1000 });
           await page.goto(`${baseUrl}/catalog/product/breaker-acb-100`, {
             waitUntil: 'networkidle',
@@ -633,7 +644,7 @@ async function main() {
             fullPage: true,
             animations: 'disabled',
           });
-          for (const width of [1024, 768, 390]) {
+          for (const width of [1024, 768, 375, 320]) {
             await captureAndCheck(
               page,
               `${baseUrl}/catalog/product/breaker-acb-100`,
@@ -678,7 +689,7 @@ async function main() {
               mobileProductOrder.titleTop < mobileProductOrder.mediaTop,
             `Mobile product identity must precede its media placeholder: ${JSON.stringify(mobileProductOrder)}`,
           );
-          for (const width of [1440, 1024, 768, 390]) {
+          for (const width of [1440, 1024, 768, 375, 320]) {
             await captureAndCheck(
               page,
               `${baseUrl}/catalog/product/${longSampleProduct.slug}`,
@@ -707,6 +718,20 @@ async function main() {
             });
           assert.equal(reducedAnimation, 'none');
           await page.emulateMedia({ reducedMotion: 'no-preference' });
+          await captureAndCheck(
+            page,
+            `${baseUrl}/catalog?q=no-such-item`,
+            'catalog-empty',
+            375,
+            812,
+          );
+          await captureAndCheck(
+            page,
+            `${baseUrl}/catalog?q=fixture-api-outage`,
+            'catalog-api-error',
+            375,
+            812,
+          );
           const missingProduct = await page.goto(
             `${baseUrl}/catalog/product/not-published`,
             { waitUntil: 'domcontentloaded' },
