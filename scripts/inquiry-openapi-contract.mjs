@@ -345,7 +345,7 @@ if (JSON.stringify(expected) !== JSON.stringify(actual)) {
       process.exitCode = 1;
     } else {
       console.log(
-        `PASS implemented Inquiry OpenAPI matches FROZEN Amendment 01 (${actual.length} operations; strict transitions, raw upload, ETags, capability-only routes).`,
+        `PASS implemented Inquiry OpenAPI matches FROZEN Amendments 01-02, including the L0 download policy (${actual.length} operations; strict transitions, raw upload, ETags, capability-only routes).`,
       );
     }
   }
