@@ -1,6 +1,6 @@
 # Q0-04 verification matrix
 
-Initial investigation base: `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`. On 2026-11-02, a fresh fetch found `origin/main` at `e9af3a7dbe0eee29bb3cacceb3d608662502b0b3`, seven commits ahead in inquiry-download/security files. Those commits do not touch Q0-04 source/test paths. Branch synchronization and exact post-sync reruns remain pending.
+Initial investigation base: `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`. The branch was rebased onto `e9af3a7dbe0eee29bb3cacceb3d608662502b0b3`; the seven intervening commits affected inquiry-download/security files and did not overlap Q0-04 paths. Local gates and compatibility passed on `0c394dee0e70ea08ab3112384fb0426fa4157f97`. A new fetch found `origin/main` at `74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d`; its only change since `e9af3a7` is `.agent/tasks/R1-010D/state.md`. Rebase this task onto `74dd704` and rerun checks before publication.
 
 | Gate | Evidence | Result |
 |---|---|---|
@@ -13,7 +13,7 @@ Initial investigation base: `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`. On 2026-
 | Frozen contracts | `pnpm contract:check` | PASS — frozen OpenAPI equality and generated client reproducibility |
 | Diff hygiene | `git diff --check` | PASS |
 | Independent read-only reviews | Python/Data Parsing; Nest/Data Integrity; PostgreSQL/transactions; Security | PASS — no unresolved P0/P1/P2 findings; final PostgreSQL review reran disposable R1-006B |
-| Q0-03 compatibility | Temporary combined worktree at Q0-03 Draft PR head, then Q0-04 commit | NOT RUN — do after the Q0-04 commit and base sync |
+| Q0-03 compatibility | Detached temp worktree at Q0-03 head `3f8b9b569ab932a7cac223405cc7f36408e0a50a` plus Q0-04 commit `0c394dee0e70ea08ab3112384fb0426fa4157f97`; Python path explicitly pointed at combined worktree source | PASS — 66 Python tests and `pnpm test:r1-006b` passed; sentinel preserved; no cherry-pick conflict |
 | Hosted CI | Exact final Draft PR head SHA | PENDING — push/Draft PR not created yet |
 
-All local results above apply to the current implementation before rebasing onto the newly fetched `origin/main`. Repeat required checks after synchronization. No production database, named volume, or production service was used.
+No production database, named volume, or production service was used. Hosted CI remains pending until the branch is pushed and the Draft PR is created. Compatibility worktree cleanup hit Windows `Filename too long`; its Git registration was removed, but an unregistered temp directory remains because the automatic command review rejected manual junction removal.

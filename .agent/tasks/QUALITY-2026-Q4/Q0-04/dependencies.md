@@ -2,8 +2,8 @@
 
 ## Base and ownership
 
-- Dedicated branch `codex/quality-q0-04-csv-boolean-sku`, created from freshly fetched `origin/main` `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`. A later fresh fetch found `origin/main` at `e9af3a7dbe0eee29bb3cacceb3d608662502b0b3`; the seven intervening commits affect inquiry download/security paths and do not overlap Q0-04 implementation files. Rebase onto this current base before publication and rerun checks.
-- Q0-03 PR #35 remains a separate Draft PR. No Q0-03 commit is cherry-picked into this branch; compatibility is checked independently against its published head after its exact-head CI passed.
+- Dedicated branch `codex/quality-q0-04-csv-boolean-sku`, initially created from freshly fetched `origin/main` `336ec8ed82224748e8d2b76bd9a049ee7fb38fbb`, then rebased onto fresh `origin/main` `e9af3a7dbe0eee29bb3cacceb3d608662502b0b3`. The seven intervening commits affected inquiry download/security paths and did not overlap Q0-04 implementation files. A later fresh fetch found `origin/main` `74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d`; its only new change is R1-010D task state. Rebase onto that latest base before publication.
+- Q0-03 PR #35 remains a separate Draft PR. No Q0-03 commit is cherry-picked into this branch; a temporary detached worktree at its published head plus the Q0-04 commit passed 66 Python tests and the disposable R1-006B runtime.
 - Agent 2 owns the independent public catalog / Product Media work; do not edit its worktrees or files.
 
 ## Frozen contracts and behavior
