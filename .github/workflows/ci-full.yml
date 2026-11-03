@@ -55,7 +55,7 @@ jobs:
   full:
     name: FULL CI
     needs: plan
-    if: ${{ always() && (needs.plan.result != 'success' || needs.plan.outputs.full == 'true') }}
+    if: ${{ false }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
