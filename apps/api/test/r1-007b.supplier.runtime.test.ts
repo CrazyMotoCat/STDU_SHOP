@@ -1,7 +1,19 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
+import {
+  createServer as createHttpServer,
+  request as httpRequest,
+  type Server as HttpServer,
+} from 'node:http';
+import https from 'node:https';
+import { resolve } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
+import { chromium, type Browser, type Page, type Route } from 'playwright';
+import { generate as generateCertificate } from 'selfsigned';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApiApp } from '../src/app.factory.js';
 import { IdentityCrypto } from '../src/identity/crypto.js';
@@ -29,7 +41,11 @@ const runtimeEnabled = Boolean(
   process.env.STAFF_DATABASE_URL &&
   process.env.REDIS_URL,
 );
-const origin = 'http://127.0.0.1:3000';
+const repoRoot = resolve(process.cwd());
+const webRoot = resolve(repoRoot, 'apps/web');
+const require = createRequire(resolve(repoRoot, 'package.json'));
+const nextBin = require.resolve('next/dist/bin/next', { paths: [webRoot] });
+let origin = '';
 const supplierPermissions = [
   'suppliers.read',
   'suppliers.write',
@@ -126,6 +142,64 @@ class StaffAgent {
     });
   }
 
+  async writeAndDropHttp201(
+    method: string,
+    path: string,
+    body: unknown,
+    idempotencyKey: string,
+  ) {
+    const csrf = await this.csrf();
+    const api = new URL(this.baseUrl);
+    let droppedHttp201 = false;
+    const proxy = createHttpServer((incoming, outgoing) => {
+      const upstream = httpRequest(
+        {
+          hostname: api.hostname,
+          port: Number(api.port),
+          path: incoming.url,
+          method: incoming.method,
+          headers: { ...incoming.headers, host: api.host },
+        },
+        (response) => {
+          if (response.statusCode === 201) {
+            response.once('end', () => {
+              droppedHttp201 = true;
+              outgoing.destroy();
+            });
+            response.resume();
+            return;
+          }
+          outgoing.writeHead(response.statusCode ?? 502, response.headers);
+          response.pipe(outgoing);
+        },
+      );
+      upstream.once('error', () => outgoing.destroy());
+      incoming.pipe(upstream);
+    });
+    await new Promise<void>((resolve, reject) => {
+      proxy.once('error', reject);
+      proxy.listen(0, '127.0.0.1', resolve);
+    });
+    const address = proxy.address();
+    if (!address || typeof address === 'string')
+      throw new Error('Could not start the lost-response test proxy.');
+
+    const originalBaseUrl = this.baseUrl;
+    this.baseUrl = `http://127.0.0.1:${address.port}`;
+    try {
+      try {
+        await this.request(method, path, body, { csrf, idempotencyKey });
+      } catch (error) {
+        if (droppedHttp201 && error instanceof TypeError) return;
+        throw error;
+      }
+      throw new Error('The test proxy did not drop the HTTP 201 response.');
+    } finally {
+      this.baseUrl = originalBaseUrl;
+      proxy.closeAllConnections();
+      await new Promise<void>((resolve) => proxy.close(() => resolve()));
+    }
+  }
   async login(email: string, password: string) {
     return this.request(
       'POST',
@@ -140,6 +214,12 @@ let app: Awaited<ReturnType<typeof createApiApp>> | undefined;
 let db: PrismaClient | undefined;
 let migrationDb: PrismaClient | undefined;
 let apiUrl = '';
+let webPort = 0;
+let proxyPort = 0;
+let browser: Browser | undefined;
+let nextProcess: ChildProcess | undefined;
+let proxy: HttpServer | undefined;
+let nextLogs = '';
 let actor: Actor;
 let readerWithoutSupplierRead: Actor;
 
@@ -173,6 +253,336 @@ async function listenPort() {
     server.close((error) => (error ? reject(error) : resolve())),
   );
   return port;
+}
+
+function startStaffWeb() {
+  nextProcess = spawn(
+    process.execPath,
+    [nextBin, 'dev', '--hostname', '127.0.0.1', '--port', String(webPort)],
+    {
+      cwd: webRoot,
+      env: {
+        ...process.env,
+        NEXT_PUBLIC_API_BASE_URL: '/staff-api',
+        NEXT_TELEMETRY_DISABLED: '1',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      detached: process.platform !== 'win32',
+    },
+  );
+  nextProcess.stdout?.on('data', (chunk) => {
+    nextLogs = `${nextLogs}${chunk}`.slice(-12_000);
+  });
+  nextProcess.stderr?.on('data', (chunk) => {
+    nextLogs = `${nextLogs}${chunk}`.slice(-12_000);
+  });
+}
+
+async function waitForStaffWeb() {
+  const deadline = Date.now() + 90_000;
+  let lastError: unknown;
+  while (Date.now() < deadline) {
+    if (nextProcess?.exitCode !== null && nextProcess?.exitCode !== undefined)
+      throw new Error(`Owned Next dev server exited early: ${nextLogs}`);
+    try {
+      if ((await httpsGet(`${origin}/staff/suppliers`)) === 200) return;
+      lastError = new Error('The HTTPS test proxy did not return HTTP 200.');
+    } catch (error) {
+      lastError = error;
+    }
+    await delay(100);
+  }
+  throw new Error(
+    `Owned Next dev UI did not become ready: ${String(lastError)}\n${nextLogs}`,
+  );
+}
+
+function startProxy(key: string, cert: string) {
+  proxy = https.createServer({ key, cert }, (incoming, outgoing) => {
+    const isApi = incoming.url?.startsWith('/staff-api/') ?? false;
+    const targetPort = isApi ? Number(new URL(apiUrl).port) : webPort;
+    const targetPath = isApi
+      ? incoming.url!.slice('/staff-api'.length)
+      : (incoming.url ?? '/');
+    const upstream = httpRequest(
+      {
+        hostname: '127.0.0.1',
+        port: targetPort,
+        method: incoming.method,
+        path: targetPath,
+        headers: {
+          ...incoming.headers,
+          host: `127.0.0.1:${targetPort}`,
+          'x-forwarded-host': `127.0.0.1:${proxyPort}`,
+          'x-forwarded-proto': 'https',
+        },
+      },
+      (upstreamResponse) => {
+        outgoing.writeHead(
+          upstreamResponse.statusCode ?? 502,
+          upstreamResponse.headers,
+        );
+        upstreamResponse.pipe(outgoing);
+      },
+    );
+    upstream.once('error', () => {
+      if (!outgoing.headersSent)
+        outgoing.writeHead(502, { 'content-type': 'text/plain' });
+      outgoing.end('Disposable test proxy could not reach its owned service.');
+    });
+    incoming.pipe(upstream);
+  });
+  proxy.on('upgrade', (incoming, socket, head) => {
+    const upstream = httpRequest({
+      hostname: '127.0.0.1',
+      port: webPort,
+      method: 'GET',
+      path: incoming.url,
+      headers: incoming.headers,
+    });
+    upstream.on('upgrade', (response, upstreamSocket, upstreamHead) => {
+      socket.write('HTTP/1.1 101 Switching Protocols\r\n');
+      for (const [name, value] of Object.entries(response.headers)) {
+        const values = Array.isArray(value) ? value.join(', ') : value;
+        if (values) socket.write(`${name}: ${values}\r\n`);
+      }
+      socket.write('\r\n');
+      if (upstreamHead.length) socket.write(upstreamHead);
+      if (head.length) upstreamSocket.write(head);
+      upstreamSocket.pipe(socket).pipe(upstreamSocket);
+    });
+    upstream.once('error', () => socket.destroy());
+    upstream.end();
+  });
+}
+
+function httpsGet(url: string): Promise<number> {
+  return new Promise((accept, reject) => {
+    const request = https.get(
+      url,
+      { rejectUnauthorized: false, timeout: 2_000 },
+      (response) => {
+        response.resume();
+        accept(response.statusCode ?? 500);
+      },
+    );
+    request.on('timeout', () =>
+      request.destroy(new Error('HTTPS test server timeout')),
+    );
+    request.on('error', reject);
+  });
+}
+
+async function stopStaffWeb() {
+  const child = nextProcess;
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const closed = new Promise<boolean>((accept) =>
+    child.once('close', () => accept(true)),
+  );
+  const killTree = async (force: boolean) => {
+    if (!child.pid) throw new Error('Owned Next process has no PID.');
+    if (process.platform === 'win32') {
+      const killer = spawn(
+        'taskkill',
+        ['/PID', String(child.pid), '/T', '/F'],
+        { stdio: 'ignore', windowsHide: true },
+      );
+      await new Promise<void>((accept, reject) => {
+        killer.once('error', reject);
+        killer.once('close', () => accept());
+      });
+      return;
+    }
+    try {
+      process.kill(-child.pid, force ? 'SIGKILL' : 'SIGTERM');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+    }
+  };
+
+  await killTree(false);
+  if (await Promise.race([closed, delay(8_000).then(() => false)])) return;
+  await killTree(true);
+  if (!(await Promise.race([closed, delay(5_000).then(() => false)])))
+    throw new Error(`Owned Next process tree did not stop.\n${nextLogs}`);
+}
+
+type BrowserCreateAttempt = {
+  idempotencyKey: string | undefined;
+  requestBody: string;
+  origin: string;
+  cookieNames: string[];
+  hasCsrfHeader: boolean;
+};
+type BrowserDroppedCreate = BrowserCreateAttempt & {
+  status: number;
+  responseBody: JsonRecord;
+};
+type BrowserCreateObserver = {
+  attempts: BrowserCreateAttempt[];
+  dropNextCreate: boolean;
+  resolveDropped(value: BrowserDroppedCreate): void;
+  dropped: Promise<BrowserDroppedCreate>;
+};
+
+async function observeSupplierCreates(page: Page) {
+  let resolveDropped!: (value: BrowserDroppedCreate) => void;
+  const dropped = new Promise<BrowserDroppedCreate>((accept) => {
+    resolveDropped = accept;
+  });
+  const observer: BrowserCreateObserver = {
+    attempts: [],
+    dropNextCreate: true,
+    resolveDropped,
+    dropped,
+  };
+  const supplierCreateUrl = /\/staff-api\/v1\/staff\/suppliers(?:\?.*)?$/;
+  const handler = async (route: Route) => {
+    const request = route.request();
+    if (request.method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    const headers = await request.allHeaders();
+    const cookieHeader = headers.cookie ?? '';
+    const attempt: BrowserCreateAttempt = {
+      idempotencyKey: headers['idempotency-key'],
+      requestBody: request.postData() ?? '',
+      origin: headers.origin ?? '',
+      cookieNames: cookieHeader
+        .split(';')
+        .map((cookie) => cookie.trim().split('=', 1)[0] ?? '')
+        .filter(Boolean),
+      hasCsrfHeader: typeof headers['x-csrf-token'] === 'string',
+    };
+    observer.attempts.push(attempt);
+    if (!observer.dropNextCreate) {
+      await route.continue();
+      return;
+    }
+
+    const upstreamResponse = await route.fetch({ headers });
+    const responseText = await upstreamResponse.text();
+    let responseBody: JsonRecord;
+    try {
+      responseBody = record(responseText ? JSON.parse(responseText) : {});
+    } catch {
+      responseBody = {};
+    }
+    observer.dropNextCreate = false;
+    await route.abort('connectionreset');
+    observer.resolveDropped({
+      ...attempt,
+      status: upstreamResponse.status(),
+      responseBody,
+    });
+  };
+  await page.route(supplierCreateUrl, handler);
+  return {
+    get attempts() {
+      return observer.attempts;
+    },
+    dropped,
+    dispose: () => page.unroute(supplierCreateUrl, handler),
+  };
+}
+
+async function browserLogin(page: Page, email: string, password: string) {
+  const diagnostics: string[] = [];
+  page.on('response', (response) => {
+    const path = new URL(response.url()).pathname;
+    if (path.includes('/staff-api/'))
+      diagnostics.push(`HTTP ${response.status()} ${path}`);
+  });
+  page.on('requestfailed', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.includes('/staff-api/'))
+      diagnostics.push(
+        `FAILED ${path}: ${request.failure()?.errorText ?? 'unknown'}`,
+      );
+  });
+  page.on('pageerror', (error) =>
+    diagnostics.push(`PAGE ${error.name}: ${error.message}`),
+  );
+  page.on('console', (message) => {
+    if (message.type() === 'error')
+      diagnostics.push(`CONSOLE ${message.text()}`);
+  });
+  const profile = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/staff-api/v1/staff/auth/me',
+    { timeout: 20_000 },
+  );
+  await page.goto(`${origin}/staff/suppliers`, {
+    waitUntil: 'domcontentloaded',
+  });
+  const profileResponse = await profile;
+  expect([200, 401]).toContain(profileResponse.status());
+  await page
+    .getByRole('heading', { name: 'Рабочее пространство поставщиков' })
+    .waitFor();
+  await page.getByLabel('Рабочая почта').fill(email);
+  await page.getByLabel('Пароль').fill(password);
+  const login = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      new URL(response.url()).pathname === '/staff-api/v1/staff/auth/login',
+    { timeout: 20_000 },
+  );
+  await page.getByRole('button', { name: 'Войти' }).click();
+  let response;
+  try {
+    response = await login;
+  } catch (error) {
+    throw new Error(
+      `Staff login did not reach its POST. URL: ${page.url()}; alert: ${(await page.getByRole('alert').allTextContents()).join(' | ') || 'none'}; browser: ${diagnostics.join(' || ')}; next: ${nextLogs}`,
+      { cause: error },
+    );
+  }
+  expect(response.status()).toBe(200);
+  await page.getByRole('heading', { name: 'Поставщики' }).waitFor();
+  return diagnostics;
+}
+
+async function openStaffBrowserPage() {
+  if (!nextProcess) {
+    const certificate = await generateCertificate(
+      [{ name: 'commonName', value: '127.0.0.1' }],
+      {
+        algorithm: 'sha256',
+        extensions: [
+          { name: 'subjectAltName', altNames: [{ type: 7, ip: '127.0.0.1' }] },
+        ],
+      },
+    );
+    startProxy(certificate.private, certificate.cert);
+    await new Promise<void>((accept, reject) => {
+      proxy!.once('error', reject);
+      proxy!.listen(proxyPort, '127.0.0.1', accept);
+    });
+    startStaffWeb();
+    await waitForStaffWeb();
+  }
+  browser ??= await chromium.launch({ headless: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  return { context, page: await context.newPage() };
+}
+
+async function browserStorage(page: Page) {
+  return page.evaluate(() => {
+    const snapshot = (storage: Storage) =>
+      Object.fromEntries(
+        Array.from({ length: storage.length }, (_, index) => {
+          const key = storage.key(index);
+          return key ? [key, storage.getItem(key)] : ['', null];
+        }).filter(([key]) => key),
+      );
+    return {
+      local: snapshot(window.localStorage),
+      session: snapshot(window.sessionStorage),
+    };
+  });
 }
 
 async function startApi() {
@@ -405,11 +815,16 @@ async function waitForBlockedQueries(
 
 describe.skipIf(!runtimeEnabled)('R1-007B disposable PostgreSQL + HTTP', () => {
   beforeAll(async () => {
-    process.env.APP_ENV = 'development';
+    webPort = await listenPort();
+    proxyPort = await listenPort();
+    origin = `https://127.0.0.1:${proxyPort}`;
+    process.env.APP_ENV = 'production';
     process.env.HOST = '127.0.0.1';
     process.env.PORT = '3001';
-    process.env.COOKIE_PROFILE = 'loopback';
+    process.env.COOKIE_PROFILE = 'https';
     process.env.STAFF_ORIGINS = origin;
+    process.env.PUBLIC_WEB_ORIGIN = origin;
+    process.env.TRUSTED_PROXY_ADDRESS = '127.0.0.1';
     process.env.STAFF_DATABASE_URL = requiredUrl('STAFF_DATABASE_URL');
     process.env.REDIS_URL = requiredUrl('REDIS_URL');
     process.env.SESSION_HMAC_KEY = randomBytes(32).toString('hex');
@@ -436,58 +851,58 @@ describe.skipIf(!runtimeEnabled)('R1-007B disposable PostgreSQL + HTTP', () => {
   }, 120_000);
 
   afterAll(async () => {
+    await browser?.close().catch(() => undefined);
+    await stopStaffWeb();
+    if (proxy?.listening)
+      await new Promise<void>((accept, reject) =>
+        proxy!.close((error) => (error ? reject(error) : accept())),
+      );
     await app?.close();
     await db?.$disconnect();
     await migrationDb?.$disconnect();
   });
 
-  it('SUP-01/02/03: canonical Russian tax identity, OCC, durable idempotency, and archive reuse', async () => {
+  it('SUP-01/02/03: lost create response replays one durable supplier operation', async () => {
     const key = `tax-retry-${randomUUID()}`;
     const createBody = {
       legalName: '  Northwind Trading  ',
       taxIdentifier: '7707083893',
       taxJurisdiction: 'RU',
     };
-    const first = await actor.agent.write(
-      'POST',
-      '/v1/staff/suppliers',
-      createBody,
-      key,
-    );
-    expect(first.status, JSON.stringify(first.body)).toBe(201);
+    await expect(
+      actor.agent.writeAndDropHttp201(
+        'POST',
+        '/v1/staff/suppliers',
+        createBody,
+        key,
+      ),
+    ).resolves.toBeUndefined();
+
+    const committed = await db!.supplier.findFirstOrThrow({
+      where: {
+        taxIdentifier: createBody.taxIdentifier,
+        taxJurisdiction: createBody.taxJurisdiction,
+      },
+      select: { id: true },
+    });
+    expect(
+      await db!.supplier.count({
+        where: {
+          taxIdentifier: createBody.taxIdentifier,
+          taxJurisdiction: createBody.taxJurisdiction,
+        },
+      }),
+    ).toBe(1);
+
     await restartApi();
     actor.agent.baseUrl = apiUrl;
     readerWithoutSupplierRead.agent.baseUrl = apiUrl;
-    const replay = await actor.agent.write(
-      'POST',
-      '/v1/staff/suppliers',
-      createBody,
-      key,
-    );
-    expect(replay).toMatchObject({ status: first.status, body: first.body });
-    const supplier = payload(first) as unknown as Supplier;
-    const profile = await actor.agent.request(
-      'GET',
-      `/v1/staff/suppliers/${supplier.id}`,
-    );
-    expect(profile.status).toBe(200);
-    expect(payload(profile).legalName).toBe('Northwind Trading');
-    expect(
-      await db!.supplierRevision.count({ where: { supplierId: supplier.id } }),
-    ).toBe(1);
-    expect(
-      await db!.auditEvent.count({
-        where: { action: 'supplier.created', entityId: supplier.id },
-      }),
-    ).toBe(1);
-    const createdUpdatedAt = new Date(
-      String(payload(profile).updatedAt),
-    ).getTime();
+
     const offerBeforeSupplierArchive = await actor.agent.write(
       'POST',
       '/v1/staff/supplier-offers',
       {
-        supplierId: supplier.id,
+        supplierId: committed.id,
         brandId: null,
         manufacturerName: null,
         originalPartNumber: null,
@@ -497,6 +912,45 @@ describe.skipIf(!runtimeEnabled)('R1-007B disposable PostgreSQL + HTTP', () => {
     );
     expect(offerBeforeSupplierArchive.status).toBe(201);
 
+    const replay = await actor.agent.write(
+      'POST',
+      '/v1/staff/suppliers',
+      createBody,
+      key,
+    );
+    expect(replay.status).toBe(201);
+    const supplier = payload(replay) as unknown as Supplier;
+    expect(supplier.id).toBe(committed.id);
+    const profile = await actor.agent.request(
+      'GET',
+      `/v1/staff/suppliers/${supplier.id}`,
+    );
+    expect(profile.status).toBe(200);
+    expect(payload(profile).legalName).toBe('Northwind Trading');
+    expect(await db!.supplier.count({ where: { id: supplier.id } })).toBe(1);
+    expect(
+      await db!.supplierRevision.count({ where: { supplierId: supplier.id } }),
+    ).toBe(1);
+    expect(
+      await db!.supplierCommandIdempotency.count({
+        where: {
+          actorStaffUserId: actor.id,
+          scope: 'R1-007',
+          idempotencyKey: key,
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await db!.auditEvent.count({
+        where: { action: 'supplier.created', entityId: supplier.id },
+      }),
+    ).toBe(1);
+    expect(
+      await db!.supplierOffer.count({ where: { supplierId: supplier.id } }),
+    ).toBe(1);
+    const createdUpdatedAt = new Date(
+      String(payload(profile).updatedAt),
+    ).getTime();
     const reused = await actor.agent.write(
       'POST',
       '/v1/staff/suppliers',
@@ -580,6 +1034,564 @@ describe.skipIf(!runtimeEnabled)('R1-007B disposable PostgreSQL + HTTP', () => {
       taxJurisdiction: 'RU',
     });
     expect(invalidInn.status).toBe(400);
+  });
+
+  it('Q0-01 browser: a dropped committed create keeps identity across double-click, logout/login, and reload', async () => {
+    const { context, page } = await openStaffBrowserPage();
+    const observed = await observeSupplierCreates(page);
+    const legalName = `Browser retry ${randomUUID()}`;
+    const shortName = `browser-${randomUUID().slice(0, 8)}`;
+    const taxIdentifier = validRussianInn10();
+    const expectedBody = {
+      legalName,
+      shortName,
+      taxIdentifier,
+      taxJurisdiction: 'RU',
+    };
+
+    try {
+      const browserDiagnostics = await browserLogin(
+        page,
+        actor.email,
+        actor.password,
+      );
+      await page.getByLabel('Юридическое или торговое имя').fill(legalName);
+      await page.getByLabel('Короткое имя').fill(shortName);
+      await page.getByLabel('Налоговый идентификатор').fill(taxIdentifier);
+      const failedCreate = page.waitForEvent(
+        'requestfailed',
+        (request) =>
+          request.method() === 'POST' &&
+          new URL(request.url()).pathname === '/staff-api/v1/staff/suppliers',
+      );
+
+      await page
+        .getByRole('button', { name: 'Создать поставщика' })
+        .evaluate((button: HTMLButtonElement) => {
+          button.click();
+          button.click();
+        });
+
+      const dropped = await observed.dropped;
+      expect((await failedCreate).failure()?.errorText).toBeTruthy();
+      expect(
+        dropped.status,
+        JSON.stringify({
+          responseBody: dropped.responseBody,
+          origin: dropped.origin,
+          cookieNames: dropped.cookieNames,
+          hasCsrfHeader: dropped.hasCsrfHeader,
+        }),
+      ).toBe(201);
+      expect(dropped.origin).toBe(origin);
+      expect(dropped.cookieNames).toContain('__Host-stdu_staff');
+      expect(dropped.hasCsrfHeader).toBe(true);
+      const committedResponse = record(dropped.responseBody.data);
+      const supplierId = String(committedResponse.id);
+      expect(supplierId).toMatch(/^[0-9a-f-]{36}$/i);
+      expect(observed.attempts).toHaveLength(1);
+      const originalAttempt = observed.attempts[0]!;
+      expect(originalAttempt.idempotencyKey).toMatch(/^staff-[0-9a-f-]{36}$/i);
+      expect(JSON.parse(originalAttempt.requestBody)).toEqual(expectedBody);
+
+      const alert = page.locator('p[role="alert"]');
+      await alert.waitFor({ state: 'visible' });
+      expect(
+        await alert.textContent(),
+        JSON.stringify({
+          url: page.url(),
+          browserDiagnostics,
+          buttons: await page.getByRole('button').allTextContents(),
+        }),
+      ).toContain('Результат создания не подтверждён');
+      const storageAfterDrop = await browserStorage(page);
+      const serializedStorage = JSON.stringify(storageAfterDrop);
+      expect(serializedStorage).not.toContain(legalName);
+      expect(serializedStorage).not.toContain(shortName);
+      expect(serializedStorage).not.toContain(taxIdentifier);
+      expect(serializedStorage).not.toContain(actor.password);
+      const storedAttempt = Object.entries(storageAfterDrop.session).find(
+        ([key]) => key.startsWith('stdu.staff.suppliers.create.v1:'),
+      );
+      expect(storedAttempt).toBeDefined();
+      const attemptState = JSON.parse(String(storedAttempt?.[1])) as JsonRecord;
+      expect(attemptState.idempotencyKey).toBe(originalAttempt.idempotencyKey);
+      expect(attemptState.bodyHash).toMatch(/^[a-f0-9]{64}$/);
+
+      const committed = await db!.supplier.findUniqueOrThrow({
+        where: { id: supplierId },
+      });
+      expect(committed.legalName).toBe(legalName);
+      expect(await db!.supplierRevision.count({ where: { supplierId } })).toBe(
+        1,
+      );
+      await page
+        .waitForFunction(
+          () => {
+            const button = Array.from(document.querySelectorAll('button')).find(
+              (candidate) => candidate.textContent?.trim() === 'Выйти',
+            );
+            return Boolean(button && !button.disabled);
+          },
+          undefined,
+          { timeout: 1_000 },
+        )
+        .catch(async (error: unknown) => {
+          throw new Error(
+            JSON.stringify({
+              url: page.url(),
+              alert: await page.locator('p[role="alert"]').textContent(),
+              logoutDisabled: await page
+                .getByRole('button', { name: 'Выйти' })
+                .isDisabled(),
+              browserDiagnostics,
+            }),
+            { cause: error },
+          );
+        });
+
+      const logoutResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname.endsWith('/v1/staff/auth/logout'),
+        { timeout: 20_000 },
+      );
+      await page.getByRole('button', { name: 'Выйти' }).click();
+      expect((await logoutResponse).status()).toBe(200);
+      await browserLogin(page, actor.email, actor.password);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.getByRole('heading', { name: 'Поставщики' }).waitFor();
+      expect(await page.locator('input[name="legalName"]').inputValue()).toBe(
+        '',
+      );
+      const storageAfterReload = await browserStorage(page);
+      expect(JSON.stringify(storageAfterReload)).not.toContain(legalName);
+      expect(JSON.stringify(storageAfterReload)).not.toContain(taxIdentifier);
+      expect(JSON.stringify(storageAfterReload.session)).toContain(
+        originalAttempt.idempotencyKey,
+      );
+
+      await page.getByLabel('Юридическое или торговое имя').fill(legalName);
+      await page.getByLabel('Короткое имя').fill(shortName);
+      await page.getByLabel('Налоговый идентификатор').fill(taxIdentifier);
+      await page.getByRole('button', { name: 'Создать поставщика' }).click();
+      await page
+        .getByRole('heading', { name: 'Карточка поставщика' })
+        .waitFor();
+      await page.getByRole('heading', { name: legalName, level: 2 }).waitFor();
+
+      expect(observed.attempts).toHaveLength(2);
+      expect(observed.attempts[1]!.idempotencyKey).toBe(
+        originalAttempt.idempotencyKey,
+      );
+      expect(observed.attempts[1]!.requestBody).toBe(
+        originalAttempt.requestBody,
+      );
+      expect(new URL(page.url()).pathname).toBe(
+        `/staff/suppliers/${supplierId}`,
+      );
+      expect(await db!.supplier.count({ where: { legalName } })).toBe(1);
+      expect(await db!.supplierRevision.count({ where: { supplierId } })).toBe(
+        1,
+      );
+      expect(
+        await db!.supplierCommandIdempotency.count({
+          where: {
+            actorStaffUserId: actor.id,
+            scope: 'R1-007',
+            idempotencyKey: originalAttempt.idempotencyKey,
+          },
+        }),
+      ).toBe(1);
+      expect(
+        await db!.auditEvent.count({
+          where: { action: 'supplier.created', entityId: supplierId },
+        }),
+      ).toBe(1);
+      const storageAfterSuccess = await browserStorage(page);
+      expect(
+        Object.keys(storageAfterSuccess.session).some((key) =>
+          key.startsWith('stdu.staff.suppliers.create.v1:'),
+        ),
+      ).toBe(false);
+    } finally {
+      await observed.dispose();
+      await context.close();
+    }
+  }, 120_000);
+
+  for (const deniedStatus of [401, 403] as const) {
+    it(`Q0-01 browser: denied ${deniedStatus} retry retains the original uncertain operation`, async () => {
+      const recoveryActor = await makeActor(
+        supplierPermissions,
+        `retry-${deniedStatus}`,
+      );
+      const { context, page } = await openStaffBrowserPage();
+      const observed = await observeSupplierCreates(page);
+      const legalName = `No-tax denied retry ${randomUUID()}`;
+      const assignment = await db!.userRole.findFirstOrThrow({
+        where: { staffUserId: recoveryActor.id },
+        select: { roleId: true },
+      });
+      const permission = await db!.permission.findUniqueOrThrow({
+        where: { code: 'suppliers.write' },
+        select: { id: true },
+      });
+      const grant = {
+        roleId: assignment.roleId,
+        permissionId: permission.id,
+      };
+      let grantRemoved = false;
+      const restoreGrant = async () => {
+        if (!grantRemoved) return;
+        await db!.rolePermission.create({ data: grant });
+        grantRemoved = false;
+      };
+
+      try {
+        await browserLogin(page, recoveryActor.email, recoveryActor.password);
+        await page.getByLabel('Юридическое или торговое имя').fill(legalName);
+        const failedCreate = page.waitForEvent(
+          'requestfailed',
+          (request) =>
+            request.method() === 'POST' &&
+            new URL(request.url()).pathname === '/staff-api/v1/staff/suppliers',
+        );
+        await page.getByRole('button', { name: 'Создать поставщика' }).click();
+        const dropped = await observed.dropped;
+        expect(dropped.status).toBe(201);
+        expect((await failedCreate).failure()?.errorText).toBeTruthy();
+        await page.locator('p[role="alert"]').waitFor({ state: 'visible' });
+        const supplierId = String(record(dropped.responseBody.data).id);
+        const originalAttempt = observed.attempts[0]!;
+        expect(JSON.parse(originalAttempt.requestBody)).toEqual({
+          legalName,
+          shortName: null,
+          taxIdentifier: null,
+          taxJurisdiction: null,
+        });
+        const storageBeforeDenial = await browserStorage(page);
+        const storedEntry = Object.entries(storageBeforeDenial.session).find(
+          ([key]) => key.startsWith('stdu.staff.suppliers.create.v1:'),
+        );
+        expect(storedEntry).toBeDefined();
+        const storageKey = storedEntry![0];
+
+        if (deniedStatus === 401) {
+          await db!.staffSession.updateMany({
+            where: { staffUserId: recoveryActor.id, revokedAt: null },
+            data: { revokedAt: new Date(), revocationReason: 'ADMIN_REVOKE' },
+          });
+        } else {
+          await db!.rolePermission.delete({
+            where: { roleId_permissionId: grant },
+          });
+          grantRemoved = true;
+        }
+        const deniedResponse = page.waitForResponse(
+          (response) =>
+            response.request().method() === 'POST' &&
+            new URL(response.url()).pathname ===
+              '/staff-api/v1/staff/suppliers',
+        );
+        await page.getByRole('button', { name: 'Создать поставщика' }).click();
+        const denial = await deniedResponse;
+        expect(denial.status()).toBe(deniedStatus);
+        const deniedBody = record(await denial.json());
+        await page.waitForFunction(() => {
+          const button = document.querySelector<HTMLButtonElement>(
+            'form button[type="submit"]',
+          );
+          return Boolean(button && !button.disabled);
+        });
+        expect(observed.attempts).toHaveLength(2);
+        expect(observed.attempts[1]!.idempotencyKey).toBe(
+          originalAttempt.idempotencyKey,
+        );
+        const storageAfterDenial = await browserStorage(page);
+        expect(storageAfterDenial.session[storageKey]).toBe(
+          storageBeforeDenial.session[storageKey],
+        );
+        const denialMessage = await page
+          .locator('p[role="alert"]')
+          .textContent();
+        expect(denialMessage).toContain(String(deniedBody.code));
+        expect(denialMessage).toContain('Результат создания не подтверждён');
+        expect(JSON.stringify(storageAfterDenial)).not.toContain(legalName);
+        expect(JSON.stringify(storageAfterDenial)).not.toContain(
+          recoveryActor.password,
+        );
+        expect(await db!.supplier.count({ where: { legalName } })).toBe(1);
+
+        await restoreGrant();
+        if (deniedStatus === 403) {
+          const logout = page.waitForResponse(
+            (response) =>
+              response.request().method() === 'POST' &&
+              new URL(response.url()).pathname.endsWith(
+                '/v1/staff/auth/logout',
+              ),
+          );
+          await page.getByRole('button', { name: 'Выйти' }).click();
+          expect((await logout).status()).toBe(200);
+        }
+        await browserLogin(page, recoveryActor.email, recoveryActor.password);
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.getByRole('heading', { name: 'Поставщики' }).waitFor();
+        await page.getByLabel('Юридическое или торговое имя').fill(legalName);
+        await page.getByRole('button', { name: 'Создать поставщика' }).click();
+        await page
+          .getByRole('heading', { name: 'Карточка поставщика' })
+          .waitFor();
+        expect(new URL(page.url()).pathname).toBe(
+          `/staff/suppliers/${supplierId}`,
+        );
+        expect(observed.attempts).toHaveLength(3);
+        expect(observed.attempts[2]).toMatchObject({
+          idempotencyKey: originalAttempt.idempotencyKey,
+          requestBody: originalAttempt.requestBody,
+        });
+        expect(await db!.supplier.count({ where: { legalName } })).toBe(1);
+        expect(
+          await db!.supplierRevision.count({ where: { supplierId } }),
+        ).toBe(1);
+        expect(
+          await db!.supplierCommandIdempotency.count({
+            where: {
+              actorStaffUserId: recoveryActor.id,
+              idempotencyKey: originalAttempt.idempotencyKey,
+            },
+          }),
+        ).toBe(1);
+        expect(
+          await db!.auditEvent.count({
+            where: { action: 'supplier.created', entityId: supplierId },
+          }),
+        ).toBe(1);
+        expect(
+          (await browserStorage(page)).session[storageKey],
+        ).toBeUndefined();
+      } finally {
+        await restoreGrant();
+        await observed.dispose();
+        await context.close();
+      }
+    }, 120_000);
+  }
+
+  it('Q0-01 browser: changed supplier data requires cancel or explicit new-operation confirmation', async () => {
+    const { context, page } = await openStaffBrowserPage();
+    const observed = await observeSupplierCreates(page);
+    const originalName = `Browser changed original ${randomUUID()}`;
+    const changedName = `Browser changed confirmed ${randomUUID()}`;
+    const originalTaxIdentifier = validRussianInn10();
+    const changedTaxIdentifier = validRussianInn10();
+
+    try {
+      const browserDiagnostics = await browserLogin(
+        page,
+        actor.email,
+        actor.password,
+      );
+      await page.getByLabel('Юридическое или торговое имя').fill(originalName);
+      await page
+        .getByLabel('Налоговый идентификатор')
+        .fill(originalTaxIdentifier);
+      const failedCreate = page.waitForEvent(
+        'requestfailed',
+        (request) =>
+          request.method() === 'POST' &&
+          new URL(request.url()).pathname === '/staff-api/v1/staff/suppliers',
+      );
+      await page.getByRole('button', { name: 'Создать поставщика' }).click();
+      const dropped = await observed.dropped;
+      expect((await failedCreate).failure()?.errorText).toBeTruthy();
+      expect(
+        dropped.status,
+        JSON.stringify({
+          responseBody: dropped.responseBody,
+          origin: dropped.origin,
+          cookieNames: dropped.cookieNames,
+          hasCsrfHeader: dropped.hasCsrfHeader,
+        }),
+      ).toBe(201);
+      expect(dropped.origin).toBe(origin);
+      expect(dropped.cookieNames).toContain('__Host-stdu_staff');
+      expect(dropped.hasCsrfHeader).toBe(true);
+      const originalData = record(dropped.responseBody.data);
+      const originalSupplierId = String(originalData.id);
+      await page
+        .waitForFunction(
+          () =>
+            document
+              .querySelector('[role="alert"]')
+              ?.textContent?.includes('Результат создания не подтверждён'),
+          undefined,
+          { timeout: 3_000 },
+        )
+        .catch(async (error: unknown) => {
+          throw new Error(
+            JSON.stringify({
+              url: page.url(),
+              alerts: await page.getByRole('alert').allTextContents(),
+              buttons: await page.getByRole('button').allTextContents(),
+              browserDiagnostics,
+            }),
+            { cause: error },
+          );
+        });
+      expect(await page.locator('p[role="alert"]').textContent()).toContain(
+        'Результат создания не подтверждён',
+      );
+      await page
+        .waitForFunction(
+          () => {
+            const button = Array.from(document.querySelectorAll('button')).find(
+              (candidate) =>
+                candidate.textContent?.trim() === 'Создать поставщика',
+            );
+            return Boolean(button && !button.disabled);
+          },
+          undefined,
+          { timeout: 1_000 },
+        )
+        .catch(async (error: unknown) => {
+          throw new Error(
+            JSON.stringify({
+              url: page.url(),
+              alert: await page.locator('p[role="alert"]').textContent(),
+              createDisabled: await page
+                .getByRole('button', { name: 'Создать поставщика' })
+                .isDisabled(),
+              browserDiagnostics,
+            }),
+            { cause: error },
+          );
+        });
+
+      await page.getByLabel('Юридическое или торговое имя').fill(changedName);
+      await page
+        .getByLabel('Налоговый идентификатор')
+        .fill(changedTaxIdentifier);
+      const cancelDialog = page.waitForEvent('dialog');
+      const cancelClick = page
+        .getByRole('button', { name: 'Создать поставщика' })
+        .click();
+      const canceled = await cancelDialog;
+      expect(canceled.type()).toBe('confirm');
+      await canceled.dismiss();
+      await cancelClick;
+      expect(await page.locator('p[role="alert"]').textContent()).toContain(
+        'Изменённые данные не отправлены',
+      );
+      expect(observed.attempts).toHaveLength(1);
+      const originalKey = observed.attempts[0]!.idempotencyKey;
+      expect(originalKey).toBeDefined();
+      expect(JSON.stringify(await browserStorage(page))).toContain(originalKey);
+
+      await page.waitForFunction(() => {
+        const button = Array.from(document.querySelectorAll('button')).find(
+          (candidate) => candidate.textContent?.trim() === 'Создать поставщика',
+        );
+        return Boolean(button && !button.disabled);
+      });
+      const confirmDialog = page.waitForEvent('dialog');
+      const confirmClick = page
+        .getByRole('button', { name: 'Создать поставщика' })
+        .click();
+      const confirmed = await confirmDialog;
+      expect(confirmed.type()).toBe('confirm');
+      await confirmed.accept();
+      await confirmClick;
+      await page
+        .getByRole('heading', { name: 'Карточка поставщика' })
+        .waitFor();
+      await page
+        .getByRole('heading', { name: changedName, level: 2 })
+        .waitFor();
+
+      expect(observed.attempts).toHaveLength(2);
+      const replacementAttempt = observed.attempts[1]!;
+      expect(replacementAttempt.idempotencyKey).toMatch(
+        /^staff-[0-9a-f-]{36}$/i,
+      );
+      expect(replacementAttempt.idempotencyKey).not.toBe(originalKey);
+      expect(JSON.parse(replacementAttempt.requestBody)).toMatchObject({
+        legalName: changedName,
+      });
+      expect(
+        await db!.supplier.count({ where: { id: originalSupplierId } }),
+      ).toBe(1);
+      const confirmedSupplier = await db!.supplier.findFirstOrThrow({
+        where: { legalName: changedName },
+        select: { id: true },
+      });
+      expect(
+        await db!.supplier.count({
+          where: { legalName: { in: [originalName, changedName] } },
+        }),
+      ).toBe(2);
+      for (const [supplierId, idempotencyKey] of [
+        [originalSupplierId, originalKey],
+        [confirmedSupplier.id, replacementAttempt.idempotencyKey],
+      ] as const) {
+        expect(
+          await db!.supplierRevision.count({ where: { supplierId } }),
+        ).toBe(1);
+        expect(
+          await db!.supplierCommandIdempotency.count({
+            where: {
+              actorStaffUserId: actor.id,
+              scope: 'R1-007',
+              idempotencyKey,
+            },
+          }),
+        ).toBe(1);
+        expect(
+          await db!.auditEvent.count({
+            where: { action: 'supplier.created', entityId: supplierId },
+          }),
+        ).toBe(1);
+      }
+      expect(
+        Object.keys((await browserStorage(page)).session).some((key) =>
+          key.startsWith('stdu.staff.suppliers.create.v1:'),
+        ),
+      ).toBe(false);
+    } finally {
+      await observed.dispose();
+      await context.close();
+    }
+  }, 120_000);
+
+  it('SUP-03: concurrent same-key create requests replay one supplier and audit event', async () => {
+    const key = `supplier-double-submit-${randomUUID()}`;
+    const createBody = { legalName: `Concurrent same key ${randomUUID()}` };
+    const [first, second] = await Promise.all([
+      actor.agent.write('POST', '/v1/staff/suppliers', createBody, key),
+      actor.agent.write('POST', '/v1/staff/suppliers', createBody, key),
+    ]);
+    expect(first.status).toBe(201);
+    expect(second).toMatchObject({ status: 201, body: first.body });
+    const supplier = payload(first) as unknown as Supplier;
+    expect(await db!.supplier.count({ where: { id: supplier.id } })).toBe(1);
+    expect(
+      await db!.supplierRevision.count({ where: { supplierId: supplier.id } }),
+    ).toBe(1);
+    expect(
+      await db!.supplierCommandIdempotency.count({
+        where: {
+          actorStaffUserId: actor.id,
+          scope: 'R1-007',
+          idempotencyKey: key,
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await db!.auditEvent.count({
+        where: { action: 'supplier.created', entityId: supplier.id },
+      }),
+    ).toBe(1);
   });
 
   it('SUP-01/02: concurrent duplicate tax identity registration serializes to one active supplier', async () => {
