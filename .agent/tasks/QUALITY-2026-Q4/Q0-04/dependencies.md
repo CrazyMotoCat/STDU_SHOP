@@ -19,3 +19,7 @@
 ## Neighbor safety
 
 Disposable R1-006B PostgreSQL only, no production or named shared volumes. No changes to PR #30, R1-010D, VIS-CAT, Q0-02/Q0-05 or other agents' worktrees. Owner must separately decide any merge of PR #38.
+
+## Latest base after parallel upstream integration
+
+Current main is `a2a19c9fe07b7afac6dfc46996c1294ea3111b6a` (separate PR #32, three catalog UI/smoke paths, no import overlap). Second normal main merge `f52b2689b288326970951fd04d699fd1addde0d4` retains Q0-03/Q0-04 unchanged and introduces no conflicts. Local quality/build/contract/regression/runtime gates were repeated and passed. Prior green CI 41469119154 applies to old 6c406ee; require fresh CI for the resulting final HEAD. No VIS-CAT edits or other-agent worktree changes were performed by this task; upstream content was integrated through main history only.
