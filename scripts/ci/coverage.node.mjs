@@ -104,3 +104,18 @@ test('FAST contract lock checks have complete Git history', () => {
   );
   assert(contracts.includes('fetch-depth: 0'));
 });
+
+test('FULL is cancellable while failed planning still requests full acceptance', () => {
+  const job = full.slice(
+    full.indexOf('\n  full:'),
+    full.indexOf('\n  merge-gate:'),
+  );
+  assert(
+    job.includes(
+      "if: ${{ !cancelled() && (needs.plan.result != 'success' || needs.plan.outputs.full == 'true') }}",
+    ),
+  );
+  assert(!job.includes('if: ${{ always() &&'));
+  assert(full.includes('if: ${{ always() }}\n    needs: [plan, full]'));
+  assert(job.includes('if: always()\n        run: pnpm compose:stop'));
+});
