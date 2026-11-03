@@ -1,4 +1,3 @@
-throw new Error('CI-OPT-01B intentional planner failure');
 import { execFileSync } from 'node:child_process';
 import {
   appendFileSync,
