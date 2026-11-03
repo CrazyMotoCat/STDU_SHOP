@@ -4,7 +4,6 @@ import {
   demoProducts,
   demoData,
   makeDemoProducts,
-  prepareSyntheticDemoMedia,
 } from './iek-demo-fixture.mjs';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:net';
@@ -350,6 +349,186 @@ async function waitForPortRelease(port) {
   );
 }
 
+async function assertTestSiteBoundary() {
+  const screenshots = resolve(
+    root,
+    'artifacts/verification/VIS-CAT-01B/test-site-build',
+  );
+  await mkdir(screenshots, { recursive: true });
+  for (const mode of ['staging', 'production', 'default']) {
+    const port = await reservePort();
+    const base = `http://127.0.0.1:${port}`;
+    await withProcesses(
+      [
+        {
+          name: `iek-test-site-${mode}`,
+          command: process.execPath,
+          args: [
+            nextCli,
+            'start',
+            '--hostname',
+            '127.0.0.1',
+            '--port',
+            String(port),
+          ],
+          cwd: web,
+          env: {
+            APP_ENV: mode === 'production' ? 'production' : 'test',
+            CATALOG_TEST_SITE_ENABLED: mode === 'default' ? 'false' : 'true',
+            API_INTERNAL_URL: 'http://127.0.0.1:1',
+            NEXT_TELEMETRY_DISABLED: '1',
+          },
+          quiet: true,
+        },
+      ],
+      async (signal) => {
+        await waitForPage(`${base}/catalog`, signal);
+        const browser = await chromium.launch({ headless: true });
+        const errors = [];
+        try {
+          const page = await browser.newPage();
+          page.on('pageerror', (error) => errors.push(error.message));
+          await page.goto(`${base}/catalog`, { waitUntil: 'networkidle' });
+          if (mode !== 'staging') {
+            assert.equal(await page.getByRole('note').count(), 0);
+            assert.equal(
+              await page.locator('article[class*="productTile"]').count(),
+              0,
+            );
+            await page
+              .getByRole('heading', { name: 'Не удалось загрузить каталог' })
+              .first()
+              .waitFor();
+            console.log(
+              `PASS ${mode}: real API failure remains visible, no staging fixture fallback.`,
+            );
+            return;
+          }
+          await page
+            .getByRole('note')
+            .filter({ hasText: 'Серверные демонстрационные данные' })
+            .waitFor();
+          assert.equal(
+            await page.locator('article[class*="productTile"]').count(),
+            2,
+          );
+          for (const product of demoProducts) {
+            await page.goto(
+              `${base}/catalog/category/${product.category.slug}`,
+              { waitUntil: 'networkidle' },
+            );
+            assert.equal(
+              await page.locator('article[class*="productTile"]').count(),
+              1,
+            );
+            await page
+              .getByText(product.originalPartNumber, { exact: true })
+              .waitFor();
+          }
+          await page.goto(`${base}/catalog`, { waitUntil: 'networkidle' });
+          await page
+            .getByLabel('Поиск по каталогу', { exact: true })
+            .fill('AR-B06S-1N-C06C030');
+          await page
+            .getByRole('button', { name: /Применить параметры/ })
+            .click();
+          await page.waitForURL(/q=AR-B06S-1N-C06C030/);
+          assert.equal(
+            await page.locator('article[class*="productTile"]').count(),
+            1,
+          );
+          await page
+            .getByRole('link', {
+              name: demoProducts[1].displayName,
+              exact: true,
+            })
+            .click();
+          await page.waitForURL(
+            /catalog\/product\/iek-armat-c6-b06s-avdt-demo/,
+          );
+          for (const width of [320, 375, 768, 1024, 1440]) {
+            for (const view of ['grid', 'list', 'table']) {
+              await captureAndCheck(
+                page,
+                `${base}/catalog?view=${view}`,
+                `test-site-${view}`,
+                width,
+                900,
+              );
+              if (view === 'grid' && [375, 1440].includes(width))
+                await page.screenshot({
+                  path: resolve(screenshots, `catalog-${width}.png`),
+                  fullPage: true,
+                });
+            }
+            for (const product of demoProducts) {
+              await captureAndCheck(
+                page,
+                `${base}/catalog/product/${product.slug}`,
+                `test-site-${product.slug}`,
+                width,
+                900,
+              );
+              await assertProductLayout(page, width);
+              assert.equal(await page.locator('table tbody tr').count(), 20);
+              if ([375, 1440].includes(width))
+                await page.screenshot({
+                  path: resolve(screenshots, `${product.slug}-${width}.png`),
+                  fullPage: true,
+                });
+              const photo = page.locator('[class*="detailMedia"] img');
+              assert.ok(
+                await photo.evaluate(
+                  (img) => img.complete && img.naturalWidth > 0,
+                ),
+              );
+              await page
+                .getByRole('button', { name: 'Несколько ракурсов' })
+                .focus();
+              await page.keyboard.press('Enter');
+              await page
+                .getByRole('button', {
+                  name: 'Несколько ракурсов',
+                  pressed: true,
+                })
+                .waitFor();
+              assert.match(await photo.getAttribute('src'), /-group.webp$/);
+              await photo.evaluate((img) => img.decode());
+              assert.ok(
+                await photo.evaluate(
+                  (img) => img.complete && img.naturalWidth > 0,
+                ),
+              );
+            }
+          }
+          for (const product of demoData.products)
+            for (const image of product.images) {
+              const response = await fetch(`${base}${image.publicSrc}`);
+              assert.equal(response.status, 200);
+              assert.match(
+                response.headers.get('content-type') ?? '',
+                /image\/webp/,
+              );
+              assert.equal(
+                createHash('sha256')
+                  .update(Buffer.from(await response.arrayBuffer()))
+                  .digest('hex'),
+                image.sha256,
+              );
+            }
+          assert.deepEqual(errors, []);
+          console.log(
+            'PASS production Next build with explicit staging: canonical catalog, categories, search/detail navigation, both SKUs, four static WebPs, five widths, no external fixture service/API or .local dependency.',
+          );
+        } finally {
+          await browser.close();
+        }
+      },
+    );
+    await waitForPortRelease(port);
+  }
+}
+
 async function main() {
   assert.deepEqual(
     makeDemoProducts(),
@@ -384,11 +563,7 @@ async function main() {
     ).value,
     '76.2',
   );
-  const demoMode =
-    process.env.CATALOG_DEMO_MEDIA_MODE === 'owner-local'
-      ? 'owner-local'
-      : 'synthetic';
-  if (demoMode === 'synthetic') await prepareSyntheticDemoMedia();
+  const demoMode = 'approved-static';
   await mkdir(artifacts, { recursive: true });
   await new Promise((accept, reject) => {
     fixtureServer.once('error', reject);
@@ -415,7 +590,7 @@ async function main() {
       API_INTERNAL_URL: `http://127.0.0.1:${apiAddress.port}`,
       NEXT_TELEMETRY_DISABLED: '1',
       APP_ENV: 'test',
-      CATALOG_DEMO_MEDIA_MODE: demoMode,
+      CATALOG_TEST_SITE_ENABLED: 'false',
     },
     quiet: true,
   };
@@ -867,20 +1042,15 @@ async function main() {
               const response = await fetch(`${baseUrl}${src}`);
               assert.equal(
                 response.headers.get('cache-control'),
-                'private, no-store',
+                'public, max-age=0',
               );
-              const expected =
-                demoMode === 'synthetic'
-                  ? demoData.syntheticFixture.sha256
-                  : demoData.products
-                      .find((item) => item.slug === product.slug)
-                      .images.find((image) =>
-                        image.src.endsWith(
-                          src.endsWith('group.webp')
-                            ? '/group.webp'
-                            : '/main.webp',
-                        ),
-                      ).sha256;
+              const expected = demoData.products
+                .find((item) => item.slug === product.slug)
+                .images.find((image) =>
+                  image.src.endsWith(
+                    src.endsWith('group.webp') ? '/group.webp' : '/main.webp',
+                  ),
+                ).sha256;
               assert.equal(
                 createHash('sha256')
                   .update(Buffer.from(await response.arrayBuffer()))
@@ -919,7 +1089,7 @@ async function main() {
             path: resolve(demoArtifacts, 'fallback-1440.png'),
             fullPage: true,
           });
-          await page.route('**/demo-media/iek-armat/**', (route) =>
+          await page.route('**/images/catalog/demo/iek-armat/**', (route) =>
             route.abort(),
           );
           await page.goto(
@@ -931,7 +1101,7 @@ async function main() {
               name: `Изображение товара не предоставлено: ${demoProducts[0].displayName}`,
             })
             .waitFor();
-          await page.unroute('**/demo-media/iek-armat/**');
+          await page.unroute('**/images/catalog/demo/iek-armat/**');
           const missingProduct = await page.goto(
             `${baseUrl}/catalog/product/not-published`,
             { waitUntil: 'domcontentloaded' },
@@ -1006,6 +1176,7 @@ async function main() {
     );
   }
 
+  await assertTestSiteBoundary();
   assert.ok(
     observedQueries.length >= 4,
     'The SSR pages must call the public products operation.',
@@ -1015,7 +1186,10 @@ async function main() {
   );
 }
 
-main().catch((error) => {
+(process.argv.includes('--test-site-only')
+  ? assertTestSiteBoundary()
+  : main()
+).catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

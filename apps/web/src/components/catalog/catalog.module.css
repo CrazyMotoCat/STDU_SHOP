@@ -2317,3 +2317,13 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+.testSiteNotice {
+  margin: 0;
+  padding: 0.75rem max(1rem, calc((100vw - 82rem) / 2));
+  background: #eaf3f3;
+  border-bottom: 1px solid #cbdadb;
+  color: #234b51;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}

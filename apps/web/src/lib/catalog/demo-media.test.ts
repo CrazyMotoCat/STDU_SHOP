@@ -1,36 +1,25 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import data from './iek-demo-data.json';
-import { getDemoMedia, readDemoImage } from './demo-media';
-import { readFileSync, statSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { getDemoMedia } from './demo-media';
 import type { PublicProductCard } from './api';
-vi.mock('node:fs', () => ({ readFileSync: vi.fn(), statSync: vi.fn() }));
 const product = {
   brand: { name: 'IEK', slug: 'iek' },
   manufacturerName: 'IEK',
   originalPartNumber: 'AR-M06N-1-C006',
 } as PublicProductCard;
-function enable() {
-  vi.stubEnv('APP_ENV', 'test');
-  vi.stubEnv('CATALOG_DEMO_MEDIA_MODE', 'synthetic');
-  vi.mocked(readFileSync).mockReturnValue(
-    Buffer.from(data.syntheticFixture.base64, 'base64'),
-  );
-  vi.mocked(statSync).mockReturnValue({ size: 1000 } as ReturnType<
-    typeof statSync
-  >);
-}
-afterEach(() => {
-  vi.unstubAllEnvs();
-  vi.resetAllMocks();
-});
-describe('two-SKU local demo media boundary', () => {
-  it('only resolves the exact brand, manufacturer and factory part number', () => {
-    enable();
-    expect(getDemoMedia(product)?.images).toHaveLength(2);
-    expect(
-      getDemoMedia({ ...product, originalPartNumber: 'AR-B06S-1N-C06C030' })
-        ?.images,
-    ).toHaveLength(2);
+describe('owner-approved static media allowlist', () => {
+  it('resolves only exact brand, manufacturer and factory part numbers to fixed local URLs', () => {
+    const first = getDemoMedia(product),
+      second = getDemoMedia({
+        ...product,
+        originalPartNumber: 'AR-B06S-1N-C06C030',
+      });
+    expect(first?.images).toHaveLength(2);
+    expect(second?.images).toHaveLength(2);
+    expect(first?.images[0]?.src).not.toBe(second?.images[0]?.src);
+    for (const image of [...first!.images, ...second!.images])
+      expect(image.src).toMatch(
+        /^\/images\/catalog\/demo\/iek-armat\/ar-[a-z0-9-]+-(main|group)\.webp$/,
+      );
     for (const change of [
       { brand: null },
       { brand: { name: 'Other', slug: 'other' } },
@@ -40,26 +29,5 @@ describe('two-SKU local demo media boundary', () => {
       { originalPartNumber: null },
     ])
       expect(getDemoMedia({ ...product, ...change })).toBeUndefined();
-  });
-  it('is off by default, in production, and with malformed configuration', () => {
-    enable();
-    vi.stubEnv('CATALOG_DEMO_MEDIA_MODE', '');
-    expect(getDemoMedia(product)).toBeUndefined();
-    vi.stubEnv('CATALOG_DEMO_MEDIA_MODE', 'invalid');
-    expect(getDemoMedia(product)).toBeUndefined();
-    vi.stubEnv('CATALOG_DEMO_MEDIA_MODE', 'synthetic');
-    vi.stubEnv('APP_ENV', 'production');
-    expect(getDemoMedia(product)).toBeUndefined();
-  });
-  it('rejects arbitrary asset names, missing and corrupted files', () => {
-    enable();
-    expect(readDemoImage('../manifest.json')).toBeUndefined();
-    expect(readDemoImage('https://example.invalid/image.webp')).toBeUndefined();
-    vi.mocked(readFileSync).mockImplementation(() => {
-      throw new Error('missing');
-    });
-    expect(getDemoMedia(product)).toBeUndefined();
-    vi.mocked(readFileSync).mockReturnValue(Buffer.from('corrupted'));
-    expect(getDemoMedia(product)).toBeUndefined();
   });
 });

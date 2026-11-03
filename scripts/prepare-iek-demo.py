@@ -1,5 +1,5 @@
-"""Copy only the four owner-provided images to ignored local demo storage.
-No database access, network, publication or grants. Repeatable with the same ZIP.
+"""Verify four owner-approved static images; optionally restore them from the owner ZIP.
+No database, network, local demo storage or publication workflow changes.
 """
 import hashlib
 import json
@@ -9,18 +9,21 @@ import zipfile
 
 root = Path(__file__).resolve().parent.parent
 manifest = json.loads((root / "apps/web/src/lib/catalog/iek-demo-data.json").read_text(encoding="utf-8"))
-if len(sys.argv) != 2:
-    raise SystemExit("Usage: python scripts/prepare-iek-demo.py <owner ZIP>")
-with zipfile.ZipFile(sys.argv[1]) as archive:
-    images = []
+if len(sys.argv) > 2:
+    raise SystemExit("Usage: python scripts/prepare-iek-demo.py [owner ZIP]")
+archive = zipfile.ZipFile(sys.argv[1]) if len(sys.argv) == 2 else None
+try:
     for product in manifest["products"]:
         for image in product["images"]:
-            raw = archive.read(image["src"])
+            destination = root / "apps/web/public" / image["publicSrc"].lstrip("/")
+            raw = archive.read(image["src"]) if archive else destination.read_bytes()
             if len(raw) != image["bytes"] or hashlib.sha256(raw).hexdigest() != image["sha256"]:
-                raise SystemExit("Image does not match the verified owner archive.")
-            images.append((image["src"], raw))
-    for name, raw in images:
-        destination = root / ".local/vis-cat-01b/media/owner-local" / name
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(raw)
-print("PASS: four verified images prepared locally; no database writes or public publication.")
+                raise SystemExit("Static image differs from the owner manifest.")
+            if archive:
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(raw)
+            print(image["publicSrc"], image["sha256"])
+finally:
+    if archive:
+        archive.close()
+print("PASS: four static WebP files verified; no database or grants.")

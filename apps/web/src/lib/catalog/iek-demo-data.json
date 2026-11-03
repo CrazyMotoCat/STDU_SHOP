@@ -28,7 +28,8 @@
           "height": 729,
           "bytes": 34950,
           "sha256": "565c9b37e5358821d0f245c83fb8ad41b03055df4640eeefc11fef217355f28c",
-          "alt": "Автоматический выключатель IEK ARMAT C6 — общий вид"
+          "alt": "Автоматический выключатель IEK ARMAT C6 — общий вид",
+          "publicSrc": "/images/catalog/demo/iek-armat/ar-m06n-1-c006-main.webp"
         },
         {
           "role": "gallery",
@@ -37,7 +38,8 @@
           "height": 1448,
           "bytes": 102320,
           "sha256": "146104a993210bde7aa2c5cdf68c9918b5e2b4d97402976813792aa73010f88d",
-          "alt": "Автоматический выключатель IEK ARMAT C6 — несколько ракурсов"
+          "alt": "Автоматический выключатель IEK ARMAT C6 — несколько ракурсов",
+          "publicSrc": "/images/catalog/demo/iek-armat/ar-m06n-1-c006-group.webp"
         }
       ],
       "notes": "Модель и заводской артикул подтверждены официальным каталогом IEK. Полные характеристики взяты из карточки того же SKU на IEK Global.",
@@ -237,7 +239,8 @@
           "height": 692,
           "bytes": 33298,
           "sha256": "6bd031922efa70d876d31b89825c7af3b3ca454348b944d7feb456b0fcfc447d",
-          "alt": "Автомат дифференциального тока IEK ARMAT C6, 30 мА, 1P+N — общий вид"
+          "alt": "Автомат дифференциального тока IEK ARMAT C6, 30 мА, 1P+N — общий вид",
+          "publicSrc": "/images/catalog/demo/iek-armat/ar-b06s-1n-c06c030-main.webp"
         },
         {
           "role": "gallery",
@@ -246,7 +249,8 @@
           "height": 1448,
           "bytes": 88772,
           "sha256": "4a46a364d205ec29bee0eeb9978fc8230dff5413168ab5b5263658379a879dca",
-          "alt": "Автомат дифференциального тока IEK ARMAT C6, 30 мА, 1P+N — несколько ракурсов"
+          "alt": "Автомат дифференциального тока IEK ARMAT C6, 30 мА, 1P+N — несколько ракурсов",
+          "publicSrc": "/images/catalog/demo/iek-armat/ar-b06s-1n-c06c030-group.webp"
         }
       ],
       "notes": "Официальный каталог IEK подтверждает точный SKU, C6/30 мА/тип AC/1P+NP/18 мм. Расширенные параметры для этого же SKU сверены по торговым карточкам; это не прямое чтение из динамически загружаемой страницы IEK.",
@@ -461,10 +465,12 @@
     }
   },
   "provenanceCorrection": "B06S breaking_capacity 6 kA cross-checked with distributors; sourceIds are not manufacturer product pages. Evidence tier corrected from manufacturer to distributor_same_sku.",
-  "syntheticFixture": {
-    "base64": "UklGRtIBAABXRUJQVlA4TMUBAAAv78BPAJfCoG0kRyH2/Pn0sjcTGo7bRnKk/m/+Ye552z1TdNBGkiM1ruPPKH6Yac9/HOdZIJIy1TD9k13g70Ex/ZddQGFhamZkLSEUTYEGAZLKWmLNaErRlADTf4rsdb9f3/cre03/7beTEFkreymAsOJ5v7ILCIUFEAoBrBBZSzRlKEADOJ+3phDi7581Q7HWENtxAERt29YkL91hU3ZjS8M3scnl+Z+N24f5z/4i+u+EjSRH8mV0dfnhY/juIP4T/8mIHLUM30WU8USL/8R/4j/x3y85c81eK5kbBIG7vNkDoGONyCLa0OGqgEFE+1zL3r1WTwLeOleVu95TojoPCazXcLGF1Rr0fgHwnl546QC4lnI3gkqHLeHqPRWqM04htIzsIHidg17SXkFjAcBRiMPVK9LO5KQI4Oz4HNChFV9uFAYAcLh6RUJ09/EQSNvpJ4UrjkFEZLh3sMiYzOCpcterUXwJiE+5e6RXevFMmwcCp+yMq1ej2CiJzC1npf9im60wti9ZXL0iNyo3vXaePWcdczaDiKpcy8GwV4vN2qhy9f77u078J/4T/4n/xH//JPPf/8X6Nea7g/hP/Cf+E//JgAAA",
-    "sha256": "88baa128be5116503fa82b68ff07bb6dc0a0ff9c4b5f45b05a6c76ec5398e448",
-    "width": 240,
-    "height": 320
+  "publicationRights": {
+    "status": "OWNER_CONFIRMED",
+    "assertedBy": "Project owner",
+    "scope": "Public repository and public test site: four supplied WebP files",
+    "statementDate": "2026-11-03",
+    "agentVerifiedLicenseDocuments": false,
+    "note": "Original archive rights fields above describe the historical import state; this owner statement supersedes that publication restriction."
   }
 }

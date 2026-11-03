@@ -1,3 +1,4 @@
+import { catalogTestSiteEnabled } from '../../lib/catalog/test-site-config';
 import demoData from '../../lib/catalog/iek-demo-data.json';
 import { getDemoMedia } from '../../lib/catalog/demo-media';
 import { DemoProductPhoto } from './demo-product-photo';
@@ -261,7 +262,7 @@ function ProductIdentity({ product }: { product: PublicProductCard }) {
           {product.displayName}
         </Link>
       </h3>
-      {getDemoMedia(product)?.summary ? (
+      {catalogTestSiteEnabled() && getDemoMedia(product)?.summary ? (
         <p className={styles.demoSummary}>{getDemoMedia(product)?.summary}</p>
       ) : null}
       <dl className={styles.identityList}>
@@ -607,7 +608,11 @@ export function TechnicalSummary({
     <section className={styles.detailSection} aria-labelledby="spec-title">
       <div className={styles.sectionHeading}>
         <div>
-          <p className={styles.eyebrow}>ПАРАМЕТРЫ ИЗ ОПУБЛИКОВАННОЙ РЕДАКЦИИ</p>
+          <p className={styles.eyebrow}>
+            {catalogTestSiteEnabled()
+              ? 'ПАРАМЕТРЫ ДЕМОНСТРАЦИОННОЙ ПОЗИЦИИ'
+              : 'ПАРАМЕТРЫ ИЗ ОПУБЛИКОВАННОЙ РЕДАКЦИИ'}
+          </p>
           <h2 id="spec-title">{title}</h2>
         </div>
         <span className={styles.sectionIndex}>
@@ -923,7 +928,7 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
             <ProductMedia gallery product={product} />
             <p className={styles.mediaNote}>
               {getDemoMedia(product)
-                ? 'Локальная демонстрация. Права на публикацию фотографий требуют подтверждения.'
+                ? 'Фото предоставлены владельцем. Основной вид и составное изображение.'
                 : 'Материалы и документы для этой позиции пока не опубликованы.'}
             </p>
           </section>
@@ -944,13 +949,17 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
             className={styles.descriptionBlock}
             aria-labelledby="description-title"
           >
-            <p className={styles.eyebrow}>ОПУБЛИКОВАННЫЕ ДАННЫЕ</p>
+            <p className={styles.eyebrow}>
+              {catalogTestSiteEnabled()
+                ? 'ДАННЫЕ ДЕМОНСТРАЦИОННОЙ ПОЗИЦИИ'
+                : 'ОПУБЛИКОВАННЫЕ ДАННЫЕ'}
+            </p>
             <h2 id="description-title">Подробное описание</h2>
             <p>{product.description}</p>
           </section>
         ) : null}
         <TechnicalSummary attributes={product.attributes} />
-        {getDemoMedia(product) ? (
+        {catalogTestSiteEnabled() && getDemoMedia(product) ? (
           <details className={styles.descriptionBlock}>
             <summary>Источники характеристик и ограничения demo</summary>
             <p>

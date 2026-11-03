@@ -1,3 +1,9 @@
+import { catalogTestSiteEnabled } from './test-site-config';
+import {
+  testSiteCategories,
+  testSiteProduct,
+  testSiteProducts,
+} from './test-site';
 import type { components, operations } from '@stdu/catalog-client/schema';
 
 type CategoryList = components['schemas']['PublicCatalogCategoryListResponse'];
@@ -61,6 +67,8 @@ export function listPublicCategories(
     pageSize?: number;
   } = {},
 ) {
+  if (catalogTestSiteEnabled())
+    return Promise.resolve(testSiteCategories(options));
   const params = new URLSearchParams();
   if (options.parentSlug) params.set('parentSlug', options.parentSlug);
   if (options.cursor) params.set('cursor', options.cursor);
@@ -69,6 +77,7 @@ export function listPublicCategories(
 }
 
 export function searchPublicProducts(query: PublicProductQuery) {
+  if (catalogTestSiteEnabled()) return Promise.resolve(testSiteProducts(query));
   const params = new URLSearchParams();
   if (query.categorySlug) params.set('categorySlug', query.categorySlug);
   if (query.includeDescendants !== undefined)
@@ -84,6 +93,7 @@ export function searchPublicProducts(query: PublicProductQuery) {
 }
 
 export function getPublicProduct(slug: string) {
+  if (catalogTestSiteEnabled()) return Promise.resolve(testSiteProduct(slug));
   return readJson<ProductDetail>(
     `/v1/public/catalog/products/${encodeURIComponent(slug)}`,
   );

@@ -1,0 +1,6 @@
+# Dedicated test-site overlay only. Never apply to the production Compose project.
+services:
+  web:
+    environment:
+      APP_ENV: test
+      CATALOG_TEST_SITE_ENABLED: 'true'
