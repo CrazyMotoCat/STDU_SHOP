@@ -1220,6 +1220,165 @@ describe.skipIf(!runtimeEnabled)('R1-007B disposable PostgreSQL + HTTP', () => {
     }
   }, 120_000);
 
+  for (const deniedStatus of [401, 403] as const) {
+    it(`Q0-01 browser: denied ${deniedStatus} retry retains the original uncertain operation`, async () => {
+      const recoveryActor = await makeActor(
+        supplierPermissions,
+        `retry-${deniedStatus}`,
+      );
+      const { context, page } = await openStaffBrowserPage();
+      const observed = await observeSupplierCreates(page);
+      const legalName = `No-tax denied retry ${randomUUID()}`;
+      const assignment = await db!.userRole.findFirstOrThrow({
+        where: { staffUserId: recoveryActor.id },
+        select: { roleId: true },
+      });
+      const permission = await db!.permission.findUniqueOrThrow({
+        where: { code: 'suppliers.write' },
+        select: { id: true },
+      });
+      const grant = {
+        roleId: assignment.roleId,
+        permissionId: permission.id,
+      };
+      let grantRemoved = false;
+      const restoreGrant = async () => {
+        if (!grantRemoved) return;
+        await db!.rolePermission.create({ data: grant });
+        grantRemoved = false;
+      };
+
+      try {
+        await browserLogin(page, recoveryActor.email, recoveryActor.password);
+        await page.getByLabel('Юридическое или торговое имя').fill(legalName);
+        const failedCreate = page.waitForEvent(
+          'requestfailed',
+          (request) =>
+            request.method() === 'POST' &&
+            new URL(request.url()).pathname === '/staff-api/v1/staff/suppliers',
+        );
+        await page.getByRole('button', { name: 'Создать поставщика' }).click();
+        const dropped = await observed.dropped;
+        expect(dropped.status).toBe(201);
+        expect((await failedCreate).failure()?.errorText).toBeTruthy();
+        await page.locator('p[role="alert"]').waitFor({ state: 'visible' });
+        const supplierId = String(record(dropped.responseBody.data).id);
+        const originalAttempt = observed.attempts[0]!;
+        expect(JSON.parse(originalAttempt.requestBody)).toEqual({
+          legalName,
+          shortName: null,
+          taxIdentifier: null,
+          taxJurisdiction: null,
+        });
+        const storageBeforeDenial = await browserStorage(page);
+        const storedEntry = Object.entries(storageBeforeDenial.session).find(
+          ([key]) => key.startsWith('stdu.staff.suppliers.create.v1:'),
+        );
+        expect(storedEntry).toBeDefined();
+        const storageKey = storedEntry![0];
+
+        if (deniedStatus === 401) {
+          await db!.staffSession.updateMany({
+            where: { staffUserId: recoveryActor.id, revokedAt: null },
+            data: { revokedAt: new Date(), revocationReason: 'ADMIN_REVOKE' },
+          });
+        } else {
+          await db!.rolePermission.delete({
+            where: { roleId_permissionId: grant },
+          });
+          grantRemoved = true;
+        }
+        const deniedResponse = page.waitForResponse(
+          (response) =>
+            response.request().method() === 'POST' &&
+            new URL(response.url()).pathname ===
+              '/staff-api/v1/staff/suppliers',
+        );
+        await page.getByRole('button', { name: 'Создать поставщика' }).click();
+        const denial = await deniedResponse;
+        expect(denial.status()).toBe(deniedStatus);
+        const deniedBody = record(await denial.json());
+        await page.waitForFunction(() => {
+          const button = document.querySelector<HTMLButtonElement>(
+            'form button[type="submit"]',
+          );
+          return Boolean(button && !button.disabled);
+        });
+        expect(observed.attempts).toHaveLength(2);
+        expect(observed.attempts[1]!.idempotencyKey).toBe(
+          originalAttempt.idempotencyKey,
+        );
+        const storageAfterDenial = await browserStorage(page);
+        expect(storageAfterDenial.session[storageKey]).toBe(
+          storageBeforeDenial.session[storageKey],
+        );
+        const denialMessage = await page
+          .locator('p[role="alert"]')
+          .textContent();
+        expect(denialMessage).toContain(String(deniedBody.code));
+        expect(denialMessage).toContain('Результат создания не подтверждён');
+        expect(JSON.stringify(storageAfterDenial)).not.toContain(legalName);
+        expect(JSON.stringify(storageAfterDenial)).not.toContain(
+          recoveryActor.password,
+        );
+        expect(await db!.supplier.count({ where: { legalName } })).toBe(1);
+
+        await restoreGrant();
+        if (deniedStatus === 403) {
+          const logout = page.waitForResponse(
+            (response) =>
+              response.request().method() === 'POST' &&
+              new URL(response.url()).pathname.endsWith(
+                '/v1/staff/auth/logout',
+              ),
+          );
+          await page.getByRole('button', { name: 'Выйти' }).click();
+          expect((await logout).status()).toBe(200);
+        }
+        await browserLogin(page, recoveryActor.email, recoveryActor.password);
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.getByRole('heading', { name: 'Поставщики' }).waitFor();
+        await page.getByLabel('Юридическое или торговое имя').fill(legalName);
+        await page.getByRole('button', { name: 'Создать поставщика' }).click();
+        await page
+          .getByRole('heading', { name: 'Карточка поставщика' })
+          .waitFor();
+        expect(new URL(page.url()).pathname).toBe(
+          `/staff/suppliers/${supplierId}`,
+        );
+        expect(observed.attempts).toHaveLength(3);
+        expect(observed.attempts[2]).toMatchObject({
+          idempotencyKey: originalAttempt.idempotencyKey,
+          requestBody: originalAttempt.requestBody,
+        });
+        expect(await db!.supplier.count({ where: { legalName } })).toBe(1);
+        expect(
+          await db!.supplierRevision.count({ where: { supplierId } }),
+        ).toBe(1);
+        expect(
+          await db!.supplierCommandIdempotency.count({
+            where: {
+              actorStaffUserId: recoveryActor.id,
+              idempotencyKey: originalAttempt.idempotencyKey,
+            },
+          }),
+        ).toBe(1);
+        expect(
+          await db!.auditEvent.count({
+            where: { action: 'supplier.created', entityId: supplierId },
+          }),
+        ).toBe(1);
+        expect(
+          (await browserStorage(page)).session[storageKey],
+        ).toBeUndefined();
+      } finally {
+        await restoreGrant();
+        await observed.dispose();
+        await context.close();
+      }
+    }, 120_000);
+  }
+
   it('Q0-01 browser: changed supplier data requires cancel or explicit new-operation confirmation', async () => {
     const { context, page } = await openStaffBrowserPage();
     const observed = await observeSupplierCreates(page);

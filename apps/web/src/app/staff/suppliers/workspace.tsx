@@ -385,6 +385,7 @@ export default function SupplierWorkspace({
       async () => {
         const actorId = String(identity?.id ?? '');
         let requestStarted = false;
+        let retryingUnresolvedOperation = false;
         setBusy(true);
         setError('');
         setNotice('');
@@ -421,7 +422,8 @@ export default function SupplierWorkspace({
             );
           }
 
-          if (attempt.kind === 'retry')
+          retryingUnresolvedOperation = attempt.kind === 'retry';
+          if (retryingUnresolvedOperation)
             setNotice('Повторяем исходный запрос с тем же ключом.');
           requestStarted = true;
           const created = data<{ id?: string }>(
@@ -447,11 +449,12 @@ export default function SupplierWorkspace({
           );
           router.push(`/staff/suppliers/${created.id}`);
         } catch (caught) {
-          if (
+          const currentRequestWasRejected =
             caught instanceof SupplierApiError &&
             caught.status < 500 &&
-            caught.code !== 'IDEMPOTENCY_KEY_REUSED'
-          )
+            caught.code !== 'IDEMPOTENCY_KEY_REUSED';
+          // Rejecting a retry does not establish the first request's outcome.
+          if (currentRequestWasRejected && !retryingUnresolvedOperation)
             clearSupplierCreateAttempt(actorId, window.sessionStorage);
           const message =
             caught instanceof Error
@@ -459,14 +462,10 @@ export default function SupplierWorkspace({
               : 'Не удалось создать поставщика.';
           const resultIsUncertain =
             requestStarted &&
-            !(
-              caught instanceof SupplierApiError &&
-              caught.status < 500 &&
-              caught.code !== 'IDEMPOTENCY_KEY_REUSED'
-            );
+            (retryingUnresolvedOperation || !currentRequestWasRejected);
           setError(
             resultIsUncertain
-              ? 'Результат создания не подтверждён. Поставщик мог быть создан. Повторите отправку без изменения данных; перед новой операцией сначала проверьте список поставщиков.'
+              ? `${message} Результат создания не подтверждён. Поставщик мог быть создан. Повторите отправку без изменения данных; перед новой операцией сначала проверьте список поставщиков.`
               : message,
           );
         } finally {
