@@ -5,6 +5,7 @@ import io
 import json
 import re
 import zipfile
+from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -19,6 +20,7 @@ MAX_UNCOMPRESSED_BYTES = 50 * 1024 * 1024
 MAX_SHEETS = 20
 MAX_ROWS = 20_000
 MAX_COLUMNS = 128
+MAX_DELIMITER_SAMPLE_RECORDS = 25
 MAX_CELL_CODEPOINTS = 4_000
 MAX_RECORD_BYTES = 1024 * 1024
 MAX_META_BYTES = 16 * 1024
@@ -106,14 +108,110 @@ def _cell(
     return value
 
 
+def _scan_csv_candidate(text: str, delimiter: str) -> tuple[list[int], bool]:
+    widths: list[int] = []
+    width = 1
+    in_quotes = False
+    field_start = True
+    after_quote = False
+    field_nonempty = False
+    record_nonempty = False
+    index = 0
+    while index < len(text):
+        character = text[index]
+        if in_quotes:
+            if character == '"':
+                if index + 1 < len(text) and text[index + 1] == '"':
+                    field_nonempty = True
+                    index += 2
+                    continue
+                in_quotes = False
+                after_quote = True
+            elif not character.isspace():
+                field_nonempty = True
+        elif character == '"':
+            if not field_start:
+                if record_nonempty or field_nonempty:
+                    widths.append(width)
+                return widths, False
+            in_quotes = True
+            field_start = False
+            after_quote = False
+        elif character == delimiter:
+            record_nonempty = record_nonempty or field_nonempty
+            width += 1
+            field_start = True
+            after_quote = False
+            field_nonempty = False
+        elif character in "\r\n":
+            record_nonempty = record_nonempty or field_nonempty
+            if record_nonempty:
+                widths.append(width)
+                if len(widths) >= MAX_DELIMITER_SAMPLE_RECORDS:
+                    return widths, True
+            if character == "\r" and index + 1 < len(text) and text[index + 1] == "\n":
+                index += 1
+            width = 1
+            field_start = True
+            after_quote = False
+            field_nonempty = False
+            record_nonempty = False
+        else:
+            if after_quote:
+                if record_nonempty or field_nonempty:
+                    widths.append(width)
+                return widths, False
+            field_start = False
+            if not character.isspace():
+                field_nonempty = True
+        index += 1
+    record_nonempty = record_nonempty or field_nonempty
+    if record_nonempty:
+        widths.append(width)
+    return widths, not in_quotes
+
+
+def _delimiter_shape_score(widths: list[int]) -> tuple[int, int] | None:
+    if len(widths) < 2:
+        return None
+    frequencies = Counter(width for width in widths if width > 1)
+    if not frequencies:
+        return None
+    support = max(frequencies.values())
+    if support < 2 or support * 2 <= len(widths):
+        return None
+    return support, len(widths)
+
+
 def _detect_delimiter(text: str) -> str:
-    sample = "\n".join(text.splitlines()[:25])
-    counts = {delimiter: sample.count(delimiter) for delimiter in (",", ";", "\t")}
-    maximum = max(counts.values(), default=0)
-    matches = [delimiter for delimiter, count in counts.items() if count == maximum and count > 0]
-    if len(matches) != 1:
+    scans = {delimiter: _scan_csv_candidate(text, delimiter) for delimiter in (",", ";", "\t")}
+    well_formed = {
+        delimiter: score
+        for delimiter, (widths, valid) in scans.items()
+        if valid and (score := _delimiter_shape_score(widths)) is not None
+    }
+    candidates = well_formed or {
+        delimiter: score
+        for delimiter, (widths, _valid) in scans.items()
+        if (score := _delimiter_shape_score(widths)) is not None
+    }
+    if not candidates:
         raise ImportParseError("ENCODING_REQUIRED")
-    return matches[0]
+    best: list[str] = []
+    best_score: tuple[int, int] | None = None
+    for delimiter, score in candidates.items():
+        if best_score is None:
+            best, best_score = [delimiter], score
+            continue
+        left = score[0] * best_score[1]
+        right = best_score[0] * score[1]
+        if left > right or (left == right and score[0] > best_score[0]):
+            best, best_score = [delimiter], score
+        elif left == right and score[0] == best_score[0]:
+            best.append(delimiter)
+    if len(best) != 1:
+        raise ImportParseError("ENCODING_REQUIRED")
+    return best[0]
 
 
 def parse_csv_records(content: bytes, options: CsvOptions) -> Iterator[dict[str, Any]]:
@@ -130,7 +228,7 @@ def parse_csv_records(content: bytes, options: CsvOptions) -> Iterator[dict[str,
         text = content.decode("utf-8" if encoding == "UTF-8" else "cp1251", errors="strict")
     except UnicodeDecodeError as error:
         raise ImportParseError("INVALID_ENCODING") from error
-    delimiter = options.delimiter or _detect_delimiter(text)
+    delimiter = options.delimiter if options.delimiter is not None else _detect_delimiter(text)
     if delimiter not in (",", ";", "\t"):
         raise ImportParseError("VALIDATION_ERROR")
     yield {"type": "START", "protocolVersion": PROTOCOL_VERSION, "sourceFormat": "CSV"}
