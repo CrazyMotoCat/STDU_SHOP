@@ -1,0 +1,13 @@
+name: CI-OPT-01B isolated source proof
+on:
+  pull_request:
+    types: [opened, synchronize, edited, ready_for_review]
+permissions:
+  contents: read
+jobs:
+  source:
+    name: ${{ contains(github.event.pull_request.title, 'source-missing') && 'CI-OPT-01B supplemental fixture' || 'CI-OPT-01B source probe' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Synthetic status-source fixture
+        run: echo 'Isolated proof only; this is not FULL acceptance.'
