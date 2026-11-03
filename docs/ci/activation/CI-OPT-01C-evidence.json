@@ -1,0 +1,585 @@
+{
+  "task": "CI-OPT-01C",
+  "status": "APPLIED",
+  "request": {
+    "required_status_checks": {
+      "strict": true,
+      "checks": [
+        {
+          "context": "quality-and-integration",
+          "app_id": 15368
+        }
+      ]
+    },
+    "enforce_admins": true,
+    "required_pull_request_reviews": {
+      "dismiss_stale_reviews": false,
+      "require_code_owner_reviews": false,
+      "required_approving_review_count": 0,
+      "require_last_push_approval": false
+    },
+    "restrictions": null,
+    "required_linear_history": false,
+    "allow_force_pushes": false,
+    "allow_deletions": false,
+    "block_creations": false,
+    "required_conversation_resolution": false,
+    "lock_branch": false,
+    "allow_fork_syncing": false
+  },
+  "before": {
+    "main_sha": "59655a74ff4c815855eb416683c3c2db793c9af4",
+    "protected": false,
+    "classic": {
+      "http": 404,
+      "body": {
+        "message": "Branch not protected",
+        "documentation_url": "https://docs.github.com/rest/branches/branch-protection#get-branch-protection",
+        "status": "404"
+      }
+    },
+    "rulesets": [],
+    "effective_rules": [],
+    "classic_inventory": [],
+    "admin_permissions": {
+      "admin": true,
+      "maintain": true,
+      "push": true,
+      "triage": true,
+      "pull": true
+    },
+    "open_prs": [
+      {
+        "number": 40,
+        "head": "5d162a6e4a9a9c071d963939c96b36fd5d887904",
+        "base": "59655a74ff4c815855eb416683c3c2db793c9af4",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 39,
+        "head": "a767b0d453c2b5321dc9dd23a66ff21188897d62",
+        "base": "59655a74ff4c815855eb416683c3c2db793c9af4",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 37,
+        "head": "b7b29497ef519c952db0ed168de2a2f6cf2574f8",
+        "base": "e9af3a7dbe0eee29bb3cacceb3d608662502b0b3",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 36,
+        "head": "e248147cfcb2cb2ac200f9e14ea373b7668cb1e5",
+        "base": "336ec8ed82224748e8d2b76bd9a049ee7fb38fbb",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 31,
+        "head": "56c1f23d706429f97a274737f1fbce1277cbed47",
+        "base": "336ec8ed82224748e8d2b76bd9a049ee7fb38fbb",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 29,
+        "head": "f703e6e1a5460ae71b164cfd1983abb0c824b502",
+        "base": "336ec8ed82224748e8d2b76bd9a049ee7fb38fbb",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 28,
+        "head": "5c4b6f4ac3514b4155b4e8ec3e2cce2be9f9a0db",
+        "base": "74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d",
+        "draft": true,
+        "base_ref": "main"
+      }
+    ],
+    "pr40": {
+      "number": 40,
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "mergeable": true,
+      "mergeable_state": "clean",
+      "merge_commit_sha": "eeb7e8b8f993aa96793caeaa02cc82c62fb22a17",
+      "head": "5d162a6e4a9a9c071d963939c96b36fd5d887904",
+      "base": "59655a74ff4c815855eb416683c3c2db793c9af4"
+    },
+    "pr39": {
+      "number": 39,
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "merge_commit_sha": "cb1e8b8f7ea60418f0b4b66f92362d72ba85f65a",
+      "head": "a767b0d453c2b5321dc9dd23a66ff21188897d62",
+      "base": "59655a74ff4c815855eb416683c3c2db793c9af4"
+    },
+    "legacy_contexts": [
+      {
+        "pr": 40,
+        "head": "5d162a6e4a9a9c071d963939c96b36fd5d887904",
+        "legacy": [
+          {
+            "id": 126025169449,
+            "name": "quality-and-integration",
+            "result": "success",
+            "status": "completed",
+            "app_id": 15368,
+            "app": "github-actions",
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41667071705/job/126025169449"
+          }
+        ]
+      },
+      {
+        "pr": 39,
+        "head": "a767b0d453c2b5321dc9dd23a66ff21188897d62",
+        "legacy": [
+          {
+            "id": 126064280060,
+            "name": "quality-and-integration",
+            "result": null,
+            "status": "queued",
+            "app_id": 15368,
+            "app": "github-actions",
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41678157729/job/126064280060"
+          }
+        ]
+      },
+      {
+        "pr": 37,
+        "head": "b7b29497ef519c952db0ed168de2a2f6cf2574f8",
+        "legacy": [
+          {
+            "id": 125323883288,
+            "name": "quality-and-integration",
+            "result": "success",
+            "status": "completed",
+            "app_id": 15368,
+            "app": "github-actions",
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41459283567/job/125323883288"
+          }
+        ]
+      },
+      {
+        "pr": 36,
+        "head": "e248147cfcb2cb2ac200f9e14ea373b7668cb1e5",
+        "legacy": [
+          {
+            "id": 125248236271,
+            "name": "quality-and-integration",
+            "result": "success",
+            "status": "completed",
+            "app_id": 15368,
+            "app": "github-actions",
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41436729718/job/125248236271"
+          }
+        ]
+      },
+      {
+        "pr": 31,
+        "head": "56c1f23d706429f97a274737f1fbce1277cbed47",
+        "legacy": [
+          {
+            "id": 125209154071,
+            "name": "quality-and-integration",
+            "result": "success",
+            "status": "completed",
+            "app_id": 15368,
+            "app": "github-actions",
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41424938410/job/125209154071"
+          }
+        ]
+      },
+      {
+        "pr": 29,
+        "head": "f703e6e1a5460ae71b164cfd1983abb0c824b502",
+        "legacy": [
+          {
+            "id": 124866300706,
+            "name": "quality-and-integration",
+            "result": "success",
+            "status": "completed",
+            "app_id": 15368,
+            "app": "github-actions",
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41312722702/job/124866300706"
+          }
+        ]
+      },
+      {
+        "pr": 28,
+        "head": "5c4b6f4ac3514b4155b4e8ec3e2cce2be9f9a0db",
+        "legacy": [
+          {
+            "id": 125347791886,
+            "name": "quality-and-integration",
+            "result": "success",
+            "status": "completed",
+            "app_id": 15368,
+            "app": "github-actions",
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41466242945/job/125347791886"
+          }
+        ]
+      }
+    ],
+    "legacy_workflow_blob": "ede7c68367c64fb1f0db9ad070f865b93f4dfbab"
+  },
+  "write_attempted": true,
+  "write": {
+    "http": 200,
+    "server_date": "Tue, 03 Nov 2026 16:52:48 GMT",
+    "body": {
+      "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection",
+      "required_status_checks": {
+        "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/required_status_checks",
+        "strict": true,
+        "contexts": ["quality-and-integration"],
+        "contexts_url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/required_status_checks/contexts",
+        "checks": [
+          {
+            "context": "quality-and-integration",
+            "app_id": 15368
+          }
+        ]
+      },
+      "required_pull_request_reviews": {
+        "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/required_pull_request_reviews",
+        "dismiss_stale_reviews": false,
+        "require_code_owner_reviews": false,
+        "require_last_push_approval": false,
+        "required_approving_review_count": 0
+      },
+      "required_signatures": {
+        "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/required_signatures",
+        "enabled": false
+      },
+      "enforce_admins": {
+        "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/enforce_admins",
+        "enabled": true
+      },
+      "required_linear_history": {
+        "enabled": false
+      },
+      "allow_force_pushes": {
+        "enabled": false
+      },
+      "allow_deletions": {
+        "enabled": false
+      },
+      "block_creations": {
+        "enabled": false
+      },
+      "required_conversation_resolution": {
+        "enabled": false
+      },
+      "lock_branch": {
+        "enabled": false
+      },
+      "allow_fork_syncing": {
+        "enabled": false
+      }
+    }
+  },
+  "after": {
+    "main_sha": "59655a74ff4c815855eb416683c3c2db793c9af4",
+    "protected": true,
+    "protection": {
+      "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection",
+      "required_status_checks": {
+        "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/required_status_checks",
+        "strict": true,
+        "contexts": ["quality-and-integration"],
+        "contexts_url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/required_status_checks/contexts",
+        "checks": [
+          {
+            "context": "quality-and-integration",
+            "app_id": 15368
+          }
+        ]
+      },
+      "required_pull_request_reviews": {
+        "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/required_pull_request_reviews",
+        "dismiss_stale_reviews": false,
+        "require_code_owner_reviews": false,
+        "require_last_push_approval": false,
+        "required_approving_review_count": 0
+      },
+      "required_signatures": {
+        "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/required_signatures",
+        "enabled": false
+      },
+      "enforce_admins": {
+        "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/enforce_admins",
+        "enabled": true
+      },
+      "required_linear_history": {
+        "enabled": false
+      },
+      "allow_force_pushes": {
+        "enabled": false
+      },
+      "allow_deletions": {
+        "enabled": false
+      },
+      "block_creations": {
+        "enabled": false
+      },
+      "required_conversation_resolution": {
+        "enabled": false
+      },
+      "lock_branch": {
+        "enabled": false
+      },
+      "allow_fork_syncing": {
+        "enabled": false
+      }
+    },
+    "classic_inventory": [
+      {
+        "id": "BPR_kwDOVQ_0nM4FHJbn",
+        "pattern": "main"
+      }
+    ],
+    "rulesets": [],
+    "pr40": {
+      "number": 40,
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "mergeable": true,
+      "mergeable_state": "clean",
+      "merge_commit_sha": "eeb7e8b8f993aa96793caeaa02cc82c62fb22a17",
+      "head": "5d162a6e4a9a9c071d963939c96b36fd5d887904",
+      "base": "59655a74ff4c815855eb416683c3c2db793c9af4"
+    },
+    "pr39": {
+      "number": 39,
+      "state": "open",
+      "draft": true,
+      "merged": false,
+      "mergeable": true,
+      "mergeable_state": "blocked",
+      "merge_commit_sha": "cb1e8b8f7ea60418f0b4b66f92362d72ba85f65a",
+      "head": "a767b0d453c2b5321dc9dd23a66ff21188897d62",
+      "base": "59655a74ff4c815855eb416683c3c2db793c9af4"
+    },
+    "open_prs": [
+      {
+        "number": 40,
+        "head": "5d162a6e4a9a9c071d963939c96b36fd5d887904",
+        "base": "59655a74ff4c815855eb416683c3c2db793c9af4",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 39,
+        "head": "a767b0d453c2b5321dc9dd23a66ff21188897d62",
+        "base": "59655a74ff4c815855eb416683c3c2db793c9af4",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 37,
+        "head": "b7b29497ef519c952db0ed168de2a2f6cf2574f8",
+        "base": "e9af3a7dbe0eee29bb3cacceb3d608662502b0b3",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 36,
+        "head": "e248147cfcb2cb2ac200f9e14ea373b7668cb1e5",
+        "base": "336ec8ed82224748e8d2b76bd9a049ee7fb38fbb",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 31,
+        "head": "56c1f23d706429f97a274737f1fbce1277cbed47",
+        "base": "336ec8ed82224748e8d2b76bd9a049ee7fb38fbb",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 29,
+        "head": "f703e6e1a5460ae71b164cfd1983abb0c824b502",
+        "base": "336ec8ed82224748e8d2b76bd9a049ee7fb38fbb",
+        "draft": true,
+        "base_ref": "main"
+      },
+      {
+        "number": 28,
+        "head": "5c4b6f4ac3514b4155b4e8ec3e2cce2be9f9a0db",
+        "base": "74dd704963f6e0f1fb1fe4afa95cce2a8bbce79d",
+        "draft": true,
+        "base_ref": "main"
+      }
+    ],
+    "admin_permissions": {
+      "admin": true,
+      "maintain": true,
+      "push": true,
+      "triage": true,
+      "pull": true
+    },
+    "legacy_workflow_blob": "ede7c68367c64fb1f0db9ad070f865b93f4dfbab",
+    "legacy_contexts": [
+      {
+        "number": 40,
+        "head": "5d162a6e4a9a9c071d963939c96b36fd5d887904",
+        "draft": true,
+        "legacy": [
+          {
+            "name": "quality-and-integration",
+            "status": "completed",
+            "result": "success",
+            "app_id": 15368,
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41667071705/job/126025169449"
+          }
+        ]
+      },
+      {
+        "number": 39,
+        "head": "a767b0d453c2b5321dc9dd23a66ff21188897d62",
+        "draft": true,
+        "legacy": [
+          {
+            "name": "quality-and-integration",
+            "status": "in_progress",
+            "result": null,
+            "app_id": 15368,
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41678157729/job/126064280060"
+          }
+        ]
+      },
+      {
+        "number": 37,
+        "head": "b7b29497ef519c952db0ed168de2a2f6cf2574f8",
+        "draft": true,
+        "legacy": [
+          {
+            "name": "quality-and-integration",
+            "status": "completed",
+            "result": "success",
+            "app_id": 15368,
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41459283567/job/125323883288"
+          }
+        ]
+      },
+      {
+        "number": 36,
+        "head": "e248147cfcb2cb2ac200f9e14ea373b7668cb1e5",
+        "draft": true,
+        "legacy": [
+          {
+            "name": "quality-and-integration",
+            "status": "completed",
+            "result": "success",
+            "app_id": 15368,
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41436729718/job/125248236271"
+          }
+        ]
+      },
+      {
+        "number": 31,
+        "head": "56c1f23d706429f97a274737f1fbce1277cbed47",
+        "draft": true,
+        "legacy": [
+          {
+            "name": "quality-and-integration",
+            "status": "completed",
+            "result": "success",
+            "app_id": 15368,
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41424938410/job/125209154071"
+          }
+        ]
+      },
+      {
+        "number": 29,
+        "head": "f703e6e1a5460ae71b164cfd1983abb0c824b502",
+        "draft": true,
+        "legacy": [
+          {
+            "name": "quality-and-integration",
+            "status": "completed",
+            "result": "success",
+            "app_id": 15368,
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41312722702/job/124866300706"
+          }
+        ]
+      },
+      {
+        "number": 28,
+        "head": "5c4b6f4ac3514b4155b4e8ec3e2cce2be9f9a0db",
+        "draft": true,
+        "legacy": [
+          {
+            "name": "quality-and-integration",
+            "status": "completed",
+            "result": "success",
+            "app_id": 15368,
+            "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41466242945/job/125347791886"
+          }
+        ]
+      }
+    ]
+  },
+  "verification": {
+    "all_open_main_prs_have_expected_legacy_context_and_app": true,
+    "verified_pr_count": 7,
+    "no_main_negative_mutations": true,
+    "main_protection_delete_or_toggle_performed": false,
+    "recovery_basis": "Current admin permission and successful PUT/readback; CI-OPT-01B isolated rule install/delete/restore proof. No live-main recovery exercise."
+  },
+  "proposal_preflight": {
+    "collaborators": [
+      {
+        "login": "CrazyMotoCat",
+        "role": "admin",
+        "permissions": {
+          "admin": true,
+          "maintain": true,
+          "push": true,
+          "triage": true,
+          "pull": true
+        }
+      }
+    ],
+    "actions_permissions": {
+      "default_workflow_permissions": "read",
+      "can_approve_pull_request_reviews": false
+    }
+  },
+  "final_verification": {
+    "main_sha": "59655a74ff4c815855eb416683c3c2db793c9af4",
+    "protected": true,
+    "required_checks": {
+      "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/required_status_checks",
+      "strict": true,
+      "contexts": ["quality-and-integration"],
+      "contexts_url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/required_status_checks/contexts",
+      "checks": [
+        {
+          "context": "quality-and-integration",
+          "app_id": 15368
+        }
+      ]
+    },
+    "enforce_admins": {
+      "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/enforce_admins",
+      "enabled": true
+    },
+    "reviews": {
+      "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/branches/main/protection/required_pull_request_reviews",
+      "dismiss_stale_reviews": false,
+      "require_code_owner_reviews": false,
+      "require_last_push_approval": false,
+      "required_approving_review_count": 0
+    }
+  }
+}
