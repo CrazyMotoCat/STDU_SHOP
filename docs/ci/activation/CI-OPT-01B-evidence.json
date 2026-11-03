@@ -1,0 +1,4226 @@
+{
+  "task": "CI-OPT-01B",
+  "date": "2026-11-04 Asia/Vladivostok",
+  "status": "BLOCKED",
+  "implementation_head": "5d162a6e4a9a9c071d963939c96b36fd5d887904",
+  "main_sha": "59655a74ff4c815855eb416683c3c2db793c9af4",
+  "main_protection_applied": false,
+  "protection_preflight": {
+    "": {
+      "owner": "CrazyMotoCat",
+      "type": "User",
+      "permissions": {
+        "admin": true,
+        "maintain": true,
+        "push": true,
+        "triage": true,
+        "pull": true
+      },
+      "visibility": "public"
+    },
+    "/collaborators?affiliation=all&per_page=100": [
+      {
+        "login": "CrazyMotoCat",
+        "type": "User",
+        "permissions": {
+          "admin": true,
+          "maintain": true,
+          "push": true,
+          "triage": true,
+          "pull": true
+        },
+        "role_name": "admin"
+      }
+    ],
+    "/branches/main/protection": {
+      "HTTP": 404,
+      "message": "Branch not protected"
+    },
+    "/rulesets": [],
+    "/rules/branches/main": []
+  },
+  "trial_recovery": [
+    {
+      "method": "GET",
+      "http": 404
+    },
+    {
+      "method": "PUT",
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "http": 200
+    },
+    {
+      "method": "DELETE",
+      "http": 204
+    },
+    {
+      "method": "GET",
+      "http": 404
+    },
+    {
+      "method": "PUT",
+      "http": 200
+    },
+    {
+      "method": "GET",
+      "http": 200
+    }
+  ],
+  "initial_main_payload": {
+    "required_status_checks": {
+      "strict": true,
+      "checks": [
+        {
+          "context": "quality-and-integration",
+          "app_id": 15368
+        }
+      ]
+    },
+    "enforce_admins": true,
+    "required_pull_request_reviews": {
+      "dismiss_stale_reviews": false,
+      "require_code_owner_reviews": false,
+      "required_approving_review_count": 0,
+      "require_last_push_approval": false
+    },
+    "restrictions": null,
+    "required_linear_history": false,
+    "allow_force_pushes": false,
+    "allow_deletions": false,
+    "block_creations": false,
+    "required_conversation_resolution": false,
+    "lock_branch": false,
+    "allow_fork_syncing": false
+  },
+  "negative_refs": {
+    "branch": "codex/ci-opt-01b-protection-proof",
+    "initial": "dd4b76813cc0cbb2ae6d9b7d74b7597e69742f84",
+    "candidate": "ab880f631dc941656df2c3190b3cc85f53096a90",
+    "direct_push": {
+      "exit": 1,
+      "output": "remote: error: GH006: Protected branch update failed for refs/heads/codex/ci-opt-01b-protection-proof.        \nremote: \nremote: - Changes must be made through a pull request.        \nremote: \nremote: - Required status check \"quality-and-integration\" is expected.        \nTo https://github.com/CrazyMotoCat/STDU_SHOP.git\n ! [remote rejected] ab880f631dc941656df2c3190b3cc85f53096a90 -> codex/ci-opt-01b-protection-proof (protected branch hook declined)\nerror: failed to push some refs to 'https://github.com/CrazyMotoCat/STDU_SHOP.git'\n"
+    },
+    "force_push": {
+      "http": 422,
+      "body": {
+        "message": "Changes must be made through a pull request. Cannot force-push to this branch",
+        "documentation_url": "https://docs.github.com/articles/about-protected-branches",
+        "status": "422"
+      }
+    },
+    "delete": {
+      "http": 422,
+      "body": {
+        "message": "Cannot delete this branch",
+        "documentation_url": "https://docs.github.com/articles/about-protected-branches",
+        "status": "422"
+      }
+    },
+    "final": "dd4b76813cc0cbb2ae6d9b7d74b7597e69742f84"
+  },
+  "negative_checks": {
+    "wrong-source": {
+      "head": "05639ce3318a177b795dd55599f1832a6b08fb02",
+      "base": "dd4b76813cc0cbb2ae6d9b7d74b7597e69742f84",
+      "candidate": "1f229835eef976e09631535ba0625d1f4e6765ac",
+      "mergeable_state": "blocked",
+      "checks": [
+        {
+          "name": "FULL merge gate",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "FAST CI",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "FULL CI",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "CI-OPT-01B supplemental fixture",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "JavaScript static and units",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Python static and parser",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Frozen contracts",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "quality-and-integration",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Classify revision",
+          "result": "success",
+          "app": 15368
+        }
+      ],
+      "required": [
+        {
+          "context": "quality-and-integration",
+          "app_id": 15368
+        },
+        {
+          "context": "CI-OPT-01B source probe",
+          "app_id": 15368
+        }
+      ],
+      "http": 405,
+      "message": "Required status check \"CI-OPT-01B source probe\" was not set by the expected GitHub app."
+    },
+    "missing-full": {
+      "head": "ca4923886417b0f2a6914f91fa581a0f33e49d06",
+      "base": "dd4b76813cc0cbb2ae6d9b7d74b7597e69742f84",
+      "candidate": "b9ef49e630c0a90f4e1ad3bedf2a1a0b24bd648a",
+      "mergeable_state": "blocked",
+      "checks": [
+        {
+          "name": "FAST CI",
+          "result": "failure",
+          "app": 15368
+        },
+        {
+          "name": "CI-OPT-01B supplemental fixture",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Python static and parser",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "quality-and-integration",
+          "result": null,
+          "app": 15368
+        },
+        {
+          "name": "Frozen contracts",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "JavaScript static and units",
+          "result": "failure",
+          "app": 15368
+        }
+      ],
+      "required": [
+        {
+          "context": "quality-and-integration",
+          "app_id": 15368
+        },
+        {
+          "context": "FULL merge gate",
+          "app_id": 15368
+        }
+      ],
+      "http": 405,
+      "message": "2 of 2 required status checks have not succeeded: 1 expected."
+    },
+    "failed-full": {
+      "head": "2e013de96c65c3d7df48fc853bd795694d6526f3",
+      "base": "dd4b76813cc0cbb2ae6d9b7d74b7597e69742f84",
+      "candidate": "9a126a834b1f692ac8283d00a134d288c4e0441a",
+      "mergeable_state": "blocked",
+      "checks": [
+        {
+          "name": "FAST CI",
+          "result": "failure",
+          "app": 15368
+        },
+        {
+          "name": "FULL merge gate",
+          "result": "failure",
+          "app": 15368
+        },
+        {
+          "name": "quality-and-integration",
+          "result": "failure",
+          "app": 15368
+        },
+        {
+          "name": "FULL CI",
+          "result": "failure",
+          "app": 15368
+        },
+        {
+          "name": "JavaScript static and units",
+          "result": "failure",
+          "app": 15368
+        },
+        {
+          "name": "Frozen contracts",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Classify revision",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Python static and parser",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "CI-OPT-01B supplemental fixture",
+          "result": "success",
+          "app": 15368
+        }
+      ],
+      "required": [
+        {
+          "context": "quality-and-integration",
+          "app_id": 15368
+        },
+        {
+          "context": "FULL merge gate",
+          "app_id": 15368
+        }
+      ],
+      "http": 405,
+      "message": "2 of 2 required status checks are failing."
+    },
+    "skipped-full": {
+      "head": "605a61b000d2381103a739af81b5b64a6d9ef500",
+      "base": "dd4b76813cc0cbb2ae6d9b7d74b7597e69742f84",
+      "candidate": "7d89192442ce3ce5b1b2630e81f587919d737b26",
+      "mergeable_state": "blocked",
+      "checks": [
+        {
+          "name": "FAST CI",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "FULL CI",
+          "result": "skipped",
+          "app": 15368
+        },
+        {
+          "name": "FULL merge gate",
+          "result": "failure",
+          "app": 15368
+        },
+        {
+          "name": "Python static and parser",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "JavaScript static and units",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Frozen contracts",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Classify revision",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "CI-OPT-01B supplemental fixture",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "quality-and-integration",
+          "result": null,
+          "app": 15368
+        }
+      ],
+      "required": [
+        {
+          "context": "quality-and-integration",
+          "app_id": 15368
+        },
+        {
+          "context": "FULL merge gate",
+          "app_id": 15368
+        }
+      ],
+      "http": 405,
+      "message": "2 of 2 required status checks have not succeeded: 1 failing."
+    },
+    "base-advanced": {
+      "head": "5cc29157679c072e7b13999d211edd5e091b3385",
+      "base": "5b2f9f7a49e5b4a12b32056c89b6f3886af50a56",
+      "candidate": "7a15dcdce81b91329c7680297485ccbacadada20",
+      "mergeable_state": "behind",
+      "checks": [
+        {
+          "name": "JavaScript static and units",
+          "result": null,
+          "app": 15368
+        },
+        {
+          "name": "Python static and parser",
+          "result": null,
+          "app": 15368
+        },
+        {
+          "name": "Classify revision",
+          "result": null,
+          "app": 15368
+        },
+        {
+          "name": "Frozen contracts",
+          "result": null,
+          "app": 15368
+        },
+        {
+          "name": "CI-OPT-01B supplemental fixture",
+          "result": null,
+          "app": 15368
+        },
+        {
+          "name": "quality-and-integration",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "FAST CI",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "FULL CI",
+          "result": "skipped",
+          "app": 15368
+        },
+        {
+          "name": "FULL merge gate",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "JavaScript static and units",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Frozen contracts",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Python static and parser",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Classify revision",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "CI-OPT-01B supplemental fixture",
+          "result": "success",
+          "app": 15368
+        }
+      ],
+      "required": [
+        {
+          "context": "quality-and-integration",
+          "app_id": 15368
+        },
+        {
+          "context": "FULL merge gate",
+          "app_id": 15368
+        },
+        {
+          "context": "FAST CI",
+          "app_id": 15368
+        }
+      ],
+      "http": 405,
+      "message": "2 of 3 required status checks are expected."
+    },
+    "cancelled-full": {
+      "head": "312fddf7a0d7e84cb9ced4d4c069b6c71b5f7a71",
+      "base": "dd4b76813cc0cbb2ae6d9b7d74b7597e69742f84",
+      "candidate": "b5e4602a3ce2b8e3c585ae4448c1b231874da056",
+      "mergeable_state": "blocked",
+      "checks": [
+        {
+          "name": "FULL merge gate",
+          "result": "failure",
+          "app": 15368
+        },
+        {
+          "name": "FAST CI",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "FULL CI",
+          "result": "cancelled",
+          "app": 15368
+        },
+        {
+          "name": "Classify revision",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Frozen contracts",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "Python static and parser",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "JavaScript static and units",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "CI-OPT-01B supplemental fixture",
+          "result": "success",
+          "app": 15368
+        },
+        {
+          "name": "quality-and-integration",
+          "result": null,
+          "app": 15368
+        }
+      ],
+      "required": [
+        {
+          "context": "quality-and-integration",
+          "app_id": 15368
+        },
+        {
+          "context": "FULL merge gate",
+          "app_id": 15368
+        },
+        {
+          "context": "FAST CI",
+          "app_id": 15368
+        }
+      ],
+      "http": 405,
+      "message": "2 of 3 required status checks have not succeeded: 1 failing."
+    }
+  },
+  "forged_gate": {
+    "pr": 42,
+    "head": "5cc29157679c072e7b13999d211edd5e091b3385",
+    "base": "dd4b76813cc0cbb2ae6d9b7d74b7597e69742f84",
+    "mergeable_state": "clean",
+    "merge_performed": false,
+    "checks": [
+      {
+        "name": "quality-and-integration",
+        "result": "success",
+        "app": 15368,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41668263410/job/126030114989"
+      },
+      {
+        "name": "FAST CI",
+        "result": "success",
+        "app": 15368,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41668263468/job/126030043702"
+      },
+      {
+        "name": "FULL CI",
+        "result": "skipped",
+        "app": 15368,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41668263272/job/126029501685"
+      },
+      {
+        "name": "FULL merge gate",
+        "result": "success",
+        "app": 15368,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41668263272/job/126029500167"
+      },
+      {
+        "name": "JavaScript static and units",
+        "result": "success",
+        "app": 15368,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41668263468/job/126029360568"
+      },
+      {
+        "name": "Frozen contracts",
+        "result": "success",
+        "app": 15368,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41668263468/job/126029360532"
+      },
+      {
+        "name": "Python static and parser",
+        "result": "success",
+        "app": 15368,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41668263468/job/126029360046"
+      },
+      {
+        "name": "Classify revision",
+        "result": "success",
+        "app": 15368,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41668263272/job/126029359429"
+      },
+      {
+        "name": "CI-OPT-01B supplemental fixture",
+        "result": "success",
+        "app": 15368,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41668263368/job/126029359136"
+      }
+    ],
+    "full_jobs": [
+      {
+        "name": "Classify revision",
+        "result": "success"
+      },
+      {
+        "name": "FULL merge gate",
+        "result": "success"
+      },
+      {
+        "name": "FULL CI",
+        "result": "skipped"
+      }
+    ]
+  },
+  "benchmark": {
+    "docs": [
+      {
+        "id": 41661312324,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41661312324",
+        "workflow": "FULL CI",
+        "head": "a3ae0fd44942e329bcaf528ea497d3ced4e806bf",
+        "result": "failure",
+        "created_at": "2026-11-03T15:11:40Z",
+        "elapsed_seconds": 36.0,
+        "first_job_delay_seconds": 4.0,
+        "jobs": [
+          {
+            "name": "Classify revision",
+            "result": "success",
+            "created_at": "2026-11-03T15:11:41Z",
+            "started_at": "2026-11-03T15:11:44Z",
+            "completed_at": "2026-11-03T15:11:55Z",
+            "runtime_seconds": 11.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run node scripts/ci/classify-changes.mjs",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL merge gate",
+            "result": "failure",
+            "created_at": "2026-11-03T15:11:55Z",
+            "started_at": "2026-11-03T15:11:58Z",
+            "completed_at": "2026-11-03T15:12:16Z",
+            "runtime_seconds": 18.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require successful FULL for the exact live revision",
+                "result": "failure"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "skipped"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL CI",
+            "result": "skipped",
+            "created_at": "2026-11-03T15:11:55Z",
+            "started_at": "2026-11-03T15:11:55Z",
+            "completed_at": "2026-11-03T15:11:55Z",
+            "runtime_seconds": 0.0,
+            "allocation_delay_seconds": 0.0,
+            "steps": []
+          }
+        ]
+      },
+      {
+        "id": 41661312160,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41661312160",
+        "workflow": "FAST CI",
+        "head": "a3ae0fd44942e329bcaf528ea497d3ced4e806bf",
+        "result": "success",
+        "created_at": "2026-11-03T15:11:40Z",
+        "elapsed_seconds": 90.0,
+        "first_job_delay_seconds": 4.0,
+        "jobs": [
+          {
+            "name": "JavaScript static and units",
+            "result": "success",
+            "created_at": "2026-11-03T15:11:41Z",
+            "started_at": "2026-11-03T15:11:44Z",
+            "completed_at": "2026-11-03T15:12:51Z",
+            "runtime_seconds": 67.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Lint, format, types, units, policy and hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "Frozen contracts",
+            "result": "success",
+            "created_at": "2026-11-03T15:11:41Z",
+            "started_at": "2026-11-03T15:11:44Z",
+            "completed_at": "2026-11-03T15:12:57Z",
+            "runtime_seconds": 73.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run bash scripts/ci/contracts.sh",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "Python static and parser",
+            "result": "success",
+            "created_at": "2026-11-03T15:11:41Z",
+            "started_at": "2026-11-03T15:11:44Z",
+            "completed_at": "2026-11-03T15:12:29Z",
+            "runtime_seconds": 45.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Ruff, mypy and parser/FastAPI units",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FAST CI",
+            "result": "success",
+            "created_at": "2026-11-03T15:12:57Z",
+            "started_at": "2026-11-03T15:13:00Z",
+            "completed_at": "2026-11-03T15:13:10Z",
+            "runtime_seconds": 10.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require every FAST component",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "css": [
+      {
+        "id": 41663085245,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41663085245",
+        "workflow": "FAST CI",
+        "head": "1866c2cf40e6c630f36bb5db01777dface41514f",
+        "result": "success",
+        "created_at": "2026-11-03T15:21:45Z",
+        "elapsed_seconds": 78.0,
+        "first_job_delay_seconds": 3.0,
+        "jobs": [
+          {
+            "name": "Python static and parser",
+            "result": "success",
+            "created_at": "2026-11-03T15:21:46Z",
+            "started_at": "2026-11-03T15:21:49Z",
+            "completed_at": "2026-11-03T15:22:23Z",
+            "runtime_seconds": 34.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Ruff, mypy and parser/FastAPI units",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "JavaScript static and units",
+            "result": "success",
+            "created_at": "2026-11-03T15:21:46Z",
+            "started_at": "2026-11-03T15:21:48Z",
+            "completed_at": "2026-11-03T15:22:49Z",
+            "runtime_seconds": 61.0,
+            "allocation_delay_seconds": 2.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Lint, format, types, units, policy and hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "Frozen contracts",
+            "result": "success",
+            "created_at": "2026-11-03T15:21:46Z",
+            "started_at": "2026-11-03T15:21:49Z",
+            "completed_at": "2026-11-03T15:22:45Z",
+            "runtime_seconds": 56.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run bash scripts/ci/contracts.sh",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FAST CI",
+            "result": "success",
+            "created_at": "2026-11-03T15:22:49Z",
+            "started_at": "2026-11-03T15:22:52Z",
+            "completed_at": "2026-11-03T15:23:03Z",
+            "runtime_seconds": 11.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require every FAST component",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 41663085345,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41663085345",
+        "workflow": "FULL CI",
+        "head": "1866c2cf40e6c630f36bb5db01777dface41514f",
+        "result": "failure",
+        "created_at": "2026-11-03T15:21:45Z",
+        "elapsed_seconds": 65.0,
+        "first_job_delay_seconds": 8.0,
+        "jobs": [
+          {
+            "name": "Classify revision",
+            "result": "success",
+            "created_at": "2026-11-03T15:21:50Z",
+            "started_at": "2026-11-03T15:21:53Z",
+            "completed_at": "2026-11-03T15:22:33Z",
+            "runtime_seconds": 40.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run node scripts/ci/classify-changes.mjs",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL merge gate",
+            "result": "failure",
+            "created_at": "2026-11-03T15:22:34Z",
+            "started_at": "2026-11-03T15:22:38Z",
+            "completed_at": "2026-11-03T15:22:50Z",
+            "runtime_seconds": 12.0,
+            "allocation_delay_seconds": 4.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require successful FULL for the exact live revision",
+                "result": "failure"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "skipped"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL CI",
+            "result": "skipped",
+            "created_at": "2026-11-03T15:22:34Z",
+            "started_at": "2026-11-03T15:22:34Z",
+            "completed_at": "2026-11-03T15:22:34Z",
+            "runtime_seconds": 0.0,
+            "allocation_delay_seconds": 0.0,
+            "steps": []
+          }
+        ]
+      }
+    ],
+    "catalog": [
+      {
+        "id": 41663729974,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41663729974",
+        "workflow": "FAST CI",
+        "head": "17b5afb08adef71b1a99ca73b19b84e7deeab255",
+        "result": "success",
+        "created_at": "2026-11-03T15:25:26Z",
+        "elapsed_seconds": 89.0,
+        "first_job_delay_seconds": 4.0,
+        "jobs": [
+          {
+            "name": "JavaScript static and units",
+            "result": "success",
+            "created_at": "2026-11-03T15:25:27Z",
+            "started_at": "2026-11-03T15:25:30Z",
+            "completed_at": "2026-11-03T15:26:35Z",
+            "runtime_seconds": 65.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Lint, format, types, units, policy and hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "Frozen contracts",
+            "result": "success",
+            "created_at": "2026-11-03T15:25:27Z",
+            "started_at": "2026-11-03T15:25:30Z",
+            "completed_at": "2026-11-03T15:26:24Z",
+            "runtime_seconds": 54.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run bash scripts/ci/contracts.sh",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "Python static and parser",
+            "result": "success",
+            "created_at": "2026-11-03T15:25:27Z",
+            "started_at": "2026-11-03T15:25:30Z",
+            "completed_at": "2026-11-03T15:26:11Z",
+            "runtime_seconds": 41.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Ruff, mypy and parser/FastAPI units",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FAST CI",
+            "result": "success",
+            "created_at": "2026-11-03T15:26:35Z",
+            "started_at": "2026-11-03T15:26:42Z",
+            "completed_at": "2026-11-03T15:26:55Z",
+            "runtime_seconds": 13.0,
+            "allocation_delay_seconds": 7.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require every FAST component",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 41663729966,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41663729966",
+        "workflow": "FULL CI",
+        "head": "17b5afb08adef71b1a99ca73b19b84e7deeab255",
+        "result": "failure",
+        "created_at": "2026-11-03T15:25:26Z",
+        "elapsed_seconds": 40.0,
+        "first_job_delay_seconds": 4.0,
+        "jobs": [
+          {
+            "name": "Classify revision",
+            "result": "success",
+            "created_at": "2026-11-03T15:25:27Z",
+            "started_at": "2026-11-03T15:25:30Z",
+            "completed_at": "2026-11-03T15:25:43Z",
+            "runtime_seconds": 13.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run node scripts/ci/classify-changes.mjs",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL merge gate",
+            "result": "failure",
+            "created_at": "2026-11-03T15:25:43Z",
+            "started_at": "2026-11-03T15:25:46Z",
+            "completed_at": "2026-11-03T15:26:06Z",
+            "runtime_seconds": 20.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require successful FULL for the exact live revision",
+                "result": "failure"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "skipped"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL CI",
+            "result": "skipped",
+            "created_at": "2026-11-03T15:25:43Z",
+            "started_at": "2026-11-03T15:25:43Z",
+            "completed_at": "2026-11-03T15:25:43Z",
+            "runtime_seconds": 0.0,
+            "allocation_delay_seconds": 0.0,
+            "steps": []
+          }
+        ]
+      }
+    ],
+    "parser_tests": [
+      {
+        "id": 41664261084,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41664261084",
+        "workflow": "FAST CI",
+        "head": "4d2e2df85e02bf8eea231773840509f45a672ab7",
+        "result": "success",
+        "created_at": "2026-11-03T15:28:32Z",
+        "elapsed_seconds": 150.0,
+        "first_job_delay_seconds": 65.0,
+        "jobs": [
+          {
+            "name": "Python static and parser",
+            "result": "success",
+            "created_at": "2026-11-03T15:29:35Z",
+            "started_at": "2026-11-03T15:29:37Z",
+            "completed_at": "2026-11-03T15:30:18Z",
+            "runtime_seconds": 41.0,
+            "allocation_delay_seconds": 2.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Ruff, mypy and parser/FastAPI units",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "Frozen contracts",
+            "result": "success",
+            "created_at": "2026-11-03T15:29:35Z",
+            "started_at": "2026-11-03T15:29:37Z",
+            "completed_at": "2026-11-03T15:30:45Z",
+            "runtime_seconds": 68.0,
+            "allocation_delay_seconds": 2.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run bash scripts/ci/contracts.sh",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "JavaScript static and units",
+            "result": "success",
+            "created_at": "2026-11-03T15:29:35Z",
+            "started_at": "2026-11-03T15:29:37Z",
+            "completed_at": "2026-11-03T15:30:29Z",
+            "runtime_seconds": 52.0,
+            "allocation_delay_seconds": 2.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Lint, format, types, units, policy and hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FAST CI",
+            "result": "success",
+            "created_at": "2026-11-03T15:30:45Z",
+            "started_at": "2026-11-03T15:30:48Z",
+            "completed_at": "2026-11-03T15:31:02Z",
+            "runtime_seconds": 14.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require every FAST component",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 41664261092,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41664261092",
+        "workflow": "FULL CI",
+        "head": "4d2e2df85e02bf8eea231773840509f45a672ab7",
+        "result": "failure",
+        "created_at": "2026-11-03T15:28:32Z",
+        "elapsed_seconds": 474.0,
+        "first_job_delay_seconds": 446.0,
+        "jobs": [
+          {
+            "name": "Classify revision",
+            "result": "success",
+            "created_at": "2026-11-03T15:35:49Z",
+            "started_at": "2026-11-03T15:35:58Z",
+            "completed_at": "2026-11-03T15:36:11Z",
+            "runtime_seconds": 13.0,
+            "allocation_delay_seconds": 9.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run node scripts/ci/classify-changes.mjs",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL merge gate",
+            "result": "failure",
+            "created_at": "2026-11-03T15:36:11Z",
+            "started_at": "2026-11-03T15:36:14Z",
+            "completed_at": "2026-11-03T15:36:26Z",
+            "runtime_seconds": 12.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require successful FULL for the exact live revision",
+                "result": "failure"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "skipped"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL CI",
+            "result": "skipped",
+            "created_at": "2026-11-03T15:36:11Z",
+            "started_at": "2026-11-03T15:36:11Z",
+            "completed_at": "2026-11-03T15:36:11Z",
+            "runtime_seconds": 0.0,
+            "allocation_delay_seconds": 0.0,
+            "steps": []
+          }
+        ]
+      }
+    ],
+    "parser_implementation": [
+      {
+        "id": 41670418609,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41670418609",
+        "workflow": "FAST CI",
+        "head": "d0876f6d829f0ac56eb8046b476ba18900dff080",
+        "result": "success",
+        "created_at": "2026-11-03T16:04:36Z",
+        "elapsed_seconds": 163.0,
+        "first_job_delay_seconds": 73.0,
+        "jobs": [
+          {
+            "name": "Python static and parser",
+            "result": "success",
+            "created_at": "2026-11-03T16:05:47Z",
+            "started_at": "2026-11-03T16:05:49Z",
+            "completed_at": "2026-11-03T16:06:31Z",
+            "runtime_seconds": 42.0,
+            "allocation_delay_seconds": 2.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Ruff, mypy and parser/FastAPI units",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "Frozen contracts",
+            "result": "success",
+            "created_at": "2026-11-03T16:05:47Z",
+            "started_at": "2026-11-03T16:05:49Z",
+            "completed_at": "2026-11-03T16:07:01Z",
+            "runtime_seconds": 72.0,
+            "allocation_delay_seconds": 2.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run bash scripts/ci/contracts.sh",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "JavaScript static and units",
+            "result": "success",
+            "created_at": "2026-11-03T16:05:47Z",
+            "started_at": "2026-11-03T16:05:51Z",
+            "completed_at": "2026-11-03T16:06:51Z",
+            "runtime_seconds": 60.0,
+            "allocation_delay_seconds": 4.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Lint, format, types, units, policy and hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FAST CI",
+            "result": "success",
+            "created_at": "2026-11-03T16:07:01Z",
+            "started_at": "2026-11-03T16:07:07Z",
+            "completed_at": "2026-11-03T16:07:19Z",
+            "runtime_seconds": 12.0,
+            "allocation_delay_seconds": 6.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require every FAST component",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 41670418473,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41670418473",
+        "workflow": "FULL CI",
+        "head": "d0876f6d829f0ac56eb8046b476ba18900dff080",
+        "result": "success",
+        "created_at": "2026-11-03T16:04:36Z",
+        "elapsed_seconds": 693.0,
+        "first_job_delay_seconds": 28.0,
+        "jobs": [
+          {
+            "name": "Classify revision",
+            "result": "success",
+            "created_at": "2026-11-03T16:05:01Z",
+            "started_at": "2026-11-03T16:05:04Z",
+            "completed_at": "2026-11-03T16:05:16Z",
+            "runtime_seconds": 12.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run node scripts/ci/classify-changes.mjs",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL CI",
+            "result": "success",
+            "created_at": "2026-11-03T16:05:16Z",
+            "started_at": "2026-11-03T16:05:29Z",
+            "completed_at": "2026-11-03T16:15:53Z",
+            "runtime_seconds": 624.0,
+            "allocation_delay_seconds": 13.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Independent ephemeral local configuration",
+                "result": "success"
+              },
+              {
+                "name": "Locked installs",
+                "result": "success"
+              },
+              {
+                "name": "CI policy tests and diff hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm toolchain:check",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm lint",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm format:check",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-002 contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-004 catalog contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-007 supplier contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010 inquiry contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010D malware scan security contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B frozen contract trace",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B isolated schema and permission initializer runtime",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm typecheck",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm test",
+                "result": "success"
+              },
+              {
+                "name": "Install Chromium for HTTPS browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-002B PostgreSQL and Redis runtime acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm build",
+                "result": "success"
+              },
+              {
+                "name": "R1-006B disposable PostgreSQL, parser, HTTP and Staff UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-007B disposable PostgreSQL, Redis and supplier HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010C isolated Chromium, Next.js, NestJS, PostgreSQL and private-storage E2E",
+                "result": "success"
+              },
+              {
+                "name": "R1-003 public UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-005 public catalog browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Five-service integration and dependency failures",
+                "result": "success"
+              },
+              {
+                "name": "Stop full Compose before host mode",
+                "result": "success"
+              },
+              {
+                "name": "Host lifecycle smoke (3 consecutive runs)",
+                "result": "success"
+              },
+              {
+                "name": "Restore project to stopped state without deleting volumes",
+                "result": "success"
+              },
+              {
+                "name": "Post Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Post Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL merge gate",
+            "result": "success",
+            "created_at": "2026-11-03T16:15:53Z",
+            "started_at": "2026-11-03T16:15:56Z",
+            "completed_at": "2026-11-03T16:16:09Z",
+            "runtime_seconds": 13.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require successful FULL for the exact live revision",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 41670418336,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41670418336",
+        "workflow": "R1 foundation",
+        "head": "d0876f6d829f0ac56eb8046b476ba18900dff080",
+        "result": "success",
+        "created_at": "2026-11-03T16:04:36Z",
+        "elapsed_seconds": 644.0,
+        "first_job_delay_seconds": 3.0,
+        "jobs": [
+          {
+            "name": "quality-and-integration",
+            "result": "success",
+            "created_at": "2026-11-03T16:04:36Z",
+            "started_at": "2026-11-03T16:04:39Z",
+            "completed_at": "2026-11-03T16:15:20Z",
+            "runtime_seconds": 641.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Independent ephemeral local configuration",
+                "result": "success"
+              },
+              {
+                "name": "Locked installs",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm toolchain:check",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm lint",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm format:check",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-002 contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-004 catalog contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-007 supplier contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010 inquiry contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010D malware scan security contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B frozen contract trace",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B isolated schema and permission initializer runtime",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm typecheck",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm test",
+                "result": "success"
+              },
+              {
+                "name": "Install Chromium for HTTPS browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-002B PostgreSQL and Redis runtime acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm build",
+                "result": "success"
+              },
+              {
+                "name": "R1-006B disposable PostgreSQL, parser, HTTP and Staff UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-007B disposable PostgreSQL, Redis and supplier HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010C isolated Chromium, Next.js, NestJS, PostgreSQL and private-storage E2E",
+                "result": "success"
+              },
+              {
+                "name": "R1-003 public UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-005 public catalog browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Five-service integration and dependency failures",
+                "result": "success"
+              },
+              {
+                "name": "Stop full Compose before host mode",
+                "result": "success"
+              },
+              {
+                "name": "Host lifecycle smoke (3 consecutive runs)",
+                "result": "success"
+              },
+              {
+                "name": "Restore project to stopped state without deleting volumes",
+                "result": "success"
+              },
+              {
+                "name": "Post Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Post Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "security": [
+      {
+        "id": 41665780026,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41665780026",
+        "workflow": "FAST CI",
+        "head": "2431059ce6253d936bb48b625c125f5d8f806685",
+        "result": "success",
+        "created_at": "2026-11-03T15:37:17Z",
+        "elapsed_seconds": 84.0,
+        "first_job_delay_seconds": 3.0,
+        "jobs": [
+          {
+            "name": "Frozen contracts",
+            "result": "success",
+            "created_at": "2026-11-03T15:37:17Z",
+            "started_at": "2026-11-03T15:37:20Z",
+            "completed_at": "2026-11-03T15:38:17Z",
+            "runtime_seconds": 57.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run bash scripts/ci/contracts.sh",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "Python static and parser",
+            "result": "success",
+            "created_at": "2026-11-03T15:37:17Z",
+            "started_at": "2026-11-03T15:37:20Z",
+            "completed_at": "2026-11-03T15:38:01Z",
+            "runtime_seconds": 41.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Ruff, mypy and parser/FastAPI units",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "JavaScript static and units",
+            "result": "success",
+            "created_at": "2026-11-03T15:37:17Z",
+            "started_at": "2026-11-03T15:37:21Z",
+            "completed_at": "2026-11-03T15:38:28Z",
+            "runtime_seconds": 67.0,
+            "allocation_delay_seconds": 4.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Lint, format, types, units, policy and hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FAST CI",
+            "result": "success",
+            "created_at": "2026-11-03T15:38:28Z",
+            "started_at": "2026-11-03T15:38:31Z",
+            "completed_at": "2026-11-03T15:38:41Z",
+            "runtime_seconds": 10.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require every FAST component",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 41665779753,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41665779753",
+        "workflow": "FULL CI",
+        "head": "2431059ce6253d936bb48b625c125f5d8f806685",
+        "result": "success",
+        "created_at": "2026-11-03T15:37:17Z",
+        "elapsed_seconds": 604.0,
+        "first_job_delay_seconds": 3.0,
+        "jobs": [
+          {
+            "name": "Classify revision",
+            "result": "success",
+            "created_at": "2026-11-03T15:37:17Z",
+            "started_at": "2026-11-03T15:37:20Z",
+            "completed_at": "2026-11-03T15:37:30Z",
+            "runtime_seconds": 10.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run node scripts/ci/classify-changes.mjs",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL CI",
+            "result": "success",
+            "created_at": "2026-11-03T15:37:30Z",
+            "started_at": "2026-11-03T15:37:33Z",
+            "completed_at": "2026-11-03T15:47:05Z",
+            "runtime_seconds": 572.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Independent ephemeral local configuration",
+                "result": "success"
+              },
+              {
+                "name": "Locked installs",
+                "result": "success"
+              },
+              {
+                "name": "CI policy tests and diff hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm toolchain:check",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm lint",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm format:check",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-002 contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-004 catalog contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-007 supplier contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010 inquiry contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010D malware scan security contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B frozen contract trace",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B isolated schema and permission initializer runtime",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm typecheck",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm test",
+                "result": "success"
+              },
+              {
+                "name": "Install Chromium for HTTPS browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-002B PostgreSQL and Redis runtime acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm build",
+                "result": "success"
+              },
+              {
+                "name": "R1-006B disposable PostgreSQL, parser, HTTP and Staff UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-007B disposable PostgreSQL, Redis and supplier HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010C isolated Chromium, Next.js, NestJS, PostgreSQL and private-storage E2E",
+                "result": "success"
+              },
+              {
+                "name": "R1-003 public UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-005 public catalog browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Five-service integration and dependency failures",
+                "result": "success"
+              },
+              {
+                "name": "Stop full Compose before host mode",
+                "result": "success"
+              },
+              {
+                "name": "Host lifecycle smoke (3 consecutive runs)",
+                "result": "success"
+              },
+              {
+                "name": "Restore project to stopped state without deleting volumes",
+                "result": "success"
+              },
+              {
+                "name": "Post Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Post Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL merge gate",
+            "result": "success",
+            "created_at": "2026-11-03T15:47:05Z",
+            "started_at": "2026-11-03T15:47:08Z",
+            "completed_at": "2026-11-03T15:47:21Z",
+            "runtime_seconds": 13.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require successful FULL for the exact live revision",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 41665779777,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41665779777",
+        "workflow": "R1 foundation",
+        "head": "2431059ce6253d936bb48b625c125f5d8f806685",
+        "result": "success",
+        "created_at": "2026-11-03T15:37:17Z",
+        "elapsed_seconds": 737.0,
+        "first_job_delay_seconds": 88.0,
+        "jobs": [
+          {
+            "name": "quality-and-integration",
+            "result": "success",
+            "created_at": "2026-11-03T15:38:42Z",
+            "started_at": "2026-11-03T15:38:45Z",
+            "completed_at": "2026-11-03T15:49:34Z",
+            "runtime_seconds": 649.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Independent ephemeral local configuration",
+                "result": "success"
+              },
+              {
+                "name": "Locked installs",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm toolchain:check",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm lint",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm format:check",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-002 contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-004 catalog contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-007 supplier contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010 inquiry contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010D malware scan security contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B frozen contract trace",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B isolated schema and permission initializer runtime",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm typecheck",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm test",
+                "result": "success"
+              },
+              {
+                "name": "Install Chromium for HTTPS browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-002B PostgreSQL and Redis runtime acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm build",
+                "result": "success"
+              },
+              {
+                "name": "R1-006B disposable PostgreSQL, parser, HTTP and Staff UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-007B disposable PostgreSQL, Redis and supplier HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010C isolated Chromium, Next.js, NestJS, PostgreSQL and private-storage E2E",
+                "result": "success"
+              },
+              {
+                "name": "R1-003 public UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-005 public catalog browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Five-service integration and dependency failures",
+                "result": "success"
+              },
+              {
+                "name": "Stop full Compose before host mode",
+                "result": "success"
+              },
+              {
+                "name": "Host lifecycle smoke (3 consecutive runs)",
+                "result": "success"
+              },
+              {
+                "name": "Restore project to stopped state without deleting volumes",
+                "result": "success"
+              },
+              {
+                "name": "Post Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Post Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "ready": [
+      {
+        "id": 41667653569,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41667653569",
+        "workflow": "FAST CI",
+        "head": "2431059ce6253d936bb48b625c125f5d8f806685",
+        "result": "success",
+        "created_at": "2026-11-03T15:48:17Z",
+        "elapsed_seconds": 95.0,
+        "first_job_delay_seconds": 3.0,
+        "jobs": [
+          {
+            "name": "Frozen contracts",
+            "result": "success",
+            "created_at": "2026-11-03T15:48:18Z",
+            "started_at": "2026-11-03T15:48:20Z",
+            "completed_at": "2026-11-03T15:49:35Z",
+            "runtime_seconds": 75.0,
+            "allocation_delay_seconds": 2.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run bash scripts/ci/contracts.sh",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "Python static and parser",
+            "result": "success",
+            "created_at": "2026-11-03T15:48:18Z",
+            "started_at": "2026-11-03T15:48:21Z",
+            "completed_at": "2026-11-03T15:48:56Z",
+            "runtime_seconds": 35.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Ruff, mypy and parser/FastAPI units",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "JavaScript static and units",
+            "result": "success",
+            "created_at": "2026-11-03T15:48:18Z",
+            "started_at": "2026-11-03T15:48:21Z",
+            "completed_at": "2026-11-03T15:49:24Z",
+            "runtime_seconds": 63.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Lint, format, types, units, policy and hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FAST CI",
+            "result": "success",
+            "created_at": "2026-11-03T15:49:35Z",
+            "started_at": "2026-11-03T15:49:38Z",
+            "completed_at": "2026-11-03T15:49:52Z",
+            "runtime_seconds": 14.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require every FAST component",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 41667653498,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41667653498",
+        "workflow": "FULL CI",
+        "head": "2431059ce6253d936bb48b625c125f5d8f806685",
+        "result": "success",
+        "created_at": "2026-11-03T15:48:17Z",
+        "elapsed_seconds": 724.0,
+        "first_job_delay_seconds": 4.0,
+        "jobs": [
+          {
+            "name": "Classify revision",
+            "result": "success",
+            "created_at": "2026-11-03T15:48:18Z",
+            "started_at": "2026-11-03T15:48:21Z",
+            "completed_at": "2026-11-03T15:48:31Z",
+            "runtime_seconds": 10.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run node scripts/ci/classify-changes.mjs",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL CI",
+            "result": "success",
+            "created_at": "2026-11-03T15:48:32Z",
+            "started_at": "2026-11-03T15:48:34Z",
+            "completed_at": "2026-11-03T16:00:02Z",
+            "runtime_seconds": 688.0,
+            "allocation_delay_seconds": 2.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Independent ephemeral local configuration",
+                "result": "success"
+              },
+              {
+                "name": "Locked installs",
+                "result": "success"
+              },
+              {
+                "name": "CI policy tests and diff hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm toolchain:check",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm lint",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm format:check",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-002 contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-004 catalog contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-007 supplier contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010 inquiry contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010D malware scan security contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B frozen contract trace",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B isolated schema and permission initializer runtime",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm typecheck",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm test",
+                "result": "success"
+              },
+              {
+                "name": "Install Chromium for HTTPS browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-002B PostgreSQL and Redis runtime acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm build",
+                "result": "success"
+              },
+              {
+                "name": "R1-006B disposable PostgreSQL, parser, HTTP and Staff UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-007B disposable PostgreSQL, Redis and supplier HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010C isolated Chromium, Next.js, NestJS, PostgreSQL and private-storage E2E",
+                "result": "success"
+              },
+              {
+                "name": "R1-003 public UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-005 public catalog browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Five-service integration and dependency failures",
+                "result": "success"
+              },
+              {
+                "name": "Stop full Compose before host mode",
+                "result": "success"
+              },
+              {
+                "name": "Host lifecycle smoke (3 consecutive runs)",
+                "result": "success"
+              },
+              {
+                "name": "Restore project to stopped state without deleting volumes",
+                "result": "success"
+              },
+              {
+                "name": "Post Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Post Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL merge gate",
+            "result": "success",
+            "created_at": "2026-11-03T16:00:02Z",
+            "started_at": "2026-11-03T16:00:06Z",
+            "completed_at": "2026-11-03T16:00:21Z",
+            "runtime_seconds": 15.0,
+            "allocation_delay_seconds": 4.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require successful FULL for the exact live revision",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "final40": [
+      {
+        "id": 41667071323,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41667071323",
+        "workflow": "FAST CI",
+        "head": "5d162a6e4a9a9c071d963939c96b36fd5d887904",
+        "result": "success",
+        "created_at": "2026-11-03T15:44:52Z",
+        "elapsed_seconds": 80.0,
+        "first_job_delay_seconds": 4.0,
+        "jobs": [
+          {
+            "name": "JavaScript static and units",
+            "result": "success",
+            "created_at": "2026-11-03T15:44:53Z",
+            "started_at": "2026-11-03T15:44:56Z",
+            "completed_at": "2026-11-03T15:46:00Z",
+            "runtime_seconds": 64.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Lint, format, types, units, policy and hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "Python static and parser",
+            "result": "success",
+            "created_at": "2026-11-03T15:44:53Z",
+            "started_at": "2026-11-03T15:44:56Z",
+            "completed_at": "2026-11-03T15:45:41Z",
+            "runtime_seconds": 45.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Ruff, mypy and parser/FastAPI units",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "Frozen contracts",
+            "result": "success",
+            "created_at": "2026-11-03T15:44:53Z",
+            "started_at": "2026-11-03T15:44:57Z",
+            "completed_at": "2026-11-03T15:45:52Z",
+            "runtime_seconds": 55.0,
+            "allocation_delay_seconds": 4.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run bash scripts/ci/contracts.sh",
+                "result": "success"
+              },
+              {
+                "name": "Post Run ./.github/actions/ci-setup",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FAST CI",
+            "result": "success",
+            "created_at": "2026-11-03T15:46:00Z",
+            "started_at": "2026-11-03T15:46:03Z",
+            "completed_at": "2026-11-03T15:46:12Z",
+            "runtime_seconds": 9.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require every FAST component",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 41667071363,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41667071363",
+        "workflow": "FULL CI",
+        "head": "5d162a6e4a9a9c071d963939c96b36fd5d887904",
+        "result": "success",
+        "created_at": "2026-11-03T15:44:52Z",
+        "elapsed_seconds": 729.0,
+        "first_job_delay_seconds": 3.0,
+        "jobs": [
+          {
+            "name": "Classify revision",
+            "result": "success",
+            "created_at": "2026-11-03T15:44:53Z",
+            "started_at": "2026-11-03T15:44:55Z",
+            "completed_at": "2026-11-03T15:45:09Z",
+            "runtime_seconds": 14.0,
+            "allocation_delay_seconds": 2.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run node scripts/ci/classify-changes.mjs",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL CI",
+            "result": "success",
+            "created_at": "2026-11-03T15:45:09Z",
+            "started_at": "2026-11-03T15:45:15Z",
+            "completed_at": "2026-11-03T15:56:45Z",
+            "runtime_seconds": 690.0,
+            "allocation_delay_seconds": 6.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Independent ephemeral local configuration",
+                "result": "success"
+              },
+              {
+                "name": "Locked installs",
+                "result": "success"
+              },
+              {
+                "name": "CI policy tests and diff hygiene",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm toolchain:check",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm lint",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm format:check",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-002 contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-004 catalog contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-007 supplier contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010 inquiry contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010D malware scan security contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B frozen contract trace",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B isolated schema and permission initializer runtime",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm typecheck",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm test",
+                "result": "success"
+              },
+              {
+                "name": "Install Chromium for HTTPS browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-002B PostgreSQL and Redis runtime acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm build",
+                "result": "success"
+              },
+              {
+                "name": "R1-006B disposable PostgreSQL, parser, HTTP and Staff UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-007B disposable PostgreSQL, Redis and supplier HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010C isolated Chromium, Next.js, NestJS, PostgreSQL and private-storage E2E",
+                "result": "success"
+              },
+              {
+                "name": "R1-003 public UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-005 public catalog browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Five-service integration and dependency failures",
+                "result": "success"
+              },
+              {
+                "name": "Stop full Compose before host mode",
+                "result": "success"
+              },
+              {
+                "name": "Host lifecycle smoke (3 consecutive runs)",
+                "result": "success"
+              },
+              {
+                "name": "Restore project to stopped state without deleting volumes",
+                "result": "success"
+              },
+              {
+                "name": "Post Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Post Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          },
+          {
+            "name": "FULL merge gate",
+            "result": "success",
+            "created_at": "2026-11-03T15:56:45Z",
+            "started_at": "2026-11-03T15:56:48Z",
+            "completed_at": "2026-11-03T15:57:01Z",
+            "runtime_seconds": 13.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Require successful FULL for the exact live revision",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 41667071705,
+        "url": "https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41667071705",
+        "workflow": "R1 foundation",
+        "head": "5d162a6e4a9a9c071d963939c96b36fd5d887904",
+        "result": "success",
+        "created_at": "2026-11-03T15:44:52Z",
+        "elapsed_seconds": 554.0,
+        "first_job_delay_seconds": 7.0,
+        "jobs": [
+          {
+            "name": "quality-and-integration",
+            "result": "success",
+            "created_at": "2026-11-03T15:44:56Z",
+            "started_at": "2026-11-03T15:44:59Z",
+            "completed_at": "2026-11-03T15:54:06Z",
+            "runtime_seconds": 547.0,
+            "allocation_delay_seconds": 3.0,
+            "steps": [
+              {
+                "name": "Set up job",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Independent ephemeral local configuration",
+                "result": "success"
+              },
+              {
+                "name": "Locked installs",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm toolchain:check",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm db:validate",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm lint",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm format:check",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-002 contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-004 catalog contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-007 supplier contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010 inquiry contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "Frozen R1-010D malware scan security contract consistency",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B frozen contract trace",
+                "result": "success"
+              },
+              {
+                "name": "R1-004B isolated schema and permission initializer runtime",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm typecheck",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm test",
+                "result": "success"
+              },
+              {
+                "name": "Install Chromium for HTTPS browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-002B PostgreSQL and Redis runtime acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Run pnpm build",
+                "result": "success"
+              },
+              {
+                "name": "R1-006B disposable PostgreSQL, parser, HTTP and Staff UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-007B disposable PostgreSQL, Redis and supplier HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-010C isolated Chromium, Next.js, NestJS, PostgreSQL and private-storage E2E",
+                "result": "success"
+              },
+              {
+                "name": "R1-003 public UI acceptance",
+                "result": "success"
+              },
+              {
+                "name": "R1-005 public catalog browser acceptance",
+                "result": "success"
+              },
+              {
+                "name": "Five-service integration and dependency failures",
+                "result": "success"
+              },
+              {
+                "name": "Stop full Compose before host mode",
+                "result": "success"
+              },
+              {
+                "name": "Host lifecycle smoke (3 consecutive runs)",
+                "result": "success"
+              },
+              {
+                "name": "Restore project to stopped state without deleting volumes",
+                "result": "success"
+              },
+              {
+                "name": "Post Run astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9",
+                "result": "success"
+              },
+              {
+                "name": "Post Run pnpm/action-setup@v4",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+                "result": "success"
+              },
+              {
+                "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+                "result": "success"
+              },
+              {
+                "name": "Complete job",
+                "result": "success"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "plans": [
+    {
+      "stage": "docs",
+      "job_id": 126004945444,
+      "plan": {
+        "version": 1,
+        "eventName": "pull_request",
+        "testedSha": "a86af0e292acd7950c058c876efff9bb17fd5d22",
+        "headSha": "a3ae0fd44942e329bcaf528ea497d3ced4e806bf",
+        "baseSha": "dd4b76813cc0cbb2ae6d9b7d74b7597e69742f84",
+        "full": false,
+        "classification": {
+          "full": false,
+          "areas": ["docs"],
+          "reasons": []
+        }
+      }
+    },
+    {
+      "stage": "css",
+      "job_id": 126011158439,
+      "plan": {
+        "version": 1,
+        "eventName": "pull_request",
+        "testedSha": "9d97c282bf4660bcae3ce124fc04e563027fe3c2",
+        "headSha": "1866c2cf40e6c630f36bb5db01777dface41514f",
+        "baseSha": "a3ae0fd44942e329bcaf528ea497d3ced4e806bf",
+        "full": false,
+        "classification": {
+          "full": false,
+          "areas": ["catalog", "frontend"],
+          "reasons": []
+        }
+      }
+    },
+    {
+      "stage": "catalog",
+      "job_id": 126013370636,
+      "plan": {
+        "version": 1,
+        "eventName": "pull_request",
+        "testedSha": "e3715c156e6a2f90f5fb830312464038305921f0",
+        "headSha": "17b5afb08adef71b1a99ca73b19b84e7deeab255",
+        "baseSha": "a3ae0fd44942e329bcaf528ea497d3ced4e806bf",
+        "full": false,
+        "classification": {
+          "full": false,
+          "areas": ["catalog", "frontend"],
+          "reasons": []
+        }
+      }
+    },
+    {
+      "stage": "parser_tests",
+      "job_id": 126019668358,
+      "plan": {
+        "version": 1,
+        "eventName": "pull_request",
+        "testedSha": "438505d72bd316f33853d3071cebc822e0848978",
+        "headSha": "4d2e2df85e02bf8eea231773840509f45a672ab7",
+        "baseSha": "a3ae0fd44942e329bcaf528ea497d3ced4e806bf",
+        "full": false,
+        "classification": {
+          "full": false,
+          "areas": ["parser"],
+          "reasons": []
+        }
+      }
+    },
+    {
+      "stage": "security",
+      "job_id": 126020561830,
+      "plan": {
+        "version": 1,
+        "eventName": "pull_request",
+        "testedSha": "9cdd6d795f436be5e5c32c39b9e539898c9b1a16",
+        "headSha": "2431059ce6253d936bb48b625c125f5d8f806685",
+        "baseSha": "a3ae0fd44942e329bcaf528ea497d3ced4e806bf",
+        "full": true,
+        "classification": {
+          "full": true,
+          "areas": ["all"],
+          "reasons": [
+            "critical configuration, contract, backend or file ingestion"
+          ]
+        }
+      }
+    },
+    {
+      "stage": "ready",
+      "job_id": 126027200565,
+      "plan": {
+        "version": 1,
+        "eventName": "pull_request",
+        "testedSha": "9cdd6d795f436be5e5c32c39b9e539898c9b1a16",
+        "headSha": "2431059ce6253d936bb48b625c125f5d8f806685",
+        "baseSha": "a3ae0fd44942e329bcaf528ea497d3ced4e806bf",
+        "full": true,
+        "classification": {
+          "full": true,
+          "areas": ["all"],
+          "reasons": [
+            "critical configuration, contract, backend or file ingestion"
+          ]
+        }
+      }
+    },
+    {
+      "stage": "final40",
+      "job_id": 126025141578,
+      "plan": {
+        "version": 1,
+        "eventName": "pull_request",
+        "testedSha": "eeb7e8b8f993aa96793caeaa02cc82c62fb22a17",
+        "headSha": "5d162a6e4a9a9c071d963939c96b36fd5d887904",
+        "baseSha": "59655a74ff4c815855eb416683c3c2db793c9af4",
+        "full": true,
+        "classification": {
+          "full": true,
+          "areas": ["all", "docs"],
+          "reasons": [
+            "critical configuration, contract, backend or file ingestion"
+          ]
+        }
+      }
+    },
+    {
+      "stage": "parser_implementation",
+      "plan": {
+        "version": 1,
+        "eventName": "pull_request",
+        "testedSha": "ab23208fdd66f94c6ccc9ce87ca7ffab800c42da",
+        "headSha": "d0876f6d829f0ac56eb8046b476ba18900dff080",
+        "baseSha": "a3ae0fd44942e329bcaf528ea497d3ced4e806bf",
+        "full": true,
+        "classification": {
+          "full": true,
+          "areas": ["all"],
+          "reasons": [
+            "critical configuration, contract, backend or file ingestion"
+          ]
+        }
+      }
+    }
+  ],
+  "lifecycle": [
+    {
+      "event": "base_ref_changed",
+      "created_at": "2026-11-03T15:21:42Z",
+      "commit_id": null,
+      "actor": "CrazyMotoCat"
+    },
+    {
+      "event": "ready_for_review",
+      "created_at": "2026-11-03T15:48:14Z",
+      "commit_id": null,
+      "actor": "CrazyMotoCat"
+    },
+    {
+      "event": "closed",
+      "created_at": "2026-11-03T16:19:46Z",
+      "commit_id": null,
+      "actor": "CrazyMotoCat"
+    }
+  ],
+  "cancellation": {
+    "run": 41670877917,
+    "attempt": 2,
+    "head": "312fddf7a0d7e84cb9ced4d4c069b6c71b5f7a71",
+    "ordinary_cancel_http": 202,
+    "force_cancel": false,
+    "github_server_request_date": "Tue, 03 Nov 2026 16:15:25 GMT",
+    "full_completed_at": "2026-11-03T16:16:03Z",
+    "seconds_to_full_completion": 38.0,
+    "results": [
+      {
+        "job": "Classify revision",
+        "result": "success",
+        "completed_at": "2026-11-03T16:14:32Z"
+      },
+      {
+        "job": "FULL CI",
+        "result": "cancelled",
+        "completed_at": "2026-11-03T16:16:03Z"
+      },
+      {
+        "job": "FULL merge gate",
+        "result": "failure",
+        "completed_at": "2026-11-03T16:16:20Z"
+      }
+    ],
+    "host_local_timestamp_not_used_for_durations": true
+  },
+  "cleanup": [
+    {
+      "branch": "codex/ci-opt-01b-benchmark-base",
+      "sha": "a3ae0fd44942e329bcaf528ea497d3ced4e806bf",
+      "delete_http": 204
+    },
+    {
+      "branch": "codex/ci-opt-01b-benchmark-fixed",
+      "sha": "a3ae0fd44942e329bcaf528ea497d3ced4e806bf",
+      "delete_http": 204
+    },
+    {
+      "branch": "codex/ci-opt-01b-benchmark-head",
+      "sha": "d0876f6d829f0ac56eb8046b476ba18900dff080",
+      "delete_http": 204
+    },
+    {
+      "branch": "codex/ci-opt-01b-protection-proof",
+      "sha": "dd4b76813cc0cbb2ae6d9b7d74b7597e69742f84",
+      "delete_http": 204
+    },
+    {
+      "branch": "codex/ci-opt-01b-proof-head",
+      "sha": "312fddf7a0d7e84cb9ced4d4c069b6c71b5f7a71",
+      "delete_http": 204
+    },
+    {
+      "branch": "codex/ci-opt-01b-proof-advanced",
+      "sha": "5b2f9f7a49e5b4a12b32056c89b6f3886af50a56",
+      "delete_http": 204
+    }
+  ],
+  "test_prs": [
+    {
+      "number": 41,
+      "state": "closed",
+      "merged": false
+    },
+    {
+      "number": 42,
+      "state": "closed",
+      "merged": false
+    }
+  ],
+  "actions_permissions": {
+    "default_workflow_permissions": "read",
+    "can_approve_pull_request_reviews": false
+  },
+  "wrong_source_status": {
+    "id": 57952854877,
+    "state": "success",
+    "context": "CI-OPT-01B source probe",
+    "created_at": "2026-11-03T15:29:59Z",
+    "url": "https://api.github.com/repos/CrazyMotoCat/STDU_SHOP/statuses/05639ce3318a177b795dd55599f1832a6b08fb02",
+    "creator": "CrazyMotoCat"
+  },
+  "final_classic_rules_inventory": {
+    "server_date": "Tue, 03 Nov 2026 16:39:05 GMT",
+    "http": 200,
+    "response": {
+      "data": {
+        "repository": {
+          "branchProtectionRules": {
+            "nodes": []
+          }
+        }
+      }
+    }
+  },
+  "evidence_limitations": [
+    "Missing/failed/skipped/cancelled FULL merge denials also had legacy pending or failed; combined policy rejection, not isolated FULL-only causality.",
+    "Ready event used already-critical backend diff; FAST-only-to-Ready isolated routing is unit-tested, not separately hosted.",
+    "Individual cleanup rule DELETE receipts not retained; guarded script assertions and final GraphQL empty classic-rule inventory establish cleanup.",
+    "Positive Ready eligibility was observed; no positive trial merge performed."
+  ]
+}
