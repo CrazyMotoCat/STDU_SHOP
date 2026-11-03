@@ -195,21 +195,165 @@ function sanitizeFilename(value: string) {
   return leaf;
 }
 
-function delimiterFrom(content: Buffer, selected: string | undefined) {
-  if (selected) {
+const MAX_CSV_DELIMITER_SAMPLE_RECORDS = 25;
+const CSV_WHITESPACE = new Set([
+  '\u0009',
+  '\u000a',
+  '\u000b',
+  '\u000c',
+  '\u000d',
+  '\u001c',
+  '\u001d',
+  '\u001e',
+  '\u001f',
+  '\u0020',
+  '\u0085',
+  '\u00a0',
+  '\u1680',
+  '\u2000',
+  '\u2001',
+  '\u2002',
+  '\u2003',
+  '\u2004',
+  '\u2005',
+  '\u2006',
+  '\u2007',
+  '\u2008',
+  '\u2009',
+  '\u200a',
+  '\u2028',
+  '\u2029',
+  '\u202f',
+  '\u205f',
+  '\u3000',
+]);
+
+function scanCsvDelimiter(
+  text: string,
+  delimiter: string,
+): { widths: number[]; valid: boolean } {
+  const widths: number[] = [];
+  let width = 1;
+  let inQuotes = false;
+  let fieldStart = true;
+  let afterQuote = false;
+  let fieldNonempty = false;
+  let recordNonempty = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index]!;
+    if (inQuotes) {
+      if (character === '"') {
+        if (text[index + 1] === '"') {
+          fieldNonempty = true;
+          index += 1;
+          continue;
+        }
+        inQuotes = false;
+        afterQuote = true;
+      } else if (!CSV_WHITESPACE.has(character)) fieldNonempty = true;
+    } else if (character === '"') {
+      if (!fieldStart) {
+        if (recordNonempty || fieldNonempty) widths.push(width);
+        return { widths, valid: false };
+      }
+      inQuotes = true;
+      fieldStart = false;
+      afterQuote = false;
+    } else if (character === delimiter) {
+      recordNonempty ||= fieldNonempty;
+      width += 1;
+      fieldStart = true;
+      afterQuote = false;
+      fieldNonempty = false;
+    } else if (character === '\r' || character === '\n') {
+      recordNonempty ||= fieldNonempty;
+      if (recordNonempty) {
+        widths.push(width);
+        if (widths.length >= MAX_CSV_DELIMITER_SAMPLE_RECORDS)
+          return { widths, valid: true };
+      }
+      if (character === '\r' && text[index + 1] === '\n') index += 1;
+      width = 1;
+      fieldStart = true;
+      afterQuote = false;
+      fieldNonempty = false;
+      recordNonempty = false;
+    } else {
+      if (afterQuote) {
+        if (recordNonempty || fieldNonempty) widths.push(width);
+        return { widths, valid: false };
+      }
+      fieldStart = false;
+      if (!CSV_WHITESPACE.has(character)) fieldNonempty = true;
+    }
+  }
+  recordNonempty ||= fieldNonempty;
+  if (recordNonempty) widths.push(width);
+  return { widths, valid: !inQuotes };
+}
+
+function csvDelimiterShapeScore(widths: number[]) {
+  if (widths.length < 2) return null;
+  const frequencies = new Map<number, number>();
+  for (const width of widths) {
+    if (width > 1) frequencies.set(width, (frequencies.get(width) ?? 0) + 1);
+  }
+  let support = 0;
+  for (const count of frequencies.values()) support = Math.max(support, count);
+  if (support < 2 || support * 2 <= widths.length) return null;
+  return { support, total: widths.length };
+}
+
+function delimiterFrom(
+  content: Buffer,
+  selected: string | undefined,
+  encoding: 'UTF-8' | 'WINDOWS-1251',
+) {
+  if (selected !== undefined) {
     if (![',', ';', '\t'].includes(selected))
       throw validation('csvDelimiter', 'INVALID_ENUM');
     return selected;
   }
-  const text = content.subarray(content[0] === 0xef ? 3 : 0).toString('latin1');
-  const sample = text.split(/\r?\n/, 25).join('\n');
-  const counts = [',', ';', '\t'].map(
-    (item) => [item, sample.split(item).length - 1] as const,
+  const bom = Buffer.from([0xef, 0xbb, 0xbf]);
+  const source =
+    encoding === 'UTF-8' && content.subarray(0, 3).equals(bom)
+      ? content.subarray(3)
+      : content;
+  const text = new TextDecoder(
+    encoding === 'UTF-8' ? 'utf-8' : 'windows-1251',
+  ).decode(source);
+  const scans = [',', ';', '\t'].map(
+    (item) => [item, scanCsvDelimiter(text, item)] as const,
   );
-  const maximum = Math.max(...counts.map(([, count]) => count));
-  const winners = counts.filter(([, count]) => count === maximum && count > 0);
-  if (winners.length !== 1) throw new StaffError('ENCODING_REQUIRED');
-  return winners[0]![0];
+  const scored = scans.map(
+    ([delimiter, scan]) =>
+      [delimiter, scan, csvDelimiterShapeScore(scan.widths)] as const,
+  );
+  const wellFormed = scored.filter(([, scan, score]) => scan.valid && score);
+  const candidates = wellFormed.length
+    ? wellFormed
+    : scored.filter(([, , score]) => score);
+  if (!candidates.length) throw new StaffError('ENCODING_REQUIRED');
+  let best: string[] = [];
+  let bestScore: { support: number; total: number } | null = null;
+  for (const [delimiter, , score] of candidates) {
+    if (!score) continue;
+    if (!bestScore) {
+      best = [delimiter];
+      bestScore = score;
+      continue;
+    }
+    const left = score.support * bestScore.total;
+    const right = bestScore.support * score.total;
+    if (left > right || (left === right && score.support > bestScore.support)) {
+      best = [delimiter];
+      bestScore = score;
+    } else if (left === right && score.support === bestScore.support) {
+      best.push(delimiter);
+    }
+  }
+  if (best.length !== 1) throw new StaffError('ENCODING_REQUIRED');
+  return best[0]!;
 }
 
 function sha256(value: Buffer | string) {
@@ -679,7 +823,11 @@ export class CatalogImportService {
         throw validation('csvEncoding', 'INVALID_ENUM');
       const delimiter =
         format === 'CSV'
-          ? delimiterFrom(file.buffer, delimiterValue as string | undefined)
+          ? delimiterFrom(
+              file.buffer,
+              delimiterValue as string | undefined,
+              encoding as 'UTF-8' | 'WINDOWS-1251',
+            )
           : null;
       if (
         delimiterValue !== undefined &&
@@ -2343,7 +2491,9 @@ export class CatalogImportService {
         return '';
       }
       if (field === 'originalPartNumber' && cell.cellType === 'NUMBER') {
-        const number = Number(cell.rawValue);
+        const number = /^\d+$/.test(cell.rawValue)
+          ? Number(cell.rawValue)
+          : Number.NaN;
         if (
           !Number.isSafeInteger(number) ||
           !/^0+$/.test(cell.numberFormat ?? '')
@@ -2351,8 +2501,11 @@ export class CatalogImportService {
           issues.push({ field, code: 'NUMERIC_IDENTITY_REJECTED' });
           return '';
         }
-        warnings.push({ field, code: 'LEADING_ZEROES_RESTORED' });
-        return String(number).padStart(cell.numberFormat!.length, '0');
+        const digits = String(number);
+        const normalized = digits.padStart(cell.numberFormat!.length, '0');
+        if (normalized !== digits)
+          warnings.push({ field, code: 'LEADING_ZEROES_RESTORED' });
+        return normalized;
       }
       if (cell.cellType !== 'TEXT') {
         issues.push({
@@ -2507,12 +2660,24 @@ export class CatalogImportService {
           break;
         }
         case 'BOOLEAN':
-          if (raw !== 'true' && raw !== 'false')
-            issues.push({
-              field: `attribute:${definition.id}`,
-              code: 'INVALID_BOOLEAN',
-            });
-          else attributes.push({ ...base, valueBoolean: raw === 'true' });
+          {
+            const value =
+              cell.cellType === 'BOOLEAN' && raw === '1'
+                ? true
+                : cell.cellType === 'BOOLEAN' && raw === '0'
+                  ? false
+                  : cell.cellType === 'TEXT' && raw === 'true'
+                    ? true
+                    : cell.cellType === 'TEXT' && raw === 'false'
+                      ? false
+                      : null;
+            if (value === null) {
+              issues.push({
+                field: `attribute:${definition.id}`,
+                code: 'INVALID_BOOLEAN',
+              });
+            } else attributes.push({ ...base, valueBoolean: value });
+          }
           break;
         case 'ENUM': {
           const options = Array.isArray(definition.enumOptions)

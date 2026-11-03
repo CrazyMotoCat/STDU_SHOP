@@ -566,7 +566,7 @@ export class StaffInquiriesController {
   @StaffOperation({
     permission: 'inquiries.documents.download',
     csrf: 'NONE',
-    audit: 'inquiry.document.downloaded',
+    audit: 'none',
   })
   @ApiOperation({ operationId: 'downloadStaffInquiryDocument' })
   async download(

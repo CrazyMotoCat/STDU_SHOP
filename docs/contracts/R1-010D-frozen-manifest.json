@@ -1,7 +1,7 @@
 {
   "contract": "R1-010D Malware Scan Security Contract",
   "status": "FROZEN",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "approval": {
     "approvedOn": "2026-10-28",
     "sourceHead": "1cad9fbb210ded32b07cee3923bec8ab011768a8",
@@ -20,8 +20,8 @@
     "docs/proposals/R1-010D-malware-scanning-contract.md": "426fc4ece0dd45bc9454528e2edd89952a6835b0039aadc772da47247825cccd"
   },
   "frozenArtifactSha256": {
-    "docs/adr/ADR-005-malware-scanning.md": "ce0e9d05b142a8286fcf2d6b15b24d64a339d4f477c33a9c6ca4ad8ee0fd39fd",
-    "docs/contracts/R1-010D-malware-scan-contract.md": "ecf31de230a0b270dbfb62bdb086bb099368667ba571a20befb56c687c9e35d6"
+    "docs/adr/ADR-005-malware-scanning.md": "b720782c178b467563025978da9317893f2965dda129a6a972a99798278272f9",
+    "docs/contracts/R1-010D-malware-scan-contract.md": "38c038a7b978b2dcaec95cef697cd4a763e4eb70b598304510d2ba921d071815"
   },
   "clarifications": [
     {
@@ -43,6 +43,23 @@
   ],
   "finalization": {
     "contractContentChanged": true,
-    "description": "Owner-approved additive clarification was incorporated into a new R1-010D 1.0.0 frozen security contract. No existing FROZEN R1-010 contract artifact or public API was changed."
-  }
+    "description": "R1-010D Contract Amendment 01 aligns the frozen scanner contract and ADR-005 with owner-approved L0: CLEAN remains a scan classification and never authorizes staff download. Worker finalization and scan-state audit are unchanged. Every staff original download is denied before storage until separate exact-original eligibility is approved and implemented."
+  },
+  "amendments": [
+    {
+      "id": "R1-010D Contract Amendment 01",
+      "version": "1.0.1",
+      "approvedOn": "2026-11-02",
+      "sourceHead": "1be16abdb4732086cb2f721ab0f6eeae4e21c9a4",
+      "sourceArtifact": "docs/plans/R1-010D-L0-implementation-amendment-draft.md",
+      "approvedSourceSha256": "a6f2f03ddb251907c603329062c30a0717d4c489eb88de84394b30fc4fe1a27a",
+      "rule": "CLEAN alone never authorizes download. Require current session, existing permissions, inquiry scope, exact document relation and separately approved exact-original eligibility. Until eligibility is approved and implemented, deny all staff original downloads, including historical CLEAN, after authorization and before opening private storage or sending bytes; preserve source, metadata, safety state and prior audit; create no success download AuditEvent.",
+      "preserves": [
+        "Scan worker may continue to finalize CLEAN and write scan-state audit atomically",
+        "No worker, verifier, DB schema, migration, storage or RBAC grants change",
+        "Private lease-bound scan stream remains internal and unchanged",
+        "No production or CLEAN enablement authorization"
+      ]
+    }
+  ]
 }

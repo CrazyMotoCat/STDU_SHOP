@@ -12,7 +12,7 @@ import { withProcesses } from './process-lifecycle.mjs';
 const web = resolve(root, 'apps/web');
 const requireWeb = createRequire(resolve(web, 'package.json'));
 const nextCli = requireWeb.resolve('next/dist/bin/next');
-const artifacts = resolve(root, 'artifacts/verification/R1-005V-01');
+const artifacts = resolve(root, 'artifacts/verification/VIS-CAT-01/after');
 const categories = [
   { slug: 'switchgear', name: 'Низковольтное оборудование', sortOrder: 10 },
   { slug: 'automation', name: 'Промышленная автоматика', sortOrder: 20 },
@@ -43,6 +43,17 @@ const sampleCards = [
     manufacturerName: 'Northstar Controls',
     originalPartNumber: 'MCB-32',
     modification: null,
+    category: { name: breakers.name, slug: breakers.slug },
+    priceDisplay,
+  },
+  {
+    slug: 'industrial-rccb-vis-cat-fixture',
+    displayName:
+      'Устройство защитного отключения селективное четырёхполюсное для промышленной автоматики',
+    brand: { name: 'VIS-CAT Fixture', slug: 'vis-cat-fixture' },
+    manufacturerName: 'Изолированная тестовая позиция',
+    originalPartNumber: 'VIS-CAT-01-DEMO-4P-RCD-125A-SELECTIVE-REFERENCE-2026',
+    modification: '125 A / 4P',
     category: { name: breakers.name, slug: breakers.slug },
     priceDisplay,
   },
@@ -85,6 +96,13 @@ const sampleProduct = {
       target: sampleCards[1],
     },
   ],
+};
+const longSampleProduct = {
+  ...sampleCards[2],
+  summary: 'Изолированная фикстура для проверки длинной карточки товара.',
+  description: null,
+  attributes: [],
+  relations: [],
 };
 const observedQueries = [];
 
@@ -204,8 +222,14 @@ const fixtureServer = createHttpServer((request, response) => {
     response.writeHead(503).end();
     return;
   }
-  if (slug === sampleProduct.slug) {
-    json(response, envelope(sampleProduct, {}));
+  if (slug === sampleProduct.slug || slug === longSampleProduct.slug) {
+    json(
+      response,
+      envelope(
+        slug === sampleProduct.slug ? sampleProduct : longSampleProduct,
+        {},
+      ),
+    );
     return;
   }
   response.writeHead(404).end();
@@ -242,16 +266,52 @@ async function captureAndCheck(page, url, name, width, height) {
   const dimensions = await page.evaluate(() => ({
     viewport: innerWidth,
     document: document.documentElement.scrollWidth,
+    overflow: [...document.body.querySelectorAll('*')]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          tag: element.tagName.toLowerCase(),
+          className:
+            typeof element.className === 'string' ? element.className : '',
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          width: Math.round(rect.width),
+        };
+      })
+      .filter((element) => element.right > innerWidth + 1 || element.left < -1)
+      .sort((left, right) => right.right - left.right)
+      .slice(0, 8),
   }));
-  assert.ok(
-    dimensions.document <= dimensions.viewport,
-    `Horizontal overflow at ${width}px: ${JSON.stringify(dimensions)}`,
-  );
   await page.screenshot({
     path: resolve(artifacts, `${name}-${width}.png`),
     fullPage: true,
     animations: 'disabled',
   });
+  assert.ok(
+    dimensions.document <= dimensions.viewport,
+    `Horizontal overflow at ${width}px: ${JSON.stringify(dimensions)}`,
+  );
+}
+
+async function assertProductLayout(page, width) {
+  const boxes = await page.evaluate(() => ({
+    identity: document
+      .querySelector('[class*="detailIdentity"]')
+      ?.getBoundingClientRect()
+      .toJSON(),
+    media: document
+      .querySelector('[class*="detailMedia"]')
+      ?.getBoundingClientRect()
+      .toJSON(),
+  }));
+  assert.ok(boxes.identity && boxes.media, 'Product layout blocks must exist.');
+  const fitsSideBySide =
+    width >= 1024 && boxes.media.right <= boxes.identity.left;
+  const fitsStacked = width < 1024 && boxes.identity.bottom <= boxes.media.top;
+  assert.ok(
+    fitsSideBySide || fitsStacked,
+    `Product media and identity must not overlap at ${width}px: ${JSON.stringify(boxes)}`,
+  );
 }
 
 async function waitForPortRelease(port) {
@@ -321,7 +381,10 @@ async function main() {
             .getByText('Автоматический выключатель ACB-100')
             .first()
             .waitFor();
-          assert.equal(await page.getByText('Цена по запросу').count(), 2);
+          assert.equal(await page.getByText('Цена по запросу').count(), 3);
+          await page
+            .getByText('VIS-CAT-01-DEMO-4P-RCD-125A-SELECTIVE-REFERENCE-2026')
+            .waitFor();
           await page
             .getByRole('link', {
               name: /Загрузить следующую страницу категорий/,
@@ -332,6 +395,15 @@ async function main() {
             fullPage: true,
             animations: 'disabled',
           });
+          for (const width of [1024, 768, 375, 320]) {
+            await captureAndCheck(
+              page,
+              `${baseUrl}/catalog`,
+              `catalog-grid-${width}`,
+              width,
+              900,
+            );
+          }
 
           await page
             .getByLabel('Поиск по каталогу', { exact: true })
@@ -347,6 +419,24 @@ async function main() {
           assert.equal(
             await page.getByText('Автоматический выключатель ACB-100').count(),
             0,
+          );
+          assert.equal(
+            await page.locator('article[class*="productTile"]').count(),
+            1,
+          );
+          await captureAndCheck(
+            page,
+            page.url(),
+            'catalog-single-1440',
+            1440,
+            900,
+          );
+          await captureAndCheck(
+            page,
+            page.url(),
+            'catalog-single-390',
+            390,
+            844,
           );
           await page.goto(`${baseUrl}/catalog?brandSlug=northstar`, {
             waitUntil: 'networkidle',
@@ -381,6 +471,15 @@ async function main() {
             1440,
             1000,
           );
+          for (const width of [1024, 768, 375, 320]) {
+            await captureAndCheck(
+              page,
+              `${baseUrl}/catalog/category/breakers`,
+              `category-grid-${width}`,
+              width,
+              900,
+            );
+          }
           await page.goto(`${categoryUrl}&filter=rated_current%3Aeq%3A100`, {
             waitUntil: 'networkidle',
           });
@@ -435,17 +534,74 @@ async function main() {
               name: 'Опубликованное оборудование и основные сведения',
             })
             .waitFor();
-          await page.getByRole('link', { name: /Список/ }).click();
+          const listViewLink = page.getByRole('link', { name: /Список/ });
+          await page.getByRole('link', { name: /Плитка/ }).focus();
+          await page.keyboard.press('Tab');
+          assert.equal(
+            await listViewLink.evaluate(
+              (element) => element === document.activeElement,
+            ),
+            true,
+            'Keyboard tab order must include the list view switch.',
+          );
+          await page.keyboard.press('Enter');
           await page.waitForURL(/view=list/);
           await page.locator('[class*="productListItem"]').first().waitFor();
           assert.equal(
             new URL(page.url()).searchParams.get('includeDescendants'),
             'false',
           );
+          await captureAndCheck(
+            page,
+            page.url(),
+            'category-list-1440',
+            1440,
+            900,
+          );
+          await captureAndCheck(
+            page,
+            page.url(),
+            'category-list-390',
+            390,
+            844,
+          );
           await page.getByRole('link', { name: /Таблица/ }).click();
           await page.waitForURL(/view=table/);
 
           await captureAndCheck(page, page.url(), 'category-table', 1440, 1000);
+          for (const width of [1024, 768, 375, 320]) {
+            await captureAndCheck(
+              page,
+              page.url(),
+              `category-table-${width}`,
+              width,
+              900,
+            );
+          }
+          const mobileTableScroll = await page
+            .locator('[class*="tableScroll"]')
+            .evaluate((element) => ({
+              clientWidth: element.clientWidth,
+              scrollWidth: element.scrollWidth,
+              tabIndex: element.tabIndex,
+            }));
+          assert.ok(
+            mobileTableScroll.scrollWidth > mobileTableScroll.clientWidth &&
+              mobileTableScroll.tabIndex === 0,
+            `Mobile table must keep its own keyboard-scrollable viewport: ${JSON.stringify(mobileTableScroll)}`,
+          );
+          for (const view of ['list', 'table']) {
+            for (const width of [1440, 1024, 768, 375, 320]) {
+              await captureAndCheck(
+                page,
+                `${baseUrl}/catalog?view=${view}`,
+                `catalog-${view}`,
+                width,
+                900,
+              );
+            }
+          }
+          await page.setViewportSize({ width: 1440, height: 1000 });
           await page.goto(`${baseUrl}/catalog/product/breaker-acb-100`, {
             waitUntil: 'networkidle',
           });
@@ -468,11 +624,36 @@ async function main() {
               .isDisabled(),
             true,
           );
+          const desktopProductOrder = await page.evaluate(() => ({
+            mediaRight: document
+              .querySelector('[class*="detailMedia"]')
+              ?.getBoundingClientRect().right,
+            identityLeft: document
+              .querySelector('[class*="detailIdentity"]')
+              ?.getBoundingClientRect().left,
+          }));
+          assert.ok(
+            desktopProductOrder.mediaRight !== undefined &&
+              desktopProductOrder.identityLeft !== undefined &&
+              desktopProductOrder.mediaRight < desktopProductOrder.identityLeft,
+            `Desktop product media must stay beside the identity panel: ${JSON.stringify(desktopProductOrder)}`,
+          );
+          await assertProductLayout(page, 1440);
           await page.screenshot({
             path: resolve(artifacts, 'product-desktop.png'),
             fullPage: true,
             animations: 'disabled',
           });
+          for (const width of [1024, 768, 375, 320]) {
+            await captureAndCheck(
+              page,
+              `${baseUrl}/catalog/product/breaker-acb-100`,
+              `product-${width}`,
+              width,
+              900,
+            );
+            await assertProductLayout(page, width);
+          }
 
           await captureAndCheck(
             page,
@@ -492,6 +673,62 @@ async function main() {
             page,
             `${baseUrl}/catalog/product/breaker-acb-100`,
             'product-mobile',
+            375,
+            812,
+          );
+          await assertProductLayout(page, 375);
+          const mobileProductOrder = await page.evaluate(() => ({
+            titleTop: document.querySelector('h1')?.getBoundingClientRect().top,
+            mediaTop: document
+              .querySelector('[class*="detailMedia"]')
+              ?.getBoundingClientRect().top,
+          }));
+          assert.ok(
+            mobileProductOrder.titleTop !== undefined &&
+              mobileProductOrder.mediaTop !== undefined &&
+              mobileProductOrder.titleTop < mobileProductOrder.mediaTop,
+            `Mobile product identity must precede its media placeholder: ${JSON.stringify(mobileProductOrder)}`,
+          );
+          for (const width of [1440, 1024, 768, 375, 320]) {
+            await captureAndCheck(
+              page,
+              `${baseUrl}/catalog/product/${longSampleProduct.slug}`,
+              `product-long-${width}`,
+              width,
+              900,
+            );
+            await assertProductLayout(page, width);
+          }
+          await page
+            .getByRole('heading', {
+              name: longSampleProduct.displayName,
+              level: 1,
+            })
+            .waitFor();
+          await page
+            .getByText(longSampleProduct.originalPartNumber, { exact: true })
+            .waitFor();
+          await page.emulateMedia({ reducedMotion: 'reduce' });
+          const reducedAnimation = await page
+            .locator('[class*="productImage"]')
+            .first()
+            .evaluate((element) => {
+              element.setAttribute('data-state', 'loading');
+              return getComputedStyle(element).animationName;
+            });
+          assert.equal(reducedAnimation, 'none');
+          await page.emulateMedia({ reducedMotion: 'no-preference' });
+          await captureAndCheck(
+            page,
+            `${baseUrl}/catalog?q=no-such-item`,
+            'catalog-empty',
+            375,
+            812,
+          );
+          await captureAndCheck(
+            page,
+            `${baseUrl}/catalog?q=fixture-api-outage`,
+            'catalog-api-error',
             375,
             812,
           );

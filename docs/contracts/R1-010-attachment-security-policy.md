@@ -1,4 +1,4 @@
-# R1-010 Public Attachment Security Policy — FROZEN 1.0.2
+# R1-010 Public Attachment Security Policy — FROZEN 1.0.3
 
 ## Trust boundary
 
@@ -28,7 +28,7 @@ An incomplete stream is never attached. Delete task-owned partial temporary byte
 
 On successful intake, state is QUARANTINED. Content sniffing and allowlist checks are not malware clearance. A configured scanner is the only actor allowed to set CLEAN or REJECTED; scanner errors remain SCAN_ERROR/quarantined. If no operational scanner exists, fail closed: no file download and no extraction, including by staff. Do not introduce an unapproved scanner service or claim a file is safe.
 
-Staff metadata view requires inquiry read scope plus inquiries.documents.read. Download additionally requires inquiries.documents.download and state CLEAN. NestJS resolves authorization against the stored Inquiry -> document relation before opening bytes. Response is streamed with Content-Disposition attachment, safe sanitized filename, Cache-Control no-store, X-Content-Type-Options nosniff and no public/static URL. Denied and missing objects have non-enumerating safe responses. Public users cannot download, list, inspect, cancel completed files or query document state.
+Staff metadata view requires inquiry read scope plus inquiries.documents.read. Any future staff download also requires inquiries.documents.download, inquiry scope, and separately approved eligibility bound to the exact original; CLEAN is only a scan result and is never sufficient authorization. Until that eligibility mechanism is approved and implemented, every staff original-download request is denied, including historical CLEAN documents. After current-session, permission, scope and Inquiry-to-document checks, NestJS returns the existing non-enumerating 404 FILE_NOT_ACCESSIBLE before opening private storage or emitting bytes. This denial creates no successful-download AuditEvent. Existing originals, metadata, safety states and prior audit history remain unchanged. Public users cannot download, list, inspect, cancel completed files or query document state. Any future positive download path requires a separate owner-approved versioned amendment.
 
 ## Frozen upload profiles and practicality
 
@@ -52,9 +52,9 @@ The 15-minute MVP and 60-minute engineering deadlines are recommendations, not m
 - **DOCX:** not in either profile. OOXML is a ZIP container with relationships and can include external targets or embedded objects; `.docx` alone is not a content verdict. A future proposal needs package/signature validation, malware scanning, explicit embedded/external-content policy and attachment-only safe download. DOCM/XLSM remain rejected.
 - **DWG/DXF:** not in either profile. Native CAD parsing/rendering adds complex untrusted parsers and may reference or embed external content. R1-010 does not inspect or render CAD. Customers can supply PDF plot/export plus CSV/XLSX schedules for intake; native CAD requires a separate approved validation and safe-handling stage.
 - **ZIP/7Z/RAR and other archives:** rejected and never unpacked. Nested files, path traversal, encrypted content and decompression bombs need a separate bounded extraction/scanning contract; limits based on the outer archive size are insufficient.
-- **PDF/XLSX/CSV:** these remain untrusted. PDFs may contain active content; XLSX is itself a compressed package with relationships/embedded content. Signature/MIME checks do not clear malware. No inline rendering, extraction or download is allowed unless the configured scanner returns CLEAN.
+- **PDF/XLSX/CSV:** these remain untrusted. PDFs may contain active content; XLSX is itself a compressed package with relationships/embedded content. Signature/MIME checks do not clear malware. No inline rendering, extraction or download is authorized by a CLEAN scan result alone.
 
-R1-010 can preserve a standard cabinet inquiry accompanied by PDF drawings and CSV/XLSX schedules within the chosen bounds, but only when an operational scanner allows staff download. With no scanner, the documents stay QUARANTINED and staff cannot inspect them, so document-led fabrication cannot proceed. Native DWG/DXF/archive submissions are not supported. R1-010 is intake only and does not implement cabinet design, costing, quote approval or production.
+R1-010 can accept a standard cabinet inquiry accompanied by PDF drawings and CSV/XLSX schedules within the chosen bounds. Staff can inspect an original only after an operational scanner returns CLEAN and separate eligibility for that exact original is approved and implemented; a scanner result alone is insufficient. Until then documents remain unavailable, so document-led fabrication cannot proceed. Native DWG/DXF/archive submissions are not supported. R1-010 is intake only and does not implement cabinet design, costing, quote approval or production.
 
 Create JSON request remains <=2 MiB and equipment lines <=50. Recommended cleanup of abandoned temporary bytes is 24 hours; expired intent metadata is retained 30 days; completed document retention remains blocked on privacy/legal approval. Originals remain immutable and private.
 
@@ -62,8 +62,8 @@ Public rate limits use Redis and exact configured reverse-proxy trust. Derive ep
 
 ## Open security risks requiring approval
 
-- No scanner is assumed available; launch requires an operational scanner or a separately approved restricted policy. Quarantine-only means download/extraction are unavailable.
+- No scanner is assumed available; launch requires an operational scanner or a separately approved restricted policy. Quarantine-only means download/extraction are unavailable. Even a later CLEAN result is insufficient to authorize download until exact-original eligibility is separately approved and implemented.
 - Exact legal retention and deletion of uploaded PII is pending OD-010-02/03.
 - Profile selection, quotas, shared-NAT impact and representative fixtures are pending OD-010-03 and runtime validation before implementation is frozen.
-- No malware scanner is currently assumed. Even if PDF/XLSX/CSV intake is enabled, staff download and R1-011 extraction remain unavailable until a real configured scanner marks the exact object CLEAN.
+- No malware scanner is currently assumed. Even if PDF/XLSX/CSV intake is enabled, staff download remains unavailable until separately approved and implemented eligibility is bound to the exact original; a CLEAN result alone is insufficient. R1-011 extraction remains unavailable until a real configured scanner marks the exact object CLEAN and its own approved processing path exists.
 - Capability loss in the client prevents later uploads but never grants access to Inquiry data; any recovery/rotation flow would require a new security review and owner approval.

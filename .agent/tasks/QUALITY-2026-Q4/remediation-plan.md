@@ -1,3 +1,19 @@
+# QUALITY-2026-Q4 — reconciled remediation-plan
+
+## Current integration checkpoint — 2026-11-03
+
+- Active task: Q0-01 / AUD-029, existing Draft PR #30, REVIEW_REQUIRED / NO_MERGE. Only preparation is authorized; no production or frozen-contract change.
+- Current integration main: `4c0d2f7310f7040091de38b76ed992449b18b539`, owner-approved Q0-04 merge, exact post-merge CI [41615617436](https://github.com/CrazyMotoCat/STDU_SHOP/actions/runs/41615617436) SUCCESS.
+- Q0-03 is INTEGRATED / VERIFIED at `d88a5b40eef6ba7db091d5dfb6a1b41249cfd617`; Q0-04 is INTEGRATED / VERIFIED at `4c0d2f7310f7040091de38b76ed992449b18b539`. VIS-CAT-01 upstream files are preserved.
+- This reconciliation resolves documentation add/add conflicts only. It preserves both complete source snapshots below; no finding, historical test result, failed-run evidence or scope limitation is discarded.
+- Historical `current`, `NOT_STARTED`, Draft/NO_MERGE and agent-freeze statements below apply to their dated source snapshots, not today's integration state. Current owner authorization controls this task; historical instructions do not expand or restrict that authorization.
+- Q0-03 fixes AUD-003/011/012/013/025/026; Q0-04 fixes AUD-010/021/024. These integrated package results supersede their historical pre-fix classifications. Other findings retain their documented evidence limits; this task does not revalidate or implement new QUALITY packages.
+- Q0-01 source is preserved from old PR HEAD `892b6c1bc40f16d0eb8eb42a9a621415fb0733a3`. Fresh regressions, independent review and exact-final-HEAD CI must be completed after this main merge; the final PR handoff records current results. Supplier API/DB/RBAC/session/CSRF contracts remain frozen.
+
+## Historical Q0-01 source — complete preserved snapshot
+
+Source commit `892b6c1bc40f16d0eb8eb42a9a621415fb0733a3`, Git blob `623b43e140a6040e178a8cbe6365e191122e6754`.
+
 # QUALITY-2026-Q4 — план исправлений
 
 Пакеты независимы; отдельный PR на пакет. В рамках текущего разрешения реализуется только Q0-01. Другие пакеты не начинать автоматически.
@@ -44,3 +60,29 @@
 3. **Q0-02** — закрывает чтение тела до size gate и измеряет XML/ZIP amplification; effort M–L, риск H; нужен isolated resource-limited runtime, не менять R1-010D.
 
 Это только рекомендация следующего цикла; код этих пакетов не создавался.
+
+## Historical Q0-03 source — complete preserved snapshot
+
+Source main `4c0d2f7310f7040091de38b76ed992449b18b539`, Git blob `65fd68eae58ba1dabdef1c4e422f1c83d1ace5e0`. Detailed Q0-04 evidence remains in `Q0-04/` and its [post-merge handoff](https://github.com/CrazyMotoCat/STDU_SHOP/pull/38#issuecomment-6600830728).
+
+# QUALITY-2026-Q4 — план исправлений
+
+Пакеты отделены по ownership. Q0-03 завершает документационную гигиену в PR #35. Q0-04 отдельно авторизован владельцем и ведётся в самостоятельной ветке; Q0-02 и Q0-05 не начинать.
+
+| Пакет | Findings | Минимальное изменение / DoD | Риск и зависимости | Статус |
+|---|---|---|---|---|
+| Q0-01 | AUD-029 | Сохранить browser idempotency key/body hash при неопределённом ответе; реальный Staff UI/API/PG response-drop acceptance. | Средний; frozen supplier API и server idempotency сохранены. | Draft PR #30; exact-head CI для `892b6c1bc40f16d0eb8eb42a9a621415fb0733a3` прошёл, run #41429744152. Не merge-ить. |
+| Q0-03 | AUD-003/011/012/013/025/026 | Строгие XLSX индексы/relationship/координаты/cell types; HTTP preflight и parser→Nest→disposable PG регрессии; стандартные поддержанные типы и sparse структуры сохраняются. | Средний; нет схемы/API/auth/permission изменений. | Draft PR #35 открыт. Независимый review PASS; latest verified exact-head CI run #160 на `b1c17e1` прошёл. Документационный follow-up требует проверки своего pushed SHA; merge запрещён. |
+| Q0-02 | AUD-005/016 | Bounded ingestion memory/resource use with parser and disposable-runtime acceptance. | Высокий; ограничить память без расширения импорта или изменения контрактов. | NOT STARTED; не входит в текущую авторизацию. |
+| Q0-04 | AUD-010/021/024 | CSV delimiter semantics, XLSX Boolean typing, and SKU identity semantics with parser→Nest acceptance. | Высокий риск исходных товарных данных; сначала сверить контракты и допустимую грамматику SKU. | Отдельно авторизован; отдельная ветка от свежего `origin/main`, Draft PR, `REVIEW_REQUIRED`, без merge. |
+| Q0-05 | AUD-032/033 | Staff UI race conditions and browser acceptance. | Средний/высокий auth UI риск. | NOT STARTED; не входит в текущую авторизацию. |
+
+## Q0-03 детали
+
+1. Стиль/shared-string индексы: проверять lexical form, неотрицательность и верхнюю границу; не молча подменять несуществующий style.
+2. Координаты: проверять положительный int32 row index, row/cell row equality и дубликаты; не вводить запрет на sparse или необычный порядок строк/ячеек.
+3. Relationships: требовать Id/Type/Target, уникальные Id, internal safe target и существующую часть; worksheet принимается только с точным worksheet relationship type и реальным worksheet root/`sheetData`.
+4. Cell types: применять существующую allowlist до ветки formula; сохранить результаты для поддерживаемых типов и отклонить `d`/unknown.
+5. Ошибки: только typed `ImportParseError`; не добавлять широкий catch. FastAPI preflight должен завершиться до NDJSON response; API transaction не должен оставить source/run/rows для невалидного XLSX.
+
+Исключения: не исправлять AUD-005/016 resource-budget вопросы, AUD-010/021/024/030, R1-010D/CLEAN, supplier/auth/UI, контрактные файлы, миграции или production.

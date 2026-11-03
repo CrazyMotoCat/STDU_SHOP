@@ -40,6 +40,283 @@ function data<T>(result: ApiResult): T {
   return record(result.body.data) as T;
 }
 
+type Q004Cell =
+  | { type: 'TEXT'; value: string }
+  | { type: 'NUMBER'; value: string; style?: number }
+  | { type: 'BOOLEAN'; value: '0' | '1' };
+
+function q004Text(value: string): Q004Cell {
+  return { type: 'TEXT', value };
+}
+
+function q004Number(value: string, style = 1): Q004Cell {
+  return { type: 'NUMBER', value, style };
+}
+
+function q004Boolean(value: '0' | '1'): Q004Cell {
+  return { type: 'BOOLEAN', value };
+}
+
+function q004Xml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+}
+
+function q004CellXml(reference: string, cell: Q004Cell) {
+  if (cell.type === 'TEXT')
+    return `<c r="${reference}" t="inlineStr"><is><t xml:space="preserve">${q004Xml(cell.value)}</t></is></c>`;
+  if (cell.type === 'BOOLEAN')
+    return `<c r="${reference}" t="b"><v>${cell.value}</v></c>`;
+  return `<c r="${reference}" s="${cell.style ?? 1}"><v>${q004Xml(cell.value)}</v></c>`;
+}
+
+function q004Crc32(bytes: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1)
+      crc = (crc >>> 1) ^ ((crc & 1) === 1 ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function q004StoredZip(entries: [string, string][]): Buffer {
+  const localParts: Buffer[] = [];
+  const centralParts: Buffer[] = [];
+  let offset = 0;
+  for (const [name, text] of entries) {
+    const filename = Buffer.from(name, 'utf8');
+    const contents = Buffer.from(text, 'utf8');
+    const checksum = q004Crc32(contents);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0x0800, 6);
+    local.writeUInt32LE(checksum, 14);
+    local.writeUInt32LE(contents.length, 18);
+    local.writeUInt32LE(contents.length, 22);
+    local.writeUInt16LE(filename.length, 26);
+    localParts.push(local, filename, contents);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0x0800, 8);
+    central.writeUInt32LE(checksum, 16);
+    central.writeUInt32LE(contents.length, 20);
+    central.writeUInt32LE(contents.length, 24);
+    central.writeUInt16LE(filename.length, 28);
+    central.writeUInt32LE(offset, 42);
+    centralParts.push(central, filename);
+    offset += local.length + filename.length + contents.length;
+  }
+  const centralDirectory = Buffer.concat(centralParts);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralDirectory.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...localParts, centralDirectory, end]);
+}
+
+function q004SkuBooleanXlsx(): Buffer {
+  const rows: Q004Cell[][] = [
+    [
+      q004Text('Name'),
+      q004Text('Manufacturer'),
+      q004Text('SKU'),
+      q004Text('Enabled'),
+    ],
+    [
+      q004Text('Padded text'),
+      q004Text('Vendor'),
+      q004Text('00123'),
+      q004Boolean('1'),
+    ],
+    [
+      q004Text('Exponent text'),
+      q004Text('Vendor'),
+      q004Text('1e3'),
+      q004Boolean('0'),
+    ],
+    [
+      q004Text('Hex text'),
+      q004Text('Vendor'),
+      q004Text('0x10'),
+      q004Text('true'),
+    ],
+    [
+      q004Text('Hyphenated text'),
+      q004Text('Vendor'),
+      q004Text('A-42'),
+      q004Text('false'),
+    ],
+    [
+      q004Text('Padded number'),
+      q004Text('Vendor'),
+      q004Number('456'),
+      q004Boolean('1'),
+    ],
+    [
+      q004Text('Exponent number'),
+      q004Text('Vendor'),
+      q004Number('1E3'),
+      q004Boolean('0'),
+    ],
+    [
+      q004Text('Hex number'),
+      q004Text('Vendor'),
+      q004Number('0x10'),
+      q004Boolean('1'),
+    ],
+    [
+      q004Text('Unsafe number'),
+      q004Text('Vendor'),
+      q004Number('9007199254740993'),
+      q004Boolean('0'),
+    ],
+    [
+      q004Text('Text one'),
+      q004Text('Vendor'),
+      q004Text('TEXT-1'),
+      q004Text('1'),
+    ],
+    [
+      q004Text('Text zero'),
+      q004Text('Vendor'),
+      q004Text('TEXT-0'),
+      q004Text('0'),
+    ],
+    [
+      q004Text('Number one attribute'),
+      q004Text('Vendor'),
+      q004Text('TEXT-NUMBER-1'),
+      q004Number('1'),
+    ],
+    [
+      q004Text('Number zero attribute'),
+      q004Text('Vendor'),
+      q004Text('TEXT-NUMBER-0'),
+      q004Number('0'),
+    ],
+    [
+      q004Text('Unpadded number'),
+      q004Text('Vendor'),
+      q004Number('2000', 2),
+      q004Boolean('1'),
+    ],
+    [
+      q004Text('Exact text'),
+      q004Text('Vendor'),
+      q004Text('1000'),
+      q004Text('false'),
+    ],
+  ];
+  const columns = ['A', 'B', 'C', 'D'];
+  const sheetRows = rows
+    .map(
+      (cells, index) =>
+        `<row r="${index + 1}">${cells
+          .map((cell, column) =>
+            q004CellXml(`${columns[column]}${index + 1}`, cell),
+          )
+          .join('')}</row>`,
+    )
+    .join('');
+  return q004StoredZip([
+    [
+      '[Content_Types].xml',
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        '<Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+        '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+        '</Types>',
+    ],
+    [
+      '_rels/.rels',
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+        '</Relationships>',
+    ],
+    [
+      'xl/workbook.xml',
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+        '<sheets><sheet name="Items" sheetId="1" r:id="rId1"/></sheets></workbook>',
+    ],
+    [
+      'xl/_rels/workbook.xml.rels',
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+        '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+        '</Relationships>',
+    ],
+    [
+      'xl/styles.xml',
+      '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+        '<numFmts count="1"><numFmt numFmtId="164" formatCode="00000"/></numFmts>' +
+        '<cellXfs count="3"><xf numFmtId="0"/><xf numFmtId="164"/><xf numFmtId="1"/></cellXfs></styleSheet>',
+    ],
+    [
+      'xl/worksheets/sheet1.xml',
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+        `<sheetData>${sheetRows}</sheetData></worksheet>`,
+    ],
+  ]);
+}
+
+async function q004Upload(
+  contents: Buffer,
+  filename: string,
+  mimeType: string,
+  fields: Record<string, string> = {},
+) {
+  const form = new FormData();
+  form.set(
+    'file',
+    new Blob([new Uint8Array(contents)], { type: mimeType }),
+    filename,
+  );
+  for (const [key, value] of Object.entries(fields)) form.set(key, value);
+  return admin.agent.write('POST', '/v1/staff/catalog/imports', form, {
+    'Idempotency-Key': randomUUID(),
+  });
+}
+
+async function q004SetMapping(
+  runId: string,
+  expectedVersion: number,
+  columnMappings: JsonRecord[],
+  options: { categoryId: string; brandId: string },
+) {
+  const result = await admin.agent.write(
+    'PUT',
+    `/v1/staff/catalog/imports/${runId}/mapping`,
+    {
+      expectedVersion,
+      mappingSchemaVersion: 1,
+      sheetMappings: [
+        {
+          sheetIndex: 0,
+          headerRowNumber: 1,
+          fixedCategoryId: options.categoryId,
+          fixedBrandId: options.brandId,
+          columnMappings,
+          referenceMappings: [],
+        },
+      ],
+    },
+  );
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+}
+
 class StaffAgent {
   readonly cookies = new Map<string, string>();
   baseUrl = '';
@@ -153,6 +430,96 @@ const runtimeEnabled = Boolean(
   process.env.INGESTION_INTERNAL_URL &&
   process.env.FILE_STORAGE_ROOT,
 );
+
+function crc32(bytes: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1)
+      crc = (crc >>> 1) ^ ((crc & 1) === 1 ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function storedZip(entries: [string, string][]): Buffer {
+  const localParts: Buffer[] = [];
+  const centralParts: Buffer[] = [];
+  let offset = 0;
+  for (const [name, text] of entries) {
+    const filename = Buffer.from(name, 'utf8');
+    const contents = Buffer.from(text, 'utf8');
+    const checksum = crc32(contents);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0x0800, 6);
+    local.writeUInt32LE(checksum, 14);
+    local.writeUInt32LE(contents.length, 18);
+    local.writeUInt32LE(contents.length, 22);
+    local.writeUInt16LE(filename.length, 26);
+    localParts.push(local, filename, contents);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0x0800, 8);
+    central.writeUInt32LE(checksum, 16);
+    central.writeUInt32LE(contents.length, 20);
+    central.writeUInt32LE(contents.length, 24);
+    central.writeUInt16LE(filename.length, 28);
+    central.writeUInt32LE(offset, 42);
+    centralParts.push(central, filename);
+    offset += local.length + filename.length + contents.length;
+  }
+  const centralDirectory = Buffer.concat(centralParts);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralDirectory.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...localParts, centralDirectory, end]);
+}
+
+function malformedLateRowOverflowXlsx(): Buffer {
+  return storedZip([
+    [
+      '[Content_Types].xml',
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        '<Default Extension="xml" ContentType="application/xml"/>' +
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+        '</Types>',
+    ],
+    [
+      '_rels/.rels',
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+        '</Relationships>',
+    ],
+    [
+      'xl/workbook.xml',
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+        '<sheets><sheet name="Items" sheetId="1" r:id="rId1"/></sheets></workbook>',
+    ],
+    [
+      'xl/_rels/workbook.xml.rels',
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+        '</Relationships>',
+    ],
+    [
+      'xl/worksheets/sheet1.xml',
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+        '<sheetData><row r="1"><c r="A1"><v>1</v></c></row>' +
+        '<row r="2"><c r="B2"><v>2</v></c></row>' +
+        '<row r="2147483648"><c r="A2147483648"><v>3</v></c></row>' +
+        '</sheetData></worksheet>',
+    ],
+  ]);
+}
 
 async function reservePort() {
   const server = createServer();
@@ -1234,6 +1601,58 @@ describe('R1-006B disposable PostgreSQL + HTTP + Staff UI', () => {
   );
 
   it.skipIf(!runtimeEnabled)(
+    'rejects a late XLSX row overflow before persisting source or staged rows',
+    async () => {
+      const idempotencyKey = randomUUID();
+      const filename = `late-invalid-${randomUUID()}.xlsx`;
+      const form = new FormData();
+      const invalidXlsx = malformedLateRowOverflowXlsx();
+      form.set(
+        'file',
+        new Blob([new Uint8Array(invalidXlsx)], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }),
+        filename,
+      );
+      const result = await admin.agent.write(
+        'POST',
+        '/v1/staff/catalog/imports',
+        form,
+        { 'Idempotency-Key': idempotencyKey },
+      );
+      assert.equal(result.status, 400, JSON.stringify(result.body));
+      assert.equal(result.body.code, 'FILE_REJECTED');
+      assert.equal(
+        await db.catalogImportRun.count({
+          where: {
+            uploaderStaffUserId: admin.id,
+            uploadIdempotencyKey: idempotencyKey,
+          },
+        }),
+        0,
+      );
+      assert.equal(
+        await db.fileObject.count({
+          where: { ownerStaffUserId: admin.id, displayName: filename },
+        }),
+        0,
+      );
+      assert.equal(
+        await db.catalogImportRow.count({
+          where: {
+            importRun: {
+              uploaderStaffUserId: admin.id,
+              uploadIdempotencyKey: idempotencyKey,
+            },
+          },
+        }),
+        0,
+      );
+    },
+    30_000,
+  );
+
+  it.skipIf(!runtimeEnabled)(
     'replays a private upload idempotently and does not return file storage metadata',
     async () => {
       const agent = admin.agent;
@@ -1488,5 +1907,472 @@ describe('R1-006B disposable PostgreSQL + HTTP + Staff UI', () => {
       );
     },
     30_000,
+  );
+
+  it.skipIf(!runtimeEnabled)(
+    'Q0-04 keeps quoted CSV delimiters, explicit overrides, and exact preview identity',
+    async () => {
+      const target = await admin.agent.write(
+        'POST',
+        '/v1/staff/catalog/products',
+        {
+          slug: `q004-csv-${randomUUID().replaceAll('-', '')}`,
+          brandId,
+          manufacturerName: 'Vendor',
+          originalPartNumber: 'CSV-1',
+          categoryId,
+          displayName: 'Existing CSV identity',
+          attributes: [],
+        },
+      );
+      assert.equal(target.status, 201, JSON.stringify(target.body));
+      const targetId = data<{ id: string }>(target).id;
+      const revisionsBeforePreview = await db.catalogProductRevision.count();
+      const decisionsBeforePreview = await db.catalogImportDecision.count();
+      const runsBeforeAmbiguous = await db.catalogImportRun.count();
+      const filesBeforeAmbiguous = await db.fileObject.count();
+      const ambiguous = await q004Upload(
+        Buffer.from('Name,SKU;Price\nRelay,001;100\n', 'utf8'),
+        `q004-ambiguous-${randomUUID()}.csv`,
+        'text/csv',
+      );
+      assert.equal(ambiguous.body.code, 'ENCODING_REQUIRED');
+      assert.equal(await db.catalogImportRun.count(), runsBeforeAmbiguous);
+      assert.equal(await db.fileObject.count(), filesBeforeAmbiguous);
+
+      const punctuation = await q004Upload(
+        Buffer.from(
+          'Name;SKU;Description\nRelay;RX-1;pressure, 230V, indoor, assembly, IP65, terminal, panel\n',
+          'utf8',
+        ),
+        `q004-punctuation-${randomUUID()}.csv`,
+        'text/csv',
+      );
+      assert.equal(punctuation.status, 201, JSON.stringify(punctuation.body));
+      const punctuationRun = data<{ id: string; sourceDelimiter: string }>(
+        punctuation,
+      );
+      assert.equal(punctuationRun.sourceDelimiter, ';');
+      const punctuationRows = await db.catalogImportRow.findMany({
+        where: { importRunId: punctuationRun.id },
+        orderBy: { sourceRowNumber: 'asc' },
+      });
+      assert.deepEqual(
+        (punctuationRows[1]?.sourceCells as JsonRecord[]).map(
+          (cell) => cell.rawValue,
+        ),
+        [
+          'Relay',
+          'RX-1',
+          'pressure, 230V, indoor, assembly, IP65, terminal, panel',
+        ],
+      );
+
+      const sampleBoundary = await q004Upload(
+        Buffer.from(
+          'Name;SKU\n' +
+            Array.from(
+              { length: 24 },
+              (_, index) => `Relay ${index};SKU-${index}\n`,
+            ).join('') +
+            Array.from(
+              { length: 30 },
+              (_, index) => `Late ${index},SKU-${index}\n`,
+            ).join(''),
+          'utf8',
+        ),
+        `q004-sample-boundary-${randomUUID()}.csv`,
+        'text/csv',
+      );
+      assert.equal(
+        sampleBoundary.status,
+        201,
+        JSON.stringify(sampleBoundary.body),
+      );
+      const sampleBoundaryRun = data<{
+        id: string;
+        sourceDelimiter: string;
+      }>(sampleBoundary);
+      assert.equal(sampleBoundaryRun.sourceDelimiter, ';');
+      const sampleBoundaryRecord = await db.catalogImportRun.findUnique({
+        where: { id: sampleBoundaryRun.id },
+      });
+      assert.deepEqual(sampleBoundaryRecord?.sourceParseIssues, []);
+      const sampleBoundaryRows = await db.catalogImportRow.findMany({
+        where: { importRunId: sampleBoundaryRun.id },
+        orderBy: { sourceRowNumber: 'asc' },
+      });
+      assert.equal(sampleBoundaryRows.length, 55);
+      assert.deepEqual(
+        (sampleBoundaryRows[0]?.sourceCells as JsonRecord[]).map(
+          (cell) => cell.rawValue,
+        ),
+        ['Name', 'SKU'],
+      );
+      assert.deepEqual(
+        (sampleBoundaryRows.at(-1)?.sourceCells as JsonRecord[]).map(
+          (cell) => cell.rawValue,
+        ),
+        ['Late 29,SKU-29'],
+      );
+
+      const unicodeWhitespace = await q004Upload(
+        Buffer.from(
+          'Name;SKU;Description\n' +
+            'Relay;RX-1;actual product\n' +
+            '"\u2003";"\u2003";"\u2003"\n' +
+            '"\u0085";"\u0085";"\u0085"\n' +
+            '"\u00a0";"\u00a0";"\u00a0"\n',
+          'utf8',
+        ),
+        `q004-unicode-whitespace-${randomUUID()}.csv`,
+        'text/csv',
+      );
+      assert.equal(
+        unicodeWhitespace.status,
+        201,
+        JSON.stringify(unicodeWhitespace.body),
+      );
+      const unicodeWhitespaceRun = data<{
+        id: string;
+        sourceDelimiter: string;
+      }>(unicodeWhitespace);
+      assert.equal(unicodeWhitespaceRun.sourceDelimiter, ';');
+      const unicodeWhitespaceRunRecord = await db.catalogImportRun.findUnique({
+        where: { id: unicodeWhitespaceRun.id },
+      });
+      assert.deepEqual(unicodeWhitespaceRunRecord?.sourceParseIssues, []);
+      const unicodeWhitespaceRows = await db.catalogImportRow.findMany({
+        where: { importRunId: unicodeWhitespaceRun.id },
+        orderBy: { sourceRowNumber: 'asc' },
+      });
+      assert.deepEqual(
+        (unicodeWhitespaceRows[1]?.sourceCells as JsonRecord[]).map(
+          (cell) => cell.rawValue,
+        ),
+        ['Relay', 'RX-1', 'actual product'],
+      );
+
+      const mixedDialectWhitespace = await q004Upload(
+        Buffer.from(
+          'Name;SKU;Description\n' +
+            'Relay;RX-1;actual product\n' +
+            '"\u0085","\u0085","\u0085"\n'.repeat(3),
+          'utf8',
+        ),
+        `q004-mixed-dialect-whitespace-${randomUUID()}.csv`,
+        'text/csv',
+      );
+      assert.equal(
+        mixedDialectWhitespace.status,
+        201,
+        JSON.stringify(mixedDialectWhitespace.body),
+      );
+      const mixedDialectRun = data<{
+        id: string;
+        sourceDelimiter: string;
+      }>(mixedDialectWhitespace);
+      assert.equal(mixedDialectRun.sourceDelimiter, ';');
+      const mixedDialectRunRecord = await db.catalogImportRun.findUnique({
+        where: { id: mixedDialectRun.id },
+      });
+      assert.deepEqual(mixedDialectRunRecord?.sourceParseIssues, [
+        {
+          code: 'MALFORMED_CSV',
+          message: 'CSV logical record 3 could not be parsed.',
+        },
+      ]);
+
+      const description =
+        `${Array.from({ length: 10 }, () => 'comma').join(', ')}; semicolon; ` +
+        'escaped "quote"\r\ncontinued';
+      const csv = Buffer.from(
+        `\uFEFFName;Manufacturer;SKU;Description\r\nQuoted;Vendor;CSV-1;"${description.replaceAll('"', '""')}"\r\n`,
+        'utf8',
+      );
+      const uploaded = await q004Upload(
+        csv,
+        `q004-quoted-${randomUUID()}.csv`,
+        'text/csv',
+      );
+      assert.equal(uploaded.status, 201, JSON.stringify(uploaded.body));
+      const run = data<{
+        id: string;
+        version: number;
+        sourceDelimiter: string;
+      }>(uploaded);
+      assert.equal(run.sourceDelimiter, ';');
+      await q004SetMapping(
+        run.id,
+        run.version,
+        [
+          { columnIndex: 0, target: 'displayName' },
+          { columnIndex: 1, target: 'manufacturerName' },
+          { columnIndex: 2, target: 'originalPartNumber' },
+        ],
+        { categoryId, brandId },
+      );
+      const revisionAuditEventsBeforePreview = await db.auditEvent.count({
+        where: {
+          action: 'catalog.product.revision.created',
+          outcome: 'SUCCESS',
+        },
+      });
+      const preview = await admin.agent.write(
+        'POST',
+        `/v1/staff/catalog/imports/${run.id}/preview`,
+        {},
+      );
+      assert.equal(preview.status, 200, JSON.stringify(preview.body));
+      assert.equal(
+        await db.auditEvent.count({
+          where: {
+            action: 'catalog.product.revision.created',
+            outcome: 'SUCCESS',
+          },
+        }),
+        revisionAuditEventsBeforePreview,
+      );
+      const previewRows = await db.catalogImportRow.findMany({
+        where: { importRunId: run.id },
+        orderBy: { sourceRowNumber: 'asc' },
+      });
+      assert.equal(previewRows.length, 2);
+      assert.equal(previewRows[1]?.candidateState, 'EXACT_MATCH');
+      assert.equal(previewRows[1]?.matchedProductId, targetId);
+      assert.equal(
+        (previewRows[1]?.normalizedCandidate as JsonRecord).originalPartNumber,
+        'CSV-1',
+      );
+      const sourceCells = previewRows[1]?.sourceCells as JsonRecord[];
+      assert.deepEqual(
+        sourceCells.map((cell) => cell.rawValue),
+        ['Quoted', 'Vendor', 'CSV-1', description],
+      );
+
+      const explicit = await q004Upload(
+        Buffer.from('Name;SKU,Price\nRelay;RX-2,100\n', 'utf8'),
+        `q004-explicit-${randomUUID()}.csv`,
+        'text/csv',
+        { csvDelimiter: ';' },
+      );
+      assert.equal(explicit.status, 201, JSON.stringify(explicit.body));
+      const explicitRun = data<{ id: string; sourceDelimiter: string }>(
+        explicit,
+      );
+      assert.equal(explicitRun.sourceDelimiter, ';');
+      const explicitSourceRows = await db.catalogImportRow.findMany({
+        where: { importRunId: explicitRun.id },
+        orderBy: { sourceRowNumber: 'asc' },
+      });
+      assert.deepEqual(
+        (explicitSourceRows[1]?.sourceCells as JsonRecord[]).map(
+          (cell) => cell.rawValue,
+        ),
+        ['Relay', 'RX-2,100'],
+      );
+      assert.equal(
+        await db.catalogProductRevision.count(),
+        revisionsBeforePreview,
+      );
+      assert.equal(
+        await db.catalogImportDecision.count(),
+        decisionsBeforePreview,
+      );
+    },
+    120_000,
+  );
+
+  it.skipIf(!runtimeEnabled)(
+    'Q0-04 maps typed XLSX booleans and preserves or rejects SKU identity safely',
+    async () => {
+      const booleanDefinition = await db.attributeDefinition.create({
+        data: {
+          id: randomUUID(),
+          categoryId,
+          code: `q004_enabled_${randomUUID().slice(0, 8)}`,
+          label: 'Q0-04 enabled fixture',
+          valueType: 'BOOLEAN',
+          state: 'ACTIVE',
+        },
+      });
+      const existingProducts = new Map<string, string>();
+      for (const partNumber of ['00123', '00456', '1000', '2000']) {
+        const created = await admin.agent.write(
+          'POST',
+          '/v1/staff/catalog/products',
+          {
+            slug: `q004-${randomUUID().replaceAll('-', '')}`,
+            brandId,
+            manufacturerName: 'Vendor',
+            originalPartNumber: partNumber,
+            categoryId,
+            displayName: `Existing ${partNumber}`,
+            attributes: [],
+          },
+        );
+        assert.equal(created.status, 201, JSON.stringify(created.body));
+        existingProducts.set(partNumber, data<{ id: string }>(created).id);
+      }
+      const revisionsBeforePreview = await db.catalogProductRevision.count();
+      const decisionsBeforePreview = await db.catalogImportDecision.count();
+      const uploaded = await q004Upload(
+        q004SkuBooleanXlsx(),
+        `q004-sku-boolean-${randomUUID()}.xlsx`,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      assert.equal(uploaded.status, 201, JSON.stringify(uploaded.body));
+      const run = data<{ id: string; version: number }>(uploaded);
+      await q004SetMapping(
+        run.id,
+        run.version,
+        [
+          { columnIndex: 0, target: 'displayName' },
+          { columnIndex: 1, target: 'manufacturerName' },
+          { columnIndex: 2, target: 'originalPartNumber' },
+          {
+            columnIndex: 3,
+            target: 'attribute',
+            attributeDefinitionId: booleanDefinition.id,
+            categoryId,
+          },
+        ],
+        { categoryId, brandId },
+      );
+      const revisionAuditEventsBeforePreview = await db.auditEvent.count({
+        where: {
+          action: 'catalog.product.revision.created',
+          outcome: 'SUCCESS',
+        },
+      });
+      const preview = await admin.agent.write(
+        'POST',
+        `/v1/staff/catalog/imports/${run.id}/preview`,
+        {},
+      );
+      assert.equal(preview.status, 200, JSON.stringify(preview.body));
+      assert.equal(
+        await db.auditEvent.count({
+          where: {
+            action: 'catalog.product.revision.created',
+            outcome: 'SUCCESS',
+          },
+        }),
+        revisionAuditEventsBeforePreview,
+      );
+      const rows = await db.catalogImportRow.findMany({
+        where: { importRunId: run.id },
+        orderBy: { sourceRowNumber: 'asc' },
+      });
+      const bySourceRow = new Map(
+        rows.map((row) => [row.sourceRowNumber, row]),
+      );
+      const candidate = (sourceRow: number) =>
+        bySourceRow.get(sourceRow)?.normalizedCandidate as JsonRecord;
+      const sourceCell = (sourceRow: number, column: number) =>
+        (bySourceRow.get(sourceRow)?.sourceCells as JsonRecord[])[column] ?? {};
+      const booleanValue = (sourceRow: number) => {
+        const attributes = candidate(sourceRow).attributes as JsonRecord[];
+        return attributes?.find(
+          (attribute) =>
+            attribute.attributeDefinitionId === booleanDefinition.id,
+        )?.valueBoolean;
+      };
+
+      assert.deepEqual(sourceCell(2, 3), {
+        columnIndex: 3,
+        cellType: 'BOOLEAN',
+        rawValue: '1',
+        numberFormat: 'General',
+      });
+      assert.deepEqual(sourceCell(3, 3), {
+        columnIndex: 3,
+        cellType: 'BOOLEAN',
+        rawValue: '0',
+        numberFormat: 'General',
+      });
+      assert.equal(candidate(2).originalPartNumber, '00123');
+      assert.equal(bySourceRow.get(2)?.candidateState, 'EXACT_MATCH');
+      assert.equal(
+        bySourceRow.get(2)?.matchedProductId,
+        existingProducts.get('00123'),
+      );
+      assert.equal(booleanValue(2), true);
+      assert.equal(candidate(3).originalPartNumber, '1e3');
+      assert.equal(bySourceRow.get(3)?.candidateState, 'NEW');
+      assert.equal(booleanValue(3), false);
+      assert.equal(candidate(4).originalPartNumber, '0x10');
+      assert.equal(booleanValue(4), true);
+      assert.equal(candidate(5).originalPartNumber, 'A-42');
+      assert.equal(booleanValue(5), false);
+      assert.equal(candidate(6).originalPartNumber, '00456');
+      assert.equal(bySourceRow.get(6)?.candidateState, 'EXACT_MATCH');
+      assert.equal(
+        bySourceRow.get(6)?.matchedProductId,
+        existingProducts.get('00456'),
+      );
+      assert.equal(booleanValue(6), true);
+      for (const sourceRow of [7, 8, 9]) {
+        assert.equal(bySourceRow.get(sourceRow)?.candidateState, 'INVALID');
+        assert(
+          (bySourceRow.get(sourceRow)?.validationIssues as JsonRecord[]).some(
+            (issue) => issue.code === 'NUMERIC_IDENTITY_REJECTED',
+          ),
+        );
+      }
+      for (const sourceRow of [10, 11]) {
+        assert.equal(bySourceRow.get(sourceRow)?.candidateState, 'INVALID');
+        assert(
+          (bySourceRow.get(sourceRow)?.validationIssues as JsonRecord[]).some(
+            (issue) =>
+              issue.field === `attribute:${booleanDefinition.id}` &&
+              issue.code === 'INVALID_BOOLEAN',
+          ),
+        );
+      }
+      for (const sourceRow of [12, 13]) {
+        assert.equal(bySourceRow.get(sourceRow)?.candidateState, 'INVALID');
+        assert(
+          (bySourceRow.get(sourceRow)?.validationIssues as JsonRecord[]).some(
+            (issue) =>
+              issue.field === `attribute:${booleanDefinition.id}` &&
+              issue.code === 'INVALID_BOOLEAN',
+          ),
+        );
+      }
+      assert.deepEqual(sourceCell(12, 3), {
+        columnIndex: 3,
+        cellType: 'NUMBER',
+        rawValue: '1',
+        numberFormat: '00000',
+      });
+      assert.equal(candidate(14).originalPartNumber, '2000');
+      assert.equal(bySourceRow.get(14)?.candidateState, 'EXACT_MATCH');
+      assert.equal(
+        bySourceRow.get(14)?.matchedProductId,
+        existingProducts.get('2000'),
+      );
+      assert(
+        (bySourceRow.get(6)?.warnings as JsonRecord[]).some(
+          (warning) => warning.code === 'LEADING_ZEROES_RESTORED',
+        ),
+      );
+      assert(
+        !(bySourceRow.get(14)?.warnings as JsonRecord[]).some(
+          (warning) => warning.code === 'LEADING_ZEROES_RESTORED',
+        ),
+      );
+      assert.equal(candidate(15).originalPartNumber, '1000');
+      assert.equal(bySourceRow.get(15)?.candidateState, 'EXACT_MATCH');
+      assert.equal(
+        await db.catalogProductRevision.count(),
+        revisionsBeforePreview,
+      );
+      assert.equal(
+        await db.catalogImportDecision.count(),
+        decisionsBeforePreview,
+      );
+    },
+    120_000,
   );
 });
