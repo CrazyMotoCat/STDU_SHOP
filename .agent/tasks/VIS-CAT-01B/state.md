@@ -16,5 +16,4 @@ DO_NOT_REPEAT: No newphotosdownloads or ProductMediapipeline; no merge/deploy.
 
 LOCAL_PREVIEW: http://127.0.0.1:49858/catalog (owned loopback process, fixture API only).
 VISUAL: Final canonical catalog and bothdetails inspected; long categoryname clipping fixed with wrapping; no pageerrors or documentoverflow at all5widths. Main/group photos verified by hashes; owner/screenshots excludedfromcommit.
-LAST_SAFE_COMMIT: a2a19c9fe07b7afac6dfc46996c1294ea3111b6a (clean baseline; task changes prepared in this commit).
-
+LAST_SAFE_COMMIT: c154de2b8a12e15c12f1c67e05f977a1d1cdd1b1 (implemented demo; this follow-up normalizes checkpoint whitespace).
