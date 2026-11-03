@@ -3,7 +3,10 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { checkAddedLines } from './hygiene.mjs';
 const read = (path) =>
-  readFileSync(new URL('../../' + path, import.meta.url), 'utf8');
+  readFileSync(new URL('../../' + path, import.meta.url), 'utf8').replaceAll(
+    '\r\n',
+    '\n',
+  );
 const original = read('docs/ci/legacy-ci.yml.txt');
 const legacy = read('.github/workflows/ci.yml');
 const full = read('.github/workflows/ci-full.yml');
@@ -64,4 +67,31 @@ test('limited added-line scanner detects signatures without disclosing data', ()
   assert.throws(() => checkAddedLines('+-----BEGIN ' + 'PRIVATE KEY-----'));
   assert.throws(() => checkAddedLines('+gh' + 'p_' + 'a'.repeat(36)));
   checkAddedLines('-gh' + 'p_' + 'a'.repeat(36));
+});
+
+test('manual FULL cannot emit the PR required merge-gate context', () => {
+  assert(
+    full.includes(
+      "name: ${{ github.event_name == 'workflow_dispatch' && 'Supplemental FULL evidence' || 'FULL merge gate' }}",
+    ),
+  );
+});
+
+test('FAST contract bundle retains every original contract and lock command', () => {
+  const block = original.slice(
+    original.indexOf('      - name: Frozen R1-002'),
+    original.indexOf('      - name: R1-004B isolated schema'),
+  );
+  const commands = [];
+  for (const line of block.split('\n')) {
+    if (line.startsWith('        run: ') && !line.endsWith('|'))
+      commands.push(line.slice(13));
+    else if (line.startsWith('          ')) commands.push(line.slice(10));
+  }
+  const fastCommands = read('scripts/ci/contracts.sh')
+    .split('\n')
+    .slice(2)
+    .join('\n')
+    .trimEnd();
+  assert.equal(fastCommands, commands.join('\n'));
 });

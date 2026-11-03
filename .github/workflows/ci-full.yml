@@ -161,7 +161,7 @@ jobs:
         run: pnpm compose:stop
 
   merge-gate:
-    name: FULL merge gate
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Supplemental FULL evidence' || 'FULL merge gate' }}
     if: ${{ always() }}
     needs: [plan, full]
     runs-on: ubuntu-24.04

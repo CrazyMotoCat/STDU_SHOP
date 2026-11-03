@@ -38,3 +38,5 @@ Manual dispatch is supplemental evidence, not a PR-required-check shortcut. Wron
 - [CODEOWNERS and protection of policy files](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners)
 - [Workflow concurrency and dispatch](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)
 - [Organization/enterprise required workflow capability](https://docs.github.com/en/enterprise-cloud@latest/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)
+
+Manual dispatch emits **Supplemental FULL evidence**, a separate job/check name. It never publishes the required **FULL merge gate** context, so branch-head supplemental evidence cannot substitute for PR candidate validation. This distinction is asserted in policy tests.

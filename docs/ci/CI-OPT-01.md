@@ -62,3 +62,5 @@ Hosted legacy FULL, new FULL and FAST must all be verified on the final PR HEAD.
 ## Rollback
 
 Before activation: close/revert this Draft; legacy command coverage remains unchanged. After separately approved activation: restore legacy `quality-and-integration` as required first, verify a fresh current-head legacy run, then revert new workflows/policy. Never remove the active required gate before the replacement is green and enforced. Do not change production or disable protections to repair a CI failure.
+
+Manual dispatch emits **Supplemental FULL evidence**, a separate job/check name. It never publishes the required **FULL merge gate** context, so branch-head supplemental evidence cannot substitute for PR candidate validation. This distinction is asserted in policy tests.
