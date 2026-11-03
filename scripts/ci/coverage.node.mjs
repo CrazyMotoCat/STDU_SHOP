@@ -95,3 +95,12 @@ test('FAST contract bundle retains every original contract and lock command', ()
     .trimEnd();
   assert.equal(fastCommands, commands.join('\n'));
 });
+
+test('FAST contract lock checks have complete Git history', () => {
+  const fast = read('.github/workflows/ci-fast.yml');
+  const contracts = fast.slice(
+    fast.indexOf('\n  contracts:'),
+    fast.indexOf('\n  fast-gate:'),
+  );
+  assert(contracts.includes('fetch-depth: 0'));
+});
