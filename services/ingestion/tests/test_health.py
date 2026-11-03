@@ -71,6 +71,151 @@ def test_catalog_import_parser_rejects_ambiguous_csv_delimiter() -> None:
         )
     assert response.status_code == 400
     assert response.json() == {"code": "ENCODING_REQUIRED"}
+    assert response.headers["content-type"].startswith("application/json")
+    assert not response.content.startswith(b'{"type":"START"')
+
+
+def test_catalog_import_parser_auto_detects_quoted_csv_and_preserves_ndjson_fields() -> None:
+    content = (
+        b"Name;SKU;Description\r\n"
+        b'Relay;RX-1;"comma, comma, comma, comma, comma, comma, comma, comma; semicolon; '
+        b'escaped ""quote""\r\ncontinued"\r\n'
+    )
+    with TestClient(create_app("http://api:3001")) as client:
+        response = client.post(
+            "/internal/v1/catalog-import/parse",
+            content=content,
+            headers={"x-source-filename": "items.csv", "x-source-mime": "text/csv"},
+        )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/x-ndjson")
+    records = [__import__("json").loads(line) for line in response.content.splitlines()]
+    assert records[0] == {"type": "START", "protocolVersion": 1, "sourceFormat": "CSV"}
+    assert records[2]["cells"] == [
+        {"columnIndex": 0, "cellType": "TEXT", "rawValue": "Name"},
+        {"columnIndex": 1, "cellType": "TEXT", "rawValue": "SKU"},
+        {"columnIndex": 2, "cellType": "TEXT", "rawValue": "Description"},
+    ]
+    assert records[3]["cells"][2]["rawValue"] == (
+        "comma, comma, comma, comma, comma, comma, comma, comma; "
+        'semicolon; escaped "quote"\r\ncontinued'
+    )
+
+
+def test_catalog_import_parser_uses_row_shape_when_unquoted_text_has_commas() -> None:
+    content = (
+        b"Name;SKU;Description\n"
+        b"Relay;RX-1;pressure, 230V, indoor, assembly, IP65, terminal, panel\n"
+    )
+    with TestClient(create_app("http://api:3001")) as client:
+        response = client.post(
+            "/internal/v1/catalog-import/parse",
+            content=content,
+            headers={"x-source-filename": "items.csv", "x-source-mime": "text/csv"},
+        )
+    assert response.status_code == 200
+    records = [__import__("json").loads(line) for line in response.content.splitlines()]
+    assert [cell["rawValue"] for cell in records[3]["cells"]] == [
+        "Relay",
+        "RX-1",
+        "pressure, 230V, indoor, assembly, IP65, terminal, panel",
+    ]
+
+
+def test_catalog_import_parser_matches_unicode_whitespace_record_skipping() -> None:
+    content = (
+        "Name;SKU;Description\nRelay;RX-1;actual product\n"
+        + '"\u2003";"\u2003";"\u2003"\n'
+        + '"\u0085";"\u0085";"\u0085"\n'
+        + '"\u00a0";"\u00a0";"\u00a0"\n'
+    ).encode("utf-8")
+    with TestClient(create_app("http://api:3001")) as client:
+        response = client.post(
+            "/internal/v1/catalog-import/parse",
+            content=content,
+            headers={"x-source-filename": "items.csv", "x-source-mime": "text/csv"},
+        )
+    assert response.status_code == 200
+    records = [__import__("json").loads(line) for line in response.content.splitlines()]
+    rows = [record for record in records if record["type"] == "ROW"]
+    assert len(rows) == 2
+    assert [cell["rawValue"] for cell in rows[1]["cells"]] == [
+        "Relay",
+        "RX-1",
+        "actual product",
+    ]
+    assert records[-1]["type"] == "COMPLETE"
+    assert records[-1]["sourceParseIssues"] == []
+
+
+def test_catalog_import_parser_caps_sampling_at_25_nonempty_logical_records() -> None:
+    content = (
+        "Name;SKU\n"
+        + "".join(f"Relay {index};SKU-{index}\n" for index in range(24))
+        + "".join(f"Late {index},SKU-{index}\n" for index in range(30))
+    ).encode("utf-8")
+    with TestClient(create_app("http://api:3001")) as client:
+        response = client.post(
+            "/internal/v1/catalog-import/parse",
+            content=content,
+            headers={"x-source-filename": "items.csv", "x-source-mime": "text/csv"},
+        )
+    assert response.status_code == 200
+    records = [__import__("json").loads(line) for line in response.content.splitlines()]
+    rows = [record for record in records if record["type"] == "ROW"]
+    assert len(rows) == 55
+    assert [cell["rawValue"] for cell in rows[0]["cells"]] == ["Name", "SKU"]
+    assert [cell["rawValue"] for cell in rows[-1]["cells"]] == ["Late 29,SKU-29"]
+    assert records[-1]["type"] == "COMPLETE"
+    assert records[-1]["sourceParseIssues"] == []
+
+
+def test_catalog_import_parser_explicit_delimiter_overrides_auto_detection() -> None:
+    with TestClient(create_app("http://api:3001")) as client:
+        response = client.post(
+            "/internal/v1/catalog-import/parse",
+            content=b"Name;SKU\nRelay, RX-1\n",
+            headers={
+                "x-source-filename": "items.csv",
+                "x-source-mime": "text/csv",
+                "x-csv-delimiter": ";",
+            },
+        )
+    assert response.status_code == 200
+    records = [__import__("json").loads(line) for line in response.content.splitlines()]
+    assert records[3]["cells"] == [
+        {"columnIndex": 0, "cellType": "TEXT", "rawValue": "Relay, RX-1"}
+    ]
+
+
+def test_catalog_import_parser_rejects_empty_explicit_delimiter() -> None:
+    with TestClient(create_app("http://api:3001")) as client:
+        response = client.post(
+            "/internal/v1/catalog-import/parse",
+            content=b"Name;SKU\nRelay;RX-1\n",
+            headers={
+                "x-source-filename": "items.csv",
+                "x-source-mime": "text/csv",
+                "x-csv-delimiter": "",
+            },
+        )
+    assert response.status_code == 400
+    assert response.json() == {"code": "VALIDATION_ERROR"}
+    assert response.headers["content-type"].startswith("application/json")
+
+
+def test_catalog_import_parser_keeps_malformed_quoted_tail_as_partial_ndjson() -> None:
+    with TestClient(create_app("http://api:3001")) as client:
+        response = client.post(
+            "/internal/v1/catalog-import/parse",
+            content=b'Name;SKU\nRelay;"unterminated',
+            headers={"x-source-filename": "items.csv", "x-source-mime": "text/csv"},
+        )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/x-ndjson")
+    records = [__import__("json").loads(line) for line in response.content.splitlines()]
+    assert records[-1]["type"] == "PARTIAL"
+    assert records[-1]["sourceParseIssues"][0]["code"] == "MALFORMED_CSV"
 
 
 def test_catalog_import_parser_returns_limit_error_before_starting_ndjson(
