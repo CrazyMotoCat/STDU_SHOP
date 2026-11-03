@@ -2,13 +2,14 @@
 
 ## Live observations and trust boundary
 
-Public API observations during CI-OPT-01 preparation:
+Authenticated API observations, refreshed on 2026-11-04 (Asia/Vladivostok):
 
 - `GET /repos/CrazyMotoCat/STDU_SHOP/rulesets` → 200 `[]`.
 - `GET /repos/CrazyMotoCat/STDU_SHOP/rules/branches/main` → 200 `[]`.
-- `GET /repos/CrazyMotoCat/STDU_SHOP/branches/main/protection` → 401 (no authenticated protection access).
+- `GET /repos/CrazyMotoCat/STDU_SHOP/branches/main` → 200, `protected: false`, required-status-check enforcement `off`, no contexts/checks.
+- `GET /repos/CrazyMotoCat/STDU_SHOP/branches/main/protection` → 404, `Branch not protected`.
 
-Empty rulesets do not prove absence of classic protection. Existing required checks/approvals/bypass policy remain **UNVERIFIED**. No protection setting was changed. Do not claim FULL is enforced by GitHub until an authenticated settings read and negative merge test prove it.
+The authenticated repository credential has administrative access; this is confirmed **UNPROTECTED**, not an API-permission limitation. The earlier unauthenticated 401 observation is superseded. No protection setting was changed: the task explicitly requires a separate owner authorization for that operation. FULL is **not mandatory for merge in current GitHub settings**. This is an acceptance blocker until owner-authorized settings and negative merge tests establish enforcement.
 
 PR-controlled workflow/classifier/gate changes can forge checks; self-tests alone do not establish a trusted security boundary. In an organization with the capability, prefer a required workflow sourced from separately protected policy. This user-owned repository may not support organization-required workflows. The owner must choose a supported enforcement path before disabling legacy CI.
 
@@ -16,7 +17,7 @@ For a repository-level fallback, require independent Code Owner review of `.gith
 
 ## Exact Settings steps — do not execute without authorization
 
-1. Open **Settings → Rules → Rulesets** and **Settings → Branches → main protection**. Record authenticated current rules, active enforcement, actor bypass list and required check app/source. Preserve the original `quality-and-integration` check and all approvals/restrictions.
+1. Open **Settings → Rules → Rulesets** and **Settings → Branches → Add branch protection rule** for exact branch `main`. Current settings have no active protection. Obtain the separate owner authorization, then record chosen active enforcement, actor bypass list and required check app/source. Include the original `quality-and-integration` check in the initial protected configuration and preserve any settings added by another authorized owner in the meantime. Require PRs and independent policy-owner approval; prohibit force pushes/deletion and apply protection to administrators/bypass actors as supported.
 2. Run this Draft's legacy `R1 foundation`, FAST and FULL on the exact final head and candidate. Confirm actual check names in the Checks/API (expected job contexts: `FAST CI`, `FULL CI`, `FULL merge gate`; workflow display may prepend its name). Require the **GitHub Actions app** source, not an arbitrary same-name external status.
 3. Add `FULL merge gate` and `FAST CI` as required while keeping `quality-and-integration`. Enable strict up-to-date branches or a proven merge queue (both new FULL trigger `merge_group` and legacy compatibility must be verified before enabling a queue). The merge gate's success does not automatically become stale after a later base push; this rule closes that platform gap.
 4. Activate the trusted-policy/independent CI-owner review path described above. Protect modification/deletion of workflow, classifier, gate and CODEOWNERS. Validate that an unauthorized same-name fake-green workflow cannot pass acceptance. Without this step, malicious workflow editing remains a known protection gap.

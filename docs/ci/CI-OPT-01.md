@@ -6,7 +6,7 @@
 
 This is a **parallel migration**. Existing `R1 foundation / quality-and-integration` remains enabled with every command intact. Its only operational adjustment isolates main runs by run ID and cancels only superseded PR runs; this prevents a later main commit replacing a pending predecessor. The original workflow is preserved in `legacy-ci.yml.txt`; tests compare exact ordered steps and configuration.
 
-No repository protection is changed. New checks are not claimed to be mandatory in live GitHub settings. Keep the old required check until the owner completes `merge-gate-policy.md`. During this stage, Draft PRs still execute legacy FULL, so total waiting/runtime savings are **not yet activated**.
+No repository protection is changed. Authenticated API inspection confirms main is currently **unprotected**, with empty rulesets and no required checks. New FULL is not mandatory for merge. The owner must authorize and activate the checks in `merge-gate-policy.md` before any legacy retirement. During this stage, Draft PRs still execute legacy FULL, so total waiting/runtime savings are **not yet activated**.
 
 ## Workflows and check contexts
 
@@ -47,7 +47,7 @@ After FULL, the gate re-fetches the live PR and actual target-branch ref, requir
 
 Dispatch requires a 40-character expected SHA equal to the selected ref/event SHA, actual checkout and freshly resolved ref. It always FULL. It is supplemental branch evidence, not a substitute for the required PR-associated gate. GitHub does not expose a newly added dispatch workflow until it is present on the default branch; do not assume it can be invoked before this Draft is accepted.
 
-A PR can edit workflow/gate code. Repository-owned code cannot independently stop a malicious change from forging its own check or deleting policy. Required external trusted workflows (where supported) or an enforced independent policy-owner review plus protected required checks are necessary. Existing live protection was not authenticated; see the exact observations and owner actions in `merge-gate-policy.md`.
+A PR can edit workflow/gate code. Repository-owned code cannot independently stop a malicious change from forging its own check or deleting policy. Required external trusted workflows (where supported) or an enforced independent policy-owner review plus protected required checks are necessary. Authenticated inspection confirms no live main protection; see the exact observations and owner actions in `merge-gate-policy.md`.
 
 ## Coverage and local verification
 
