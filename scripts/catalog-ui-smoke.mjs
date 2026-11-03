@@ -1,3 +1,11 @@
+import { createHash } from 'node:crypto';
+import {
+  demoCards,
+  demoProducts,
+  demoData,
+  makeDemoProducts,
+  prepareSyntheticDemoMedia,
+} from './iek-demo-fixture.mjs';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:net';
 import { createServer as createHttpServer } from 'node:http';
@@ -180,10 +188,13 @@ const fixtureServer = createHttpServer((request, response) => {
       json(response, envelope(null, {}), 400);
       return;
     }
-    let rows = [...sampleCards];
+    let rows =
+      url.searchParams.get('q') === 'iek-demo'
+        ? [...demoCards]
+        : [...sampleCards];
     const query = url.searchParams.get('q')?.toLowerCase();
     const brand = url.searchParams.get('brandSlug');
-    if (query)
+    if (query && query !== 'iek-demo')
       rows = rows.filter((product) =>
         [
           product.displayName,
@@ -208,6 +219,14 @@ const fixtureServer = createHttpServer((request, response) => {
         totalPages: Math.max(Math.ceil(rows.length / pageSize), 1),
       }),
     );
+    return;
+  }
+
+  const demo = demoProducts.find(
+    (product) => url.pathname === `/v1/public/catalog/products/${product.slug}`,
+  );
+  if (demo) {
+    json(response, envelope(demo, {}));
     return;
   }
 
@@ -332,6 +351,44 @@ async function waitForPortRelease(port) {
 }
 
 async function main() {
+  assert.deepEqual(
+    makeDemoProducts(),
+    makeDemoProducts(),
+    'Fixtures must be repeatable without writes or duplicate identities.',
+  );
+  assert.equal(
+    new Set(demoProducts.map((product) => product.originalPartNumber)).size,
+    2,
+  );
+  assert.equal(
+    demoProducts[0].attributes.find(
+      (attribute) => attribute.attributeCode === 'rated_operating_voltage',
+    ).value,
+    400,
+  );
+  assert.equal(
+    demoProducts[1].attributes.find(
+      (attribute) => attribute.attributeCode === 'rated_operating_voltage',
+    ).value,
+    230,
+  );
+  assert.equal(
+    demoProducts[1].attributes.find(
+      (attribute) => attribute.attributeCode === 'neutral_disconnection',
+    ).value,
+    true,
+  );
+  assert.equal(
+    demoProducts[1].attributes.find(
+      (attribute) => attribute.attributeCode === 'installation_depth',
+    ).value,
+    '76.2',
+  );
+  const demoMode =
+    process.env.CATALOG_DEMO_MEDIA_MODE === 'owner-local'
+      ? 'owner-local'
+      : 'synthetic';
+  if (demoMode === 'synthetic') await prepareSyntheticDemoMedia();
   await mkdir(artifacts, { recursive: true });
   await new Promise((accept, reject) => {
     fixtureServer.once('error', reject);
@@ -357,6 +414,8 @@ async function main() {
     env: {
       API_INTERNAL_URL: `http://127.0.0.1:${apiAddress.port}`,
       NEXT_TELEMETRY_DISABLED: '1',
+      APP_ENV: 'test',
+      CATALOG_DEMO_MEDIA_MODE: demoMode,
     },
     quiet: true,
   };
@@ -732,6 +791,147 @@ async function main() {
             375,
             812,
           );
+          const demoArtifacts = resolve(
+            root,
+            'artifacts/verification/VIS-CAT-01B',
+            demoMode,
+          );
+          await mkdir(demoArtifacts, { recursive: true });
+          for (const width of [320, 375, 768, 1024, 1440]) {
+            await captureAndCheck(
+              page,
+              `${baseUrl}/catalog?q=iek-demo`,
+              'iek-catalog',
+              width,
+              900,
+            );
+            assert.equal(
+              await page.locator('article[class*="productTile"]').count(),
+              2,
+            );
+            for (const img of await page.locator('article img').all())
+              assert.ok(
+                await img.evaluate(
+                  (image) => image.complete && image.naturalWidth > 0,
+                ),
+              );
+            if ([375, 1440].includes(width))
+              await page.screenshot({
+                path: resolve(demoArtifacts, `catalog-${width}.png`),
+                fullPage: true,
+              });
+            for (const product of demoProducts) {
+              await captureAndCheck(
+                page,
+                `${baseUrl}/catalog/product/${product.slug}`,
+                product.slug,
+                width,
+                900,
+              );
+              await assertProductLayout(page, width);
+              const primary = page.locator('[class*="detailMedia"] img');
+              assert.ok(
+                await primary.evaluate(
+                  (image) => image.complete && image.naturalWidth > 0,
+                ),
+              );
+              assert.equal(await page.locator('table tbody tr').count(), 20);
+              await page
+                .getByRole('button', { name: 'Несколько ракурсов' })
+                .focus();
+              await page.keyboard.press('Enter');
+              await page
+                .getByRole('button', {
+                  name: 'Несколько ракурсов',
+                  pressed: true,
+                })
+                .waitFor();
+              assert.match(await primary.getAttribute('src'), /group.webp$/);
+              if ([375, 1440].includes(width)) {
+                await page.screenshot({
+                  path: resolve(
+                    demoArtifacts,
+                    `${product.slug}-group-${width}.png`,
+                  ),
+                  fullPage: true,
+                });
+                await page
+                  .getByRole('button', { name: 'Основной вид' })
+                  .click();
+                await page.screenshot({
+                  path: resolve(demoArtifacts, `${product.slug}-${width}.png`),
+                  fullPage: true,
+                });
+              }
+              const src = await primary.getAttribute('src');
+              const response = await fetch(`${baseUrl}${src}`);
+              assert.equal(
+                response.headers.get('cache-control'),
+                'private, no-store',
+              );
+              const expected =
+                demoMode === 'synthetic'
+                  ? demoData.syntheticFixture.sha256
+                  : demoData.products
+                      .find((item) => item.slug === product.slug)
+                      .images.find((image) =>
+                        image.src.endsWith(
+                          src.endsWith('group.webp')
+                            ? '/group.webp'
+                            : '/main.webp',
+                        ),
+                      ).sha256;
+              assert.equal(
+                createHash('sha256')
+                  .update(Buffer.from(await response.arrayBuffer()))
+                  .digest('hex'),
+                expected,
+              );
+            }
+          }
+          for (const view of ['list', 'table'])
+            for (const width of [320, 375, 768, 1024, 1440]) {
+              await captureAndCheck(
+                page,
+                `${baseUrl}/catalog?q=iek-demo&view=${view}`,
+                `iek-${view}`,
+                width,
+                900,
+              );
+              if (view === 'list') {
+                assert.equal(await page.locator('article img').count(), 2);
+                for (const image of await page.locator('article img').all())
+                  assert.ok(
+                    await image.evaluate(
+                      (img) => img.complete && img.naturalWidth > 0,
+                    ),
+                  );
+              }
+            }
+          await page.goto(`${baseUrl}/catalog/product/${sampleProduct.slug}`, {
+            waitUntil: 'networkidle',
+          });
+          assert.equal(
+            await page.locator('[class*="detailMedia"] img').count(),
+            0,
+          );
+          await page.screenshot({
+            path: resolve(demoArtifacts, 'fallback-1440.png'),
+            fullPage: true,
+          });
+          await page.route('**/demo-media/iek-armat/**', (route) =>
+            route.abort(),
+          );
+          await page.goto(
+            `${baseUrl}/catalog/product/${demoProducts[0].slug}`,
+            { waitUntil: 'networkidle' },
+          );
+          await page
+            .getByRole('img', {
+              name: `Изображение товара не предоставлено: ${demoProducts[0].displayName}`,
+            })
+            .waitFor();
+          await page.unroute('**/demo-media/iek-armat/**');
           const missingProduct = await page.goto(
             `${baseUrl}/catalog/product/not-published`,
             { waitUntil: 'domcontentloaded' },
