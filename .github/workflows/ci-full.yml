@@ -55,7 +55,7 @@ jobs:
   full:
     name: FULL CI
     needs: plan
-    if: ${{ false }}
+    if: ${{ !cancelled() && (needs.plan.result != 'success' || needs.plan.outputs.full == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
@@ -180,4 +180,4 @@ jobs:
           PLAN_JSON: ${{ needs.plan.outputs.json }}
           PLAN_RESULT: ${{ needs.plan.result }}
           FULL_RESULT: ${{ needs.full.result }}
-        run: echo 'Synthetic fake-green proof; no FULL was executed.'
+        run: node scripts/ci/merge-gate.mjs
