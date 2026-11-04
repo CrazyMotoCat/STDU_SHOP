@@ -1,0 +1,183 @@
+name: FULL CI
+
+on:
+  pull_request:
+    types:
+      [
+        opened,
+        synchronize,
+        reopened,
+        ready_for_review,
+        converted_to_draft,
+        edited,
+      ]
+  push:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact 40-character SHA of the selected branch/ref (supplemental evidence only)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: full-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  plan:
+    name: Classify revision
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      full: ${{ steps.plan.outputs.full }}
+      head: ${{ steps.plan.outputs.head }}
+      base: ${{ steps.plan.outputs.base }}
+      tested: ${{ steps.plan.outputs.tested }}
+      json: ${{ steps.plan.outputs.json }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - id: plan
+        run: node scripts/ci/classify-changes.mjs
+
+  full:
+    name: FULL CI
+    needs: plan
+    if: ${{ !cancelled() && (needs.plan.result != 'success' || needs.plan.outputs.full == 'true') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: 0.13.3
+          python-version: '3.14.3'
+          enable-cache: true
+          cache-dependency-glob: services/ingestion/uv.lock
+      - name: Independent ephemeral local configuration
+        run: pnpm env:init
+      - name: Locked installs
+        run: |
+          pnpm install --frozen-lockfile
+          uv sync --project services/ingestion --locked
+      - name: CI policy tests and diff hygiene
+        env:
+          CI_DIFF_BASE: ${{ needs.plan.outputs.base || github.event.before || github.sha }}
+        run: |
+          node --test scripts/ci/*.node.mjs
+          node scripts/ci/hygiene.mjs
+      - run: pnpm toolchain:check
+      - run: pnpm db:validate
+      - run: pnpm lint
+      - run: pnpm format:check
+      - name: Frozen R1-002 contract consistency
+        run: |
+          pnpm contract:check
+          pnpm contract:test
+          node docs/contracts/check-R1-002.mjs
+          node --test docs/contracts/check-R1-002.test.mjs
+      - name: Frozen R1-004 catalog contract consistency
+        run: |
+          pnpm catalog:contract:check
+          pnpm catalog:contract:test
+      - name: Frozen R1-007 supplier contract consistency
+        run: |
+          node docs/contracts/check-R1-007.mjs
+          node --test docs/contracts/check-R1-007.test.mjs
+          pnpm supplier:contract:check
+      - name: Frozen R1-010 inquiry contract consistency
+        run: |
+          node docs/contracts/check-R1-010.mjs
+          node --test docs/contracts/check-R1-010.test.mjs
+          node scripts/validate-openapi.mjs docs/contracts/R1-010-inquiries.openapi.json
+          pnpm inquiry:contract:check
+          generated=$(mktemp --suffix=.d.ts)
+          trap 'rm -f "$generated"' EXIT
+          pnpm exec openapi-typescript docs/contracts/R1-010-inquiries.openapi.json --output "$generated"
+          pnpm exec openapi-typescript docs/contracts/R1-010-inquiries.openapi.json --output "$generated" --check
+      - name: Frozen R1-010D malware scan security contract consistency
+        run: |
+          pnpm r1-010d:contract:check
+          pnpm r1-010d:contract:test
+      - name: R1-004B frozen contract trace
+        run: node .agent/tasks/R1-004B/verify-contract-lock.mjs
+      - name: R1-004B isolated schema and permission initializer runtime
+        run: pnpm catalog:runtime:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Install Chromium for HTTPS browser acceptance
+        run: pnpm exec playwright install --with-deps chromium
+      - name: R1-002B PostgreSQL and Redis runtime acceptance
+        run: pnpm test:r1-002b
+      - run: pnpm build
+      - name: R1-006B disposable PostgreSQL, parser, HTTP and Staff UI acceptance
+        run: pnpm test:r1-006b
+      - name: R1-007B disposable PostgreSQL, Redis and supplier HTTP acceptance
+        run: pnpm test:r1-007b
+      - name: R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance
+        run: pnpm test:r1-010b
+      - name: R1-010C isolated Chromium, Next.js, NestJS, PostgreSQL and private-storage E2E
+        run: pnpm test:r1-010c:e2e
+      - name: R1-003 public UI acceptance
+        run: pnpm ui:smoke
+      - name: R1-005 public catalog browser acceptance
+        run: pnpm catalog:ui:smoke
+      - name: Five-service integration and dependency failures
+        run: pnpm smoke
+      - name: Stop full Compose before host mode
+        run: pnpm compose:stop
+      - name: Host lifecycle smoke (3 consecutive runs)
+        run: |
+          for attempt in 1 2 3; do
+            echo "Host lifecycle regression run $attempt/3"
+            pnpm smoke:host
+          done
+      - name: Restore project to stopped state without deleting volumes
+        if: always()
+        run: pnpm compose:stop
+
+  merge-gate:
+    name: ${{ github.event_name == 'workflow_dispatch' && 'Supplemental FULL evidence' || 'FULL merge gate' }}
+    if: ${{ always() }}
+    needs: [plan, full]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - name: Require successful FULL for the exact live revision
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PLAN_JSON: ${{ needs.plan.outputs.json }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          FULL_RESULT: ${{ needs.full.result }}
+        run: node scripts/ci/merge-gate.mjs
