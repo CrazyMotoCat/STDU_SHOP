@@ -1,3 +1,4 @@
+import { crc32, inflateRawSync } from 'node:zlib';
 import {
   Inject,
   Injectable,
@@ -3090,9 +3091,40 @@ export class UploadMeter extends Transform {
     return null;
   }
 
+  validateScanArchiveExpansion(bytes: Buffer): boolean {
+    if (!this.xlsxEntries || this.xlsxEntries.length > 128) return false;
+    let total = 0;
+    for (const entry of this.xlsxEntries) {
+      if (
+        !/\.(?:xml|rels)$/i.test(entry.name) ||
+        /(?:externalLinks|embeddings|vbaProject)/i.test(entry.name)
+      )
+        return false;
+      total += entry.uncompressedSize;
+      if (total > 8 * 1024 * 1024) return false;
+      const payload = bytes.subarray(
+        entry.localDataEnd - entry.compressedSize,
+        entry.localDataEnd,
+      );
+      const content =
+        entry.method === 0
+          ? payload
+          : inflateRawSync(payload, {
+              maxOutputLength: Math.max(1, entry.uncompressedSize),
+            });
+      if (
+        content.length !== entry.uncompressedSize ||
+        crc32(content) !== entry.crc32 ||
+        /<!\s*(?:DOCTYPE|ENTITY)/i.test(content.toString('utf8'))
+      )
+        return false;
+    }
+    return true;
+  }
+
   async validateStoredStructure(
     storageKey: string,
-    storage: PrivateFileStorage,
+    storage: Pick<PrivateFileStorage, 'readInquiryQuarantineRanges'>,
   ) {
     const detected = this.detectedMime();
     if (detected === 'text/csv') return true;
