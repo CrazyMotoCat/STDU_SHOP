@@ -1,0 +1,476 @@
+{
+  "kind": "STDU_SHOP_VISUAL_TEST_ASSETS_WITH_VERIFIED_PRODUCT_DATA",
+  "testOnly": true,
+  "publicProductionReleaseApproved": false,
+  "originalSource": "Test Items.rar (user supplied)",
+  "imageTransform": "Pillow lossless pixel orientation; convert to lossy WebP quality=87, metadata not carried",
+  "products": [
+    {
+      "slug": "iek-armat-c6-m06n-demo",
+      "displayName": "ARMAT Автоматический выключатель M06N 1P C 6А IEK",
+      "brand": "IEK",
+      "category": "Модульные автоматические выключатели",
+      "visibleDeviceMarking": "M06N",
+      "deviceType": "MCB",
+      "observedOnImage": {
+        "tripCurve": "C",
+        "ratedCurrent": "6 A",
+        "breakingCapacityLabel": "6000"
+      },
+      "manufacturerSKU": "AR-M06N-1-C006",
+      "technicalSpecificationsStatus": "OFFICIAL_EXACT_SKU_VERIFIED",
+      "copyrightAndPublicationRights": "NOT_CONFIRMED",
+      "images": [
+        {
+          "role": "primary",
+          "src": "iek-armat-c6-m06n-demo/main.webp",
+          "width": 521,
+          "height": 729,
+          "bytes": 34950,
+          "sha256": "565c9b37e5358821d0f245c83fb8ad41b03055df4640eeefc11fef217355f28c",
+          "alt": "Автоматический выключатель IEK ARMAT C6 — общий вид",
+          "publicSrc": "/images/catalog/demo/iek-armat/ar-m06n-1-c006-main.webp"
+        },
+        {
+          "role": "gallery",
+          "src": "iek-armat-c6-m06n-demo/group.webp",
+          "width": 1086,
+          "height": 1448,
+          "bytes": 102320,
+          "sha256": "146104a993210bde7aa2c5cdf68c9918b5e2b4d97402976813792aa73010f88d",
+          "alt": "Автоматический выключатель IEK ARMAT C6 — несколько ракурсов",
+          "publicSrc": "/images/catalog/demo/iek-armat/ar-m06n-1-c006-group.webp"
+        }
+      ],
+      "notes": "Модель и заводской артикул подтверждены официальным каталогом IEK. Полные характеристики взяты из карточки того же SKU на IEK Global.",
+      "manufacturerName": "IEK",
+      "series": "ARMAT M06N",
+      "description": "Автоматический выключатель серии ARMAT M06N для защиты электрической цепи от перегрузки и короткого замыкания.",
+      "summary": "1P, 6 А, характеристика C, 6 кА, 400 В.",
+      "productSourceId": "iek_m06n_product_ru",
+      "verifiedAttributes": [
+        {
+          "code": "rated_current",
+          "label": "Номинальный ток",
+          "value": 6,
+          "unit": "А",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "rated_operating_voltage",
+          "label": "Номинальное рабочее напряжение",
+          "value": 400,
+          "unit": "В",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "trip_curve",
+          "label": "Характеристика срабатывания",
+          "value": "C",
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "breaking_capacity_en60898",
+          "label": "Номинальная отключающая способность (EN 60898)",
+          "value": 6,
+          "unit": "кА",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "poles",
+          "label": "Количество полюсов",
+          "value": 1,
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "voltage_type",
+          "label": "Тип напряжения",
+          "value": "Переменный (AC)",
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "protection_degree",
+          "label": "Степень защиты",
+          "value": "IP20",
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "rated_insulation_voltage",
+          "label": "Номинальное напряжение изоляции Ui",
+          "value": 500,
+          "unit": "В",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "surge_withstand_voltage",
+          "label": "Импульсное выдерживаемое напряжение",
+          "value": 6,
+          "unit": "кВ",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "frequency",
+          "label": "Частота",
+          "value": 50,
+          "unit": "Гц",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "wire_cross_section_max",
+          "label": "Макс. сечение проводника",
+          "value": 25,
+          "unit": "мм²",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "modular_width",
+          "label": "Ширина в модулях",
+          "value": 1,
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "mounting",
+          "label": "Монтаж",
+          "value": "DIN-рейка",
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "mounting_rail",
+          "label": "Монтажная рейка",
+          "value": "35×7,5 мм",
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "current_limiting_class",
+          "label": "Класс токоограничения",
+          "value": 3,
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "ambient_operating_range",
+          "label": "Температура эксплуатации",
+          "value": "−40…+70",
+          "unit": "°C",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "mechanical_endurance",
+          "label": "Механическая износостойкость",
+          "value": 20000,
+          "unit": "циклов",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "electrical_endurance",
+          "label": "Электрическая износостойкость",
+          "value": 10000,
+          "unit": "циклов",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "trip_release",
+          "label": "Тип расцепителя",
+          "value": "Тепловой, электромагнитный",
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        },
+        {
+          "code": "busbar_types",
+          "label": "Соединительные шины",
+          "value": "PIN, FORK",
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_m06n_product_global"]
+        }
+      ],
+      "price": "NOT_PROVIDED",
+      "stock": "NOT_PROVIDED",
+      "publicReleaseRights": "NOT_CONFIRMED"
+    },
+    {
+      "slug": "iek-armat-c6-b06s-avdt-demo",
+      "displayName": "ARMAT АВДТ B06S 1P+NP C6 30 мА тип AC (18 мм) IEK",
+      "brand": "IEK",
+      "category": "Автоматические выключатели дифференциального тока (АВДТ)",
+      "visibleDeviceMarking": "B06S",
+      "deviceType": "RCBO",
+      "observedOnImage": {
+        "tripCurve": "C",
+        "ratedCurrent": "6 A",
+        "residualCurrent": "30 mA",
+        "poles": "1P+N",
+        "breakingCapacityLabel": "6000"
+      },
+      "manufacturerSKU": "AR-B06S-1N-C06C030",
+      "technicalSpecificationsStatus": "OFFICIAL_CORE_MODEL_IDENTITY_PLUS_CORROBORATED_EXACT_SKU_DETAILS",
+      "copyrightAndPublicationRights": "NOT_CONFIRMED",
+      "images": [
+        {
+          "role": "primary",
+          "src": "iek-armat-c6-b06s-avdt-demo/main.webp",
+          "width": 499,
+          "height": 692,
+          "bytes": 33298,
+          "sha256": "6bd031922efa70d876d31b89825c7af3b3ca454348b944d7feb456b0fcfc447d",
+          "alt": "Автомат дифференциального тока IEK ARMAT C6, 30 мА, 1P+N — общий вид",
+          "publicSrc": "/images/catalog/demo/iek-armat/ar-b06s-1n-c06c030-main.webp"
+        },
+        {
+          "role": "gallery",
+          "src": "iek-armat-c6-b06s-avdt-demo/group.webp",
+          "width": 1086,
+          "height": 1448,
+          "bytes": 88772,
+          "sha256": "4a46a364d205ec29bee0eeb9978fc8230dff5413168ab5b5263658379a879dca",
+          "alt": "Автомат дифференциального тока IEK ARMAT C6, 30 мА, 1P+N — несколько ракурсов",
+          "publicSrc": "/images/catalog/demo/iek-armat/ar-b06s-1n-c06c030-group.webp"
+        }
+      ],
+      "notes": "Официальный каталог IEK подтверждает точный SKU, C6/30 мА/тип AC/1P+NP/18 мм. Расширенные параметры для этого же SKU сверены по торговым карточкам; это не прямое чтение из динамически загружаемой страницы IEK.",
+      "manufacturerName": "IEK",
+      "series": "ARMAT B06S",
+      "description": "Дифференциальный автомат ARMAT B06S для защиты от перегрузки, короткого замыкания и дифференциального тока.",
+      "summary": "1P+NP, 6 А, характеристика C, 30 мА, тип AC, 6 кА, 230 В, ширина 18 мм.",
+      "productSourceId": "iek_b06s_product_ru",
+      "verifiedAttributes": [
+        {
+          "code": "rated_current",
+          "label": "Номинальный ток",
+          "value": 6,
+          "unit": "А",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_b06s_category"]
+        },
+        {
+          "code": "trip_curve",
+          "label": "Характеристика срабатывания",
+          "value": "C",
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_b06s_category"]
+        },
+        {
+          "code": "poles",
+          "label": "Количество полюсов",
+          "value": "1P+NP (1+N)",
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_b06s_category"]
+        },
+        {
+          "code": "residual_current",
+          "label": "Номинальный отключающий дифференциальный ток",
+          "value": 30,
+          "unit": "мА",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_b06s_category"]
+        },
+        {
+          "code": "residual_current_type",
+          "label": "Тип дифференциальной защиты",
+          "value": "AC",
+          "unit": "",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_b06s_category"]
+        },
+        {
+          "code": "modular_width_mm",
+          "label": "Ширина",
+          "value": 18,
+          "unit": "мм",
+          "evidenceTier": "manufacturer",
+          "sourceIds": ["iek_b06s_category"]
+        },
+        {
+          "code": "breaking_capacity",
+          "label": "Номинальная отключающая способность",
+          "value": 6,
+          "unit": "кА",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku", "iemoscow_b06s_exact_sku"]
+        },
+        {
+          "code": "rated_operating_voltage",
+          "label": "Номинальное рабочее напряжение",
+          "value": 230,
+          "unit": "В",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku", "iemoscow_b06s_exact_sku"]
+        },
+        {
+          "code": "frequency",
+          "label": "Частота",
+          "value": "50/60",
+          "unit": "Гц",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        },
+        {
+          "code": "protection_degree",
+          "label": "Степень защиты",
+          "value": "IP20",
+          "unit": "",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        },
+        {
+          "code": "wire_cross_section_max",
+          "label": "Макс. сечение проводника",
+          "value": 10,
+          "unit": "мм²",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        },
+        {
+          "code": "modular_width",
+          "label": "Ширина в модулях",
+          "value": 1,
+          "unit": "",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        },
+        {
+          "code": "mounting",
+          "label": "Монтаж",
+          "value": "DIN-рейка",
+          "unit": "",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        },
+        {
+          "code": "ambient_operating_range",
+          "label": "Температура эксплуатации",
+          "value": "−25…+45",
+          "unit": "°C",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        },
+        {
+          "code": "mechanical_endurance",
+          "label": "Механическая износостойкость",
+          "value": 20000,
+          "unit": "циклов",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        },
+        {
+          "code": "electrical_endurance",
+          "label": "Электрическая износостойкость",
+          "value": 10000,
+          "unit": "циклов",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        },
+        {
+          "code": "trip_release",
+          "label": "Тип расцепителя",
+          "value": "Тепловой, электромагнитный, дифференциальный",
+          "unit": "",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        },
+        {
+          "code": "installation_depth",
+          "label": "Монтажная глубина ниши",
+          "value": 76.2,
+          "unit": "мм",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        },
+        {
+          "code": "terminal_tightening_torque",
+          "label": "Момент затяжки зажимов",
+          "value": 1,
+          "unit": "Н·м",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        },
+        {
+          "code": "neutral_disconnection",
+          "label": "Отключение нейтрали",
+          "value": true,
+          "unit": "",
+          "evidenceTier": "distributor_same_sku",
+          "sourceIds": ["elec_b06s_exact_sku"]
+        }
+      ],
+      "price": "NOT_PROVIDED",
+      "stock": "NOT_PROVIDED",
+      "publicReleaseRights": "NOT_CONFIRMED"
+    }
+  ],
+  "version": "2.1",
+  "verifiedAt": "2026-11-03",
+  "specVerificationNotes": [
+    "IEK model/SKU identity checked against official manufacturer catalog; M06N complete detail specs from official IEK Global exact SKU.",
+    "User IEK product URLs provided as canonical product reference; their pages returned loading in text crawler, B06S extended technical specs cross-checked in distributor exact-SKU listings. Tier retained per field.",
+    "Do not infer images license, stock, or price from specs; only authorized demonstration.",
+    "Not schema-ready import into production catalog; adapt via reviewed demonstration seed without Frozen V1 or public upload changes."
+  ],
+  "sources": {
+    "iek_m06n_product_ru": {
+      "kind": "manufacturer-canonical-product-url",
+      "url": "https://www.iek.ru/products/catalog/modulnoe_oborudovanie/modulnoe_oborudovanie_armat/modulnye_avtomaticheskie_vyklyuchateli_armat/modulnye_avtomaticheskie_vyklyuchateli_m06n/modulnye_avtomaticheskie_vyklyuchateli_m06n_khar_ka_c/armat_avtomaticheskiy_vyklyuchatel_m06n_1p_c_6a_iek"
+    },
+    "iek_m06n_product_global": {
+      "kind": "manufacturer-exact-sku-detailed-product",
+      "url": "https://iek.global/products/catalog/modulnoe_oborudovanie/modulnoe_oborudovanie_armat/modulnye_avtomaticheskie_vyklyuchateli_armat/modulnye_avtomaticheskie_vyklyuchateli_m06n/modulnye_avtomaticheskie_vyklyuchateli_m06n_khar_ka_c/armat_avtomaticheskiy_vyklyuchatel_m06n_1p_c_6a_iek"
+    },
+    "iek_m06n_category": {
+      "kind": "manufacturer-catalog-listing",
+      "url": "https://www.iek.ru/products/catalog/modulnoe_oborudovanie/modulnoe_oborudovanie_armat/modulnye_avtomaticheskie_vyklyuchateli_armat"
+    },
+    "iek_b06s_product_ru": {
+      "kind": "manufacturer-canonical-product-url",
+      "url": "https://www.iek.ru/products/catalog/modulnoe_oborudovanie/modulnoe_oborudovanie_armat/ustroystva_differentsialnoy_zashchity_armat/avtomaticheskie_vyklyuchateli_differentsialnogo_toka_avdt/avtomaticheskie_vyklyuchateli_differentsialnogo_toka_b06s/armat_avtomaticheskiy_vyklyuchatel_differentsialnogo_toka_b06s_1p_np_c6_30ma_tip_ac_18mm_iek"
+    },
+    "iek_b06s_category": {
+      "kind": "manufacturer-catalog-listing",
+      "url": "https://www.iek.ru/products/catalog/modulnoe_oborudovanie/modulnoe_oborudovanie_armat/ustroystva_differentsialnoy_zashchity_armat"
+    },
+    "elec_b06s_exact_sku": {
+      "kind": "distributor-exact-sku-detailed-specs",
+      "url": "https://www.elec.ru/market/card/avtomaticheskij-vykljuchatel-differentsialnogo-tok-0052991"
+    },
+    "iemoscow_b06s_exact_sku": {
+      "kind": "distributor-exact-sku-detailed-specs",
+      "url": "https://www.ie-moscow.ru/product/iek-ar-b06s-1n-c06c030/204853"
+    }
+  },
+  "provenanceCorrection": "B06S breaking_capacity 6 kA cross-checked with distributors; sourceIds are not manufacturer product pages. Evidence tier corrected from manufacturer to distributor_same_sku.",
+  "publicationRights": {
+    "status": "OWNER_CONFIRMED",
+    "assertedBy": "Project owner",
+    "scope": "Public repository and public test site: four supplied WebP files",
+    "statementDate": "2026-11-03",
+    "agentVerifiedLicenseDocuments": false,
+    "note": "Original archive rights fields above describe the historical import state; this owner statement supersedes that publication restriction."
+  }
+}

@@ -1,3 +1,4 @@
+import { catalogTestSiteEnabled } from '../../lib/catalog/test-site-config';
 import { notFound } from 'next/navigation';
 import type { PageSearchParams } from '../../lib/catalog/query';
 import {
@@ -104,7 +105,7 @@ export async function CatalogListingPage({
         title={currentCategory?.name ?? 'Инженерное оборудование'}
         description={
           currentCategory
-            ? `Опубликованные товары и дочерние разделы: ${currentCategory.name}.`
+            ? `${catalogTestSiteEnabled() ? 'Демонстрационные позиции' : 'Опубликованные товары и дочерние разделы'}: ${currentCategory.name}.`
             : 'Электротехническое оборудование для комплектации проектов и инженерных решений.'
         }
         visual={!currentCategory}
@@ -175,7 +176,12 @@ export async function CatalogListingPage({
                 <span className={styles.detailsToggle} aria-hidden="true" />
               </summary>
               <div className={styles.advancedFiltersContent}>
-                {filterCategory ? (
+                {catalogTestSiteEnabled() ? (
+                  <p className={styles.inlineNote}>
+                    В тестовом каталоге доступны поиск и категории. Расширенные
+                    технические фильтры для демонстрационных данных не включены.
+                  </p>
+                ) : filterCategory ? (
                   <TechnicalFilterForm
                     action={pathname}
                     categorySlug={filterCategory}
