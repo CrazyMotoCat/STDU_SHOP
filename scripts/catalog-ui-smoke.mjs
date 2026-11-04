@@ -429,9 +429,7 @@ async function assertTestSiteBoundary() {
           await page
             .getByLabel('Поиск по каталогу', { exact: true })
             .fill('AR-B06S-1N-C06C030');
-          await page
-            .getByRole('button', { name: /Применить параметры/ })
-            .click();
+          await page.getByRole('button', { name: /^Найти$/ }).click();
           await page.waitForURL(/q=AR-B06S-1N-C06C030/);
           assert.equal(
             await page.locator('article[class*="productTile"]').count(),
@@ -642,9 +640,7 @@ async function main() {
           await page
             .getByLabel('Поиск по каталогу', { exact: true })
             .fill('MCB-32');
-          await page
-            .getByRole('button', { name: /Применить параметры/ })
-            .click();
+          await page.getByRole('button', { name: /^Найти$/ }).click();
           await page.waitForURL(/q=MCB-32/);
           await page
             .getByText('Модульный выключатель MCB-32')
@@ -850,14 +846,16 @@ async function main() {
           await page
             .getByRole('heading', { name: 'Совместимое оборудование' })
             .waitFor();
-          assert.equal(
-            await page
-              .getByRole('button', {
-                name: /Запросить коммерческое предложение/,
-              })
-              .isDisabled(),
-            true,
+          const quoteLink = page.getByRole('link', {
+            name: 'Запросить коммерческое предложение',
+          });
+          const quoteUrl = new URL(
+            await quoteLink.getAttribute('href'),
+            baseUrl,
           );
+          assert.equal(quoteUrl.pathname, '/request-quote');
+          assert.equal(quoteUrl.searchParams.get('kind'), 'equipment');
+          assert.match(quoteUrl.searchParams.get('product'), /ACB-100/);
           const desktopProductOrder = await page.evaluate(() => ({
             mediaRight: document
               .querySelector('[class*="detailMedia"]')

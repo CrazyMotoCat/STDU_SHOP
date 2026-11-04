@@ -218,7 +218,7 @@ export function ProductImage({
           ? 'Загрузка изображения'
           : compact
             ? 'Фото нет'
-            : 'Фото не предоставлено'}
+            : 'Фотография пока недоступна'}
       </span>
     </div>
   );
@@ -498,11 +498,12 @@ export function ProductSearchForm({
           />
         </label>
         <button className={styles.applyButton} type="submit">
-          Применить параметры <span aria-hidden="true">→</span>
+          Найти <span aria-hidden="true">→</span>
         </button>
       </div>
       <details
         className={styles.searchOptions}
+        id="catalog-search-options"
         open={Boolean(query.brandSlug || categorySlug)}
       >
         <summary>
@@ -608,11 +609,6 @@ export function TechnicalSummary({
     <section className={styles.detailSection} aria-labelledby="spec-title">
       <div className={styles.sectionHeading}>
         <div>
-          <p className={styles.eyebrow}>
-            {catalogTestSiteEnabled()
-              ? 'ПАРАМЕТРЫ ДЕМОНСТРАЦИОННОЙ ПОЗИЦИИ'
-              : 'ПАРАМЕТРЫ ИЗ ОПУБЛИКОВАННОЙ РЕДАКЦИИ'}
-          </p>
           <h2 id="spec-title">{title}</h2>
         </div>
         <span className={styles.sectionIndex}>
@@ -626,7 +622,6 @@ export function TechnicalSummary({
             <tr>
               <th scope="col">Параметр</th>
               <th scope="col">Значение</th>
-              <th scope="col">Код</th>
             </tr>
           </thead>
           <tbody>
@@ -634,9 +629,6 @@ export function TechnicalSummary({
               <tr key={attribute.attributeCode}>
                 <th scope="row">{attribute.label}</th>
                 <td>{formatAttributeValue(attribute)}</td>
-                <td className={styles.attributeCode}>
-                  {attribute.attributeCode}
-                </td>
               </tr>
             ))}
           </tbody>
@@ -867,6 +859,18 @@ export function CatalogResults({
 }
 
 export function ProductDetailView({ product }: { product: PublicProduct }) {
+  const categoryLink = categoryHref([product.category.slug]);
+  const brand = product.brand?.name.trim();
+  const manufacturer = product.manufacturerName?.trim();
+  const productNames =
+    brand && brand.toLowerCase() === manufacturer?.toLowerCase()
+      ? brand
+      : [brand, manufacturer].filter(Boolean).join(' · ');
+  const productHint = product.originalPartNumber
+    ? `${product.originalPartNumber} — ${product.displayName}`
+    : product.displayName;
+  const quoteHref = `/request-quote?${new URLSearchParams({ kind: 'equipment', product: productHint.slice(0, 120) })}`;
+
   return (
     <>
       <CatalogBreadcrumbs
@@ -874,7 +878,7 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
           { label: 'Каталог', href: '/catalog' },
           {
             label: product.category.name,
-            href: `/catalog/category/${encodeURIComponent(product.category.slug)}`,
+            href: categoryLink,
           },
           { label: product.displayName },
         ]}
@@ -885,15 +889,13 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
             className={styles.detailIdentity}
             aria-label="Идентификация товара"
           >
-            <p className={styles.eyebrow}>ИДЕНТИФИКАЦИЯ</p>
             <h1 className={styles.productTitle}>{product.displayName}</h1>
-            <p className={styles.productSubtitle}>
-              {product.brand?.name ?? 'Бренд не указан'}
-              {product.manufacturerName ? ` · ${product.manufacturerName}` : ''}
-            </p>
+            {productNames ? (
+              <p className={styles.productSubtitle}>{productNames}</p>
+            ) : null}
             <dl className={styles.productFacts}>
               <div>
-                <dt>Оригинальный артикул</dt>
+                <dt>Артикул</dt>
                 <dd>
                   {product.originalPartNumber ? (
                     <code className={styles.productCode}>
@@ -904,21 +906,25 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
                   )}
                 </dd>
               </div>
-              <div>
-                <dt>Модификация</dt>
-                <dd>{product.modification ?? 'Не указана'}</dd>
-              </div>
+              {product.modification ? (
+                <div>
+                  <dt>Модификация</dt>
+                  <dd>{product.modification}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt>Категория</dt>
-                <dd>{product.category.name}</dd>
+                <dd>
+                  <Link href={categoryLink}>{product.category.name}</Link>
+                </dd>
               </div>
             </dl>
             <div className={styles.priceCallout}>
               <span>Стоимость</span>
               <strong>{product.priceDisplay.label}</strong>
-              <button className={styles.disabledQuote} type="button" disabled>
-                Запросить коммерческое предложение — скоро
-              </button>
+              <Link className={styles.quoteLink} href={quoteHref}>
+                Запросить коммерческое предложение
+              </Link>
             </div>
           </section>
           <section

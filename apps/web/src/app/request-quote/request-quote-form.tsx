@@ -755,16 +755,29 @@ export function RequestQuoteForm({
     }
   }
 
+  const contextNotice = productHint ? (
+    <aside className={styles.contextNotice} aria-label="Контекст перехода">
+      <span className={styles.contextMark} aria-hidden="true">
+        ↗
+      </span>
+      <p>
+        Позиция из ссылки — только подсказка. Проверьте название и артикул перед
+        заполнением заявки.
+      </p>
+      <code>{productHint}</code>
+    </aside>
+  ) : null;
+
   if (!previewEnabled) {
     return (
       <section className={styles.unavailable} aria-labelledby="preview-title">
         <span className={styles.eyebrow}>Предварительный интерфейс</span>
         <h1 id="preview-title">Запрос КП пока не подключён</h1>
         <p>
-          Форма будет доступна после утверждения контракта заявок и подключения
-          безопасной отправки. Сейчас этот адрес не принимает и не сохраняет
-          данные.
+          В этом окружении форма недоступна. Данные здесь не принимаются и не
+          сохраняются.
         </p>
+        {contextNotice}
         <a href="/">Вернуться на главную</a>
       </section>
     );
@@ -818,18 +831,7 @@ export function RequestQuoteForm({
         </div>
       </header>
 
-      {productHint ? (
-        <aside className={styles.contextNotice} aria-label="Контекст перехода">
-          <span className={styles.contextMark} aria-hidden="true">
-            ↗
-          </span>
-          <p>
-            Вы перешли из карточки каталога. Параметр ссылки — только подсказка:
-            проверьте и укажите нужную позицию вручную.
-          </p>
-          <code>{productHint}</code>
-        </aside>
-      ) : null}
+      {contextNotice}
 
       <div className={styles.previewNotice} role="note">
         <span className={styles.previewDot} aria-hidden="true" />
