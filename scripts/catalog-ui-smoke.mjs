@@ -429,9 +429,7 @@ async function assertTestSiteBoundary() {
           await page
             .getByLabel('Поиск по каталогу', { exact: true })
             .fill('AR-B06S-1N-C06C030');
-          await page
-            .getByRole('button', { name: /Применить параметры/ })
-            .click();
+          await page.getByRole('button', { name: /^Найти$/ }).click();
           await page.waitForURL(/q=AR-B06S-1N-C06C030/);
           assert.equal(
             await page.locator('article[class*="productTile"]').count(),
@@ -642,9 +640,7 @@ async function main() {
           await page
             .getByLabel('Поиск по каталогу', { exact: true })
             .fill('MCB-32');
-          await page
-            .getByRole('button', { name: /Применить параметры/ })
-            .click();
+          await page.getByRole('button', { name: /^Найти$/ }).click();
           await page.waitForURL(/q=MCB-32/);
           await page
             .getByText('Модульный выключатель MCB-32')
@@ -726,36 +722,69 @@ async function main() {
             null,
             'An omitted includeDescendants value must not be silently defaulted by the frontend.',
           );
-          await page.goto(categoryUrl, { waitUntil: 'networkidle' });
-          await page
-            .getByRole('heading', { name: 'Автоматические выключатели' })
-            .first()
-            .waitFor();
-          await page.getByText('Расширенные технические фильтры').click();
-          const filterForm = page.getByRole('region', {
-            name: 'Технический фильтр',
-          });
-          await filterForm
-            .getByRole('button', { name: 'Добавить условие' })
-            .click();
-          await filterForm
-            .getByPlaceholder('например voltage')
-            .fill('rated_current');
-          await filterForm.getByPlaceholder('значение параметра').fill('100');
-          await filterForm
-            .getByRole('button', { name: /Применить фильтры/ })
-            .click();
-          await page.waitForURL(/includeDescendants=false/);
-          await page
-            .getByText('Автоматический выключатель ACB-100')
-            .first()
-            .waitFor();
-          const appliedQuery = observedQueries.at(-1);
-          assert.equal(appliedQuery?.get('categorySlug'), 'breakers');
-          assert.equal(appliedQuery?.get('includeDescendants'), 'false');
-          assert.deepEqual(appliedQuery?.getAll('filter'), [
-            'rated_current:eq:100',
-          ]);
+          for (const width of [1440, 320]) {
+            await page.setViewportSize({ width, height: 900 });
+            await page.goto(categoryUrl, { waitUntil: 'networkidle' });
+            await page
+              .getByRole('heading', { name: 'Автоматические выключатели' })
+              .first()
+              .waitFor();
+            if (width === 320) {
+              const disclosure = page.getByRole('button', {
+                name: 'Фильтры',
+                exact: true,
+              });
+              assert.equal(
+                await disclosure.getAttribute('aria-expanded'),
+                'false',
+              );
+              await disclosure.click();
+              assert.equal(
+                await disclosure.getAttribute('aria-expanded'),
+                'true',
+              );
+            }
+            await page.getByText('Расширенные технические фильтры').click();
+            const filterForm = page.getByRole('region', {
+              name: 'Технический фильтр',
+            });
+            await filterForm
+              .getByRole('button', { name: 'Добавить условие' })
+              .click();
+            await filterForm
+              .getByPlaceholder('например voltage')
+              .fill('rated_current');
+            await filterForm.getByPlaceholder('значение параметра').fill('100');
+            await filterForm
+              .getByRole('button', { name: /Применить фильтры/ })
+              .click();
+            await page.waitForURL(/includeDescendants=false/);
+            await page
+              .getByText('Автоматический выключатель ACB-100')
+              .first()
+              .waitFor();
+            const appliedQuery = observedQueries.at(-1);
+            assert.equal(appliedQuery?.get('categorySlug'), 'breakers');
+            assert.equal(appliedQuery?.get('includeDescendants'), 'false');
+            assert.deepEqual(appliedQuery?.getAll('filter'), [
+              'rated_current:eq:100',
+            ]);
+            await page
+              .getByRole('link', { name: 'Сбросить параметры' })
+              .click();
+            await page.waitForURL(`${categoryUrl}&categorySlug=breakers`);
+            assert.deepEqual(observedQueries.at(-1)?.getAll('filter'), []);
+            assert.equal(
+              observedQueries.at(-1)?.get('includeDescendants'),
+              null,
+            );
+          }
+          await page.goto(
+            `${categoryUrl}&includeDescendants=false&filter=rated_current%3Aeq%3A100`,
+            {
+              waitUntil: 'networkidle',
+            },
+          );
 
           await page.getByRole('link', { name: /Таблица/ }).click();
           await page.waitForURL(/view=table/);
@@ -850,14 +879,16 @@ async function main() {
           await page
             .getByRole('heading', { name: 'Совместимое оборудование' })
             .waitFor();
-          assert.equal(
-            await page
-              .getByRole('button', {
-                name: /Запросить коммерческое предложение/,
-              })
-              .isDisabled(),
-            true,
+          const quoteLink = page.getByRole('link', {
+            name: 'Запросить коммерческое предложение',
+          });
+          const quoteUrl = new URL(
+            await quoteLink.getAttribute('href'),
+            baseUrl,
           );
+          assert.equal(quoteUrl.pathname, '/request-quote');
+          assert.equal(quoteUrl.searchParams.get('kind'), 'equipment');
+          assert.match(quoteUrl.searchParams.get('product'), /ACB-100/);
           const desktopProductOrder = await page.evaluate(() => ({
             mediaRight: document
               .querySelector('[class*="detailMedia"]')
