@@ -1,0 +1,23 @@
+# CI-OPT-01 checkpoint — 2026-11-04
+
+- TASK: CI-OPT-01.
+- STATUS: BLOCKED; implementation prepared, owner enforcement and benchmark acceptance incomplete.
+- DELIVERY: REVIEW_REQUIRED / SEPARATE_BRANCH / DRAFT_PR / NO_MERGE.
+- PHASE: source hosted checks complete; evidence documentation and final exact-head confirmation.
+- CHECKPOINT_STATUS: SAFE; documentation-only follow-up, no unknown dirty paths.
+- LAST_SAFE_COMMIT: 5cb16a064228dca4a4d08df332ed56d9a2bf9447 (source independently reviewed and hosted green).
+- BRANCH: codex/ci-opt-01-fast-full.
+- PR: https://github.com/CrazyMotoCat/STDU_SHOP/pull/40 — Draft, unmerged.
+- BASE_MAIN: 59655a74ff4c815855eb416683c3c2db793c9af4; PR30 integrated by normal two-parent merge. Post-merge CI41621818797 SUCCESS. Q0-01 INTEGRATED / VERIFIED. No direct main change by this task.
+- COMPLETED: FAST parallel static/unit/contract checks; complete FULL and exact-revision gate; unique noncancelled main runs; fail-closed NUL-safe classifier; limited secret/diff hygiene; shared FAST setup; legacy snapshot and exact parity tests; routing, owner settings, rollback and measured benchmark docs.
+- VERIFIED: 67 policy tests PASS/zero skips; actionlint1.7.12 PASS; pnpm lint/format:check/typecheck/contract:check/test/build and git diff --check PASS. Unit118JS passed96environment-gated skips;66Python passed0skips. No skipped runtime test claimed passed.
+- HOSTED_SOURCE: exact5cb16a0 FAST41624061165 SUCCESS (84s elapsed); FULL41624061174 SUCCESS (574s workload,1137s elapsed including allocation); legacy41624061151 SUCCESS (687s workload,708s elapsed). Plan and FULL merge gate SUCCESS. Candidate01136dcbf844da568efb2167130fd1fc3c881a05, base59655a74.
+- REVIEW: independent architecture, Security/merge-gate and QA/regression reviews PASS exact5cb16a0; no P0/P1/P2 implementation findings. Documentation-only final commit needs fresh exact-head evidence in PR handoff.
+- CONTRACTS_FROZEN: yes; no application/API/DB/auth/RBAC/production changes. PR39 and other worktrees untouched.
+- AUTH: noninteractive cached Git credential/API works; no repeated authorization dialog. Earlier connector/401/access blocker superseded.
+- PROTECTION: authenticated protected:false; classic404 Branch not protected; rulesets[]; branch rules[]. Admin permission available. No enforcement exists; not a permission limitation. Settings changes explicitly require separate owner authorization and were not made.
+- MIGRATION: legacy FULL still runs every PR; savings not active. FAST target met in one sample only. Six representative hosted benchmarks, actual Ready/new-head lifecycle and negative merge-enforcement tests incomplete; unit simulations are not substitutes.
+- FINDINGS: P0 none; P1 acceptance blocker — no enforced main gate/trusted CI policy; P2 acceptance evidence — six-scenario benchmark/platform tests incomplete; P3 none confirmed in implementation.
+- UNCOMMITTED_AT_CHECKPOINT: only task-owned evidence/owner-action docs; explicitly stage these paths and verify fresh exact-head runs after commit.
+- NEXT_ACTION: verify FAST/FULL/legacy for final documentation HEAD, publish final SHA/run/review evidence in PR handoff, then stop BLOCKED awaiting owner protection decision and remaining acceptance scenarios.
+- DO_NOT_REPEAT: no CI-OPT merge, protection/main changes, deployment, destructive cleanup, other PR/worktree edits or fabricated benchmark/savings/enforcement claims. Preserve legacy until proven owner-authorized replacement.
