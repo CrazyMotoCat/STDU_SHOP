@@ -379,7 +379,7 @@ export function RequestQuoteForm({
   const [equipmentLines, setEquipmentLines] = useState<EquipmentLine[]>([
     {
       id: 1,
-      name: '',
+      name: initialKind === 'equipment' ? (productHint ?? '') : '',
       brand: '',
       article: '',
       modification: '',

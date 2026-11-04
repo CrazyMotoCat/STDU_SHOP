@@ -722,36 +722,69 @@ async function main() {
             null,
             'An omitted includeDescendants value must not be silently defaulted by the frontend.',
           );
-          await page.goto(categoryUrl, { waitUntil: 'networkidle' });
-          await page
-            .getByRole('heading', { name: 'Автоматические выключатели' })
-            .first()
-            .waitFor();
-          await page.getByText('Расширенные технические фильтры').click();
-          const filterForm = page.getByRole('region', {
-            name: 'Технический фильтр',
-          });
-          await filterForm
-            .getByRole('button', { name: 'Добавить условие' })
-            .click();
-          await filterForm
-            .getByPlaceholder('например voltage')
-            .fill('rated_current');
-          await filterForm.getByPlaceholder('значение параметра').fill('100');
-          await filterForm
-            .getByRole('button', { name: /Применить фильтры/ })
-            .click();
-          await page.waitForURL(/includeDescendants=false/);
-          await page
-            .getByText('Автоматический выключатель ACB-100')
-            .first()
-            .waitFor();
-          const appliedQuery = observedQueries.at(-1);
-          assert.equal(appliedQuery?.get('categorySlug'), 'breakers');
-          assert.equal(appliedQuery?.get('includeDescendants'), 'false');
-          assert.deepEqual(appliedQuery?.getAll('filter'), [
-            'rated_current:eq:100',
-          ]);
+          for (const width of [1440, 320]) {
+            await page.setViewportSize({ width, height: 900 });
+            await page.goto(categoryUrl, { waitUntil: 'networkidle' });
+            await page
+              .getByRole('heading', { name: 'Автоматические выключатели' })
+              .first()
+              .waitFor();
+            if (width === 320) {
+              const disclosure = page.getByRole('button', {
+                name: 'Фильтры',
+                exact: true,
+              });
+              assert.equal(
+                await disclosure.getAttribute('aria-expanded'),
+                'false',
+              );
+              await disclosure.click();
+              assert.equal(
+                await disclosure.getAttribute('aria-expanded'),
+                'true',
+              );
+            }
+            await page.getByText('Расширенные технические фильтры').click();
+            const filterForm = page.getByRole('region', {
+              name: 'Технический фильтр',
+            });
+            await filterForm
+              .getByRole('button', { name: 'Добавить условие' })
+              .click();
+            await filterForm
+              .getByPlaceholder('например voltage')
+              .fill('rated_current');
+            await filterForm.getByPlaceholder('значение параметра').fill('100');
+            await filterForm
+              .getByRole('button', { name: /Применить фильтры/ })
+              .click();
+            await page.waitForURL(/includeDescendants=false/);
+            await page
+              .getByText('Автоматический выключатель ACB-100')
+              .first()
+              .waitFor();
+            const appliedQuery = observedQueries.at(-1);
+            assert.equal(appliedQuery?.get('categorySlug'), 'breakers');
+            assert.equal(appliedQuery?.get('includeDescendants'), 'false');
+            assert.deepEqual(appliedQuery?.getAll('filter'), [
+              'rated_current:eq:100',
+            ]);
+            await page
+              .getByRole('link', { name: 'Сбросить параметры' })
+              .click();
+            await page.waitForURL(categoryUrl);
+            assert.deepEqual(observedQueries.at(-1)?.getAll('filter'), []);
+            assert.equal(
+              observedQueries.at(-1)?.get('includeDescendants'),
+              null,
+            );
+          }
+          await page.goto(
+            `${categoryUrl}&includeDescendants=false&filter=rated_current%3Aeq%3A100`,
+            {
+              waitUntil: 'networkidle',
+            },
+          );
 
           await page.getByRole('link', { name: /Таблица/ }).click();
           await page.waitForURL(/view=table/);
