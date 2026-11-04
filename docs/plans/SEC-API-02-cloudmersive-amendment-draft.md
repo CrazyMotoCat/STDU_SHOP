@@ -1,16 +1,16 @@
 # SEC-API-02 proposed contract amendment
 
-Status: PROPOSED / REVIEW_REQUIRED. Baseline: main ff7de334a01e9aabf38a19bdcffd7b201755de16.
+Status: OWNER APPROVED / REVIEW_REQUIRED. See the versioned SEC-API-02 amendment for the implemented mock-only profile. Baseline: main ff7de334a01e9aabf38a19bdcffd7b201755de16.
 
 ## Scope and approval
 
-The owner approved Cloudmersive development and retained the production download prohibition. This proposal requires separate approval before changing FROZEN R1-010 or R1-010D. It defines the smallest proposed test deployment and the conditions for any later positive download path.
+The owner approved Cloudmersive development and retained the production download prohibition. The approved R1-010D amendment applies to synthetic mocks only. Changes to R1-010 still require separate approval. It defines the smallest proposed test deployment and the conditions for any later positive download path.
 
-| Current requirement | Proposed change | Implementation and acceptance |
-| --- | --- | --- |
-| R1-010 attachment policy requires denial before storage until exact-original eligibility is separately approved | Keep denial in the first implementation. Define a second amendment for an isolated test site with synthetic originals and explicit eligibility | Existing downloadDocument and L0 regression suite remain authoritative until that amendment. Verify 401, 403, scoped 404, zero storage reads and zero success audits |
-| R1-010D specifies ClamAV, the isolated worker, lease-bound streaming and scanner-specific completeness gates | Allow an explicitly selected Advanced HTTPS provider for a synthetic-only profile. Preserve the lease and original identity checks. Define provider-specific evidence and failure mapping | Reuse the existing Stage B job and fencing design after reviewing its SQL against current main. Do not bring PR28 in as a dependency or apply its migrations implicitly |
-| R1-010 upload authorizes anonymous intake through a capability and already checks signature, stored structure, MIME, extension and SHA-256 | Keep the existing upload contract. Add bounded policy checks at scan time on the exact staged original where existing validation is insufficient | Cover broken PDF, ZIP expansion, mismatched format, encryption and CSV encoding. Original upload remains immutable and quarantined |
+| Current requirement                                                                                                                        | Proposed change                                                                                                                                                                           | Implementation and acceptance                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1-010 attachment policy requires denial before storage until exact-original eligibility is separately approved                            | Keep denial in the first implementation. Define a second amendment for an isolated test site with synthetic originals and explicit eligibility                                            | Existing downloadDocument and L0 regression suite remain authoritative until that amendment. Verify 401, 403, scoped 404, zero storage reads and zero success audits    |
+| R1-010D specifies ClamAV, the isolated worker, lease-bound streaming and scanner-specific completeness gates                               | Allow an explicitly selected Advanced HTTPS provider for a synthetic-only profile. Preserve the lease and original identity checks. Define provider-specific evidence and failure mapping | Reuse the existing Stage B job and fencing design after reviewing its SQL against current main. Do not bring PR28 in as a dependency or apply its migrations implicitly |
+| R1-010 upload authorizes anonymous intake through a capability and already checks signature, stored structure, MIME, extension and SHA-256 | Keep the existing upload contract. Add bounded policy checks at scan time on the exact staged original where existing validation is insufficient                                          | Cover broken PDF, ZIP expansion, mismatched format, encryption and CSV encoding. Original upload remains immutable and quarantined                                      |
 
 ## Observation and decision
 
@@ -18,13 +18,13 @@ Use a dedicated worker with concurrency one and a lease-bound private stream. Th
 
 Use Advanced Scan with a fixed HTTPS endpoint because the observed policy flags distinguish several structural or content risks. Keep the byte limit below the confirmed endpoint limit for the selected account. Preserve the PoC absolute deadline, response cap, no redirects, explicit false allow flags and strict response checks. Accept the documented nullable findings only in the clean-verdict context. Treat conflicting flags, missing evidence and format mismatches as indeterminate. Do not widen the CSV format allowlist based on the redacted live observation.
 
-| Internal outcome | Existing equivalent or proposed treatment | Staff original download |
-| --- | --- | --- |
-| PENDING | QUARANTINED and pending job | Denied |
-| INFECTED | REJECTED with a supported threat reason | Denied |
-| SCAN_ERROR | Retryable or terminal SCAN_ERROR according to the approved job policy | Denied |
-| SCAN_INDETERMINATE | Existing fail-closed SCAN_ERROR with an approved reason mapping | Denied |
-| CLEAN_VERIFIED | Internal candidate only after local validation and coherent provider result for the same immutable bytes | Denied under L0. Future test eligibility needs separate approval |
+| Internal outcome   | Existing equivalent or proposed treatment                                                                | Staff original download                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| PENDING            | QUARANTINED and pending job                                                                              | Denied                                                           |
+| INFECTED           | REJECTED with a supported threat reason                                                                  | Denied                                                           |
+| SCAN_ERROR         | Retryable or terminal SCAN_ERROR according to the approved job policy                                    | Denied                                                           |
+| SCAN_INDETERMINATE | Existing fail-closed SCAN_ERROR with an approved reason mapping                                          | Denied                                                           |
+| CLEAN_VERIFIED     | Internal candidate only after local validation and coherent provider result for the same immutable bytes | Denied under L0. Future test eligibility needs separate approval |
 
 SEC-API-01B used 18 requests and two local checks. Standalone EICAR and a separate XLSX package part were detected. The marker in a worksheet cell was missed in both modes. The owner excludes that marker as a pass criterion for integration. Advanced reported a malformed PDF clean. Local structure validation therefore remains mandatory. Advanced CSV format evidence was indeterminate. Neither HTTP 200 nor a provider verdict proves structural integrity or nested coverage.
 
@@ -50,4 +50,6 @@ Rollback disables claiming and outbound calls, drains or fences in-flight attemp
 
 Approve the proposed synthetic-only Cloudmersive amendment as the first implementation slice, preserving L0. Define and approve any positive test download eligibility in a separate versioned amendment. Production transfer, download and deployment remain separate decisions.
 
-Current delivery: BLOCKED on versioned contract approval. This Draft contains design and acceptance criteria only. No adapter, migration or download implementation is represented as complete. Tests were not run for this documentation-only proposal.
+Owner approved the amendment at PR #45 HEAD `a7bc754a3da1c4ee4cbcc2db04e825f2172ed281`. This file records the original proposal. The implemented profile is specified in [R1-010D Amendment SEC-API-02](../contracts/R1-010D-amendment-SEC-API-02.md).
+
+Run the disposable mock-only profile with `node apps/api/scripts/run-r1-010b-runtime.mjs --sec-api-02` and the adapter tests with `pnpm exec vitest run apps/api/test/sec-api-02.test.ts`.

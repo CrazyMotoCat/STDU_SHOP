@@ -212,9 +212,26 @@ async function main() {
     `Starting disposable owned project ${project} on loopback ports ${pgPort}/${redisPort}; PostgreSQL uses tmpfs and Redis uses an owned temporary directory for restart-persistence checks.`,
   );
   await compose(['up', '-d', '--wait', '--wait-timeout', '120'], composeEnv);
-  const ownerUrl = `postgresql://postgres:${encodeURIComponent(pgPassword)}@127.0.0.1:${pgPort}/stdu_r1_010b_test`;
+  const scanProfile = process.argv.includes('--sec-api-02');
+  const initialOwnerUrl = `postgresql://postgres:${encodeURIComponent(pgPassword)}@127.0.0.1:${pgPort}/stdu_r1_010b_test`;
+  await waitForPostgres(initialOwnerUrl);
+  if (scanProfile) {
+    const setup = new Client({ connectionString: initialOwnerUrl });
+    await setup.connect();
+    try {
+      await setup.query('CREATE DATABASE stdu_sec_api_02_test');
+    } finally {
+      await setup.end();
+    }
+  }
+  const ownerUrl = scanProfile
+    ? initialOwnerUrl.replace('/stdu_r1_010b_test', '/stdu_sec_api_02_test')
+    : initialOwnerUrl;
   diagnosticDatabaseUrl = ownerUrl;
-  const runtimeUrl = `postgresql://stdu_runtime:${encodeURIComponent(runtimePassword)}@127.0.0.1:${pgPort}/stdu_r1_010b_test`;
+  const runtimeUrl = ownerUrl.replace(
+    /^postgresql:\/\/[^@]+@/,
+    `postgresql://stdu_runtime:${encodeURIComponent(runtimePassword)}@`,
+  );
   const redisUrl = `redis://default:${encodeURIComponent(redisPassword)}@127.0.0.1:${redisPort}/0`;
   await waitForPostgres(ownerUrl);
   const sentinel = new Client({ connectionString: ownerUrl });
@@ -243,6 +260,41 @@ async function main() {
     env: migrationEnv,
   });
   migrationSucceeded = true;
+  let workerUrl = '';
+  if (scanProfile) {
+    const setup = new Client({ connectionString: ownerUrl });
+    await setup.connect();
+    try {
+      const before = await setup.query(
+        "SELECT to_regclass('public.inquiry_source_document_scan_job') AS scan_jobs",
+      );
+      if (before.rows[0]?.scan_jobs !== null)
+        throw new Error('Default deploy unexpectedly installed scan jobs.');
+      const password = randomBytes(32).toString('hex');
+      await setup.query(
+        "SELECT set_config('stdu.sec_api_02_mock', 'approved', false)",
+      );
+      await setup.query(
+        await readFile(
+          resolve(
+            apiRoot,
+            'prisma/scan-migrations/20261104120000_sec_api_02_mock_scan/migration.sql',
+          ),
+          'utf8',
+        ),
+      );
+      await setup.query(
+        `CREATE ROLE sec_api_02_test_worker LOGIN PASSWORD '${password}'`,
+      );
+      await setup.query('GRANT stdu_scan_worker TO sec_api_02_test_worker');
+      workerUrl = ownerUrl.replace(
+        /^postgresql:\/\/[^@]+@/,
+        `postgresql://sec_api_02_test_worker:${password}@`,
+      );
+    } finally {
+      await setup.end();
+    }
+  }
   storageRoot = await mkdtemp(resolve(tmpdir(), 'stdu-r1-010b-storage-'));
   const testEnv = {
     ...process.env,
@@ -251,6 +303,8 @@ async function main() {
     STAFF_DATABASE_URL: runtimeUrl,
     REDIS_URL: redisUrl,
     APP_ENV: 'development',
+    SEC_API_02_SYNTHETIC_SCAN_ENABLED: scanProfile ? 'true' : 'false',
+    SEC_API_02_WORKER_DATABASE_URL: workerUrl,
     HOST: '127.0.0.1',
     PORT: '3001',
     COOKIE_PROFILE: 'loopback',
@@ -269,6 +323,7 @@ async function main() {
       vitestCli,
       'run',
       '--silent=false',
+      ...(scanProfile ? ['--testNamePattern', 'SEC-API-02'] : []),
       'apps/api/test/r1-010b.inquiry.runtime.test.ts',
     ],
     {

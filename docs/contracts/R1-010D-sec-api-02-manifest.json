@@ -1,0 +1,10 @@
+{
+  "version": "1.0.2",
+  "baselineVersion": "1.0.1",
+  "approvedSourceHead": "a7bc754a3da1c4ee4cbcc2db04e825f2172ed281",
+  "scope": "mock-only synthetic test profile",
+  "sha256": {
+    "R1-010D-amendment-SEC-API-02.md": "f9637229c4863fa00d0f85c358a28050cf62f5823776bab037583b562b58d128",
+    "R1-010D-frozen-manifest.json": "61c8942bbbb3ee4e3a8ee1dcb5bc20bbc8071bcd3afa7dc6626f481cdb68f0c7"
+  }
+}
