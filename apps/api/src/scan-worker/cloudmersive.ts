@@ -151,6 +151,92 @@ export async function validateStructure(
   }
 }
 
+type AdvancedRequest = (
+  options: import('node:http').RequestOptions,
+  onResponse: (response: import('node:http').IncomingMessage) => void,
+) => import('node:http').ClientRequest;
+
+export async function requestAdvanced(
+  send: AdvancedRequest,
+  apiKey: string,
+  bytes: Buffer,
+  format: Format,
+  timeoutMs = 15_000,
+): Promise<Outcome> {
+  if (!bytes.length || bytes.length > LIMIT) return 'SCAN_INDETERMINATE';
+  const boundary = 'stdu-synthetic-' + randomBytes(16).toString('hex');
+  const prefix = Buffer.from(
+    `--${boundary}\r\nContent-Disposition: form-data; name="inputFile"; filename="synthetic.${format}"\r\nContent-Type: application/octet-stream\r\n\r\n`,
+  );
+  const suffix = Buffer.from(`\r\n--${boundary}--\r\n`);
+  const headers: Record<string, string> = {
+    'Content-Type': `multipart/form-data; boundary=${boundary}`,
+    'Content-Length': String(prefix.length + bytes.length + suffix.length),
+    Apikey: apiKey,
+    Accept: 'application/json',
+    restrictFileTypes: '.pdf,.csv,.xlsx',
+    options: 'blockOfficeXmlOleEmbeddedFile,blockInvalidUris',
+  };
+  for (const name of [
+    'Executables',
+    'InvalidFiles',
+    'Scripts',
+    'PasswordProtectedFiles',
+    'Macros',
+    'XmlExternalEntities',
+    'InsecureDeserialization',
+    'Html',
+    'UnsafeArchives',
+    'OleEmbeddedObject',
+    'UnwantedAction',
+  ])
+    headers['allow' + name] = 'false';
+  try {
+    const response = await new Promise<import('node:http').IncomingMessage>(
+      (resolve, reject) => {
+        const req = send(
+          {
+            path: '/virus/scan/file/advanced',
+            method: 'POST',
+            headers,
+            signal: AbortSignal.timeout(timeoutMs),
+          },
+          resolve,
+        );
+        req.once('error', reject);
+        req.write(prefix);
+        req.write(bytes);
+        req.end(suffix);
+      },
+    );
+    if (response.statusCode !== 200) {
+      response.destroy();
+      return [401, 403, 429].includes(response.statusCode ?? 0)
+        ? 'PROVIDER_BLOCKED'
+        : 'SCAN_ERROR';
+    }
+    if (
+      !/^application\/json(?:\s*;|$)/i.test(
+        response.headers['content-type'] ?? '',
+      )
+    ) {
+      response.destroy();
+      return 'SCAN_INDETERMINATE';
+    }
+    const responseBytes = await collect(response, 128 * 1024);
+    try {
+      return normalizeAdvanced(
+        JSON.parse(responseBytes.toString('utf8')),
+        format,
+      );
+    } catch {
+      return 'SCAN_INDETERMINATE';
+    }
+  } catch {
+    return 'SCAN_ERROR';
+  }
+}
+
 export class CloudmersiveAdvancedMockAdapter {
   constructor(
     private readonly port: number,
@@ -160,82 +246,23 @@ export class CloudmersiveAdvancedMockAdapter {
       throw new Error('INVALID_MOCK_PORT');
   }
 
-  async scan(bytes: Buffer, format: Format): Promise<Outcome> {
-    if (!bytes.length || bytes.length > LIMIT) return 'SCAN_INDETERMINATE';
-    const boundary = 'stdu-synthetic-' + randomBytes(16).toString('hex');
-    const prefix = Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="inputFile"; filename="synthetic.${format}"\r\nContent-Type: application/octet-stream\r\n\r\n`,
+  scan(bytes: Buffer, format: Format): Promise<Outcome> {
+    return requestAdvanced(
+      (options, callback) =>
+        request(
+          {
+            ...options,
+            host: '127.0.0.1',
+            port: this.port,
+            agent: false,
+          },
+          callback,
+        ),
+      'synthetic-mock-only',
+      bytes,
+      format,
+      this.timeoutMs,
     );
-    const suffix = Buffer.from(`\r\n--${boundary}--\r\n`);
-    const headers: Record<string, string> = {
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
-      'Content-Length': String(prefix.length + bytes.length + suffix.length),
-      Apikey: 'synthetic-mock-only',
-      Accept: 'application/json',
-      restrictFileTypes: '.pdf,.csv,.xlsx',
-      options: 'blockOfficeXmlOleEmbeddedFile,blockInvalidUris',
-    };
-    for (const name of [
-      'Executables',
-      'InvalidFiles',
-      'Scripts',
-      'PasswordProtectedFiles',
-      'Macros',
-      'XmlExternalEntities',
-      'InsecureDeserialization',
-      'Html',
-      'UnsafeArchives',
-      'OleEmbeddedObject',
-      'UnwantedAction',
-    ])
-      headers['allow' + name] = 'false';
-    try {
-      const response = await new Promise<import('node:http').IncomingMessage>(
-        (resolve, reject) => {
-          const req = request(
-            {
-              host: '127.0.0.1',
-              port: this.port,
-              path: '/virus/scan/file/advanced',
-              method: 'POST',
-              agent: false,
-              headers,
-              signal: AbortSignal.timeout(this.timeoutMs),
-            },
-            resolve,
-          );
-          req.once('error', reject);
-          req.write(prefix);
-          req.write(bytes);
-          req.end(suffix);
-        },
-      );
-      if (response.statusCode !== 200) {
-        response.destroy();
-        return [401, 403, 429].includes(response.statusCode ?? 0)
-          ? 'PROVIDER_BLOCKED'
-          : 'SCAN_ERROR';
-      }
-      if (
-        !/^application\/json(?:\s*;|$)/i.test(
-          response.headers['content-type'] ?? '',
-        )
-      ) {
-        response.destroy();
-        return 'SCAN_INDETERMINATE';
-      }
-      const responseBytes = await collect(response, 128 * 1024);
-      try {
-        return normalizeAdvanced(
-          JSON.parse(responseBytes.toString('utf8')),
-          format,
-        );
-      } catch {
-        return 'SCAN_INDETERMINATE';
-      }
-    } catch {
-      return 'SCAN_ERROR';
-    }
   }
 }
 
