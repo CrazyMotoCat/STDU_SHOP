@@ -52,6 +52,7 @@
 }
 
 .heroCopy {
+  container-type: inline-size;
   max-width: 40rem;
   padding-block: 1rem;
 }
@@ -67,9 +68,8 @@
 }
 
 .heroCopy h1 {
-  max-width: 12ch;
   margin: 0;
-  font-size: clamp(2.8rem, 4.5vw, 4.8rem);
+  font-size: min(10.5cqi, 4.8rem);
   font-weight: 650;
   letter-spacing: -0.055em;
   line-height: 1.02;
@@ -763,8 +763,7 @@
   }
 
   .heroCopy h1 {
-    max-width: 14ch;
-    font-size: clamp(2.55rem, 8.5vw, 3.55rem);
+    font-size: min(10.5cqi, 3.55rem);
   }
 
   .heroLead {
