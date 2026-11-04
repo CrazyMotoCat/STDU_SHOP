@@ -16,7 +16,7 @@ import {
   type Product,
   type Revision,
 } from './api';
-import ProductEditor from './editor';
+import ProductEditor, { LocalDraft, type DraftInput } from './editor';
 import styles from '../imports/workspace.module.css';
 import layout from './products.module.css';
 
@@ -90,6 +90,27 @@ export default function CatalogProductsWorkspace() {
   const [staleId, setStaleId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [latest, setLatest] = useState<Detail | null>(null);
+  const [conflict, setConflict] = useState(false);
+  const [localCopy, setLocalCopy] = useState<DraftInput | null>(null);
+  const [editorReset, setEditorReset] = useState(0);
+  const hasLocalChanges = dirty || Boolean(localCopy);
+
+  function confirmDiscard() {
+    return (
+      !hasLocalChanges || window.confirm('Сбросить несохранённые изменения?')
+    );
+  }
+
+  useEffect(() => {
+    if (!hasLocalChanges) return;
+    function warn(event: BeforeUnloadEvent) {
+      event.preventDefault();
+    }
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasLocalChanges]);
   const lock = useRef(false);
   const can = (permission: string) => session?.permissions.includes(permission);
   const read = can('catalog.products.read');
@@ -177,13 +198,46 @@ export default function CatalogProductsWorkspace() {
     });
   }
 
-  async function open(id: string) {
+  async function fetchProduct(id: string) {
     const { data } = await request<{ data: Detail }>(
       catalog + '/products/' + id,
     );
+    return data;
+  }
+
+  function resetEditor() {
+    setDirty(false);
+    setLatest(null);
+    setConflict(false);
+    setLocalCopy(null);
+    setEditorReset((value) => value + 1);
+  }
+
+  function showProduct(data: Detail) {
+    resetEditor();
     setSelected(data);
     setCreating(false);
     setStaleId(null);
+  }
+
+  async function open(id: string) {
+    showProduct(await fetchProduct(id));
+  }
+
+  async function refreshProduct(id: string) {
+    const data = await fetchProduct(id);
+    if (hasLocalChanges && !staleId) {
+      if (data.version !== selected?.version) {
+        setLatest(data);
+        setConflict(true);
+      } else {
+        setNotice(
+          'Серверная редакция не изменилась. Ваш ввод сохранён в форме.',
+        );
+      }
+      return;
+    }
+    showProduct(data);
   }
 
   async function command(
@@ -197,7 +251,17 @@ export default function CatalogProductsWorkspace() {
         catalog + '/products' + path,
         method,
         data,
-      );
+      ).catch((error: unknown) => {
+        if (
+          method === 'PATCH' &&
+          error instanceof RequestError &&
+          error.status === 409
+        ) {
+          setConflict(true);
+          setLatest(null);
+        }
+        throw error;
+      });
       // The command has committed. Prevent a second write until the new version is loaded.
       const id = selected?.id ?? response.data.id;
       setStaleId(id);
@@ -230,15 +294,31 @@ export default function CatalogProductsWorkspace() {
           <h1>Управление товарами</h1>
         </div>
         <nav className={layout.actions} aria-label="Рабочее место каталога">
-          <Link href="/staff/catalog/imports">Импорт</Link>
-          <Link href="/catalog">Публичный каталог</Link>
+          <Link
+            href="/staff/catalog/imports"
+            onNavigate={(event) => {
+              if (!confirmDiscard()) event.preventDefault();
+            }}
+          >
+            Импорт
+          </Link>
+          <Link
+            href="/catalog"
+            onNavigate={(event) => {
+              if (!confirmDiscard()) event.preventDefault();
+            }}
+          >
+            Публичный каталог
+          </Link>
           {session && (
             <button
               disabled={busy}
               type="button"
-              onClick={() =>
+              onClick={() => {
+                if (!confirmDiscard()) return;
                 void run(async () => {
                   await mutate(auth + '/logout', 'POST', {});
+                  resetEditor();
                   setSession(null);
                   setSelected(null);
                   setCreating(false);
@@ -246,8 +326,8 @@ export default function CatalogProductsWorkspace() {
                   setStaleId(null);
                   setCategories([]);
                   setBrands([]);
-                })
-              }
+                });
+              }}
             >
               Выйти
             </button>
@@ -312,6 +392,8 @@ export default function CatalogProductsWorkspace() {
                   disabled={locked}
                   type="button"
                   onClick={() => {
+                    if (!confirmDiscard()) return;
+                    resetEditor();
                     setSelected(null);
                     setCreating(true);
                     setError('');
@@ -368,7 +450,13 @@ export default function CatalogProductsWorkspace() {
                         selected?.id === item.id ? 'true' : undefined
                       }
                       disabled={busy}
-                      onClick={() => void run(() => open(item.id))}
+                      onClick={() => {
+                        if (item.id === selected?.id) {
+                          void run(() => refreshProduct(item.id));
+                        } else if (confirmDiscard()) {
+                          void run(() => open(item.id));
+                        }
+                      }}
                     >
                       <strong>{item.originalPartNumber || item.slug}</strong>
                       <span>{item.slug}</span>
@@ -400,7 +488,9 @@ export default function CatalogProductsWorkspace() {
             </h2>
             {creating && edit ? (
               <ProductEditor
+                key={editorReset}
                 product={null}
+                onDirty={setDirty}
                 categories={categories}
                 brands={brands}
                 busy={locked}
@@ -415,32 +505,119 @@ export default function CatalogProductsWorkspace() {
                   {labels[selected.publicationState]}
                 </p>
                 {revision && <RevisionSummary revision={revision} />}
+                {conflict && (
+                  <p role="status" className={styles.error}>
+                    Конфликт версий или состояния. Ваш ввод сохранён в форме.
+                    {!latest &&
+                      ' Обновите карточку, чтобы посмотреть серверную редакцию.'}
+                  </p>
+                )}
+                {latest && (
+                  <section
+                    className={styles.panel}
+                    aria-label="Актуальная серверная редакция"
+                  >
+                    <h3>Актуальная серверная редакция</h3>
+                    <p>{labels[latest.publicationState]}</p>
+                    {(() => {
+                      const current =
+                        latest.pendingRevision ??
+                        latest.editorRevision ??
+                        latest.publishedRevision;
+                      return current && <RevisionSummary revision={current} />;
+                    })()}
+                    {(!latest.editorRevision || latest.pendingRevision) && (
+                      <p>
+                        Сейчас на сервере нет доступного для редактирования
+                        черновика.
+                      </p>
+                    )}
+                    <button
+                      disabled={busy}
+                      type="button"
+                      onClick={() => {
+                        if (confirmDiscard()) {
+                          showProduct(latest);
+                          setError('');
+                        }
+                      }}
+                    >
+                      Сбросить правки и открыть актуальную редакцию
+                    </button>
+                  </section>
+                )}
+                {localCopy && (
+                  <LocalDraft
+                    input={localCopy}
+                    categories={categories}
+                    brands={brands}
+                  />
+                )}
                 {edit && draft && !pending && (
                   <details className={layout.editor} open>
                     <summary>Редактировать черновик</summary>
                     <ProductEditor
-                      key={draft.id}
+                      key={editorReset}
+                      onDirty={setDirty}
+                      conflict={conflict}
+                      onTransfer={
+                        latest?.editorRevision && !latest.pendingRevision
+                          ? (input) => {
+                              if (
+                                localCopy &&
+                                !window.confirm(
+                                  'Заменить предыдущую копию несохранённых данных?',
+                                )
+                              )
+                                return;
+                              showProduct(latest);
+                              setLocalCopy(input);
+                              setError('');
+                            }
+                          : undefined
+                      }
                       product={selected}
                       categories={categories}
                       brands={brands}
                       busy={locked}
-                      save={(data) =>
+                      save={(data) => {
+                        if (
+                          localCopy &&
+                          !window.confirm(
+                            'Сохранить заполненный черновик и закрыть копию прежних правок?',
+                          )
+                        )
+                          return;
                         void command(
                           '/' + selected.id,
                           'PATCH',
                           data,
                           'Изменения сохранены.',
-                        )
-                      }
+                        );
+                      }}
                     />
                   </details>
                 )}
                 <div className={layout.actions}>
+                  {draft &&
+                    !pending &&
+                    can('catalog.products.submit') &&
+                    hasLocalChanges && (
+                      <p id="catalog-unsaved" role="status">
+                        Есть несохранённые изменения. Сначала сохраните
+                        черновик.
+                      </p>
+                    )}
                   {draft && !pending && can('catalog.products.submit') && (
                     <button
-                      disabled={locked}
+                      aria-describedby={
+                        hasLocalChanges ? 'catalog-unsaved' : undefined
+                      }
+                      disabled={locked || hasLocalChanges || conflict}
                       type="button"
                       onClick={() =>
+                        !hasLocalChanges &&
+                        !conflict &&
                         void command(
                           '/' + selected.id + '/submit',
                           'POST',
@@ -474,6 +651,9 @@ export default function CatalogProductsWorkspace() {
                   )}
                   {selected.publishedRevision && (
                     <Link
+                      onNavigate={(event) => {
+                        if (!confirmDiscard()) event.preventDefault();
+                      }}
                       href={
                         '/catalog/product/' + encodeURIComponent(selected.slug)
                       }
@@ -484,7 +664,7 @@ export default function CatalogProductsWorkspace() {
                   <button
                     disabled={busy}
                     type="button"
-                    onClick={() => void run(() => open(selected.id))}
+                    onClick={() => void run(() => refreshProduct(selected.id))}
                   >
                     Обновить карточку
                   </button>
