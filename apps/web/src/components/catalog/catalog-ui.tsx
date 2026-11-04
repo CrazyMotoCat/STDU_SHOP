@@ -1,3 +1,7 @@
+import { catalogTestSiteEnabled } from '../../lib/catalog/test-site-config';
+import demoData from '../../lib/catalog/iek-demo-data.json';
+import { getDemoMedia } from '../../lib/catalog/demo-media';
+import { DemoProductPhoto } from './demo-product-photo';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -220,6 +224,32 @@ export function ProductImage({
   );
 }
 
+function ProductMedia({
+  product,
+  compact = false,
+  gallery = false,
+}: {
+  product: PublicProductCard;
+  compact?: boolean;
+  gallery?: boolean;
+}) {
+  const demo = getDemoMedia(product);
+  const fallback = (
+    <ProductImage compact={compact} label={product.displayName} />
+  );
+  return demo ? (
+    <DemoProductPhoto
+      key={product.slug}
+      images={demo.images}
+      compact={compact}
+      gallery={gallery}
+      fallback={fallback}
+    />
+  ) : (
+    fallback
+  );
+}
+
 function ProductIdentity({ product }: { product: PublicProductCard }) {
   return (
     <div className={styles.productIdentity}>
@@ -232,6 +262,9 @@ function ProductIdentity({ product }: { product: PublicProductCard }) {
           {product.displayName}
         </Link>
       </h3>
+      {catalogTestSiteEnabled() && getDemoMedia(product)?.summary ? (
+        <p className={styles.demoSummary}>{getDemoMedia(product)?.summary}</p>
+      ) : null}
       <dl className={styles.identityList}>
         {product.manufacturerName ? (
           <div>
@@ -272,7 +305,7 @@ function PriceDisplay({ product }: { product: PublicProductCard }) {
 function ProductTile({ product }: { product: PublicProductCard }) {
   return (
     <article className={styles.productTile}>
-      <ProductImage label={product.displayName} />
+      <ProductMedia product={product} />
       <div className={styles.productTileBody}>
         <ProductIdentity product={product} />
         <div className={styles.productTileFooter}>
@@ -292,7 +325,7 @@ function ProductTile({ product }: { product: PublicProductCard }) {
 function ProductListItem({ product }: { product: PublicProductCard }) {
   return (
     <article className={styles.productListItem}>
-      <ProductImage compact label={product.displayName} />
+      <ProductMedia compact product={product} />
       <ProductIdentity product={product} />
       <PriceDisplay product={product} />
       <Link
@@ -575,7 +608,11 @@ export function TechnicalSummary({
     <section className={styles.detailSection} aria-labelledby="spec-title">
       <div className={styles.sectionHeading}>
         <div>
-          <p className={styles.eyebrow}>ПАРАМЕТРЫ ИЗ ОПУБЛИКОВАННОЙ РЕДАКЦИИ</p>
+          <p className={styles.eyebrow}>
+            {catalogTestSiteEnabled()
+              ? 'ПАРАМЕТРЫ ДЕМОНСТРАЦИОННОЙ ПОЗИЦИИ'
+              : 'ПАРАМЕТРЫ ИЗ ОПУБЛИКОВАННОЙ РЕДАКЦИИ'}
+          </p>
           <h2 id="spec-title">{title}</h2>
         </div>
         <span className={styles.sectionIndex}>
@@ -888,9 +925,11 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
             className={styles.detailMedia}
             aria-label="Изображения и документы"
           >
-            <ProductImage label={product.displayName} />
+            <ProductMedia gallery product={product} />
             <p className={styles.mediaNote}>
-              Материалы и документы для этой позиции пока не опубликованы.
+              {getDemoMedia(product)
+                ? 'Фото предоставлены владельцем. Основной вид и составное изображение.'
+                : 'Материалы и документы для этой позиции пока не опубликованы.'}
             </p>
           </section>
         </div>
@@ -910,12 +949,53 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
             className={styles.descriptionBlock}
             aria-labelledby="description-title"
           >
-            <p className={styles.eyebrow}>ОПУБЛИКОВАННЫЕ ДАННЫЕ</p>
+            <p className={styles.eyebrow}>
+              {catalogTestSiteEnabled()
+                ? 'ДАННЫЕ ДЕМОНСТРАЦИОННОЙ ПОЗИЦИИ'
+                : 'ОПУБЛИКОВАННЫЕ ДАННЫЕ'}
+            </p>
             <h2 id="description-title">Подробное описание</h2>
             <p>{product.description}</p>
           </section>
         ) : null}
         <TechnicalSummary attributes={product.attributes} />
+        {catalogTestSiteEnabled() && getDemoMedia(product) ? (
+          <details className={styles.descriptionBlock}>
+            <summary>Источники характеристик и ограничения demo</summary>
+            <p>
+              Демонстрационные данные, не публикация товара в базе каталога.
+              Цена и наличие не предоставлены.
+            </p>
+            <ul>
+              {getDemoMedia(product)?.item.verifiedAttributes.map(
+                (attribute) => (
+                  <li key={attribute.code}>
+                    {attribute.label} —{' '}
+                    {attribute.evidenceTier === 'manufacturer'
+                      ? 'производитель'
+                      : attribute.evidenceTier === 'distributor_same_sku'
+                        ? 'поставщик, точный артикул'
+                        : 'не подтверждено'}
+                    .{' '}
+                    {attribute.sourceIds.map((id) => (
+                      <a
+                        key={id}
+                        href={
+                          demoData.sources[id as keyof typeof demoData.sources]
+                            .url
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Источник ↗{' '}
+                      </a>
+                    ))}
+                  </li>
+                ),
+              )}
+            </ul>
+          </details>
+        ) : null}
         <ProductRelations product={product} />
         <nav
           className={styles.bottomNavigation}
