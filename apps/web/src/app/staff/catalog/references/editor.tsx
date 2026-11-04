@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import {
   parseEnumOptions,
   type Attribute,
@@ -24,6 +24,7 @@ export default function ReferenceEditor({
   record,
   categoryId,
   tree,
+  categoryPaging,
   busy,
   writable,
   onDirty,
@@ -33,6 +34,7 @@ export default function ReferenceEditor({
   kind: Kind;
   record: Reference | null;
   categoryId: string;
+  categoryPaging: ReactNode;
   tree: Array<{ item: Category; path: string }>;
   busy: boolean;
   writable: boolean;
@@ -168,6 +170,12 @@ export default function ReferenceEditor({
                 onChange={(event) => update('parentId', event.target.value)}
               >
                 <option value="">Верхний уровень</option>
+                {values.parentId &&
+                  !tree.some(({ item }) => item.id === values.parentId) && (
+                    <option value={values.parentId}>
+                      Текущий родитель вне загруженной части
+                    </option>
+                  )}
                 {tree
                   .filter(
                     ({ item }) =>
@@ -285,6 +293,7 @@ export default function ReferenceEditor({
           </>
         )}
       </fieldset>
+      {categoryPaging}
       {error && (
         <p role="alert" className={styles.error}>
           {error}

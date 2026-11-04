@@ -2,23 +2,15 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import {
-  auth,
-  catalog,
-  mutate,
-  readAll,
-  request,
-  StaffRequestError,
-} from './api';
+import { auth, catalog, mutate, request, StaffRequestError } from './api';
 import {
   categoryTree,
-  type Attribute,
-  type Brand,
   type Category,
   type Kind,
   type Reference,
 } from './model';
 import ReferenceEditor from './editor';
+import { useReferencePages } from './use-reference-pages';
 import styles from '../imports/workspace.module.css';
 import layout from './references.module.css';
 
@@ -41,20 +33,15 @@ export default function ReferencesWorkspace() {
   const [session, setSession] = useState<Session | null>(null);
   const [checking, setChecking] = useState(true);
   const [kind, setKind] = useState<Kind>('categories');
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [categoryId, setCategoryId] = useState('');
+  const [pinnedCategory, setPinnedCategory] = useState<Category | null>(null);
   const [selected, setSelected] = useState<Reference | null>(null);
   const [editing, setEditing] = useState(false);
   const [editorKey, resetEditor] = useState(0);
   const [query, setQuery] = useState('');
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [refresh, reload] = useState(0);
   const [error, setError] = useState('');
-  const [readError, setReadError] = useState('');
   const [notice, setNotice] = useState('');
   const [conflict, setConflict] = useState(false);
   const lock = useRef(false);
@@ -63,8 +50,27 @@ export default function ReferencesWorkspace() {
     session?.permissions.includes('catalog.references.read') ?? false;
   const section = sections.find((item) => item.kind === kind)!;
   const writable = session?.permissions.includes(section.permission) ?? false;
-  const tree = categoryTree(categories);
-  const chosenCategory = categories.find((item) => item.id === categoryId);
+  const categories = useReferencePages<Reference>(
+    read && kind !== 'brands' ? catalog + '/categories' : null,
+  );
+  const brands = useReferencePages<Reference>(
+    read && kind === 'brands' ? catalog + '/brands' : null,
+  );
+  const attributes = useReferencePages<Reference>(
+    read && kind === 'attributes' && categoryId
+      ? catalog + '/attributes?' + new URLSearchParams({ categoryId })
+      : null,
+  );
+  const pages =
+    kind === 'categories'
+      ? categories
+      : kind === 'brands'
+        ? brands
+        : attributes;
+  const categoryItems = categories.items as Category[];
+  const chosenCategory =
+    categoryItems.find((item) => item.id === categoryId) ?? pinnedCategory;
+  const tree = categoryTree(categoryItems);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -90,53 +96,6 @@ export default function ReferencesWorkspace() {
       });
     return () => controller.abort();
   }, []);
-
-  useEffect(() => {
-    if (!read) return;
-    const controller = new AbortController();
-    void Promise.all([
-      readAll<Category>(catalog + '/categories', controller.signal),
-      readAll<Brand>(catalog + '/brands', controller.signal),
-    ])
-      .then(([nextCategories, nextBrands]) => {
-        if (controller.signal.aborted) return;
-        setCategories(nextCategories);
-        setBrands(nextBrands);
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted)
-          setReadError(
-            error instanceof Error
-              ? error.message
-              : 'Не удалось загрузить справочники.',
-          );
-      });
-    return () => controller.abort();
-  }, [read, refresh]);
-
-  useEffect(() => {
-    if (!read || !categoryId || kind !== 'attributes') return;
-    const controller = new AbortController();
-    void readAll<Attribute>(
-      catalog + '/attributes?' + new URLSearchParams({ categoryId }),
-      controller.signal,
-    )
-      .then((data) => {
-        if (!controller.signal.aborted) setAttributes(data);
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted)
-          setReadError(
-            error instanceof Error
-              ? error.message
-              : 'Не удалось загрузить характеристики.',
-          );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [read, categoryId, kind, refresh]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -190,7 +149,6 @@ export default function ReferencesWorkspace() {
         password: data.get('password'),
       });
       form.reset();
-      setReadError('');
       setSession(
         (await request<{ data: Session }>(auth + '/me/permissions')).data,
       );
@@ -213,11 +171,10 @@ export default function ReferencesWorkspace() {
         );
         open(null, false);
         setNotice(archive ? 'Запись архивирована.' : 'Запись сохранена.');
-        setReadError('');
-        reload((value) => value + 1);
         const { data } = await request<{ data: Reference }>(
           catalog + '/' + kind + '/' + result.id,
         );
+        pages.upsert(data);
         open(data);
         setNotice(archive ? 'Запись архивирована.' : 'Запись сохранена.');
       } catch (error) {
@@ -232,11 +189,21 @@ export default function ReferencesWorkspace() {
     });
   }
 
+  function openCurrent(id: string) {
+    void run(async () => {
+      const { data } = await request<{ data: Reference }>(
+        catalog + '/' + kind + '/' + id,
+      );
+      pages.upsert(data);
+      open(data);
+    });
+  }
+
   const term = query.trim().toLocaleLowerCase('ru');
   const rows =
     kind === 'categories'
       ? tree
-      : (kind === 'brands' ? brands : attributes).map((item) => ({
+      : pages.items.map((item) => ({
           item,
           depth: 0,
           path: 'name' in item ? item.name : item.label,
@@ -247,7 +214,10 @@ export default function ReferencesWorkspace() {
     ),
   );
   const canCreate =
-    writable && (kind !== 'attributes' || chosenCategory?.state === 'ACTIVE');
+    writable &&
+    !pages.loading &&
+    !pages.error &&
+    (kind !== 'attributes' || chosenCategory?.state === 'ACTIVE');
 
   return (
     <main className={styles.shell}>
@@ -276,11 +246,8 @@ export default function ReferencesWorkspace() {
                   await mutate(auth + '/logout', 'POST', {});
                   open(null, false);
                   setSession(null);
-                  setCategories([]);
-                  setBrands([]);
-                  setAttributes([]);
                   setCategoryId('');
-                  setReadError('');
+                  setPinnedCategory(null);
                 });
               }}
             >
@@ -348,29 +315,12 @@ export default function ReferencesWorkspace() {
                   open(null, false);
                   setQuery('');
                   setKind(item.kind);
-                  if (item.kind === 'attributes' && categoryId)
-                    setLoading(true);
                 }}
               >
                 {item.label}
               </button>
             ))}
           </nav>
-          {readError && (
-            <div className={styles.error}>
-              <p role="alert">{readError}</p>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  setReadError('');
-                  reload((value) => value + 1);
-                }}
-              >
-                Повторить загрузку
-              </button>
-            </div>
-          )}
           <div className={layout.workspace}>
             <section className={styles.panel} aria-labelledby="references-list">
               <div className={layout.actions}>
@@ -399,11 +349,20 @@ export default function ReferencesWorkspace() {
                         const id = event.target.value;
                         open(null, false);
                         setCategoryId(id);
-                        setAttributes([]);
-                        setLoading(Boolean(id));
+                        setPinnedCategory(
+                          categoryItems.find((item) => item.id === id) ?? null,
+                        );
                       }}
                     >
                       <option value="">Выберите категорию</option>
+                      {chosenCategory &&
+                        !categoryItems.some(
+                          (item) => item.id === chosenCategory.id,
+                        ) && (
+                          <option value={chosenCategory.id}>
+                            {chosenCategory.name}
+                          </option>
+                        )}
                       {tree.map(({ item, path }) => (
                         <option key={item.id} value={item.id}>
                           {path}
@@ -414,7 +373,7 @@ export default function ReferencesWorkspace() {
                   </label>
                 )}
                 <label>
-                  Поиск по названию или коду
+                  Поиск по загруженным записям
                   <input
                     type="search"
                     value={query}
@@ -422,10 +381,20 @@ export default function ReferencesWorkspace() {
                   />
                 </label>
               </div>
+              {kind === 'attributes' && (
+                <PageControls page={categories} label="категории" busy={busy} />
+              )}
+              {kind === 'categories' &&
+                (categories.cursor || categories.windowed) && (
+                  <p>
+                    Показана часть дерева. Вложенность видна, когда загружена
+                    родительская категория.
+                  </p>
+                )}
               {kind === 'attributes' && !categoryId ? (
                 <p>Выберите категорию, чтобы увидеть характеристики.</p>
-              ) : kind === 'attributes' && loading ? (
-                <p role="status">Загрузка характеристик…</p>
+              ) : pages.loading && !pages.items.length ? (
+                <p role="status">Загрузка записей…</p>
               ) : matches.length ? (
                 <ul className={layout.rows}>
                   {matches.map(({ item, path, depth }) => (
@@ -442,7 +411,7 @@ export default function ReferencesWorkspace() {
                         }}
                         onClick={() => {
                           if (selected?.id !== item.id && discardAllowed())
-                            open(item);
+                            openCurrent(item.id);
                         }}
                       >
                         <strong>
@@ -450,6 +419,9 @@ export default function ReferencesWorkspace() {
                         </strong>
                         <small>
                           {depth > 0 ? path + ' · ' : ''}
+                          {'parentId' in item && item.parentId && depth === 0
+                            ? 'Родитель вне загруженной части · '
+                            : ''}
                           {'slug' in item ? item.slug : item.code}
                           {'valueType' in item ? ' · ' + item.valueType : ''}
                         </small>
@@ -461,8 +433,13 @@ export default function ReferencesWorkspace() {
                   ))}
                 </ul>
               ) : (
-                !readError && <p>Записи не найдены.</p>
+                !pages.error && <p>В загруженной части записи не найдены.</p>
               )}
+              <PageControls
+                page={pages}
+                label={section.label.toLocaleLowerCase('ru')}
+                busy={busy}
+              />
             </section>
             <section
               className={styles.panel}
@@ -483,13 +460,7 @@ export default function ReferencesWorkspace() {
                       disabled={busy}
                       onClick={() => {
                         if (!discardAllowed()) return;
-                        void run(async () => {
-                          const { data } = await request<{ data: Reference }>(
-                            catalog + '/' + kind + '/' + selected.id,
-                          );
-                          open(data);
-                          reload((value) => value + 1);
-                        });
+                        openCurrent(selected.id);
                       }}
                     >
                       Загрузить актуальную запись
@@ -501,6 +472,15 @@ export default function ReferencesWorkspace() {
                     record={selected}
                     categoryId={categoryId}
                     tree={tree}
+                    categoryPaging={
+                      kind === 'categories' ? (
+                        <PageControls
+                          page={categories}
+                          label="категории"
+                          busy={busy}
+                        />
+                      ) : null
+                    }
                     busy={busy}
                     writable={selected ? writable : canCreate}
                     onDirty={setDirty}
@@ -523,5 +503,57 @@ export default function ReferencesWorkspace() {
         </>
       )}
     </main>
+  );
+}
+
+function PageControls({
+  page,
+  label,
+  busy,
+}: {
+  page: {
+    loading: boolean;
+    error: string;
+    cursor: string | null;
+    windowed: boolean;
+    more: () => void;
+    restart: () => void;
+  };
+  label: string;
+  busy: boolean;
+}) {
+  if (!page.error && !page.cursor && !page.windowed) return null;
+  return (
+    <div className={layout.actions}>
+      {page.error && (
+        <p role="alert" className={styles.error}>
+          {page.error}
+        </p>
+      )}
+      {page.windowed && (
+        <small>
+          Показано до 250 последних загруженных записей. Поиск действует только
+          в этой части.
+        </small>
+      )}
+      {(page.cursor || page.error) && (
+        <button
+          type="button"
+          disabled={busy || page.loading}
+          onClick={page.more}
+        >
+          {page.error ? 'Повторить загрузку' : 'Загрузить ещё'} · {label}
+        </button>
+      )}
+      {page.windowed && (
+        <button
+          type="button"
+          disabled={busy || page.loading}
+          onClick={page.restart}
+        >
+          С начала · {label}
+        </button>
+      )}
+    </div>
   );
 }

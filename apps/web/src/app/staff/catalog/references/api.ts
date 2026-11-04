@@ -71,18 +71,17 @@ export async function mutate<T>(
   });
 }
 
-export async function readAll<T>(path: string, signal?: AbortSignal) {
-  const data: T[] = [];
-  let cursor: string | null = null;
-  do {
-    const params = new URLSearchParams({ limit: '100' });
-    if (cursor) params.set('cursor', cursor);
-    const result = await request<{
-      data: T[];
-      meta: { nextCursor: string | null };
-    }>(path + (path.includes('?') ? '&' : '?') + params, { signal });
-    data.push(...result.data);
-    cursor = result.meta.nextCursor;
-  } while (cursor);
-  return data;
+export const pageSize = 50;
+
+export function readPage<T>(
+  path: string,
+  cursor: string | null,
+  signal: AbortSignal,
+) {
+  const params = new URLSearchParams({ limit: String(pageSize) });
+  if (cursor) params.set('cursor', cursor);
+  return request<{ data: T[]; meta: { nextCursor: string | null } }>(
+    path + (path.includes('?') ? '&' : '?') + params,
+    { signal },
+  );
 }

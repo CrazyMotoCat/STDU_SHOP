@@ -63,3 +63,16 @@ export function parseEnumOptions(source: string) {
     return { code, label };
   });
 }
+export const windowSize = 250;
+
+export function mergeReferences<T extends { id: string; version: number }>(
+  previous: T[],
+  incoming: T[],
+): T[] {
+  const rows = new Map(previous.map((item) => [item.id, item]));
+  for (const item of incoming) {
+    const current = rows.get(item.id);
+    if (!current || item.version >= current.version) rows.set(item.id, item);
+  }
+  return Array.from(rows.values()).slice(-windowSize);
+}
