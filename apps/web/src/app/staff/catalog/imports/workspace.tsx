@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import styles from './workspace.module.css';
 
@@ -540,6 +541,7 @@ export default function CatalogImportsWorkspace() {
       <header className={styles.header}>
         <div>
           <p className={styles.eyebrow}>STDU · CATALOG OPERATIONS</p>
+          <Link href="/staff/catalog/products">Управление товарами</Link>
           <h1>Ручной импорт</h1>
           <p>
             Загрузка, проверка и поштучные решения. Публикация остаётся
