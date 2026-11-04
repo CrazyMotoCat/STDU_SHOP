@@ -919,7 +919,7 @@ export function RequestQuoteForm({
                 <div className={styles.detailBody}>
                   {productHint ? (
                     <p className={styles.inlineNote}>
-                      Контекст карточки не подтверждён и не заменяет описание
+                      Проверьте и при необходимости уточните наименование
                       позиции.
                     </p>
                   ) : null}

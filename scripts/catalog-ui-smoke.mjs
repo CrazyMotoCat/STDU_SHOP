@@ -772,7 +772,7 @@ async function main() {
             await page
               .getByRole('link', { name: 'Сбросить параметры' })
               .click();
-            await page.waitForURL(categoryUrl);
+            await page.waitForURL(`${categoryUrl}&categorySlug=breakers`);
             assert.deepEqual(observedQueries.at(-1)?.getAll('filter'), []);
             assert.equal(
               observedQueries.at(-1)?.get('includeDescendants'),
