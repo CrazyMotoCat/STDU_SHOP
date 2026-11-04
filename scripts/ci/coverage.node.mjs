@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { checkAddedLines } from './hygiene.mjs';
 const read = (path) =>
   readFileSync(new URL('../../' + path, import.meta.url), 'utf8').replaceAll(
@@ -8,21 +8,12 @@ const read = (path) =>
     '\n',
   );
 const original = read('docs/ci/legacy-ci.yml.txt');
-const legacy = read('.github/workflows/ci.yml');
 const full = read('.github/workflows/ci-full.yml');
 
-test('legacy coverage unchanged apart from safe main concurrency isolation', () => {
+test('the redundant legacy workflow is retired', () => {
   assert.equal(
-    legacy
-      .replace(
-        "foundation-${{ github.event_name == 'push' && github.run_id || github.ref }}",
-        'foundation-${{ github.ref }}',
-      )
-      .replace(
-        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
-        'cancel-in-progress: true',
-      ),
-    original,
+    existsSync(new URL('../../.github/workflows/ci.yml', import.meta.url)),
+    false,
   );
 });
 test('FULL retains every original step in order, including commands, env, cleanup', () => {
