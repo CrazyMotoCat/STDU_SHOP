@@ -81,7 +81,7 @@ infra/compose/               базовый Compose + override только дл
 docs/adr/                    четыре утверждённых ADR
 docs/contracts/              зафиксированный контракт R1-001
 docs/plans/                  фактическая проверка и шаблон R1-002
-.github/workflows/ci.yml      независимый quality/integration gate
+.github/workflows/ci-{fast,full}.yml  независимые FAST/FULL gates
 .agent/tasks/R1-001/          checkpoint задачи
 ```
 
