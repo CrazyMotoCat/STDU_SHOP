@@ -1,5 +1,7 @@
 # CI-OPT-01 — FAST / FULL / post-merge
 
+> Historical migration design. See the [active merge-gate policy](merge-gate-policy.md) for the CI-OPT-02 switch.
+
 ## Delivery and rollout state
 
 `REVIEW_REQUIRED / SEPARATE_BRANCH / DRAFT_PR / NO_MERGE`. Branch `codex/ci-opt-01-fast-full`, isolated worktree. Application/API/schema/auth/RBAC/FROZEN contracts and PR #39 are outside scope.
