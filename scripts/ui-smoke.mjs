@@ -324,6 +324,32 @@ async function assertMenuKeyboardAndPointer(page) {
         .querySelector('[data-menu-trigger="panels"]')
         ?.getAttribute('aria-expanded') === 'false',
   );
+
+  await panels.hover();
+  const triggerBox = await panels.boundingBox();
+  const panelLink = navigation.locator('#mega-panel-panels .mega-panel__link');
+  const linkBox = await panelLink.boundingBox();
+  assert.ok(triggerBox && linkBox);
+  // Sample the former four-pixel gap before crossing diagonally to the link.
+  await page.mouse.move(
+    triggerBox.x + triggerBox.width / 2,
+    triggerBox.y + triggerBox.height + 2,
+  );
+  assert.equal(await panels.getAttribute('aria-expanded'), 'true');
+  await page.mouse.move(
+    linkBox.x + linkBox.width / 2,
+    linkBox.y + linkBox.height / 2,
+    { steps: 20 },
+  );
+  assert.equal(await panelLink.isVisible(), true);
+  await Promise.all([
+    page.waitForURL('**/panels'),
+    page.mouse.click(
+      linkBox.x + linkBox.width / 2,
+      linkBox.y + linkBox.height / 2,
+    ),
+  ]);
+  await page.goto(new URL('/', page.url()).href);
 }
 
 async function assertMobileNavigation(browser, baseUrl) {

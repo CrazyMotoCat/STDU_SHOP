@@ -360,7 +360,6 @@ svg {
 }
 
 .search-field:focus-within {
-  border-color: var(--color-focus);
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
@@ -381,6 +380,10 @@ svg {
   background: transparent;
   color: var(--color-text-primary);
   font-size: var(--text-sm);
+}
+
+.search-field__input:focus-visible {
+  outline: none;
 }
 
 .search-field__input::placeholder {
@@ -710,7 +713,7 @@ svg {
 .mega-panel {
   position: absolute;
   z-index: calc(var(--header-layer) + 1);
-  top: calc(100% + 0.25rem);
+  top: 100%;
   left: -1.25rem;
   display: grid;
   width: min(25rem, 90vw);

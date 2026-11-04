@@ -68,7 +68,8 @@ export default function EngineeringPage() {
               <div className={styles.heroCopy}>
                 <p className={styles.eyebrow}>ИНЖЕНЕРНЫЕ УСЛУГИ</p>
                 <h1 id="engineering-title">
-                  Проектирование и программирование <em>систем управления</em>
+                  Проектирование и&nbsp;программирование{' '}
+                  <em>систем управления</em>
                 </h1>
                 <p className={styles.heroLead}>
                   Электротехника, промышленная автоматизация и работа с
