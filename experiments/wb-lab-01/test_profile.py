@@ -3,12 +3,23 @@
 import copy
 import json
 import os
+import socket
 import subprocess
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from check_config import validate
-from preflight import GIB, MIB, Blocked, thresholds, verify_runtime
+from preflight import (
+    GIB,
+    MIB,
+    SOCKET,
+    Blocked,
+    LocalEngineConnection,
+    engine_info,
+    thresholds,
+    verify_runtime,
+)
 
 RUN_ID = "0123456789abcdef0123456789abcdef"
 
@@ -94,6 +105,7 @@ class ProfileTests(unittest.TestCase):
             "MemoryLimit": True,
             "SwapLimit": True,
             "CpuCfsQuota": True,
+            "CpuCfsPeriod": True,
             "PidsLimit": True,
         }
         controllers = ["cpu", "memory", "pids"]
@@ -111,6 +123,74 @@ class ProfileTests(unittest.TestCase):
             verify_runtime(info, "5.5.1", controllers, "expected")
         with self.assertRaisesRegex(Blocked, "CGROUP_CONTROLLERS"):
             verify_runtime(info, "5.6.1", ["cpu", "memory"], "expected")
+
+    def test_engine_connects_only_to_unix_socket_with_timeout(self):
+        with (
+            patch.object(socket, "AF_UNIX", 1, create=True),
+            patch("preflight.socket.socket") as socket_factory,
+        ):
+            connection = LocalEngineConnection("unused", timeout=5)
+            connection.connect()
+            socket_factory.assert_called_once_with(socket.AF_UNIX, socket.SOCK_STREAM)
+            socket_factory.return_value.settimeout.assert_called_once_with(5)
+            socket_factory.return_value.connect.assert_called_once_with(str(SOCKET))
+            connection.close()
+
+    def test_engine_api_has_cpu_fields_that_cli_projection_omits(self):
+        cli = {
+            "ID": "wb",
+            "ServerVersion": "29.9.2",
+            "OSType": "linux",
+            "Architecture": "aarch64",
+            "CgroupVersion": "2",
+            "CgroupDriver": "systemd",
+            "Driver": "overlayfs",
+            "MemoryLimit": True,
+            "SwapLimit": True,
+            "PidsLimit": True,
+        }
+        with self.assertRaisesRegex(Blocked, "CGROUP_LIMITS_UNAVAILABLE"):
+            verify_runtime(cli, "5.6.1", ["cpu", "memory", "pids"], "wb")
+        payload = json.dumps(
+            {**cli, "CpuCfsQuota": True, "CpuCfsPeriod": True}
+        ).encode()
+        with patch("preflight.LocalEngineConnection") as connection:
+            response = (
+                connection.return_value.getresponse.return_value.__enter__.return_value
+            )
+            response.status = 200
+            response.read.return_value = payload
+            verify_runtime(engine_info(), "5.6.1", ["cpu", "memory", "pids"], "wb")
+            connection.assert_called_once_with("localhost", timeout=5)
+            self.assertEqual(
+                connection.return_value.request.call_args.args, ("GET", "/info")
+            )
+            connection.return_value.close.assert_called_once()
+
+    def test_engine_info_fails_closed_on_bad_response(self):
+        for status, payload, reason in (
+            (503, b"{}", "HTTP_STATUS"),
+            (200, b"malformed", "UNAVAILABLE"),
+            (200, b"[]", "OBJECT_REQUIRED"),
+            (200, b"x" * (MIB + 1), "TOO_LARGE"),
+        ):
+            with (
+                self.subTest(status=status, reason=reason),
+                patch("preflight.LocalEngineConnection") as connection,
+            ):
+                response = connection.return_value.getresponse.return_value.__enter__.return_value
+                response.status = status
+                response.read.return_value = payload
+                with self.assertRaisesRegex(Blocked, reason):
+                    engine_info()
+                connection.return_value.close.assert_called_once()
+
+    def test_engine_info_connection_timeout_fails_closed(self):
+        with patch("preflight.LocalEngineConnection") as connection:
+            connection.return_value.request.side_effect = TimeoutError
+            with self.assertRaisesRegex(Blocked, "ENGINE_INFO_UNAVAILABLE"):
+                engine_info()
+            connection.return_value.close.assert_called_once()
 
     def test_watermarks(self):
         thresholds(768 * MIB, 4 * GIB)

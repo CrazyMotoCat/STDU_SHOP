@@ -1,6 +1,6 @@
 # WB-LAB-01 — подготовка стенда VIS-CAT-02C
 
-Статус **E0a host evidence pending**. Профиль основан на [плане #52](https://github.com/CrazyMotoCat/STDU_SHOP/pull/52) и [mock-модели #53](https://github.com/CrazyMotoCat/STDU_SHOP/pull/53). Владелец подтвердил отпечаток SSH, Docker Engine 29.9.2, Compose 5.6.1, ext4 rootfs и 25 GiB свободного места. Daemon ID и ресурсные признаки ещё предстоит сверить.
+Статус **E0a host evidence pending**. Профиль основан на [плане #52](https://github.com/CrazyMotoCat/STDU_SHOP/pull/52) и [mock-модели #53](https://github.com/CrazyMotoCat/STDU_SHOP/pull/53). Владелец подтвердил отпечаток SSH, Docker Engine 29.9.2, Compose 5.6.1, ext4 rootfs и 25 GiB свободного места. Владелец передал daemon ID, признаки лимитов Engine API и режим 0700. Фактический запуск обновлённого preflight ожидается.
 
 ## Отклонения и бюджет
 
@@ -19,26 +19,16 @@ WB заменяет отдельную VM с отдельным 4 GiB ext4-ус�
 
 ## Первый пакет владельцу
 
-Выполнить на подтверждённой локальной консоли WB из checkout PR. Следующие команды только читают metadata и работают даже при отсутствии каталога лаборатории.
+Выполнить из checkout PR на подтверждённой локальной консоли WB. Владелец подтвердил режим 0700 для каталога `/mnt/data/stdu-wb-lab-01`. Preflight также проверяет владельца, пустоту каталога и фактические параметры монтирования.
 
 ```sh
-uname -rm
-docker --host unix:///var/run/docker.sock compose version --short
-docker --host unix:///var/run/docker.sock info --format '{{.ID}} {{.ServerVersion}} {{.OSType}} {{.Architecture}} cgroup={{.CgroupVersion}} memory={{.MemoryLimit}} swap={{.SwapLimit}} cpu={{.CpuCfsQuota}} pids={{.PidsLimit}}'
-cat /sys/fs/cgroup/cgroup.controllers
-findmnt -T / -o SOURCE,TARGET,FSTYPE,MAJ:MIN,OPTIONS
-findmnt -T /mnt/data -o SOURCE,TARGET,FSTYPE,MAJ:MIN,OPTIONS
-```
-
-Зафиксировать выведенный daemon ID в переменной `EXPECTED_DAEMON_ID` после сверки с владельцем. Формальный E0a host preflight также требует заранее выделенный пустой каталог `/mnt/data/stdu-wb-lab-01`, принадлежащий оператору с режимом 0700. Пока каталог отсутствует, результат — BLOCKED. После выделения каталога выполнить:
-
-```sh
-test -n "${EXPECTED_DAEMON_ID:-}" &&
 env -u DOCKER_HOST -u DOCKER_CONTEXT -u DOCKER_TLS_VERIFY \
-  python3 -B experiments/wb-lab-01/preflight.py "$EXPECTED_DAEMON_ID"
+  python3 -B experiments/wb-lab-01/preflight.py be35948b-8382-4d17-b83e-9f4ab90b9954
 ```
 
-Передать вывод обеих проверок. `E0A_HOST_METADATA_PASS` проверяет установленный Engine/Compose, локальный daemon, доступные cgroup controllers, флаги лимитов Engine, root device, mount identity, RAM/disk и отсутствие оставшихся ресурсов WB-LAB-01. Он не подтверждает лимиты реального контейнера или ownership новых томов. Compose в этом пакете используется только для рендера и статической проверки, его runnable service set ограничен PostgreSQL и controller. В нём отсутствуют worker/verifier, а проверка конфигурации отклоняет добавление любого из них. Оба decoder-рецепта зарезервированы для будущего запуска через отдельный controller с одним слотом, удерживаемым до подтверждённого удаления предыдущего контейнера. E0b–E5 ожидают Quality PASS и отдельного разрешения.
+Preflight сверяет подтверждённый daemon ID по `GET /info` через `/var/run/docker.sock`. Признаки MemoryLimit, SwapLimit, CpuCfsQuota, CpuCfsPeriod и PidsLimit берутся из Engine API. У Docker CLI template на WB нет CPU CFS полей. Запрос использует timeout сокета 5 секунд и ограничение ответа 1 MiB. Неуспешный ответ, отсутствующий признак и несовпадение версий Engine 29.9.2 или Compose 5.6.1 дают BLOCKED.
+
+Передать JSON проверки. `E0A_HOST_METADATA_PASS` подтверждает метаданные хоста и заявленную Docker поддержку лимитов. Поля `resource_ownership`, `container_cgroup_limits` и `E0b` остаются `NOT_RUN`. Compose в этом пакете используется для рендера и статической проверки. В нём доступны только PostgreSQL и controller. Валидатор отклоняет добавление decoder-сервисов. Для будущего запуска декодеров предусмотрен controller с одним слотом, удерживаемым до подтверждённого удаления предыдущего контейнера. E0b–E5 ожидают Quality PASS и отдельного разрешения.
 
 ARM64 codec build определён в Dockerfile.codec. Для будущей сборки использовать отдельный каталог wheels с wheel Pillow из requirements, полученным по HTTPS и сверенным с SHA-256. Запускать сборку из корня репозитория с `docker build --network none --platform linux/arm64 --build-context wheels=<путь> -f experiments/wb-lab-01/Dockerfile.codec -t stdu-wb-lab-codec:arm64 .`. Перед workload ledger должен закрепить локальный image ID и подтвердить Architecture. Native build и boot PostgreSQL под UID 999 на WB остаются NOT_RUN.
 

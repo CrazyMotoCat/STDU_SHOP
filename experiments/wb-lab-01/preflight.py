@@ -1,10 +1,12 @@
 """Read-only host preflight for WB-LAB-01. Emits JSON and never provisions Docker."""
 
+import http.client
 import json
 import os
 import platform
 import re
 import shutil
+import socket
 import stat
 import subprocess
 import sys
@@ -17,6 +19,15 @@ GIB = 1024**3
 ENGINE_VERSION = "29.9.2"
 COMPOSE_VERSION = "5.6.1"
 LABEL = "stdu.wb-lab-01.run"
+ENGINE_LIMIT_FIELDS = (
+    "MemoryLimit",
+    "SwapLimit",
+    "CpuCfsQuota",
+    "CpuCfsPeriod",
+    "PidsLimit",
+)
+ENGINE_INFO_MAX_BYTES = MIB
+ENGINE_INFO_TIMEOUT = 5
 
 
 class Blocked(RuntimeError):
@@ -42,6 +53,34 @@ def call(*args):
 
 def docker(*args):
     return call("docker", "--host", f"unix://{SOCKET}", *args)
+
+
+class LocalEngineConnection(http.client.HTTPConnection):
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect(str(SOCKET))
+
+
+def engine_info():
+    connection = LocalEngineConnection("localhost", timeout=ENGINE_INFO_TIMEOUT)
+    try:
+        connection.request(
+            "GET",
+            "/info",
+            headers={"Accept": "application/json", "Connection": "close"},
+        )
+        with connection.getresponse() as response:
+            require(response.status == 200, "ENGINE_INFO_HTTP_STATUS")
+            payload = response.read(ENGINE_INFO_MAX_BYTES + 1)
+            require(len(payload) <= ENGINE_INFO_MAX_BYTES, "ENGINE_INFO_TOO_LARGE")
+            info = json.loads(payload)
+            require(isinstance(info, dict), "ENGINE_INFO_OBJECT_REQUIRED")
+            return info
+    except (OSError, ValueError, http.client.HTTPException) as error:
+        raise Blocked("ENGINE_INFO_UNAVAILABLE") from error
+    finally:
+        connection.close()
 
 
 def mount(path):
@@ -85,15 +124,7 @@ def verify_runtime(info, compose, controllers, expected_daemon):
         {"cpu", "memory", "pids"} <= set(controllers), "CGROUP_CONTROLLERS_UNAVAILABLE"
     )
     require(
-        all(
-            info.get(key) is True
-            for key in (
-                "MemoryLimit",
-                "SwapLimit",
-                "CpuCfsQuota",
-                "PidsLimit",
-            )
-        ),
+        all(info.get(key) is True for key in ENGINE_LIMIT_FIELDS),
         "CGROUP_LIMITS_UNAVAILABLE",
     )
 
@@ -117,7 +148,7 @@ def collect(expected_daemon):
         "AMBIENT_DOCKER_TARGET",
     )
     require(stat.S_ISSOCK(SOCKET.stat().st_mode), "LOCAL_DOCKER_SOCKET_REQUIRED")
-    info = json.loads(docker("info", "--format", "{{json .}}"))
+    info = engine_info()
     compose = docker("compose", "version", "--short")
     controllers = Path("/sys/fs/cgroup/cgroup.controllers").read_text().split()
     verify_runtime(info, compose, controllers, expected_daemon)
@@ -177,10 +208,8 @@ def collect(expected_daemon):
         "compose": compose,
         "cgroup_version": str(info["CgroupVersion"]),
         "cgroup_controllers": controllers,
-        "engine_limits": {
-            key: info[key]
-            for key in ("MemoryLimit", "SwapLimit", "CpuCfsQuota", "PidsLimit")
-        },
+        "cgroup_driver": info["CgroupDriver"],
+        "engine_limits": {key: info[key] for key in ENGINE_LIMIT_FIELDS},
         "kernel": platform.release(),
         "cpu_affinity": len(os.sched_getaffinity(0)),
         "mem_available_bytes": available,
@@ -192,6 +221,7 @@ def collect(expected_daemon):
             "docker": engine,
         },
         "resource_ownership": "NOT_RUN",
+        "container_cgroup_limits": "NOT_RUN",
         "E0b": "NOT_RUN",
         "VDS_equivalence": "NOT_PROVEN",
     }
