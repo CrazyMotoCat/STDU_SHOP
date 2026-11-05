@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 import uuid
+from contextvars import ContextVar
 from pathlib import Path
 
 from preflight import (
@@ -54,21 +55,63 @@ print(json.dumps({
 """
 
 
+TRACE = ContextVar("docker_trace", default=None)
+PHASE = ContextVar("docker_phase", default="workload")
+OPERATION_CAPS = {"inspect": 3, "ls": 3, "create": 5, "start": 12, "rm": 3}
+
+
 def command(deadline, *args):
-    remaining = deadline - time.monotonic()
-    require(remaining > 0, "DEADLINE")
-    return subprocess.run(
-        ["docker", "--host", f"unix://{SOCKET}", *args],
-        text=True,
-        capture_output=True,
-        timeout=min(remaining, 3),
-        check=False,
+    started = time.monotonic()
+    remaining = deadline - started
+    operation = ".".join(args[:2])
+    require(
+        args[0] in {"container", "volume", "network", "image"}
+        and args[1] in OPERATION_CAPS,
+        "UNREGISTERED_DOCKER_OPERATION",
     )
+    record = {
+        "phase": PHASE.get(),
+        "operation": operation,
+        "elapsed_ms": 0,
+        "timeout_budget_ms": max(
+            0, round(min(remaining, OPERATION_CAPS[args[1]]) * 1000)
+        ),
+        "error_type": None,
+    }
+    trace = TRACE.get()
+    if trace is not None:
+        require(len(trace) < 48, "OPERATION_EVIDENCE_LIMIT")
+        trace.append(record)
+    try:
+        require(remaining > 0, "DEADLINE")
+        result = subprocess.run(
+            ["docker", "--host", f"unix://{SOCKET}", *args],
+            text=True,
+            capture_output=True,
+            timeout=min(remaining, OPERATION_CAPS[args[1]]),
+            check=False,
+        )
+        finished = time.monotonic()
+        record["elapsed_ms"] = round((finished - started) * 1000)
+        require(
+            finished < deadline
+            and finished - started < min(remaining, OPERATION_CAPS[args[1]]),
+            "DOCKER_OPERATION_OVERRAN_DEADLINE",
+        )
+        if result.returncode:
+            record["error_type"] = "NonzeroExit"
+        return result
+    except (Blocked, OSError, subprocess.TimeoutExpired, KeyboardInterrupt) as error:
+        record["elapsed_ms"] = round((time.monotonic() - started) * 1000)
+        record["error_type"] = type(error).__name__
+        raise
 
 
 def checked(deadline, *args):
     result = command(deadline, *args)
-    require(result.returncode == 0, f"DOCKER_{args[0].upper()}_FAILED")
+    require(
+        result.returncode == 0, f"DOCKER_{args[0].upper()}_{args[1].upper()}_FAILED"
+    )
     return result.stdout.strip()
 
 
@@ -198,8 +241,11 @@ def validate_probe(result, device):
     )
 
 
-def watchdog(deadline, name, run_id, container_id, stop, ready):
+def watchdog(deadline, name, run_id, container_id, stop, ready, diagnostic=None):
     """Independent host process. A failed observation prevents a successful run."""
+    trace = []
+    TRACE.set(trace)
+    PHASE.set("watchdog")
     try:
         while not stop.is_set():
             require(time.monotonic() < deadline, "WATCHDOG_DEADLINE")
@@ -222,6 +268,14 @@ def watchdog(deadline, name, run_id, container_id, stop, ready):
         TypeError,
         subprocess.TimeoutExpired,
     ):
+        if diagnostic is not None:
+            diagnostic.send(
+                next(
+                    (dict(row) for row in reversed(trace) if row["error_type"]),
+                    {"phase": "watchdog", "operation": "watchdog.stop_condition"},
+                )
+            )
+        TRACE.set(None)
         abort_deadline = time.monotonic() + 4
         try:
             item = inspect(abort_deadline, "container", container_id)
@@ -330,12 +384,17 @@ def run_probe(host):
         "E0b_to_E5": "NOT_RUN",
         "VDS_equivalence": "NOT_PROVEN",
     }
+    trace = []
+    trace_token = TRACE.set(trace)
+    phase_token = PHASE.set("workload")
+    evidence["operations"] = trace
     deadline = time.monotonic() + 30
     before = None
     watcher = None
     context = multiprocessing.get_context("fork")
     stop = context.Event()
     ready = context.Event()
+    diagnostic_read, diagnostic_write = context.Pipe(duplex=False)
     try:
         before = snapshot(deadline)
         require(
@@ -421,7 +480,8 @@ def run_probe(host):
         )
         validate_container(item, image_id, name, str(source))
         watcher = context.Process(
-            target=watchdog, args=(deadline, name, run_id, container_id, stop, ready)
+            target=watchdog,
+            args=(deadline, name, run_id, container_id, stop, ready, diagnostic_write),
         )
         watcher.start()
         require(ready.wait(4) and watcher.is_alive(), "WATCHDOG_NOT_READY")
@@ -458,6 +518,10 @@ def run_probe(host):
             str(error) if isinstance(error, Blocked) else type(error).__name__
         )
     finally:
+        evidence["failure_operation"] = next(
+            (dict(row) for row in reversed(trace) if row["error_type"]), None
+        )
+        PHASE.set("cleanup")
         cleanup_deadline = time.monotonic() + 10
         stop.set()
         try:
@@ -467,6 +531,8 @@ def run_probe(host):
                 if watcher.exitcode != 0:
                     evidence["status"] = "BLOCKED"
                     evidence["reason"] = "WATCHDOG_STOP_CONDITION"
+            if diagnostic_read.poll():
+                evidence["watchdog_failure"] = diagnostic_read.recv()
             cleanup(cleanup_deadline, ledger)
             evidence["cleanup"] = "CONFIRMED"
             if before is not None:
@@ -492,7 +558,11 @@ def run_probe(host):
             evidence["cleanup_reason"] = (
                 str(error) if isinstance(error, Blocked) else type(error).__name__
             )
+        diagnostic_read.close()
+        diagnostic_write.close()
         save(path, evidence)
+        TRACE.reset(trace_token)
+        PHASE.reset(phase_token)
     return evidence
 
 
