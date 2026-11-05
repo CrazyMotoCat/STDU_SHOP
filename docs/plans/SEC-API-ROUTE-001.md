@@ -39,6 +39,7 @@ This is a bounded regression matrix, not a new URL canonicalization contract. Ex
 - `pnpm test:r1-010b`: 34 passed, 1 existing opt-in skip. Disposable PostgreSQL/Redis + full API, 11 forbidden URLs for both authenticated and anonymous clients. No `downloadDocument` or `openInquiryQuarantine` calls, no document-byte prefix in JSON responses, no new download-success audit; document rows, existing audit and stored bytes remain unchanged.
 - `pnpm --filter @stdu/api typecheck`, `pnpm exec eslint . --max-warnings 0`: passed.
 - `pnpm contract:check`, `pnpm catalog:contract:check`, `pnpm r1-010d:contract:check`: passed; no frozen changes.
+- `node docs/contracts/check-R1-010.mjs` and its 33 tests: passed. The historical L0 alignment report is pinned by approval provenance and remains byte-for-byte unchanged from main; this separate report records the current routing behavior.
 - Independent read-only security review: PASS, no P0/P1/P2. Reviewer independently ran the 30-case HTTP suite and inspected the installed Nest route resolver, production diff and runtime assertions.
 
 Final hosted FAST/FULL checks and exact candidate SHA are recorded in the Draft PR, rather than inferred from local results. OPS-TEST-02 and other projects are not used or modified.
