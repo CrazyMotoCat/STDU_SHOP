@@ -116,6 +116,37 @@ def owned_volume(item, name, run_id):
     return item
 
 
+def validate_image(image):
+    """Normalize only Docker Hub's explicit official-python repository aliases."""
+    repository, digest = IMAGE.split("@")
+    require(repository == "docker.io/library/python", "PINNED_REPOSITORY")
+    allowed = {
+        f"{name}@{digest}"
+        for name in (
+            "python",
+            "library/python",
+            "docker.io/python",
+            "docker.io/library/python",
+            "index.docker.io/python",
+            "index.docker.io/library/python",
+        )
+    }
+    image_id = image.get("Id", "")
+    require(
+        image.get("Os") == "linux"
+        and image.get("Architecture") == "arm64"
+        and image.get("Variant", "") in ("", "v8")
+        and isinstance(image_id, str)
+        and image_id.startswith("sha256:")
+        and HEX_ID.fullmatch(image_id[7:])
+        and isinstance(image.get("RepoDigests"), list)
+        and all(isinstance(ref, str) for ref in image["RepoDigests"])
+        and any(ref in allowed for ref in image["RepoDigests"]),
+        "LOCAL_IMAGE_ID",
+    )
+    return image_id
+
+
 def validate_container(item, image_id, volume_name, mountpoint):
     host = item["HostConfig"]
     require(
@@ -313,14 +344,7 @@ def run_probe(host):
             "RUN_NAME_COLLISION",
         )
         [image] = json.loads(checked(deadline, "image", "inspect", IMAGE))
-        image_id = image["Id"]
-        require(
-            image["Architecture"] == "arm64"
-            and IMAGE in image["RepoDigests"]
-            and image_id.startswith("sha256:")
-            and HEX_ID.fullmatch(image_id[7:]),
-            "LOCAL_IMAGE_ID",
-        )
+        image_id = validate_image(image)
         thresholds(mem_available(), shutil.disk_usage(ROOT).free)
         ledger["image_id"] = image_id
         ledger["volume_create_requested"] = True

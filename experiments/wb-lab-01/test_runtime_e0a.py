@@ -4,11 +4,13 @@ import unittest
 from unittest.mock import patch
 
 from runtime_e0a import (
+    IMAGE,
     LABEL,
     LIMITS,
     Blocked,
     cleanup,
     owned_volume,
+    validate_image,
     validate_probe,
     watchdog,
 )
@@ -51,6 +53,42 @@ def ledger():
 
 
 class E0aTests(unittest.TestCase):
+    def test_engine_29_hub_canonical_references_keep_exact_digest(self):
+        digest = IMAGE.split("@")[1]
+        image = {"Id": "sha256:" + CID, "Architecture": "arm64", "Os": "linux"}
+        for repository in (
+            "python",
+            "library/python",
+            "docker.io/python",
+            "docker.io/library/python",
+            "index.docker.io/python",
+            "index.docker.io/library/python",
+        ):
+            with self.subTest(repository=repository):
+                self.assertEqual(
+                    validate_image(
+                        {**image, "RepoDigests": [repository + "@" + digest]}
+                    ),
+                    image["Id"],
+                )
+        for changes in (
+            {"RepoDigests": ["python@sha256:" + "f" * 64]},
+            {"RepoDigests": ["evil.example/library/python@" + digest]},
+            {"RepoDigests": ["docker.io/other/python@" + digest]},
+            {"RepoDigests": None},
+            {"RepoDigests": [{}]},
+            {"RepoDigests": ["python:3.14.3"]},
+            {"Architecture": "amd64", "RepoDigests": [IMAGE]},
+            {"Os": "windows", "RepoDigests": [IMAGE]},
+            {"Id": "sha256:short", "RepoDigests": [IMAGE]},
+            {"Variant": "v7", "RepoDigests": [IMAGE]},
+        ):
+            with (
+                self.subTest(changes=changes),
+                self.assertRaisesRegex(Blocked, "LOCAL_IMAGE_ID"),
+            ):
+                validate_image({**image, **changes})
+
     def test_observed_cgroup_and_network(self):
         observed = {
             "limits": LIMITS,
