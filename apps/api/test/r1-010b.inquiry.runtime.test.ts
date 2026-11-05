@@ -3949,17 +3949,42 @@ describe.skipIf(!runtimeEnabled)(
         expect(range.rawBody).not.toContain(
           bytes.subarray(0, 11).toString('utf8'),
         );
-        const encoded = await fullActor.agent.request(
-          'GET',
+        const forbiddenPaths = [
           path.replace('/download', '/%64ownload'),
+          path.replace('/download', '/%2564ownload'),
+          path.replace('/documents/', '/%64ocuments/'),
+          path.replace('/download', '//download'),
+          path.replace('/download', '/%2fdownload'),
+          path.replace('/download', '/down%2Fload'),
+          path.replace('/inquiries/', '/%69nquiries/'),
+          path.replace('/download', '/unregistered'),
+          '/v1/staff/auth/%6de',
+          '/v1/staff/%75sers',
+          '/v1/staff/catalog/%70roducts',
+        ];
+        const download = vi.spyOn(
+          app!.get(InquiriesService),
+          'downloadDocument',
         );
-        // The existing boundary maps this encoded route to INTERNAL_ERROR.
-        // The security property here is that it cannot return file bytes.
-        expect(encoded.status).toBe(500);
-        expect(encoded.body.code).toBe('INTERNAL_ERROR');
-        expect(encoded.rawBody).not.toContain(
-          bytes.subarray(0, 11).toString('utf8'),
-        );
+        try {
+          for (const url of forbiddenPaths) {
+            for (const agent of [fullActor.agent, anonymous]) {
+              const unmatched = await agent.request('GET', url);
+              expect(unmatched.status).toBe(404);
+              expect(unmatched.body.code).toBe('NOT_FOUND');
+              expect(unmatched.headers.get('content-type')).toContain(
+                'application/json',
+              );
+              expect(unmatched.rawBody).not.toContain(
+                bytes.subarray(0, 11).toString('utf8'),
+              );
+              expect(download).not.toHaveBeenCalled();
+              expect(open).not.toHaveBeenCalled();
+            }
+          }
+        } finally {
+          download.mockRestore();
+        }
         expect(open).not.toHaveBeenCalled();
         expect(
           await ownerDb!.auditEvent.count({

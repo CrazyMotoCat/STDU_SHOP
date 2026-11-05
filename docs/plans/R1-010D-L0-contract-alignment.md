@@ -25,7 +25,7 @@ The FROZEN OpenAPI removes the successful binary response until a future exact-o
 
 ## Encoded static-route finding — separate follow-up
 
-`GET .../documents/{documentId}/%64ownload` does not reach the download handler in the current Nest/Express route matching. The test confirms no storage open and no source bytes. It currently returns 500 `INTERNAL_ERROR`: `HttpBoundaryFilter` maps an unmatched staff `HttpException` as an unknown error, while its special 404 normalization is limited to public Inquiry routes. This is a shared routing/error-boundary behavior, so PR #33 keeps the existing observed result and records the no-bytes security property. Track `SEC-API-ROUTE-001` separately to review encoded static-path normalization and non-enumerating staff 404 mapping across all staff routes; do not broaden the L0 fix without its own regression matrix.
+`GET .../documents/{documentId}/%64ownload` does not reach the download handler in the current Nest/Express route matching. The test confirms no storage open and no source bytes. At the PR #33 baseline it returned 500 `INTERNAL_ERROR`: `HttpBoundaryFilter` treated the unmatched staff framework exception as an unknown error. PR #33 retained that observed result without broadening L0. The separate [SEC-API-ROUTE-001 fix and regression matrix](SEC-API-ROUTE-001.md) normalize framework `NotFoundException` to safe 404 while preserving the no-bytes property and actual internal errors. No L0 policy or frozen contract is amended by that routing fix.
 
 ## Production status and residual risks
 
