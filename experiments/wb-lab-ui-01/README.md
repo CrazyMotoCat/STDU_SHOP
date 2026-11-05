@@ -1,6 +1,6 @@
 # WB-LAB-UI-01 — native SVG HMI
 
-**Status:** owner visual review and independent Quality review passed; cold-start, retained-data, and mobile-readability corrections are applied without changing the approved composition. Fresh PR checks are pending. Runtime import and MQTT connection have not been run. The dashboard is a separate, read-only workstream.
+**Status:** owner visual review and independent Quality review passed; cold-start, retained-data, and mobile-readability corrections are applied without changing the approved composition. FAST CI and FULL CI passed for correction commit `3d5c66ac9c8feec2c593caddd25d2371f8f47985`. Runtime import and MQTT connection have not been run. The dashboard is a separate, read-only workstream.
 
 ## Package
 
