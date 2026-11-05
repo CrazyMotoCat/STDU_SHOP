@@ -1,6 +1,6 @@
 # WB-LAB-UI-01 — native SVG HMI
 
-**Status:** prepared for owner visual approval. Runtime import and MQTT connection have not been run. The dashboard is a separate, read-only workstream.
+**Status:** owner visual review and independent Quality review passed; cold-start, retained-data, and mobile-readability corrections are applied without changing the approved composition. Fresh PR checks are pending. Runtime import and MQTT connection have not been run. The dashboard is a separate, read-only workstream.
 
 ## Package
 
@@ -17,9 +17,11 @@
 Preview captures:
 
 - [Desktop · 1440 × 900](screenshots/desktop.png)
-- [Mobile · 420 × 1560](screenshots/mobile.png)
+- [Mobile · 375 px render of the 420 × 1560 SVG](screenshots/mobile.png)
 
-Every screen carries a clear `DEMO · SYNTHETIC` badge and says live runtime results are not run. The example includes simulated status colors and counts strictly to show the visual states; none proves an E0–E5 experiment. The LIVE source adapter is intentionally absent because PR #54 has not yet produced verified runtime evidence.
+Every screen keeps a static `DEMO · SYNTHETIC` marker separate from the bound mode value, so MQTT text cannot overwrite it. At cold start, the panel shows `NO_DATA`, `UNKNOWN`, `NOT_RUN`, and em dashes; synthetic measurements and statuses appear only after someone explicitly runs the DEMO publisher. Bound status fields are labeled as last reported. When the collector is offline, the screen explains that retained values are last known and sample age is the age reported at publish time, not current collector availability.
+
+Latest WB-LAB-01 evidence, as supplied by the owner: **E0a Host Metadata PASS** on the real WB; **E0a Runtime BLOCKED: `LOCAL_IMAGE_ID`**; no container or volume was created in that attempt; **E0b–E5 NOT_RUN**. This partial host metadata result is not runtime experiment evidence and is not wired into the synthetic dashboard.
 
 ## Local preview
 
@@ -67,7 +69,8 @@ The checks cover XML parsing, stable unique IDs, no external resources/scripts, 
 
 ## Limitations / next steps
 
-- No E0–E5 live telemetry source is wired. All demo measurements and outcomes are synthetic.
+- E0a host metadata has a reported PASS, while runtime is blocked at `LOCAL_IMAGE_ID`; no container or volume was created. E0b–E5 remain `NOT_RUN`. No runtime telemetry source is wired; all DEMO measurements and outcomes are synthetic.
+- The cold-start SVG displays no sample numbers, no `FRESH`, no `PASS`, and no `RUNNING`. Retained MQTT values remain historical/last-known when `Collector_Status=OFFLINE`; HomeUI does not combine these channels into an effective freshness calculation.
 - The installed HomeUI release is verified as `2.267.7`; editor import compatibility is `NOT_VERIFIED` until an owner-approved runtime import.
 - No live broker write, dashboard upload, package install, WB configuration change, or runtime test has been performed.
-- Next: visual review of the screenshots. Import the dashboard only after separate owner approval.
+- Next: complete fresh PR checks. Import the dashboard only after separate owner approval.

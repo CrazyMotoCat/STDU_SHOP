@@ -45,6 +45,13 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(collector_state(None), "UNKNOWN")
         self.assertEqual(demo_frame(4, collector_connected=True)["Telemetry_State"], "STALE")
 
+    def test_snapshot_age_is_separate_from_collector_availability(self) -> None:
+        last_snapshot = demo_frame(0, collector_connected=False)
+        self.assertEqual(last_snapshot["Telemetry_State"], "FRESH")
+        self.assertEqual(last_snapshot["Collector_Status"], "OFFLINE")
+        self.assertIn("LAST SAMPLE AGE", (ROOT / "dashboard-desktop.svg").read_text(encoding="utf-8"))
+        self.assertIn("OFFLINE = retained / last known", (ROOT / "dashboard-desktop.svg").read_text(encoding="utf-8"))
+
     def test_demo_adapter_rejects_live_or_unknown_payloads(self) -> None:
         live = demo_frame(0)
         live["Source_Mode"] = "LIVE"
@@ -75,11 +82,16 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(len([name for name in CONTROL_SCHEMA if name.startswith("Stage_")]), len(STAGE_CODES))
 
     def test_defaults_do_not_claim_runtime_success(self) -> None:
-        self.assertEqual(DEFAULTS["Source_Mode"], "DEMO")
+        self.assertEqual(DEFAULTS["Source_Mode"], "UNKNOWN")
         self.assertEqual(DEFAULTS["Telemetry_State"], "NO_DATA")
-        self.assertEqual(DEFAULTS["Collector_Status"], "OFFLINE")
+        self.assertEqual(DEFAULTS["Collector_Status"], "UNKNOWN")
         self.assertEqual(DEFAULTS["Unknown_Cleanup"], "UNKNOWN")
-        self.assertEqual(DEFAULTS["Runtime_Blocked"], "ACTIVE")
+        self.assertEqual(DEFAULTS["Runtime_Blocked"], "UNKNOWN")
+        for name in (
+            "Progress", "Passed", "Failed", "RAM_Available_MiB", "CPU_Load_Pct", "Disk_Free_GiB",
+            "Swap_Used_MiB", "Container_RAM_Peak_MiB", "Heartbeat",
+        ):
+            self.assertIsNone(DEFAULTS[name], f"{name} must not invent a cold-start measurement")
         self.assertTrue(all(DEFAULTS[f"Stage_{code}_Status"] == "NOT_RUN" for code in STAGE_CODES))
 
 

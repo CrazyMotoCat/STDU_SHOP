@@ -93,7 +93,7 @@ ALARM_STYLE = (
 )
 TELEMETRY_STYLE = (
     "(val == 'FRESH') ? ';fill:#43d59c' : "
-    "(val == 'STALE') ? ';fill:#f5bd55' : ';fill:#fb7185'"
+    "(val == 'STALE') ? ';fill:#f5bd55' : ';fill:#a4b2c4'"
 )
 MODE_STYLE = (
     "(val == 'DEMO') ? ';fill:#f5bd55' : "
@@ -136,11 +136,12 @@ def header_desktop(out: list[str]) -> None:
         text(88, 65, "WB-LAB-01   ·   ARM64   ·   READ-ONLY MONITOR", size=11, color=MUTED, weight=600, letter=0.5),
         rect(1104, 24, 304, 42, "#322816", rx=12, stroke="#73552b"),
         text(1122, 50, "MODE", size=10, color="#d9bd8a", weight=700, letter=1),
-        text(1390, 50, "DEMO · SYNTHETIC", size=13, color=AMBER, weight=700, id_="dash_mode", anchor="end"),
+        text(1225, 50, "UNKNOWN", size=11, color=SLATE, weight=700, id_="dash_mode"),
+        text(1390, 50, "DEMO · SYNTHETIC", size=10, color=AMBER, weight=700, id_="dash_demo_notice", anchor="end"),
         text(914, 87, "CONTROLLER", size=8, color=MUTED, weight=700, letter=0.6),
         text(1000, 87, "UNKNOWN", size=10, color=SLATE, weight=700, id_="dash_controller_status"),
         text(1150, 87, "UTC", size=8, color=MUTED, weight=700, anchor="end", letter=0.6),
-        text(1408, 87, "DEMO SAMPLE", size=10, color=TEXT, weight=600, id_="dash_clock", anchor="end"),
+        text(1408, 87, "NO DATA", size=10, color=TEXT, weight=600, id_="dash_clock", anchor="end"),
     ])
 
 
@@ -152,60 +153,61 @@ def header_mobile(out: list[str]) -> None:
         text(71, 62, "TEST LAB · WB-LAB-01", size=10, color=MUTED, weight=600),
         rect(22, 77, 376, 34, "#322816", rx=10, stroke="#73552b"),
         text(38, 99, "MODE", size=9, color="#d9bd8a", weight=700, letter=0.8),
-        text(384, 100, "DEMO · SYNTHETIC", size=12, color=AMBER, weight=700, id_="dash_mode", anchor="end"),
-        text(24, 128, "CTRL", size=8, color=MUTED, weight=700, letter=0.6),
-        text(57, 128, "UNKNOWN", size=9, color=SLATE, weight=700, id_="dash_controller_status"),
-        text(252, 128, "UTC", size=8, color=MUTED, weight=700, anchor="end", letter=0.6),
-        text(397, 128, "DEMO SAMPLE", size=9, color=TEXT, weight=600, id_="dash_clock", anchor="end"),
+        text(208, 100, "UNKNOWN", size=10, color=SLATE, weight=700, id_="dash_mode", anchor="middle"),
+        text(384, 100, "DEMO · SYNTHETIC", size=9, color=AMBER, weight=700, id_="dash_demo_notice", anchor="end"),
+        text(24, 128, "CTRL", size=9, color=MUTED, weight=700, letter=0.6),
+        text(62, 128, "UNKNOWN", size=10, color=SLATE, weight=700, id_="dash_controller_status"),
+        text(252, 128, "UTC", size=9, color=MUTED, weight=700, anchor="end", letter=0.6),
+        text(397, 128, "NO DATA", size=10, color=TEXT, weight=600, id_="dash_clock", anchor="end"),
     ])
 
 
 def run_card_desktop(out: list[str]) -> None:
     x, y, w, h = 32, 118, 846, 200
     out.append(rect(x, y, w, h, CARD, stroke=STROKE))
-    out.extend(card_title(x + 24, y + 30, "Current experiment", "One synthetic sample run · not runtime evidence"))
+    out.extend(card_title(x + 24, y + 30, "Latest run snapshot", "DEMO values are synthetic · retained values are last known"))
     out.extend([
         rect(x + 24, y + 66, 74, 44, CARD_ALT, rx=10, stroke=STROKE),
-        text(x + 61, y + 94, "E1", size=21, color=CYAN, weight=700, id_="dash_stage", anchor="middle"),
-        text(x + 118, y + 83, "CURRENT TEST", size=9, color=MUTED, weight=700, letter=0.8),
-        text(x + 118, y + 105, "Filesystem fsync", size=17, weight=700, id_="dash_current_test"),
-        text(x + 24, y + 140, "STATUS", size=9, color=MUTED, weight=700, letter=0.8),
-        text(x + 24, y + 165, "RUNNING", size=14, color=CYAN, weight=700, id_="dash_run_status"),
+        text(x + 61, y + 94, "UNKNOWN", size=12, color=SLATE, weight=700, id_="dash_stage", anchor="middle"),
+        text(x + 118, y + 83, "LAST REPORTED TEST", size=9, color=MUTED, weight=700, letter=0.8),
+        text(x + 118, y + 105, "NO DATA", size=14, color=TEXT, weight=700, id_="dash_current_test"),
+        text(x + 24, y + 140, "LAST STATUS", size=9, color=MUTED, weight=700, letter=0.8),
+        text(x + 24, y + 165, "NOT_RUN", size=12, color=SLATE, weight=700, id_="dash_run_status"),
         text(x + 190, y + 140, "PROGRESS", size=9, color=MUTED, weight=700, letter=0.8),
-        text(x + 190, y + 165, "36%", size=14, weight=700, id_="dash_progress"),
+        text(x + 190, y + 165, "—", size=14, weight=700, id_="dash_progress"),
         text(x + 333, y + 140, "ELAPSED", size=9, color=MUTED, weight=700, letter=0.8),
-        text(x + 333, y + 165, "00:00:32", size=14, weight=700, id_="dash_elapsed"),
+        text(x + 333, y + 165, "—", size=14, weight=700, id_="dash_elapsed"),
         text(x + 485, y + 140, "DEMO PASS", size=9, color=MUTED, weight=700, letter=0.8),
-        text(x + 485, y + 165, "1", size=14, weight=700, id_="dash_passed"),
+        text(x + 485, y + 165, "—", size=14, weight=700, id_="dash_passed"),
         text(x + 565, y + 140, "DEMO FAIL", size=9, color=MUTED, weight=700, letter=0.8),
-        text(x + 565, y + 165, "0", size=14, weight=700, id_="dash_failed"),
+        text(x + 565, y + 165, "—", size=14, weight=700, id_="dash_failed"),
         text(x + 24, y + 190, "RUN", size=9, color=MUTED, weight=700),
-        text(x + 63, y + 190, "DEMO-2026-001", size=10, weight=600, id_="dash_run_id"),
+        text(x + 63, y + 190, "NO RUN", size=10, weight=600, id_="dash_run_id"),
         text(x + 520, y + 190, "UPDATED", size=9, color=MUTED, weight=700),
-        text(x + 586, y + 190, "DEMO SAMPLE", size=10, weight=600, id_="dash_last_update"),
+        text(x + 586, y + 190, "NO DATA", size=10, weight=600, id_="dash_last_update"),
     ])
 
 
 def run_card_mobile(out: list[str]) -> None:
     x, y, w, h = 22, 145, 376, 220
     out.append(rect(x, y, w, h, CARD, stroke=STROKE))
-    out.extend(card_title(x + 18, y + 28, "Current experiment", "Synthetic sample · not runtime evidence"))
+    out.extend(card_title(x + 18, y + 28, "Latest run snapshot", "DEMO values are synthetic · retained values are last known"))
     out.extend([
         rect(x + 18, y + 58, 62, 40, CARD_ALT, rx=9, stroke=STROKE),
-        text(x + 49, y + 84, "E1", size=19, color=CYAN, weight=700, id_="dash_stage", anchor="middle"),
-        text(x + 96, y + 68, "CURRENT TEST", size=8, color=MUTED, weight=700, letter=0.7),
-        text(x + 96, y + 90, "Filesystem fsync", size=14, weight=700, id_="dash_current_test"),
+        text(x + 49, y + 84, "UNKNOWN", size=10, color=SLATE, weight=700, id_="dash_stage", anchor="middle"),
+        text(x + 96, y + 68, "LAST REPORTED TEST", size=9, color=MUTED, weight=700, letter=0.7),
+        text(x + 96, y + 90, "NO DATA", size=13, weight=700, id_="dash_current_test"),
         line(x + 18, y + 112, x + w - 18, y + 112),
-        text(x + 18, y + 135, "STATUS", size=8, color=MUTED, weight=700, letter=0.7),
-        text(x + 18, y + 157, "RUNNING", size=12, color=CYAN, weight=700, id_="dash_run_status"),
-        text(x + 142, y + 135, "PROGRESS", size=8, color=MUTED, weight=700, letter=0.7),
-        text(x + 142, y + 157, "36%", size=12, weight=700, id_="dash_progress"),
-        text(x + 258, y + 135, "ELAPSED", size=8, color=MUTED, weight=700, letter=0.7),
-        text(x + 258, y + 157, "00:00:32", size=12, weight=700, id_="dash_elapsed"),
-        text(x + 18, y + 183, "RUN", size=8, color=MUTED, weight=700),
-        text(x + 50, y + 183, "DEMO-2026-001", size=10, weight=600, id_="dash_run_id"),
-        text(x + 18, y + 205, "UPDATED", size=8, color=MUTED, weight=700),
-        text(x + 86, y + 205, "DEMO SAMPLE", size=9, weight=600, id_="dash_last_update"),
+        text(x + 18, y + 135, "LAST STATUS", size=9, color=MUTED, weight=700, letter=0.7),
+        text(x + 18, y + 157, "NOT_RUN", size=11, color=SLATE, weight=700, id_="dash_run_status"),
+        text(x + 142, y + 135, "PROGRESS", size=9, color=MUTED, weight=700, letter=0.7),
+        text(x + 142, y + 157, "—", size=13, weight=700, id_="dash_progress"),
+        text(x + 258, y + 135, "ELAPSED", size=9, color=MUTED, weight=700, letter=0.7),
+        text(x + 258, y + 157, "—", size=13, weight=700, id_="dash_elapsed"),
+        text(x + 18, y + 183, "RUN", size=9, color=MUTED, weight=700),
+        text(x + 50, y + 183, "NO RUN", size=11, weight=600, id_="dash_run_id"),
+        text(x + 18, y + 205, "UPDATED", size=9, color=MUTED, weight=700),
+        text(x + 86, y + 205, "NO DATA", size=10, weight=600, id_="dash_last_update"),
     ])
 
 
@@ -213,90 +215,96 @@ def matrix_rows(out: list[str], x: int, y: int, w: int, *, mobile: bool = False)
     top = y
     h = 400 if not mobile else 426
     out.append(rect(x, top, w, h, CARD, stroke=STROKE))
-    out.extend(card_title(x + (18 if mobile else 24), top + 29, "Runtime stage matrix", "Status text is explicit; DEMO never proves runtime PASS"))
+    out.extend(card_title(x + (18 if mobile else 24), top + 29, "Runtime stage matrix", "Last reported states · DEMO never proves runtime PASS"))
     label_x = x + (18 if mobile else 24)
     code_x = x + (64 if mobile else 78)
     status_x = x + w - (18 if mobile else 24)
     out.extend([
-        text(label_x, top + 82, "STAGE", size=8, color=MUTED, weight=700, letter=0.8),
-        text(code_x, top + 82, "CHECK", size=8, color=MUTED, weight=700, letter=0.8),
-        text(status_x, top + 82, "STATE", size=8, color=MUTED, weight=700, anchor="end", letter=0.8),
+        text(label_x, top + 82, "STAGE", size=9 if mobile else 8, color=MUTED, weight=700, letter=0.8),
+        text(code_x, top + 82, "CHECK", size=9 if mobile else 8, color=MUTED, weight=700, letter=0.8),
+        text(status_x, top + 82, "STATE", size=9 if mobile else 8, color=MUTED, weight=700, anchor="end", letter=0.8),
         line(label_x, top + 94, status_x),
     ])
     step = 36 if mobile else 34
     start = top + 121
-    for index, (code, description, sample_status) in enumerate(STAGES):
+    for index, (code, description) in enumerate(STAGES):
         row_y = start + index * step
+        cold_status = "NOT_RUN"
         if index % 2 == 0:
             out.append(rect(x + 10, row_y - 20, w - 20, step, "#0e1926", rx=7))
         out.extend([
-            text(label_x + 2, row_y, code, size=11 if mobile else 12, color=CYAN, weight=700),
-            text(code_x, row_y, description, size=11 if mobile else 12, color=TEXT, weight=500, id_=f"dash_stage_{code}_label"),
-            text(status_x, row_y, sample_status, size=10 if mobile else 11, color=STATUS_COLORS[sample_status], weight=700, id_=f"dash_stage_{code}_status", anchor="end"),
+            text(label_x + 2, row_y, code, size=12 if mobile else 12, color=CYAN, weight=700),
+            text(code_x, row_y, description, size=12 if mobile else 12, color=TEXT, weight=500, id_=f"dash_stage_{code}_label"),
+            text(status_x, row_y, cold_status, size=11 if mobile else 11, color=STATUS_COLORS[cold_status], weight=700, id_=f"dash_stage_{code}_status", anchor="end"),
         ])
     out.extend([
         line(label_x, top + h - 45, status_x),
-        text(label_x, top + h - 23, "LIVE RUNTIME RESULTS: NOT RUN", size=9, color=AMBER, weight=700),
+        text(label_x, top + h - 23, "LIVE RUNTIME RESULTS: NOT RUN", size=10 if mobile else 9, color=AMBER, weight=700),
     ])
 
 
 def metric_tile(out: list[str], x: int, y: int, w: int, h: int, label: str, value: str, id_: str, unit: str | None = None) -> None:
     out.append(rect(x, y, w, h, CARD_ALT, rx=9, stroke=STROKE))
-    out.append(text(x + 12, y + 20, label.upper(), size=8, color=MUTED, weight=700, letter=0.55))
-    shown = f"{value} {unit}" if unit else value
+    out.append(text(x + 12, y + 20, label.upper(), size=9 if w < 200 else 8, color=MUTED, weight=700, letter=0.55))
+    shown = f"{value}{unit}" if unit == "%" else (f"{value} {unit}" if unit else value)
     out.append(text(x + 12, y + h - 14, shown, size=16, weight=700, id_=id_))
 
 
 def resources_desktop(out: list[str]) -> None:
     x, y, w, h = 914, 118, 494, 386
     out.append(rect(x, y, w, h, CARD, stroke=STROKE))
-    out.extend(card_title(x + 22, y + 30, "Host resources", "Synthetic readings · LIVE source not connected"))
+    out.extend(card_title(x + 22, y + 30, "Host resources", "No data until an explicit DEMO or verified LIVE publish"))
     gap = 10
     tile_w = (w - 44 - gap) // 2
-    metric_tile(out, x + 22, y + 67, tile_w, 70, "RAM available", "1,140", "dash_ram_available", "MiB")
-    metric_tile(out, x + 22 + tile_w + gap, y + 67, tile_w, 70, "CPU load", "28", "dash_cpu_load", "%")
-    metric_tile(out, x + 22, y + 147, tile_w, 70, "Disk free", "18.4", "dash_disk_free", "GiB")
-    metric_tile(out, x + 22 + tile_w + gap, y + 147, tile_w, 70, "Swap used", "64", "dash_swap_used", "MiB")
-    metric_tile(out, x + 22, y + 227, w - 44, 62, "Container RAM peak", "318", "dash_container_peak", "MiB")
+    metric_tile(out, x + 22, y + 67, tile_w, 70, "RAM available", "—", "dash_ram_available", "MiB")
+    metric_tile(out, x + 22 + tile_w + gap, y + 67, tile_w, 70, "CPU load", "—", "dash_cpu_load", "%")
+    metric_tile(out, x + 22, y + 147, tile_w, 70, "Disk free", "—", "dash_disk_free", "GiB")
+    metric_tile(out, x + 22 + tile_w + gap, y + 147, tile_w, 70, "Swap used", "—", "dash_swap_used", "MiB")
+    metric_tile(out, x + 22, y + 227, w - 44, 62, "Container RAM peak", "—", "dash_container_peak", "MiB")
     out.extend([
         text(x + 22, y + 317, "POSTGRESQL", size=8, color=MUTED, weight=700, letter=0.8),
         text(x + 154, y + 317, "UNKNOWN", size=11, color=SLATE, weight=700, id_="dash_pg_status"),
         text(x + 255, y + 317, "DOCKER", size=8, color=MUTED, weight=700, letter=0.8),
         text(x + 335, y + 317, "UNKNOWN", size=11, color=SLATE, weight=700, id_="dash_docker_status"),
-        text(x + 22, y + 358, "All resource values on this view are synthetic.", size=9, color=MUTED),
+        text(x + 22, y + 358, "Metrics appear only when a DEMO or verified LIVE source publishes.", size=9, color=MUTED),
     ])
 
 
 def resources_mobile(out: list[str]) -> None:
     x, y, w, h = 22, 380, 376, 260
     out.append(rect(x, y, w, h, CARD, stroke=STROKE))
-    out.extend(card_title(x + 18, y + 27, "Host resources", "Synthetic readings · LIVE not connected"))
+    out.extend(card_title(x + 18, y + 27, "Host resources", "Values appear only after an explicit DEMO / LIVE publish"))
     gap = 8
     tile_w = (w - 36 - gap) // 2
-    metric_tile(out, x + 18, y + 56, tile_w, 58, "RAM available", "1,140", "dash_ram_available", "MiB")
-    metric_tile(out, x + 18 + tile_w + gap, y + 56, tile_w, 58, "CPU load", "28", "dash_cpu_load", "%")
-    metric_tile(out, x + 18, y + 122, tile_w, 58, "Disk free", "18.4", "dash_disk_free", "GiB")
-    metric_tile(out, x + 18 + tile_w + gap, y + 122, tile_w, 58, "Swap used", "64", "dash_swap_used", "MiB")
+    metric_tile(out, x + 18, y + 56, tile_w, 58, "RAM available", "—", "dash_ram_available", "MiB")
+    metric_tile(out, x + 18 + tile_w + gap, y + 56, tile_w, 58, "CPU load", "—", "dash_cpu_load", "%")
+    metric_tile(out, x + 18, y + 122, tile_w, 58, "Disk free", "—", "dash_disk_free", "GiB")
+    metric_tile(out, x + 18 + tile_w + gap, y + 122, tile_w, 58, "Swap used", "—", "dash_swap_used", "MiB")
     out.extend([
-        text(x + 18, y + 203, "CONTAINER RAM PEAK", size=8, color=MUTED, weight=700),
-        text(x + 18, y + 224, "318 MiB", size=13, weight=700, id_="dash_container_peak"),
-        text(x + 198, y + 203, "POSTGRESQL", size=8, color=MUTED, weight=700),
-        text(x + 198, y + 224, "UNKNOWN", size=10, color=SLATE, weight=700, id_="dash_pg_status"),
-        text(x + 292, y + 203, "DOCKER", size=8, color=MUTED, weight=700),
-        text(x + 292, y + 224, "UNKNOWN", size=10, color=SLATE, weight=700, id_="dash_docker_status"),
-        text(x + 18, y + 247, "Synthetic values only · no live source", size=8, color=MUTED),
+        text(x + 18, y + 203, "CONTAINER RAM PEAK", size=9, color=MUTED, weight=700),
+        text(x + 18, y + 224, "— MiB", size=13, weight=700, id_="dash_container_peak"),
+        text(x + 198, y + 203, "POSTGRESQL", size=9, color=MUTED, weight=700),
+        text(x + 198, y + 224, "UNKNOWN", size=11, color=SLATE, weight=700, id_="dash_pg_status"),
+        text(x + 292, y + 203, "DOCKER", size=9, color=MUTED, weight=700),
+        text(x + 292, y + 224, "UNKNOWN", size=11, color=SLATE, weight=700, id_="dash_docker_status"),
+        text(x + 18, y + 247, "Synthetic values only · no live source", size=9, color=MUTED),
     ])
 
 
 def safety_panel(out: list[str], x: int, y: int, w: int, h: int, *, mobile: bool = False) -> None:
     out.append(rect(x, y, w, h, CARD, stroke=STROKE))
-    out.extend(card_title(x + (18 if mobile else 22), y + (27 if mobile else 29), "Safety / connection", "Read-only status indicators"))
+    out.extend(card_title(
+        x + (18 if mobile else 22),
+        y + (27 if mobile else 29),
+        "Safety / connection",
+        "Age when published · OFFLINE = retained / last known",
+    ))
     entries = [
-        ("TELEMETRY", "FRESH", "dash_telemetry_state", TELEMETRY_STYLE),
+        ("LAST SAMPLE AGE", "NO_DATA", "dash_snapshot_age", TELEMETRY_STYLE),
         ("COLLECTOR", "UNKNOWN", "dash_collector_status", HEALTH_STYLE),
-        ("RESOURCE LIMIT", "CLEAR", "dash_limit_exceeded", ALARM_STYLE),
+        ("RESOURCE LIMIT", "UNKNOWN", "dash_limit_exceeded", ALARM_STYLE),
         ("UNKNOWN CLEANUP", "UNKNOWN", "dash_unknown_cleanup", ALARM_STYLE),
-        ("RUNTIME GATE", "BLOCKED", "dash_runtime_blocked", ALARM_STYLE),
+        ("RUNTIME GATE", "UNKNOWN", "dash_runtime_blocked", ALARM_STYLE),
     ]
     row_step = 31 if mobile else 30
     start_y = y + (81 if mobile else 81)
@@ -304,11 +312,11 @@ def safety_panel(out: list[str], x: int, y: int, w: int, h: int, *, mobile: bool
         row_y = start_y + index * row_step
         if index:
             out.append(line(x + (18 if mobile else 22), row_y - 16, x + w - (18 if mobile else 22)))
-        out.append(text(x + (18 if mobile else 22), row_y, label, size=8, color=MUTED, weight=700, letter=0.55))
+        out.append(text(x + (18 if mobile else 22), row_y, label, size=9 if mobile else 8, color=MUTED, weight=700, letter=0.55))
         static_color = {
             "FRESH": GREEN,
             "STALE": AMBER,
-            "NO_DATA": RED,
+            "NO_DATA": SLATE,
             "ONLINE": GREEN,
             "OFFLINE": RED,
             "CLEAR": GREEN,
@@ -316,7 +324,7 @@ def safety_panel(out: list[str], x: int, y: int, w: int, h: int, *, mobile: bool
             "UNKNOWN": AMBER,
             "BLOCKED": AMBER,
         }.get(value, SLATE)
-        out.append(text(x + w - (18 if mobile else 22), row_y, value, size=10 if mobile else 11, color=static_color, weight=700, id_=id_, anchor="end"))
+        out.append(text(x + w - (18 if mobile else 22), row_y, value, size=11, color=static_color, weight=700, id_=id_, anchor="end"))
     # Broker heartbeat is an opaque counter, never an authorization or run proof.
 
 
@@ -326,11 +334,11 @@ def events_desktop(out: list[str]) -> None:
     out.extend(card_title(x + 22, y + 28, "Latest event & error"))
     out.extend([
         text(x + 22, y + 65, "EVENT", size=8, color=MUTED, weight=700, letter=0.7),
-        text(x + 112, y + 65, "DEMO · E1 probe started", size=11, weight=600, id_="dash_last_event"),
+        text(x + 112, y + 65, "NO DATA", size=11, weight=600, id_="dash_last_event"),
         text(x + 22, y + 91, "ERROR", size=8, color=MUTED, weight=700, letter=0.7),
-        text(x + 112, y + 91, "No synthetic error", size=11, weight=600, id_="dash_last_error"),
+        text(x + 112, y + 91, "NO DATA", size=11, weight=600, id_="dash_last_error"),
         text(x + 22, y + 113, "EVENT TIME (UTC)", size=8, color=MUTED, weight=700, letter=0.6),
-        text(x + 157, y + 113, "DEMO SAMPLE", size=9, weight=600, id_="dash_event_time"),
+        text(x + 157, y + 113, "NO DATA", size=9, weight=600, id_="dash_event_time"),
         text(x + w - 22, y + 113, "LIVE RUNTIME EVIDENCE: NOT RUN", size=8, color=AMBER, weight=700, anchor="end"),
     ])
 
@@ -340,18 +348,18 @@ def events_mobile(out: list[str]) -> None:
     out.append(rect(x, y, w, h, CARD, stroke=STROKE))
     out.extend(card_title(x + 18, y + 27, "Latest event & error"))
     out.extend([
-        text(x + 18, y + 67, "EVENT", size=8, color=MUTED, weight=700),
-        text(x + 82, y + 67, "DEMO · E1 probe started", size=10, weight=600, id_="dash_last_event"),
-        text(x + 18, y + 96, "ERROR", size=8, color=MUTED, weight=700),
-        text(x + 82, y + 96, "No synthetic error", size=10, weight=600, id_="dash_last_error"),
-        text(x + 18, y + 126, "EVENT TIME (UTC)", size=8, color=MUTED, weight=700),
-        text(x + 150, y + 126, "DEMO SAMPLE", size=9, weight=600, id_="dash_event_time"),
+        text(x + 18, y + 67, "EVENT", size=9, color=MUTED, weight=700),
+        text(x + 82, y + 67, "NO DATA", size=11, weight=600, id_="dash_last_event"),
+        text(x + 18, y + 96, "ERROR", size=9, color=MUTED, weight=700),
+        text(x + 82, y + 96, "NO DATA", size=11, weight=600, id_="dash_last_error"),
+        text(x + 18, y + 126, "EVENT TIME (UTC)", size=9, color=MUTED, weight=700),
+        text(x + 150, y + 126, "NO DATA", size=10, weight=600, id_="dash_event_time"),
         line(x + 18, y + 143, x + w - 18),
-        text(x + 18, y + 166, "DEMO PASS", size=8, color=MUTED, weight=700),
-        text(x + 96, y + 166, "1", size=10, weight=700, id_="dash_passed"),
-        text(x + 187, y + 166, "DEMO FAIL", size=8, color=MUTED, weight=700),
-        text(x + w - 18, y + 166, "0", size=10, weight=700, id_="dash_failed", anchor="end"),
-        text(x + 18, y + 185, "No runtime result is inferred from DEMO.", size=8, color=MUTED),
+        text(x + 18, y + 166, "DEMO PASS", size=9, color=MUTED, weight=700),
+        text(x + 96, y + 166, "—", size=11, weight=700, id_="dash_passed"),
+        text(x + 187, y + 166, "DEMO FAIL", size=9, color=MUTED, weight=700),
+        text(x + w - 18, y + 166, "—", size=11, weight=700, id_="dash_failed", anchor="end"),
+        text(x + 18, y + 185, "No runtime result is inferred from DEMO.", size=9, color=MUTED),
     ])
 
 
@@ -380,7 +388,7 @@ def build_bindings() -> list[dict]:
         "dash_last_event": ("Last_Event", "val", None),
         "dash_last_error": ("Last_Error", "val", None),
         "dash_event_time": ("Last_Event_At", "val", None),
-        "dash_telemetry_state": ("Telemetry_State", "val", TELEMETRY_STYLE),
+        "dash_snapshot_age": ("Telemetry_State", "val", TELEMETRY_STYLE),
         "dash_collector_status": ("Collector_Status", "val", HEALTH_STYLE),
         "dash_limit_exceeded": ("Resource_Limit_Exceeded", "val", ALARM_STYLE),
         "dash_unknown_cleanup": ("Unknown_Cleanup", "val", ALARM_STYLE),
@@ -388,7 +396,7 @@ def build_bindings() -> list[dict]:
     }
     for id_, (control, expression, style) in read_map.items():
         result.append(binding(id_, control, read=expression, style=style))
-    for code, _, _ in STAGES:
+    for code, _ in STAGES:
         result.append(binding(f"dash_stage_{code}_status", f"Stage_{code}_Status", style=STATUS_STYLE))
         result[-1]["read"] = {"enable": True, "channel": f"/devices/stdu_lab/controls/Stage_{code}_Status", "value": "val"}
     return result
@@ -399,7 +407,7 @@ def render_desktop() -> str:
         "STDU SHOP Test Lab · Desktop",
         1440,
         900,
-        "Read-only Wiren Board HMI with explicit synthetic DEMO state, runtime stage matrix, resources, events, and safety telemetry.",
+        "Read-only Wiren Board HMI. Cold start is neutral; synthetic sample data appears only after an explicit DEMO publish.",
     )
     header_desktop(out)
     run_card_desktop(out)
@@ -419,7 +427,7 @@ def render_mobile() -> str:
         "STDU SHOP Test Lab · Compact",
         420,
         1560,
-        "Compact read-only Wiren Board HMI. All sample values are synthetic DEMO data and not runtime evidence.",
+        "Compact read-only Wiren Board HMI. Cold start is neutral; synthetic sample data appears only after an explicit DEMO publish.",
     )
     header_mobile(out)
     run_card_mobile(out)
@@ -428,7 +436,7 @@ def render_mobile() -> str:
     safety_panel(out, 22, 1096, 376, 224, mobile=True)
     events_mobile(out)
     out.extend([
-        text(398, 1554, "READ-ONLY · DEMO", size=8, color="#63758a", weight=600, anchor="end", letter=0.5),
+        text(398, 1554, "READ-ONLY · DEMO", size=9, color="#63758a", weight=600, anchor="end", letter=0.5),
         '</svg>',
     ])
     return "\n".join(out) + "\n"
@@ -436,9 +444,11 @@ def render_mobile() -> str:
 
 def main() -> None:
     ROOT.mkdir(parents=True, exist_ok=True)
-    (ROOT / "dashboard-desktop.svg").write_text(render_desktop(), encoding="utf-8")
-    (ROOT / "dashboard-mobile.svg").write_text(render_mobile(), encoding="utf-8")
-    (ROOT / "bindings.json").write_text(json.dumps(build_bindings(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    (ROOT / "dashboard-desktop.svg").write_text(render_desktop(), encoding="utf-8", newline="\n")
+    (ROOT / "dashboard-mobile.svg").write_text(render_mobile(), encoding="utf-8", newline="\n")
+    (ROOT / "bindings.json").write_text(
+        json.dumps(build_bindings(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n"
+    )
 
 
 if __name__ == "__main__":

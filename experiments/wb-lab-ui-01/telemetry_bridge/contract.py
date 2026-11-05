@@ -11,14 +11,14 @@ from typing import Any
 DEVICE_ID = "stdu_lab"
 BASE_TOPIC = f"/devices/{DEVICE_ID}"
 STAGES = (
-    ("E0a", "Host preflight", "PASS"),
-    ("E0b", "PostgreSQL and resources", "NOT_RUN"),
-    ("E1", "Filesystem fsync", "RUNNING"),
-    ("E2", "Transactions fencing", "NOT_PROVEN"),
-    ("E3", "Crash recovery", "BLOCKED"),
-    ("E3b", "Recovery evidence", "SKIPPED"),
-    ("E4a", "Network isolation", "NOT_RUN"),
-    ("E5", "Concurrency", "NOT_RUN"),
+    ("E0a", "Host preflight"),
+    ("E0b", "PostgreSQL and resources"),
+    ("E1", "Filesystem fsync"),
+    ("E2", "Transactions fencing"),
+    ("E3", "Crash recovery"),
+    ("E3b", "Recovery evidence"),
+    ("E4a", "Network isolation"),
+    ("E5", "Concurrency"),
 )
 STAGE_CODES = tuple(stage[0] for stage in STAGES)
 STAGE_NAMES = {stage[0]: stage[1] for stage in STAGES}
@@ -56,7 +56,7 @@ CONTROL_SCHEMA: dict[str, dict[str, Any]] = {
     "Last_Error": _spec("text", "Last error"),
     "Last_Event_At": _spec("text", "Last event time UTC"),
     "Heartbeat": _spec("value", "Heartbeat sequence", "count"),
-    "Telemetry_State": _spec("text", "Telemetry freshness", values=FRESHNESS),
+    "Telemetry_State": _spec("text", "Last sample age at publish", values=FRESHNESS),
     "Collector_Status": _spec("text", "Collector connection", values=HEALTH),
     "Resource_Limit_Exceeded": _spec("text", "Resource limit exceeded", values=ALARM),
     "Unknown_Cleanup": _spec("text", "Cleanup state unknown", values=ALARM),
@@ -67,34 +67,34 @@ for _code in STAGE_CODES:
 
 CONTROL_LABELS = {name: (spec["type"], spec["label"], spec["unit"]) for name, spec in CONTROL_SCHEMA.items()}
 DEFAULTS: dict[str, Any] = {
-    "Source_Mode": "DEMO",
+    "Source_Mode": "UNKNOWN",
     "Controller_Status": "UNKNOWN",
-    "Clock_UTC": "",
-    "RUN_ID": "DEMO-WBLAB-01",
+    "Clock_UTC": "NO DATA",
+    "RUN_ID": "NO RUN",
     "Stage": "UNKNOWN",
-    "Current_Test": "No current test",
+    "Current_Test": "NO DATA",
     "Status": "NOT_RUN",
-    "Progress": 0,
-    "Elapsed": "00:00:00",
-    "Last_Update": "",
-    "Passed": 0,
-    "Failed": 0,
-    "RAM_Available_MiB": 0,
-    "CPU_Load_Pct": 0,
-    "Disk_Free_GiB": 0,
-    "Swap_Used_MiB": 0,
-    "Container_RAM_Peak_MiB": 0,
+    "Progress": None,
+    "Elapsed": "NO DATA",
+    "Last_Update": "NO DATA",
+    "Passed": None,
+    "Failed": None,
+    "RAM_Available_MiB": None,
+    "CPU_Load_Pct": None,
+    "Disk_Free_GiB": None,
+    "Swap_Used_MiB": None,
+    "Container_RAM_Peak_MiB": None,
     "PG_Status": "UNKNOWN",
     "Docker_Status": "UNKNOWN",
-    "Last_Event": "No event",
-    "Last_Error": "No error",
-    "Last_Event_At": "",
-    "Heartbeat": 0,
+    "Last_Event": "NO DATA",
+    "Last_Error": "NO DATA",
+    "Last_Event_At": "NO DATA",
+    "Heartbeat": None,
     "Telemetry_State": "NO_DATA",
-    "Collector_Status": "OFFLINE",
+    "Collector_Status": "UNKNOWN",
     "Resource_Limit_Exceeded": "UNKNOWN",
     "Unknown_Cleanup": "UNKNOWN",
-    "Runtime_Blocked": "ACTIVE",
+    "Runtime_Blocked": "UNKNOWN",
     **{f"Stage_{code}_Status": "NOT_RUN" for code in STAGE_CODES},
 }
 
@@ -121,7 +121,7 @@ def control_topic(control: str) -> str:
 
 
 def classify_freshness(age_seconds: float | None, *, stale_after_seconds: float = 15.0) -> str:
-    """Return NO_DATA without a source timestamp; reject future/invalid ages as NO_DATA."""
+    """Classify the age of the last sample at publish time, not collector availability."""
     if age_seconds is None or not math.isfinite(age_seconds) or age_seconds < 0:
         return "NO_DATA"
     return "STALE" if age_seconds > stale_after_seconds else "FRESH"

@@ -25,16 +25,17 @@
 
 - Main repository worktree was clean but on stale, deleted `codex/r1-006b-catalog-import`; local `main` matched freshly fetched `origin/main` at the base above.
 - Existing `codex/wb-lab-01` worktree is clean and corresponds to Draft PR #54, stacked on VIS-CAT-02C. It is read-only reference and will not be modified.
-- PR #54 README reports no runtime preflight/experiments yet; no reliable LIVE telemetry source is available. DEMO is the only implemented source in this task.
+- Owner-reported E0a Host Metadata passed, but the E0a runtime gate remains blocked at `LOCAL_IMAGE_ID`; no container/volume was created and E0b–E5 remain not run. No reliable LIVE runtime telemetry source is available. DEMO is the only implemented source in this task.
 - Official SVG docs and HomeUI source confirm JSON editor exports an array of per-element binding objects; HomeUI source implements `read`, `style` and `visible`. Read-only SSH inspection on 2026-11-05 verified Debian GNU/Linux 13.7, ARM64, Linux 6.8.0-wb162, and `wb-mqtt-homeui` / `wb-homeui-backend` 2.267.7. Import behavior against that installed build remains NOT_VERIFIED because no dashboard import was attempted.
 
 ## Current status
 
-- Ready for owner visual approval: desktop/mobile SVGs, HomeUI binding array, MQTT contract, DEMO-only publisher, tests, screenshots, and UI runbook are prepared under the isolated experiment directory.
-- Headless Chromium rendered both SVGs; screenshots are at `experiments/wb-lab-ui-01/screenshots/desktop.png` and `mobile.png`.
-- Verification: `python -B generate_dashboard.py` completed; `python -B -m unittest discover -s tests -v` passed 6/6; `python -B demo-publisher.py --dry-run --steps 6 --interval-seconds 0.2` showed synthetic RUNNING→PASS, RUNNING→FAIL, STALE, then OFFLINE without broker connection.
-- Formatting: `pnpm format:check` passed after formatting the binding JSON and MQTT contract. It reported a non-failing Node engine warning because local Node is 24.22.1 while the project pins 24.19.0.
+- Owner visual review: PASS; composition approved. Current revision applies the requested cold-start, retained-data, and mobile typography changes without a composition redesign.
+- Headless Chromium rendered desktop at 1440px and mobile at 375px; screenshots are at `experiments/wb-lab-ui-01/screenshots/desktop.png` and `mobile.png`.
+- Verification: `python -B generate_dashboard.py` completed; `python -B -m unittest discover -s tests -v` passed 7/7, including cold-start neutral state, fixed DEMO marker, all IDs in both SVGs, snapshot-age/collector separation, and mobile type minimum. `python -B demo-publisher.py --dry-run --steps 6 --interval-seconds 0.2` showed the explicit synthetic sequence RUNNING→PASS, RUNNING→FAIL, STALE, then OFFLINE without broker connection.
+- Formatting: `pnpm format:check` passed after making generated assets LF-stable and formatting the MQTT contract. It reports a non-failing Node engine warning because local Node is 24.22.1 while the project pins 24.19.0.
 - Draft PR: [#55](https://github.com/CrazyMotoCat/STDU_SHOP/pull/55), title `WB-LAB-UI-01: Native Wiren Board SVG HMI`, target `main`. Implementation commit: `119e39b6aa042448e9f3d8a9c26bf49c95ddb02c`.
-- GitHub checks on `bc0c7e2e134eba1b6573643e0c4e8722a59ce6ba` showed `Classify revision` succeeded, while `FULL CI` and `JavaScript static and units` failed in aggregate. `FULL CI` identified `pnpm format:check`; local `pnpm format:check` then found and formatted `bindings.json` and `mqtt-contract.md`. The corrected formatting check passes; new GitHub checks will run for the follow-up commit. No separate review or manual full-suite run was initiated before visual approval.
-- Controller read-only metadata check: PASS (SSH host ECDSA fingerprint matched the value supplied from the local console; OS and package versions recorded above). No remote write, install, config change, MQTT publish, or dashboard upload was performed.
+- Independent Quality review: PASS after two documentation corrections; no blocking findings remain.
+- Prior GitHub checks on `bc0c7e2e134eba1b6573643e0c4e8722a59ce6ba` failed `FULL CI` and `JavaScript static and units` due formatting. The generated JSON writer now emits stable LF output; local `pnpm format:check` passes. Fresh FAST/FULL CI on the follow-up commit is pending push.
+- Controller read-only metadata check: PASS (SSH host ECDSA fingerprint matched the value supplied from the local console; OS and package versions recorded above). E0a/E0b–E5 update above is owner-reported evidence; this task did not rerun a controller preflight. No remote write, install, config change, MQTT publish, or dashboard upload was performed.
 - Dashboard import, HMI rendering, and MQTT connection on the controller: NOT_RUN; dashboard upload/import requires separate owner approval.

@@ -201,7 +201,7 @@
     }
   },
   {
-    "id": "dash_telemetry_state",
+    "id": "dash_snapshot_age",
     "read": {
       "enable": true,
       "channel": "/devices/stdu_lab/controls/Telemetry_State",
@@ -210,7 +210,7 @@
     "style": {
       "enable": true,
       "channel": "/devices/stdu_lab/controls/Telemetry_State",
-      "value": "(val == 'FRESH') ? ';fill:#43d59c' : (val == 'STALE') ? ';fill:#f5bd55' : ';fill:#fb7185'"
+      "value": "(val == 'FRESH') ? ';fill:#43d59c' : (val == 'STALE') ? ';fill:#f5bd55' : ';fill:#a4b2c4'"
     }
   },
   {

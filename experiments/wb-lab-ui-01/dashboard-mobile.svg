@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="420" height="1560" viewBox="0 0 420 1560" role="img" aria-labelledby="svg_title svg_desc">
 <title id="svg_title">STDU SHOP Test Lab · Compact</title>
-<desc id="svg_desc">Compact read-only Wiren Board HMI. All sample values are synthetic DEMO data and not runtime evidence.</desc>
+<desc id="svg_desc">Compact read-only Wiren Board HMI. Cold start is neutral; synthetic sample data appears only after an explicit DEMO publish.</desc>
 <style>
 .panel{fill:#111c2a;stroke:#24364b;stroke-width:1}
 .tile{fill:#142234;stroke:#263a50;stroke-width:1}
@@ -17,118 +17,119 @@
 <text x="71" y="62" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#90a2b8" text-anchor="start">TEST LAB · WB-LAB-01</text>
 <rect x="22" y="77" width="376" height="34" rx="10" fill="#322816" stroke="#73552b" stroke-width="1"/>
 <text x="38" y="99" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#d9bd8a" text-anchor="start" letter-spacing="0.8">MODE</text>
-<text id="dash_mode" x="384" y="100" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#f5bd55" text-anchor="end">DEMO · SYNTHETIC</text>
-<text x="24" y="128" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.6">CTRL</text>
-<text id="dash_controller_status" x="57" y="128" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#a4b2c4" text-anchor="start">UNKNOWN</text>
-<text x="252" y="128" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="end" letter-spacing="0.6">UTC</text>
-<text id="dash_clock" x="397" y="128" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="600" fill="#e8f0fa" text-anchor="end">DEMO SAMPLE</text>
+<text id="dash_mode" x="208" y="100" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#a4b2c4" text-anchor="middle">UNKNOWN</text>
+<text id="dash_demo_notice" x="384" y="100" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#f5bd55" text-anchor="end">DEMO · SYNTHETIC</text>
+<text x="24" y="128" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.6">CTRL</text>
+<text id="dash_controller_status" x="62" y="128" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#a4b2c4" text-anchor="start">UNKNOWN</text>
+<text x="252" y="128" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="end" letter-spacing="0.6">UTC</text>
+<text id="dash_clock" x="397" y="128" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#e8f0fa" text-anchor="end">NO DATA</text>
 <rect x="22" y="145" width="376" height="220" rx="12" fill="#111c2a" stroke="#24364b" stroke-width="1"/>
-<text x="40" y="173" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="1.2">CURRENT EXPERIMENT</text>
-<text x="40" y="191" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#90a2b8" text-anchor="start">Synthetic sample · not runtime evidence</text>
+<text x="40" y="173" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="1.2">LATEST RUN SNAPSHOT</text>
+<text x="40" y="191" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#90a2b8" text-anchor="start">DEMO values are synthetic · retained values are last known</text>
 <rect x="40" y="203" width="62" height="40" rx="9" fill="#142234" stroke="#24364b" stroke-width="1"/>
-<text id="dash_stage" x="71" y="229" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#59c8ed" text-anchor="middle">E1</text>
-<text x="118" y="213" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.7">CURRENT TEST</text>
-<text id="dash_current_test" x="118" y="235" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#e8f0fa" text-anchor="start">Filesystem fsync</text>
+<text id="dash_stage" x="71" y="229" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#a4b2c4" text-anchor="middle">UNKNOWN</text>
+<text x="118" y="213" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.7">LAST REPORTED TEST</text>
+<text id="dash_current_test" x="118" y="235" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#e8f0fa" text-anchor="start">NO DATA</text>
 <path d="M40 257H380" fill="none" stroke="257" stroke-width="1"/>
-<text x="40" y="280" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.7">STATUS</text>
-<text id="dash_run_status" x="40" y="302" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#59c8ed" text-anchor="start">RUNNING</text>
-<text x="164" y="280" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.7">PROGRESS</text>
-<text id="dash_progress" x="164" y="302" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#e8f0fa" text-anchor="start">36%</text>
-<text x="280" y="280" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.7">ELAPSED</text>
-<text id="dash_elapsed" x="280" y="302" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#e8f0fa" text-anchor="start">00:00:32</text>
-<text x="40" y="328" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start">RUN</text>
-<text id="dash_run_id" x="72" y="328" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#e8f0fa" text-anchor="start">DEMO-2026-001</text>
-<text x="40" y="350" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start">UPDATED</text>
-<text id="dash_last_update" x="108" y="350" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="600" fill="#e8f0fa" text-anchor="start">DEMO SAMPLE</text>
+<text x="40" y="280" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.7">LAST STATUS</text>
+<text id="dash_run_status" x="40" y="302" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="start">NOT_RUN</text>
+<text x="164" y="280" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.7">PROGRESS</text>
+<text id="dash_progress" x="164" y="302" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#e8f0fa" text-anchor="start">—</text>
+<text x="280" y="280" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.7">ELAPSED</text>
+<text id="dash_elapsed" x="280" y="302" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#e8f0fa" text-anchor="start">—</text>
+<text x="40" y="328" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start">RUN</text>
+<text id="dash_run_id" x="72" y="328" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="600" fill="#e8f0fa" text-anchor="start">NO RUN</text>
+<text x="40" y="350" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start">UPDATED</text>
+<text id="dash_last_update" x="108" y="350" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#e8f0fa" text-anchor="start">NO DATA</text>
 <rect x="22" y="380" width="376" height="260" rx="12" fill="#111c2a" stroke="#24364b" stroke-width="1"/>
 <text x="40" y="407" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="1.2">HOST RESOURCES</text>
-<text x="40" y="425" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#90a2b8" text-anchor="start">Synthetic readings · LIVE not connected</text>
+<text x="40" y="425" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#90a2b8" text-anchor="start">Values appear only after an explicit DEMO / LIVE publish</text>
 <rect x="40" y="436" width="166" height="58" rx="9" fill="#142234" stroke="#24364b" stroke-width="1"/>
-<text x="52" y="456" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">RAM AVAILABLE</text>
-<text id="dash_ram_available" x="52" y="480" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#e8f0fa" text-anchor="start">1,140 MiB</text>
+<text x="52" y="456" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">RAM AVAILABLE</text>
+<text id="dash_ram_available" x="52" y="480" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#e8f0fa" text-anchor="start">— MiB</text>
 <rect x="214" y="436" width="166" height="58" rx="9" fill="#142234" stroke="#24364b" stroke-width="1"/>
-<text x="226" y="456" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">CPU LOAD</text>
-<text id="dash_cpu_load" x="226" y="480" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#e8f0fa" text-anchor="start">28 %</text>
+<text x="226" y="456" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">CPU LOAD</text>
+<text id="dash_cpu_load" x="226" y="480" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#e8f0fa" text-anchor="start">—%</text>
 <rect x="40" y="502" width="166" height="58" rx="9" fill="#142234" stroke="#24364b" stroke-width="1"/>
-<text x="52" y="522" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">DISK FREE</text>
-<text id="dash_disk_free" x="52" y="546" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#e8f0fa" text-anchor="start">18.4 GiB</text>
+<text x="52" y="522" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">DISK FREE</text>
+<text id="dash_disk_free" x="52" y="546" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#e8f0fa" text-anchor="start">— GiB</text>
 <rect x="214" y="502" width="166" height="58" rx="9" fill="#142234" stroke="#24364b" stroke-width="1"/>
-<text x="226" y="522" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">SWAP USED</text>
-<text id="dash_swap_used" x="226" y="546" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#e8f0fa" text-anchor="start">64 MiB</text>
-<text x="40" y="583" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start">CONTAINER RAM PEAK</text>
-<text id="dash_container_peak" x="40" y="604" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#e8f0fa" text-anchor="start">318 MiB</text>
-<text x="220" y="583" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start">POSTGRESQL</text>
-<text id="dash_pg_status" x="220" y="604" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#a4b2c4" text-anchor="start">UNKNOWN</text>
-<text x="314" y="583" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start">DOCKER</text>
-<text id="dash_docker_status" x="314" y="604" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#a4b2c4" text-anchor="start">UNKNOWN</text>
-<text x="40" y="627" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="400" fill="#90a2b8" text-anchor="start">Synthetic values only · no live source</text>
+<text x="226" y="522" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">SWAP USED</text>
+<text id="dash_swap_used" x="226" y="546" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#e8f0fa" text-anchor="start">— MiB</text>
+<text x="40" y="583" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start">CONTAINER RAM PEAK</text>
+<text id="dash_container_peak" x="40" y="604" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#e8f0fa" text-anchor="start">— MiB</text>
+<text x="220" y="583" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start">POSTGRESQL</text>
+<text id="dash_pg_status" x="220" y="604" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="start">UNKNOWN</text>
+<text x="314" y="583" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start">DOCKER</text>
+<text id="dash_docker_status" x="314" y="604" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="start">UNKNOWN</text>
+<text x="40" y="627" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="400" fill="#90a2b8" text-anchor="start">Synthetic values only · no live source</text>
 <rect x="22" y="655" width="376" height="426" rx="12" fill="#111c2a" stroke="#24364b" stroke-width="1"/>
 <text x="40" y="684" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="1.2">RUNTIME STAGE MATRIX</text>
-<text x="40" y="702" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#90a2b8" text-anchor="start">Status text is explicit; DEMO never proves runtime PASS</text>
-<text x="40" y="737" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.8">STAGE</text>
-<text x="86" y="737" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.8">CHECK</text>
-<text x="380" y="737" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="end" letter-spacing="0.8">STATE</text>
+<text x="40" y="702" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#90a2b8" text-anchor="start">Last reported states · DEMO never proves runtime PASS</text>
+<text x="40" y="737" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.8">STAGE</text>
+<text x="86" y="737" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.8">CHECK</text>
+<text x="380" y="737" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="end" letter-spacing="0.8">STATE</text>
 <path d="M40 749H380" fill="none" stroke="#24364b" stroke-width="1"/>
 <rect x="32" y="756" width="356" height="36" rx="7" fill="#0e1926"/>
-<text x="42" y="776" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#59c8ed" text-anchor="start">E0a</text>
-<text id="dash_stage_E0a_label" x="86" y="776" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#e8f0fa" text-anchor="start">Host preflight</text>
-<text id="dash_stage_E0a_status" x="380" y="776" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#43d59c" text-anchor="end">PASS</text>
-<text x="42" y="812" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#59c8ed" text-anchor="start">E0b</text>
-<text id="dash_stage_E0b_label" x="86" y="812" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#e8f0fa" text-anchor="start">PostgreSQL and resources</text>
-<text id="dash_stage_E0b_status" x="380" y="812" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#a4b2c4" text-anchor="end">NOT_RUN</text>
+<text x="42" y="776" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#59c8ed" text-anchor="start">E0a</text>
+<text id="dash_stage_E0a_label" x="86" y="776" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#e8f0fa" text-anchor="start">Host preflight</text>
+<text id="dash_stage_E0a_status" x="380" y="776" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="end">NOT_RUN</text>
+<text x="42" y="812" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#59c8ed" text-anchor="start">E0b</text>
+<text id="dash_stage_E0b_label" x="86" y="812" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#e8f0fa" text-anchor="start">PostgreSQL and resources</text>
+<text id="dash_stage_E0b_status" x="380" y="812" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="end">NOT_RUN</text>
 <rect x="32" y="828" width="356" height="36" rx="7" fill="#0e1926"/>
-<text x="42" y="848" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#59c8ed" text-anchor="start">E1</text>
-<text id="dash_stage_E1_label" x="86" y="848" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#e8f0fa" text-anchor="start">Filesystem fsync</text>
-<text id="dash_stage_E1_status" x="380" y="848" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#59c8ed" text-anchor="end">RUNNING</text>
-<text x="42" y="884" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#59c8ed" text-anchor="start">E2</text>
-<text id="dash_stage_E2_label" x="86" y="884" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#e8f0fa" text-anchor="start">Transactions fencing</text>
-<text id="dash_stage_E2_status" x="380" y="884" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#c1a6ff" text-anchor="end">NOT_PROVEN</text>
+<text x="42" y="848" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#59c8ed" text-anchor="start">E1</text>
+<text id="dash_stage_E1_label" x="86" y="848" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#e8f0fa" text-anchor="start">Filesystem fsync</text>
+<text id="dash_stage_E1_status" x="380" y="848" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="end">NOT_RUN</text>
+<text x="42" y="884" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#59c8ed" text-anchor="start">E2</text>
+<text id="dash_stage_E2_label" x="86" y="884" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#e8f0fa" text-anchor="start">Transactions fencing</text>
+<text id="dash_stage_E2_status" x="380" y="884" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="end">NOT_RUN</text>
 <rect x="32" y="900" width="356" height="36" rx="7" fill="#0e1926"/>
-<text x="42" y="920" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#59c8ed" text-anchor="start">E3</text>
-<text id="dash_stage_E3_label" x="86" y="920" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#e8f0fa" text-anchor="start">Crash recovery</text>
-<text id="dash_stage_E3_status" x="380" y="920" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#f5bd55" text-anchor="end">BLOCKED</text>
-<text x="42" y="956" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#59c8ed" text-anchor="start">E3b</text>
-<text id="dash_stage_E3b_label" x="86" y="956" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#e8f0fa" text-anchor="start">Recovery evidence</text>
-<text id="dash_stage_E3b_status" x="380" y="956" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#90a2b8" text-anchor="end">SKIPPED</text>
+<text x="42" y="920" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#59c8ed" text-anchor="start">E3</text>
+<text id="dash_stage_E3_label" x="86" y="920" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#e8f0fa" text-anchor="start">Crash recovery</text>
+<text id="dash_stage_E3_status" x="380" y="920" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="end">NOT_RUN</text>
+<text x="42" y="956" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#59c8ed" text-anchor="start">E3b</text>
+<text id="dash_stage_E3b_label" x="86" y="956" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#e8f0fa" text-anchor="start">Recovery evidence</text>
+<text id="dash_stage_E3b_status" x="380" y="956" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="end">NOT_RUN</text>
 <rect x="32" y="972" width="356" height="36" rx="7" fill="#0e1926"/>
-<text x="42" y="992" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#59c8ed" text-anchor="start">E4a</text>
-<text id="dash_stage_E4a_label" x="86" y="992" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#e8f0fa" text-anchor="start">Network isolation</text>
-<text id="dash_stage_E4a_status" x="380" y="992" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#a4b2c4" text-anchor="end">NOT_RUN</text>
-<text x="42" y="1028" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#59c8ed" text-anchor="start">E5</text>
-<text id="dash_stage_E5_label" x="86" y="1028" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#e8f0fa" text-anchor="start">Concurrency</text>
-<text id="dash_stage_E5_status" x="380" y="1028" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#a4b2c4" text-anchor="end">NOT_RUN</text>
+<text x="42" y="992" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#59c8ed" text-anchor="start">E4a</text>
+<text id="dash_stage_E4a_label" x="86" y="992" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#e8f0fa" text-anchor="start">Network isolation</text>
+<text id="dash_stage_E4a_status" x="380" y="992" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="end">NOT_RUN</text>
+<text x="42" y="1028" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#59c8ed" text-anchor="start">E5</text>
+<text id="dash_stage_E5_label" x="86" y="1028" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#e8f0fa" text-anchor="start">Concurrency</text>
+<text id="dash_stage_E5_status" x="380" y="1028" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="end">NOT_RUN</text>
 <path d="M40 1036H380" fill="none" stroke="#24364b" stroke-width="1"/>
-<text x="40" y="1058" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#f5bd55" text-anchor="start">LIVE RUNTIME RESULTS: NOT RUN</text>
+<text x="40" y="1058" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#f5bd55" text-anchor="start">LIVE RUNTIME RESULTS: NOT RUN</text>
 <rect x="22" y="1096" width="376" height="224" rx="12" fill="#111c2a" stroke="#24364b" stroke-width="1"/>
 <text x="40" y="1123" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="1.2">SAFETY / CONNECTION</text>
-<text x="40" y="1141" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#90a2b8" text-anchor="start">Read-only status indicators</text>
-<text x="40" y="1177" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">TELEMETRY</text>
-<text id="dash_telemetry_state" x="380" y="1177" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#43d59c" text-anchor="end">FRESH</text>
+<text x="40" y="1141" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#90a2b8" text-anchor="start">Age when published · OFFLINE = retained / last known</text>
+<text x="40" y="1177" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">LAST SAMPLE AGE</text>
+<text id="dash_snapshot_age" x="380" y="1177" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#a4b2c4" text-anchor="end">NO_DATA</text>
 <path d="M40 1192H380" fill="none" stroke="#24364b" stroke-width="1"/>
-<text x="40" y="1208" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">COLLECTOR</text>
-<text id="dash_collector_status" x="380" y="1208" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#f5bd55" text-anchor="end">UNKNOWN</text>
+<text x="40" y="1208" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">COLLECTOR</text>
+<text id="dash_collector_status" x="380" y="1208" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#f5bd55" text-anchor="end">UNKNOWN</text>
 <path d="M40 1223H380" fill="none" stroke="#24364b" stroke-width="1"/>
-<text x="40" y="1239" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">RESOURCE LIMIT</text>
-<text id="dash_limit_exceeded" x="380" y="1239" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#43d59c" text-anchor="end">CLEAR</text>
+<text x="40" y="1239" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">RESOURCE LIMIT</text>
+<text id="dash_limit_exceeded" x="380" y="1239" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#f5bd55" text-anchor="end">UNKNOWN</text>
 <path d="M40 1254H380" fill="none" stroke="#24364b" stroke-width="1"/>
-<text x="40" y="1270" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">UNKNOWN CLEANUP</text>
-<text id="dash_unknown_cleanup" x="380" y="1270" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#f5bd55" text-anchor="end">UNKNOWN</text>
+<text x="40" y="1270" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">UNKNOWN CLEANUP</text>
+<text id="dash_unknown_cleanup" x="380" y="1270" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#f5bd55" text-anchor="end">UNKNOWN</text>
 <path d="M40 1285H380" fill="none" stroke="#24364b" stroke-width="1"/>
-<text x="40" y="1301" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">RUNTIME GATE</text>
-<text id="dash_runtime_blocked" x="380" y="1301" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#f5bd55" text-anchor="end">BLOCKED</text>
+<text x="40" y="1301" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="0.55">RUNTIME GATE</text>
+<text id="dash_runtime_blocked" x="380" y="1301" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#f5bd55" text-anchor="end">UNKNOWN</text>
 <rect x="22" y="1344" width="376" height="195" rx="12" fill="#111c2a" stroke="#24364b" stroke-width="1"/>
 <text x="40" y="1371" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#90a2b8" text-anchor="start" letter-spacing="1.2">LATEST EVENT &amp; ERROR</text>
-<text x="40" y="1411" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start">EVENT</text>
-<text id="dash_last_event" x="104" y="1411" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#e8f0fa" text-anchor="start">DEMO · E1 probe started</text>
-<text x="40" y="1440" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start">ERROR</text>
-<text id="dash_last_error" x="104" y="1440" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#e8f0fa" text-anchor="start">No synthetic error</text>
-<text x="40" y="1470" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start">EVENT TIME (UTC)</text>
-<text id="dash_event_time" x="172" y="1470" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="600" fill="#e8f0fa" text-anchor="start">DEMO SAMPLE</text>
+<text x="40" y="1411" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start">EVENT</text>
+<text id="dash_last_event" x="104" y="1411" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="600" fill="#e8f0fa" text-anchor="start">NO DATA</text>
+<text x="40" y="1440" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start">ERROR</text>
+<text id="dash_last_error" x="104" y="1440" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="600" fill="#e8f0fa" text-anchor="start">NO DATA</text>
+<text x="40" y="1470" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start">EVENT TIME (UTC)</text>
+<text id="dash_event_time" x="172" y="1470" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#e8f0fa" text-anchor="start">NO DATA</text>
 <path d="M40 1487H380" fill="none" stroke="#24364b" stroke-width="1"/>
-<text x="40" y="1510" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start">DEMO PASS</text>
-<text id="dash_passed" x="118" y="1510" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#e8f0fa" text-anchor="start">1</text>
-<text x="209" y="1510" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="700" fill="#90a2b8" text-anchor="start">DEMO FAIL</text>
-<text id="dash_failed" x="380" y="1510" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#e8f0fa" text-anchor="end">0</text>
-<text x="40" y="1529" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="400" fill="#90a2b8" text-anchor="start">No runtime result is inferred from DEMO.</text>
-<text x="398" y="1554" font-family="Arial, Helvetica, sans-serif" font-size="8" font-weight="600" fill="#63758a" text-anchor="end" letter-spacing="0.5">READ-ONLY · DEMO</text>
+<text x="40" y="1510" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start">DEMO PASS</text>
+<text id="dash_passed" x="118" y="1510" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#e8f0fa" text-anchor="start">—</text>
+<text x="209" y="1510" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" fill="#90a2b8" text-anchor="start">DEMO FAIL</text>
+<text id="dash_failed" x="380" y="1510" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#e8f0fa" text-anchor="end">—</text>
+<text x="40" y="1529" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="400" fill="#90a2b8" text-anchor="start">No runtime result is inferred from DEMO.</text>
+<text x="398" y="1554" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="600" fill="#63758a" text-anchor="end" letter-spacing="0.5">READ-ONLY · DEMO</text>
 </svg>
