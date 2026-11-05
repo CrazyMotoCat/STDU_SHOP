@@ -1,0 +1,72 @@
+from __future__ import annotations
+
+import json
+import sys
+import unittest
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from telemetry_bridge.contract import CONTROL_SCHEMA  # noqa: E402
+
+SVG_NS = "{http://www.w3.org/2000/svg}"
+
+
+class DashboardAssetTests(unittest.TestCase):
+    def test_svg_documents_are_valid_compact_and_self_contained(self) -> None:
+        ids_by_file = {}
+        for name, expected_box in (("dashboard-desktop.svg", "0 0 1440 900"), ("dashboard-mobile.svg", "0 0 420 1560")):
+            path = ROOT / name
+            markup = path.read_text(encoding="utf-8")
+            root = ET.fromstring(markup)
+            self.assertEqual(root.tag, f"{SVG_NS}svg")
+            self.assertEqual(root.attrib.get("viewBox"), expected_box)
+            ids = [element.attrib["id"] for element in root.iter() if "id" in element.attrib]
+            self.assertEqual(len(ids), len(set(ids)), f"duplicate SVG id in {name}")
+            ids_by_file[name] = set(ids)
+            self.assertLess(path.stat().st_size, 30_000)
+            self.assertNotIn("<script", markup.casefold())
+            self.assertNotIn("foreignobject", markup.casefold())
+            for element in root.iter():
+                self.assertFalse(any(key.casefold().startswith("on") for key in element.attrib))
+                for attr in ("href", f"{SVG_NS}href"):
+                    value = element.attrib.get(attr)
+                    self.assertFalse(value and (value.startswith("http:") or value.startswith("https:") or value.startswith("//")))
+            self.assertIn("DEMO", "".join(root.itertext()))
+            self.assertIn("NOT RUN", "".join(root.itertext()))
+
+        bindings = json.loads((ROOT / "bindings.json").read_text(encoding="utf-8"))
+        self.assertIsInstance(bindings, list)
+        self.assertEqual(len(bindings), len({entry["id"] for entry in bindings}))
+        for name in ("dashboard-desktop.svg", "dashboard-mobile.svg"):
+            for entry in bindings:
+                self.assertIn(entry["id"], ids_by_file[name])
+        for entry in bindings:
+            self.assertLessEqual(set(entry), {"id", "read", "style"})
+            self.assertIn("read", entry)
+            self.assertNotIn("write", entry)
+            self.assertNotIn("click", entry)
+            self.assertNotIn("long-press-write", entry)
+            for action in ("read", "style"):
+                if action in entry:
+                    rule = entry[action]
+                    self.assertTrue(rule["enable"])
+                    self.assertIn("channel", rule)
+                    control = rule["channel"].rsplit("/", maxsplit=1)[-1]
+                    self.assertIn(control, CONTROL_SCHEMA)
+        self.assertEqual(set(binding["id"] for binding in bindings), {
+            "dash_mode", "dash_controller_status", "dash_clock", "dash_run_id", "dash_stage",
+            "dash_current_test", "dash_run_status", "dash_progress", "dash_elapsed", "dash_last_update",
+            "dash_passed", "dash_failed", "dash_ram_available", "dash_cpu_load", "dash_disk_free",
+            "dash_swap_used", "dash_container_peak", "dash_pg_status", "dash_docker_status",
+            "dash_last_event", "dash_last_error", "dash_event_time", "dash_telemetry_state",
+            "dash_collector_status", "dash_limit_exceeded", "dash_unknown_cleanup", "dash_runtime_blocked",
+            "dash_stage_E0a_status", "dash_stage_E0b_status", "dash_stage_E1_status", "dash_stage_E2_status",
+            "dash_stage_E3_status", "dash_stage_E3b_status", "dash_stage_E4a_status", "dash_stage_E5_status",
+        })
+
+
+if __name__ == "__main__":
+    unittest.main()

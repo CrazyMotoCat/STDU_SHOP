@@ -1,0 +1,80 @@
+# `stdu_lab` MQTT contract
+
+## Contract status
+
+This is a proposed read-only telemetry contract for WB-LAB-UI-01. The HomeUI panel only subscribes to the listed value controls. The demo publisher can publish synthetic values to a broker when explicitly invoked; it never subscribes to command channels. All control metadata declares `readonly=1`. The JSON panel bindings contain only `read` and `style` actions.
+
+**LIVE runtime source: `NOT_PROVEN`.** PR #54 has not yet run the host preflight or E0–E5 experiments. The first implementation publishes DEMO values only and rejects `Source_Mode=LIVE`. A future LIVE adapter must read a reviewed, allowlisted run evidence source; it must not infer a runtime result from a model/mock, retained `RUNNING`, a stale source, or an unverified cleanup.
+
+## Topic and payload rules
+
+- Device ID: `stdu_lab`.
+- Device name: `STDU LAB · TEST TELEMETRY`.
+- Control topic: `/devices/stdu_lab/controls/<Control>`.
+- Control metadata: `/devices/stdu_lab/controls/<Control>/meta/{name,type,readonly,units,order}`. All channels publish `readonly=1` metadata. `type` is `text` or `value`.
+- Payloads are short UTF-8 strings representing either an enum, UTC timestamp, or finite numeric value. No JSON object, secret, JWT, password, arbitrary log excerpt, or internal filesystem path is sent.
+- All current values except `Heartbeat` are retained to make the last observation visible. `Heartbeat` is non-retained. A retained value is only the last observation; it does not prove a test is active or successful.
+- The MQTT client uses a retained Last Will of `Collector_Status=OFFLINE`. On graceful shutdown it publishes the same state. If the collector is offline, treat every retained measurement/status as stale regardless of the last `Telemetry_State` value.
+- Suggested LIVE cadence: resource and status snapshot every 5 seconds; heartbeat every 2 seconds. `Telemetry_State` becomes `STALE` when the source age is greater than 15 seconds, and `NO_DATA` when there has never been a valid source snapshot. `Collector_Status=OFFLINE` overrides retained data.
+- The DEMO CLI uses a finite sample sequence (one second by default) solely to demonstrate updates and state transitions; it is not a service and not runtime evidence.
+
+## Controls
+
+For the table, “demo” means [`demo-publisher.py`](demo-publisher.py) generates synthetic values. “Live source” states the required input class if one becomes available; none is wired in this task. Unless noted, values update on each snapshot, retain the latest value, and display their last observation when the source is absent. The mode badge and collector/safety state must remain visible so retained values are never mistaken for current evidence.
+
+| Control | Type / unit | Allowed payloads | Initial state | Source and update |
+|---|---|---|---|---|
+| `Source_Mode` | text | `DEMO`, `LIVE`, `UNKNOWN` | `DEMO` for this package | Demo generator; every snapshot. LIVE is reserved and rejected by this adapter. |
+| `Controller_Status` | text | `ONLINE`, `OFFLINE`, `UNKNOWN` | `UNKNOWN` | Demo: `UNKNOWN`. Future read-only WB-LAB host/harness heartbeat observation, independent of the MQTT collector connection. |
+| `Clock_UTC` | text | ISO-8601 UTC timestamp | blank/no reading | Collector host clock; every snapshot. |
+| `RUN_ID` | text | `DEMO-...` or opaque run UUID | `DEMO-WBLAB-01` in demo | Demo generator; live only from a verified run ledger. No paths or credentials. |
+| `Stage` | text | `E0a`, `E0b`, `E1`, `E2`, `E3`, `E3b`, `E4a`, `E5`, `UNKNOWN` | `UNKNOWN` | Current stage from demo scenario; every snapshot. |
+| `Current_Test` | text | approved short stage label | `No current test` | Demo scenario; live only from verified runtime evidence. |
+| `Status` | text | `NOT_RUN`, `RUNNING`, `PASS`, `FAIL`, `BLOCKED`, `NOT_PROVEN`, `SKIPPED` | `NOT_RUN` | Current stage status; every snapshot. PASS requires runtime evidence in LIVE mode. |
+| `Progress` | value / `%` | finite number 0–100 | `0` | Demo scenario; future source progress if explicitly recorded. |
+| `Elapsed` | text | `HH:MM:SS` | `00:00:00` | Demo clock; live run evidence timestamp delta. |
+| `Last_Update` | text | ISO-8601 UTC timestamp | blank/no reading | Collector time at snapshot; every snapshot. |
+| `Passed` | value / count | integer ≥0 | `0` | Count of runtime stage PASS records. Demo count is synthetic and visibly mode-labeled. |
+| `Failed` | value / count | integer ≥0 | `0` | Count of runtime stage FAIL records. Demo count is synthetic and visibly mode-labeled. |
+| `RAM_Available_MiB` | value / MiB | finite number ≥0 | not published until measured | Demo sample; future read-only host memory metric. |
+| `CPU_Load_Pct` | value / % | finite number 0–100 | not published until measured | Demo sample; future read-only host CPU utilization. |
+| `Disk_Free_GiB` | value / GiB | finite number ≥0 | not published until measured | Demo sample; future read-only statvfs observation of the approved mount. |
+| `Swap_Used_MiB` | value / MiB | finite number ≥0 | not published until measured | Demo sample; future read-only host swap metric. |
+| `Container_RAM_Peak_MiB` | value / MiB | finite number ≥0 | not published until measured | Demo sample; future allowlisted cgroup peak for the current run only. |
+| `PG_Status` | text | `ONLINE`, `OFFLINE`, `UNKNOWN` | `UNKNOWN` | Demo: `UNKNOWN`. Future read-only container/process health; never use PostgreSQL credentials. |
+| `Docker_Status` | text | `ONLINE`, `OFFLINE`, `UNKNOWN` | `UNKNOWN` | Demo: `UNKNOWN`. Future allowlisted read-only runtime observation; no Docker API control calls. |
+| `Last_Event` | text | short sanitized event class, ≤128 chars | `No event` | Demo scenario; future allowlisted run event classification, not raw log lines. |
+| `Last_Error` | text | short sanitized error class, ≤128 chars | `No error` | Demo scenario; future allowlisted error classification, no stack traces or paths. |
+| `Last_Event_At` | text | ISO-8601 UTC timestamp | blank/no reading | Demo scenario; future verified runtime event timestamp. |
+| `Heartbeat` | value / count | monotonic non-negative integer | `0` | Demo counter; future collector sequence, non-retained, every 2 seconds. Diagnostic only. |
+| `Telemetry_State` | text | `FRESH`, `STALE`, `NO_DATA` | `NO_DATA` | Demo scenario; future source timestamp age: stale after 15 seconds. |
+| `Collector_Status` | text | `ONLINE`, `OFFLINE`, `UNKNOWN` | `OFFLINE` until connected | MQTT connection state. ONLINE on connect; retained Last Will sets OFFLINE on disconnect. |
+| `Resource_Limit_Exceeded` | text | `CLEAR`, `ACTIVE`, `UNKNOWN` | `UNKNOWN` | Demo: CLEAR sample. LIVE only from configured read-only resource limits; unknown if source missing. |
+| `Unknown_Cleanup` | text | `CLEAR`, `ACTIVE`, `UNKNOWN` | `UNKNOWN` | Demo: UNKNOWN. LIVE CLEAR only with verified cleanup ledger; unresolved means ACTIVE. |
+| `Runtime_Blocked` | text | `CLEAR`, `ACTIVE`, `UNKNOWN` | `ACTIVE` | Demo: ACTIVE until runtime prerequisites/evidence pass. LIVE from the harness gate; no HMI action. |
+| `Stage_E0a_Status` | text | seven common statuses | `NOT_RUN` | Demo scenario; LIVE run ledger only. |
+| `Stage_E0b_Status` | text | seven common statuses | `NOT_RUN` | Demo scenario; LIVE run ledger only. |
+| `Stage_E1_Status` | text | seven common statuses | `NOT_RUN` | Demo scenario; LIVE run ledger only. |
+| `Stage_E2_Status` | text | seven common statuses | `NOT_RUN` | Demo scenario; LIVE run ledger only. |
+| `Stage_E3_Status` | text | seven common statuses | `NOT_RUN` | Demo scenario; LIVE run ledger only. |
+| `Stage_E3b_Status` | text | seven common statuses | `NOT_RUN` | Demo scenario; LIVE run ledger only. |
+| `Stage_E4a_Status` | text | seven common statuses | `NOT_RUN` | Demo scenario; LIVE run ledger only. |
+| `Stage_E5_Status` | text | seven common statuses | `NOT_RUN` | Demo scenario; LIVE run ledger only. |
+
+All stage status channels share the same finite set from `Status`. `NOT_PROVEN` is not a PASS; `SKIPPED` is not a PASS; a model or mock outcome cannot be promoted to a runtime PASS.
+
+## Offline and missing data
+
+1. Before a valid snapshot, publish `Telemetry_State=NO_DATA`; measurements remain absent rather than substituting zero.
+2. If a source timestamp is older than 15 seconds while the collector remains connected, publish `Telemetry_State=STALE` and retain it.
+3. If the MQTT publisher disconnects, its Last Will marks `Collector_Status=OFFLINE`. Treat all retained values as stale even if the last retained `Telemetry_State` says `FRESH`.
+4. Unknown health, cleanup, or resource state is shown as `UNKNOWN`, never inferred as clear.
+5. The demo publisher shows `RUNNING → PASS` and `RUNNING → FAIL` with `Source_Mode=DEMO`; every page has a visible synthetic-data warning, and these outcomes are not evidence for E0–E5.
+
+## Security and resource limits
+
+- The panel binds only to read channels and fixed status-to-color mappings. It has no write/click binding, no command topic, and no operator control.
+- The bridge allowlists device/control names and status enums, limits text size, and rejects live frames until a verified source adapter exists.
+- Never publish passwords, tokens, arbitrary log fragments, SQL, internal credentials, or private filesystem paths.
+- Use low-rate snapshots and a non-retained heartbeat to limit broker history writes on eMMC. Do not configure high-frequency retained writes.
+- No broker account, service, ACL, or controller file is created or changed by this task. A live MQTT account must be read-only from the collector's perspective and restricted to the `stdu_lab` namespace before any approved deployment.
