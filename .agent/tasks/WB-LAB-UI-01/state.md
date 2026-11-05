@@ -33,5 +33,6 @@
 - Ready for owner visual approval: desktop/mobile SVGs, HomeUI binding array, MQTT contract, DEMO-only publisher, tests, screenshots, and UI runbook are prepared under the isolated experiment directory.
 - Headless Chromium rendered both SVGs; screenshots are at `experiments/wb-lab-ui-01/screenshots/desktop.png` and `mobile.png`.
 - Verification: `python -B generate_dashboard.py` completed; `python -B -m unittest discover -s tests -v` passed 6/6; `python -B demo-publisher.py --dry-run --steps 6 --interval-seconds 0.2` showed synthetic RUNNING→PASS, RUNNING→FAIL, STALE, then OFFLINE without broker connection.
-- Draft PR: not created yet.
+- Draft PR: [#55](https://github.com/CrazyMotoCat/STDU_SHOP/pull/55), title `WB-LAB-UI-01: Native Wiren Board SVG HMI`, target `main`. Implementation commit: `119e39b6aa042448e9f3d8a9c26bf49c95ddb02c`.
+- GitHub automatically started checks after PR creation; at the first status read, `Classify revision` succeeded and `FULL CI`, `JavaScript static and units`, `Python static and parser`, and `Frozen contracts` were still in progress. No separate CI/review was initiated for this visual-first task.
 - Runtime import/stand checks: NOT_RUN; require owner access and separate approval for upload.
