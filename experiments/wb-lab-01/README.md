@@ -1,6 +1,6 @@
 # WB-LAB-01 — подготовка стенда VIS-CAT-02C
 
-Статус **BLOCKED для исполнения**. Профиль основан на [плане #52](https://github.com/CrazyMotoCat/STDU_SHOP/pull/52) и [mock-модели #53](https://github.com/CrazyMotoCat/STDU_SHOP/pull/53). Подтверждена доступность ARM64-манифестов PostgreSQL и Python. Compose отрендерен локально. На WB preflight ещё не запускался.
+Статус **E0a host evidence pending**. Профиль основан на [плане #52](https://github.com/CrazyMotoCat/STDU_SHOP/pull/52) и [mock-модели #53](https://github.com/CrazyMotoCat/STDU_SHOP/pull/53). Владелец подтвердил отпечаток SSH, Docker Engine 29.9.2, Compose 5.6.1, ext4 rootfs и 25 GiB свободного места. Daemon ID и ресурсные признаки ещё предстоит сверить.
 
 ## Отклонения и бюджет
 
@@ -13,37 +13,38 @@ WB заменяет отдельную VM с отдельным 4 GiB ext4-ус�
 | Worker     | 128 MiB | 0.75 |  16 | Один decode job, 8 MiB scratch                               |
 | Verifier   | 128 MiB | 0.75 |  16 | Отдельный UID и отдельный запуск после worker, 8 MiB scratch |
 
-Сумма потолков контейнеров 512 MiB. При последовательной работе worker/verifier активный потолок 384 MiB, оставшиеся 128 MiB служат резервом для хостовой части запуска и мониторинга. Измерения накладных расходов Docker и cgroup peak на WB ещё нужны. Для всех контейнеров memory-swap равен memory. Concurrency 1. Порог запуска и остановки — MemAvailable 768 MiB и 4 GiB свободного места. Предлагаемый предел записи на серию — PG 128 MiB, media 64 MiB и evidence 32 MiB. Docker logs до 2 MiB на контейнер. Предельные размеры каталогов проверять отдельно от общего watermark. Изображения в локальном registry/cache и их скачивание измерять до серии отдельно.
+Текущий E0a Compose содержит только PostgreSQL и controller с суммарным потолком 256 MiB. Для будущей схемы сумма четырёх потолков составляет 512 MiB. При последовательной работе worker/verifier активный потолок 384 MiB, оставшиеся 128 MiB служат резервом для хостовой части запуска и мониторинга. Измерения накладных расходов Docker и cgroup peak на WB ещё нужны. Для всех контейнеров memory-swap равен memory. Concurrency 1. Порог запуска и остановки — MemAvailable 768 MiB и 4 GiB свободного места. Предлагаемый предел записи на серию — PG 128 MiB, media 64 MiB и evidence 32 MiB. Docker logs до 2 MiB на контейнер. Предельные размеры каталогов проверять отдельно от общего watermark. Изображения в локальном registry/cache и их скачивание измерять до серии отдельно.
 
 Потолок 128 MiB для кодека выбран как стартовый профиль на основании x86-64 измерений 02B, где worker достигал 85 MiB RSS. RSS на x86-64 не подтверждает cgroup peak на ARM64. Первый декод — маленький синтетический fixture из 02B. Превышение ресурсов останавливает серию. Worker и verifier используют тот же кодек в отдельных процессах. Разнообразие декодеров остаётся NOT_PROVEN.
 
 ## Первый пакет владельцу
 
-Открыть локальную консоль WB и сверить отпечаток ключа. При последней попытке SSH к ранее известному адресу предъявленный ключ отличался от known_hosts. Подтверждать его можно только после сверки с локальной консолью:
+Выполнить на подтверждённой локальной консоли WB из checkout PR. Следующие команды только читают metadata и работают даже при отсутствии каталога лаборатории.
 
 ```sh
-ssh-keygen -lf /etc/ssh/ssh_host_ecdsa_key.pub
 uname -rm
-cat /etc/os-release
-docker --host unix:///var/run/docker.sock version
-docker --host unix:///var/run/docker.sock compose version
-docker --host unix:///var/run/docker.sock info --format '{{.ID}} {{.OSType}} {{.Architecture}} {{.CgroupVersion}} {{.DockerRootDir}}'
-findmnt -T /mnt/data -o TARGET,FSTYPE,MAJ:MIN,OPTIONS
+docker --host unix:///var/run/docker.sock compose version --short
+docker --host unix:///var/run/docker.sock info --format '{{.ID}} {{.ServerVersion}} {{.OSType}} {{.Architecture}} cgroup={{.CgroupVersion}} memory={{.MemoryLimit}} swap={{.SwapLimit}} cpu={{.CpuCfsQuota}} pids={{.PidsLimit}}'
+cat /sys/fs/cgroup/cgroup.controllers
+findmnt -T / -o SOURCE,TARGET,FSTYPE,MAJ:MIN,OPTIONS
+findmnt -T /mnt/data -o SOURCE,TARGET,FSTYPE,MAJ:MIN,OPTIONS
 ```
 
-На подтверждённом WB из checkout этой ветки выполнить read-only preflight. `EXPECTED_DAEMON_ID` берётся из вывода подтверждённой локальной консоли. Для следующей команды требуется заранее выделенный пустой каталог `/mnt/data/stdu-wb-lab-01`, принадлежащий оператору и имеющий режим 0700. Если каталог ещё не выделен, вернуть read-only вывод выше и BLOCKED.
+Зафиксировать выведенный daemon ID в переменной `EXPECTED_DAEMON_ID` после сверки с владельцем. Формальный E0a host preflight также требует заранее выделенный пустой каталог `/mnt/data/stdu-wb-lab-01`, принадлежащий оператору с режимом 0700. Пока каталог отсутствует, результат — BLOCKED. После выделения каталога выполнить:
 
 ```sh
-python3 -B experiments/wb-lab-01/preflight.py "$EXPECTED_DAEMON_ID"
+test -n "${EXPECTED_DAEMON_ID:-}" &&
+env -u DOCKER_HOST -u DOCKER_CONTEXT -u DOCKER_TLS_VERIFY \
+  python3 -B experiments/wb-lab-01/preflight.py "$EXPECTED_DAEMON_ID"
 ```
 
-Передать JSON preflight. Он не включает secrets. После HOST_PREFLIGHT_PASS и получения фактических данных Docker следующий пакет будет ограничен E0a/E0b, с точными IDs и подтверждением ownership. В этой ревизии Compose — проверяемая конфигурация и заготовка профиля. Автоматический provisioning, E0b SQL и runtime watchdog ещё не реализованы.
+Передать вывод обеих проверок. `E0A_HOST_METADATA_PASS` проверяет установленный Engine/Compose, локальный daemon, доступные cgroup controllers, флаги лимитов Engine, root device, mount identity, RAM/disk и отсутствие оставшихся ресурсов WB-LAB-01. Он не подтверждает лимиты реального контейнера или ownership новых томов. Compose в этом пакете используется только для рендера и статической проверки, его runnable service set ограничен PostgreSQL и controller. В нём отсутствуют worker/verifier, а проверка конфигурации отклоняет добавление любого из них. Оба decoder-рецепта зарезервированы для будущего запуска через отдельный controller с одним слотом, удерживаемым до подтверждённого удаления предыдущего контейнера. E0b–E5 ожидают Quality PASS и отдельного разрешения.
 
 ARM64 codec build определён в Dockerfile.codec. Для будущей сборки использовать отдельный каталог wheels с wheel Pillow из requirements, полученным по HTTPS и сверенным с SHA-256. Запускать сборку из корня репозитория с `docker build --network none --platform linux/arm64 --build-context wheels=<путь> -f experiments/wb-lab-01/Dockerfile.codec -t stdu-wb-lab-codec:arm64 .`. Перед workload ledger должен закрепить локальный image ID и подтвердить Architecture. Native build и boot PostgreSQL под UID 999 на WB остаются NOT_RUN.
 
 ## Поэтапное исполнение
 
-Каждый запуск получает UUID, Compose project `wb-lab-01-<UUID>` и label `stdu.wb-lab-01.run=<UUID>`. Эксперимент использует новый run directory с отдельными results и локальным PG secret. Secret доступен только PostgreSQL через read-only mount. Controller получает в отдельной стадии ограниченные лабораторные credentials, без bootstrap прав. Профиль decode не стартует вместе с E0. Сеть БД — private internal, без ports. Worker/verifier работают через ограниченный stdin/stdout, с network none и без mounted volumes и secrets.
+Каждый запуск получает UUID, Compose project `wb-lab-01-<UUID>` и label `stdu.wb-lab-01.run=<UUID>`. Эксперимент использует новый run directory с отдельными results и локальным PG secret. Secret доступен только PostgreSQL через read-only mount. Controller получает в отдельной стадии ограниченные лабораторные credentials, без bootstrap прав. Профиль E0 не содержит запускаемых decoder-сервисов. Сеть БД — private internal, без ports. В будущем worker/verifier запускаются по одному через ограниченный stdin/stdout, с network none и без mounted volumes и secrets.
 
 | Этап   | Отдельное действие и критерий                                                                                                                                                                            | Evidence                                                      |
 | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |

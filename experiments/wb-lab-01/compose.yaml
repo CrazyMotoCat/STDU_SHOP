@@ -16,18 +16,6 @@ x-isolation: &isolation
   labels:
     stdu.wb-lab-01.run: ${WB_RUN_ID:?Supply a freshly generated run ID}
 
-x-decoder: &decoder
-  <<: *isolation
-  image: stdu-wb-lab-codec:arm64
-  profiles: [decode]
-  network_mode: none
-  stdin_open: true
-  cpus: 0.75
-  mem_limit: 128m
-  memswap_limit: 128m
-  pids_limit: 16
-  tmpfs: [/scratch:size=8m, mode=1777, nosuid, nodev, noexec]
-
 services:
   postgres:
     <<: *isolation
@@ -61,18 +49,8 @@ services:
     secrets: [pg_password]
     volumes: [pgdata:/var/lib/postgresql]
     tmpfs:
-      [
-        /tmp:size=8m,
-        mode=1777,
-        nosuid,
-        nodev,
-        noexec,
-        /var/run/postgresql:size=2m,
-        mode=1777,
-        nosuid,
-        nodev,
-        noexec,
-      ]
+      - '/tmp:size=8m,mode=1777,nosuid,nodev,noexec'
+      - '/var/run/postgresql:size=2m,mode=1777,nosuid,nodev,noexec'
     networks: [lab]
 
   controller:
@@ -87,16 +65,6 @@ services:
     command: [python, -c, "print('WB-LAB-01 controller image')"]
     volumes: [media:/media]
     networks: [lab]
-
-  worker:
-    <<: *decoder
-    user: '65533:65533'
-    command: [python, /bench/codec.py, process, '2097152']
-
-  verifier:
-    <<: *decoder
-    user: '65534:65534'
-    command: [python, /bench/codec.py, verify]
 
 networks:
   lab:

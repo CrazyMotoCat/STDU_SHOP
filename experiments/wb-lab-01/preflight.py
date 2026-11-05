@@ -14,6 +14,9 @@ ROOT = Path("/mnt/data/stdu-wb-lab-01")
 SOCKET = Path("/var/run/docker.sock")
 MIB = 1024**2
 GIB = 1024**3
+ENGINE_VERSION = "29.9.2"
+COMPOSE_VERSION = "5.6.1"
+LABEL = "stdu.wb-lab-01.run"
 
 
 class Blocked(RuntimeError):
@@ -49,7 +52,7 @@ def mount(path):
             "--target",
             str(path),
             "--output",
-            "TARGET,FSTYPE,MAJ:MIN,OPTIONS",
+            "TARGET,SOURCE,FSTYPE,MAJ:MIN,OPTIONS",
         )
     )["filesystems"]
     require(len(result) == 1, "MOUNT_IDENTITY_AMBIGUOUS")
@@ -69,6 +72,32 @@ def thresholds(available, disk_free):
     require(disk_free >= 4 * GIB, "DISK_BELOW_4_GIB")
 
 
+def verify_runtime(info, compose, controllers, expected_daemon):
+    require(info["ID"] == expected_daemon, "DAEMON_ID_MISMATCH")
+    require(
+        info["OSType"] == "linux" and info["Architecture"] in {"aarch64", "arm64"},
+        "ENGINE_PLATFORM",
+    )
+    require(info["ServerVersion"] == ENGINE_VERSION, "ENGINE_VERSION")
+    require(compose.removeprefix("v") == COMPOSE_VERSION, "COMPOSE_VERSION")
+    require(str(info["CgroupVersion"]) == "2", "CGROUP_V2_REQUIRED")
+    require(
+        {"cpu", "memory", "pids"} <= set(controllers), "CGROUP_CONTROLLERS_UNAVAILABLE"
+    )
+    require(
+        all(
+            info.get(key) is True
+            for key in (
+                "MemoryLimit",
+                "SwapLimit",
+                "CpuCfsQuota",
+                "PidsLimit",
+            )
+        ),
+        "CGROUP_LIMITS_UNAVAILABLE",
+    )
+
+
 def collect(expected_daemon):
     require(
         platform.system() == "Linux" and platform.machine() == "aarch64",
@@ -79,32 +108,29 @@ def collect(expected_daemon):
     require(
         not any(
             os.environ.get(k)
-            for k in ("DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS_VERIFY")
+            for k in (
+                "DOCKER_HOST",
+                "DOCKER_CONTEXT",
+                "DOCKER_TLS_VERIFY",
+            )
         ),
         "AMBIENT_DOCKER_TARGET",
     )
     require(stat.S_ISSOCK(SOCKET.stat().st_mode), "LOCAL_DOCKER_SOCKET_REQUIRED")
     info = json.loads(docker("info", "--format", "{{json .}}"))
-    require(info["ID"] == expected_daemon, "DAEMON_ID_MISMATCH")
+    compose = docker("compose", "version", "--short")
+    controllers = Path("/sys/fs/cgroup/cgroup.controllers").read_text().split()
+    verify_runtime(info, compose, controllers, expected_daemon)
     require(
-        info["OSType"] == "linux" and info["Architecture"] == "aarch64",
-        "ENGINE_PLATFORM",
-    )
-    require(str(info["CgroupVersion"]) == "2", "CGROUP_V2_REQUIRED")
-    require(
-        all(
-            info.get(k) is True
-            for k in (
-                "MemoryLimit",
-                "SwapLimit",
-                "CpuCfsQuota",
-                "PidsLimit",
+        not any(
+            (
+                docker("container", "ls", "-aq", "--filter", f"label={LABEL}"),
+                docker("network", "ls", "-q", "--filter", f"label={LABEL}"),
+                docker("volume", "ls", "-q", "--filter", f"label={LABEL}"),
             )
         ),
-        "CGROUP_LIMITS_UNAVAILABLE",
+        "EXISTING_LAB_RESOURCES",
     )
-    compose = docker("compose", "version", "--short")
-    require(re.match(r"^v?(?:2|5)\.\d+\.\d+", compose), "COMPOSE_PLUGIN_REQUIRED")
     require(
         ROOT.is_dir() and ROOT.resolve(strict=True) == ROOT,
         "LAB_ROOT_MISSING_OR_SYMLINK",
@@ -120,6 +146,7 @@ def collect(expected_daemon):
     root, data, lab, engine = (
         mount(p) for p in ("/", "/mnt/data", ROOT, info["DockerRootDir"])
     )
+    require(root["source"] == "/dev/mmcblk0p2", "ROOT_DEVICE_MISMATCH")
     require(
         all(
             m["fstype"] == "ext4" and m["maj:min"] == root["maj:min"]
@@ -142,12 +169,18 @@ def collect(expected_daemon):
     available = mem_available()
     thresholds(available, free)
     return {
-        "status": "HOST_PREFLIGHT_PASS",
+        "status": "E0A_HOST_METADATA_PASS",
         "daemon_id": info["ID"],
         "engine_version": info["ServerVersion"],
         "storage_driver": info["Driver"],
         "docker_root": info["DockerRootDir"],
         "compose": compose,
+        "cgroup_version": str(info["CgroupVersion"]),
+        "cgroup_controllers": controllers,
+        "engine_limits": {
+            key: info[key]
+            for key in ("MemoryLimit", "SwapLimit", "CpuCfsQuota", "PidsLimit")
+        },
         "kernel": platform.release(),
         "cpu_affinity": len(os.sched_getaffinity(0)),
         "mem_available_bytes": available,

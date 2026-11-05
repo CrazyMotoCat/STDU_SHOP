@@ -9,8 +9,10 @@ from preflight import MIB, Blocked, require
 CAPS = {
     "postgres": (192, 32, 0.5, "999:999"),
     "controller": (64, 16, 0.25, "65532:65532"),
-    "worker": (128, 16, 0.75, "65533:65533"),
-    "verifier": (128, 16, 0.75, "65534:65534"),
+}
+POSTGRES_TMPFS = {
+    "/tmp": {"size=8m", "mode=1777", "nosuid", "nodev", "noexec"},
+    "/var/run/postgresql": {"size=2m", "mode=1777", "nosuid", "nodev", "noexec"},
 }
 LABEL = "stdu.wb-lab-01.run"
 
@@ -85,32 +87,35 @@ def validate(config, run_id):
             ),
             "SERVICE_ISOLATION",
         )
-        if role in {"worker", "verifier"}:
+        require(
+            not service.get("profiles")
+            and not service.get("network_mode")
+            and set(service["networks"]) == {"lab"},
+            "SERVICE_NETWORK",
+        )
+        [volume] = service["volumes"]
+        expected = (
+            ("pgdata", "/var/lib/postgresql")
+            if role == "postgres"
+            else ("media", "/media")
+        )
+        require(
+            (volume["source"], volume["target"]) == expected
+            and volume["type"] == "volume",
+            "SERVICE_MOUNT",
+        )
+        tmpfs = {}
+        for entry in service.get("tmpfs", []):
+            target, separator, options = entry.partition(":")
+            values = options.split(",")
             require(
-                service["profiles"] == ["decode"]
-                and service["network_mode"] == "none"
-                and not any(
-                    service.get(k)
-                    for k in ("networks", "secrets", "volumes", "environment")
-                ),
-                "DECODER_BOUNDARY",
+                separator and target not in tmpfs and len(values) == len(set(values)),
+                "TMPFS_ENTRY",
             )
-        else:
-            require(
-                set(service["networks"]) == {"lab"} and not service.get("network_mode"),
-                "SERVICE_NETWORK",
-            )
-            [volume] = service["volumes"]
-            expected = (
-                ("pgdata", "/var/lib/postgresql")
-                if role == "postgres"
-                else ("media", "/media")
-            )
-            require(
-                (volume["source"], volume["target"]) == expected
-                and volume["type"] == "volume",
-                "SERVICE_MOUNT",
-            )
+            tmpfs[target] = set(values)
+        require(
+            tmpfs == (POSTGRES_TMPFS if role == "postgres" else {}), "TMPFS_PROFILE"
+        )
     require(
         config["services"]["postgres"]["environment"]
         == {
@@ -130,7 +135,7 @@ def validate(config, run_id):
         and not config["services"]["controller"].get("environment"),
         "SERVICE_SECRET_SCOPE",
     )
-    return {"status": "CONFIG_PASS", "project": project, "container_memory_mib": 512}
+    return {"status": "CONFIG_PASS", "project": project, "container_memory_mib": 256}
 
 
 if __name__ == "__main__":
