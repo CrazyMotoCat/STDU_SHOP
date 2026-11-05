@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "task_id": "TASK-ID",
+  "run_id": "REPLACE_WITH_UNIQUE_RUN_ID",
+  "docker": {
+    "context": "RECORD_EFFECTIVE_CONTEXT",
+    "host": "REDACTED_EFFECTIVE_ENDPOINT",
+    "daemon_id": "RECORD_FROM_SELECTED_DAEMON"
+  },
+  "budgets_seconds": {
+    "workload": null,
+    "stop": null,
+    "remove": null,
+    "cleanup_total": null
+  },
+  "resources": [
+    {
+      "kind": "container",
+      "name": "TASK_RUN_OWNED_NAME",
+      "id": null,
+      "labels": {
+        "stdu.task.id": "TASK-ID",
+        "stdu.run.id": "REPLACE_WITH_UNIQUE_RUN_ID"
+      },
+      "creation": {
+        "intent_recorded_at": null,
+        "absent_before_create": null,
+        "confirmed_at": null,
+        "outcome": "NOT_ATTEMPTED"
+      },
+      "retention": {
+        "disposable": null,
+        "protected": null,
+        "reason": null,
+        "authorization_reference": null,
+        "required_evidence_saved": null
+      },
+      "cleanup": {
+        "attempted_at": null,
+        "daemon_id_rechecked": null,
+        "identity_and_labels_rechecked": null,
+        "writers_quiescent": null,
+        "stop_result": "NOT_VERIFIED",
+        "remove_result": "NOT_VERIFIED",
+        "verified_absent_at": null,
+        "residual_reason": null
+      }
+    }
+  ],
+  "volumes": [],
+  "networks": [],
+  "images": [],
+  "evidence_manifest": [],
+  "report": {
+    "cleanup_attempted": false,
+    "cleanup_confirmed": false,
+    "status": "NOT_VERIFIED",
+    "residual_resources": [],
+    "foreign_resources_untouched": null
+  }
+}
