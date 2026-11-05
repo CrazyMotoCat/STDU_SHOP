@@ -159,6 +159,7 @@ class ProfileTests(unittest.TestCase):
                 connection.return_value.getresponse.return_value.__enter__.return_value
             )
             response.status = 200
+            response.length = len(payload)
             response.read.return_value = payload
             verify_runtime(engine_info(), "5.6.1", ["cpu", "memory", "pids"], "wb")
             connection.assert_called_once_with("localhost", timeout=5)
@@ -180,10 +181,22 @@ class ProfileTests(unittest.TestCase):
             ):
                 response = connection.return_value.getresponse.return_value.__enter__.return_value
                 response.status = status
+                response.length = None
                 response.read.return_value = payload
                 with self.assertRaisesRegex(Blocked, reason):
                     engine_info()
                 connection.return_value.close.assert_called_once()
+
+    def test_engine_info_rejects_valid_json_in_truncated_response(self):
+        with patch("preflight.LocalEngineConnection") as connection:
+            response = (
+                connection.return_value.getresponse.return_value.__enter__.return_value
+            )
+            response.status = 200
+            response.length = 100
+            response.read.return_value = b"{}"
+            with self.assertRaisesRegex(Blocked, "ENGINE_INFO_TRUNCATED"):
+                engine_info()
 
     def test_engine_info_connection_timeout_fails_closed(self):
         with patch("preflight.LocalEngineConnection") as connection:

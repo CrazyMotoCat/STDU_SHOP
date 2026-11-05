@@ -72,7 +72,13 @@ def engine_info():
         )
         with connection.getresponse() as response:
             require(response.status == 200, "ENGINE_INFO_HTTP_STATUS")
+            length = response.length
+            require(
+                length is None or 0 <= length <= ENGINE_INFO_MAX_BYTES,
+                "ENGINE_INFO_TOO_LARGE",
+            )
             payload = response.read(ENGINE_INFO_MAX_BYTES + 1)
+            require(length is None or len(payload) == length, "ENGINE_INFO_TRUNCATED")
             require(len(payload) <= ENGINE_INFO_MAX_BYTES, "ENGINE_INFO_TOO_LARGE")
             info = json.loads(payload)
             require(isinstance(info, dict), "ENGINE_INFO_OBJECT_REQUIRED")
