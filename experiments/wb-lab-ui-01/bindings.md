@@ -4,7 +4,7 @@
 
 The SVG editor's documented JSON mode exports and imports the binding description for a dashboard. The current upstream HomeUI source serializes this as a JSON array, with one object per SVG element `id`; an element can have `read`, `style`, or `visible` parameters. This task uses only `read` and `style`.
 
-The exact HomeUI build installed on the WB 8.5.3 controller has not been inspected yet. Therefore **the JSON shape is confirmed against upstream HomeUI source, while import compatibility on the target controller is `NOT_VERIFIED`**. Before upload, inspect the controller's Web UI/package version and compare an export from its own editor. Do not write directly to `/mnt/data/etc/wb-webui.conf`.
+Read-only inspection confirmed `wb-mqtt-homeui` 2.267.7 on the target controller. Therefore **the JSON shape is confirmed against upstream HomeUI source, while import compatibility on this installed build is `NOT_VERIFIED`**; no import was attempted. Before upload, compare an export from the target's own editor after separate owner approval. Do not write directly to `/mnt/data/etc/wb-webui.conf`.
 
 ## File and mapping
 

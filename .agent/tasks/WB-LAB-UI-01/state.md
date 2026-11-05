@@ -19,14 +19,14 @@
 ## Requirements and acceptance
 
 - WB-LAB-UI-01 §§2–10: native SVG Dashboard; desktop and mobile panels; the eight E0a–E5 stage rows; explicit status labels; current run, resources, events and safety indicators; documented MQTT topics, types, units, enums, initial state, cadence, source and missing-data behavior; visible DEMO mode; import/runbook; SVG/contract/binding validation; screenshots.
-- Acceptance: unique stable SVG IDs; XML-valid and compact assets; no external scripts/resources; bindings follow verified HomeUI JSON editor shape and contain no write actions; demo sequence exercises RUNNING→PASS and RUNNING→FAIL; telemetry can show FRESH/STALE/NO_DATA and collector ONLINE/OFFLINE/UNKNOWN; runtime connection remains NOT_VERIFIED pending board access.
+- Acceptance: unique stable SVG IDs; XML-valid and compact assets; no external scripts/resources; bindings use the documented HomeUI JSON editor shape and contain no write actions; demo sequence exercises RUNNING→PASS and RUNNING→FAIL; telemetry can show FRESH/STALE/NO_DATA and collector ONLINE/OFFLINE/UNKNOWN. Read-only controller access and installed versions are verified; dashboard import compatibility remains NOT_VERIFIED pending owner approval.
 
 ## Findings before implementation
 
 - Main repository worktree was clean but on stale, deleted `codex/r1-006b-catalog-import`; local `main` matched freshly fetched `origin/main` at the base above.
 - Existing `codex/wb-lab-01` worktree is clean and corresponds to Draft PR #54, stacked on VIS-CAT-02C. It is read-only reference and will not be modified.
 - PR #54 README reports no runtime preflight/experiments yet; no reliable LIVE telemetry source is available. DEMO is the only implemented source in this task.
-- Official SVG docs and HomeUI source confirm JSON editor exports an array of per-element binding objects; HomeUI source implements `read`, `style` and `visible`. Exact installed package version on the WB remains NOT_VERIFIED until read-only inspection.
+- Official SVG docs and HomeUI source confirm JSON editor exports an array of per-element binding objects; HomeUI source implements `read`, `style` and `visible`. Read-only SSH inspection on 2026-11-05 verified Debian GNU/Linux 13.7, ARM64, Linux 6.8.0-wb162, and `wb-mqtt-homeui` / `wb-homeui-backend` 2.267.7. Import behavior against that installed build remains NOT_VERIFIED because no dashboard import was attempted.
 
 ## Current status
 
@@ -35,4 +35,5 @@
 - Verification: `python -B generate_dashboard.py` completed; `python -B -m unittest discover -s tests -v` passed 6/6; `python -B demo-publisher.py --dry-run --steps 6 --interval-seconds 0.2` showed synthetic RUNNING→PASS, RUNNING→FAIL, STALE, then OFFLINE without broker connection.
 - Draft PR: [#55](https://github.com/CrazyMotoCat/STDU_SHOP/pull/55), title `WB-LAB-UI-01: Native Wiren Board SVG HMI`, target `main`. Implementation commit: `119e39b6aa042448e9f3d8a9c26bf49c95ddb02c`.
 - GitHub automatically started checks after PR creation; at the first status read, `Classify revision` succeeded and `FULL CI`, `JavaScript static and units`, `Python static and parser`, and `Frozen contracts` were still in progress. No separate CI/review was initiated for this visual-first task.
-- Runtime import/stand checks: NOT_RUN; require owner access and separate approval for upload.
+- Controller read-only metadata check: PASS (SSH host ECDSA fingerprint matched the value supplied from the local console; OS and package versions recorded above). No remote write, install, config change, MQTT publish, or dashboard upload was performed.
+- Dashboard import, HMI rendering, and MQTT connection on the controller: NOT_RUN; dashboard upload/import requires separate owner approval.

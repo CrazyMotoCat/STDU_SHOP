@@ -39,7 +39,7 @@ Actual MQTT publishing is opt-in: pass `--host <broker>` explicitly (and, when r
 
 ## HomeUI version and upload
 
-The dashboard JSON shape is confirmed from the upstream HomeUI SVG editor source. The installed HomeUI version on the WB 8.5.3 stand and actual import behavior remain `NOT_VERIFIED`. Runtime loading is a separate owner approval gate; this task does not touch `/mnt/data/etc/wb-webui.conf`, install packages, modify wb-rules, or alter broker ACLs.
+Read-only inspection on 2026-11-05 confirmed Debian GNU/Linux 13.7 (ARM64, Linux 6.8.0-wb162) with `wb-mqtt-homeui` and `wb-homeui-backend` version `2.267.7`. The dashboard JSON shape is confirmed from the upstream HomeUI SVG editor source; import behavior against this installed build remains `NOT_VERIFIED` because no dashboard import was attempted. Runtime loading is a separate owner approval gate; this task does not touch `/mnt/data/etc/wb-webui.conf`, install packages, modify wb-rules, or alter broker ACLs.
 
 After approval, follow [`bindings.md`](bindings.md) and the current [Wiren Board SVG Dashboards guide](https://wiki.wirenboard.com/wiki/SVG-Dashboards):
 
@@ -68,6 +68,6 @@ The checks cover XML parsing, stable unique IDs, no external resources/scripts, 
 ## Limitations / next steps
 
 - No E0–E5 live telemetry source is wired. All demo measurements and outcomes are synthetic.
-- The exact installed HomeUI release and editor import are `NOT_VERIFIED` until read-only stand inspection.
+- The installed HomeUI release is verified as `2.267.7`; editor import compatibility is `NOT_VERIFIED` until an owner-approved runtime import.
 - No live broker write, dashboard upload, package install, WB configuration change, or runtime test has been performed.
-- Next: visual review of the screenshots; then, when the owner is ready, inspect the exact controller/HomeUI version read-only. Import the dashboard only after separate owner approval.
+- Next: visual review of the screenshots. Import the dashboard only after separate owner approval.
