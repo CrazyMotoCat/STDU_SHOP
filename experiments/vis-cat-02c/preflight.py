@@ -38,6 +38,7 @@ def verify_host(host, approved):
     require(host["device_bytes"] == 4 * 1024**3, "DEVICE_CAPACITY")
     require(host["free_bytes"] >= 1024**3, "DISK_WATERMARK")
     require(host["stage_device"] == host["final_device"], "CROSS_DEVICE")
+    require(host["stage_device"] == host["device_number"], "UNAPPROVED_DEVICE")
     options = set(host["mount_options"])
     require({"rw", "relatime", "data=ordered"} <= options, "MOUNT_OPTIONS")
     require(
@@ -63,12 +64,13 @@ def verify_inventory(run_id, ledger, inventory, forbidden_ids):
             "CREATION_NOT_PROVEN",
         )
         require(entry["id"] not in forbidden_ids, "FOREIGN_RESOURCE")
+        require(entry["id"] in inventory, "OWNERSHIP_UNPROVEN")
         resource = inventory[entry["id"]]
         require(
             resource["id"] == entry["id"] and resource["name"] == entry["name"],
             "RESOURCE_IDENTITY",
         )
-        require(resource["labels"].get(LABEL) == run_id, "OWNER_LABEL")
+        require(resource.get("labels", {}).get(LABEL) == run_id, "OWNERSHIP_UNPROVEN")
         if entry["role"] in {"media", "pgdata"}:
             require(
                 resource["driver"] == "local" and not resource["options"],
@@ -179,3 +181,27 @@ def verify_initialization(run_id, expected_media, expected_db, observed):
         "DATABASE_ROLE",
     )
     return {"gate": "E0b", "status": "ACCEPTED_IDENTITY", "run_id": run_id}
+
+
+def verify_media_binding(
+    run_id, host, approved, ledger, inventory, forbidden_ids, observed
+):
+    """Join synthetic mount observations to the approved device and owned media volume."""
+    verify_host(host, approved)
+    verify_inventory(run_id, ledger, inventory, forbidden_ids)
+    media = next(item for item in ledger if item["role"] == "media")
+    source = PurePosixPath(observed["source"])
+    require(source.is_absolute() and ".." not in source.parts, "UNVERIFIED_PATH")
+    require(
+        observed["canonical_source"] == str(source)
+        and observed["source"] == inventory[media["id"]].get("mountpoint"),
+        "UNVERIFIED_PATH",
+    )
+    require(observed["volume_id"] == media["id"], "MOUNT_OWNERSHIP")
+    require(
+        observed["device_uuid"] == approved.media_device_uuid
+        and observed["device_number"] == host["device_number"]
+        and observed["filesystem"] == "ext4",
+        "MOUNT_DEVICE",
+    )
+    return {"gate": "E0a", "status": "MOCK_BINDING_ACCEPTED", "run_id": run_id}

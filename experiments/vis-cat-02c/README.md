@@ -25,4 +25,8 @@ When the host is designated, build the bounded Docker lifecycle controller by re
 
 Before target execution, provide the approved context/daemon identity, the empty 4 GiB ext4 device and mount details, and target-environment information for comparison. Observe C0 after failures and preserve resources whenever cleanup ownership or writer termination is uncertain. E4b and host-impacting operations remain separate owner decisions. Production contracts and deployment are outside the experiment.
 
-The host and resource validators are separate predicates in this slice. The future collector must join each created volume mount source through mountinfo/statfs to the approved device UUID. The local Docker driver alone does not prove that relationship. That join is NOT_IMPLEMENTED and prevents treating these functions as a runnable E0 gate.
+The mock binding predicate joins the media mount source to the approved device UUID and number. The live collector that obtains and authenticates these observations remains unimplemented. The model reports UNKNOWN when the database cannot answer a commit inquiry. It reports COMMITTED only after checking the recorded reference, and distinguishes a pending attempt from a fenced or unknown generation. Modeled cleanup requires ownership, exact generation, quiescence and a shared deadline.
+
+## CI recovery
+
+PR #52 is a low-risk documentation Draft. The classifier intentionally skips FULL in that state and the required merge gate rejects a skipped run. The existing Ready for Review workflow runs FULL on the current merge candidate. Before any future integration, update the branch from main and use that transition. A manually dispatched FULL produces supplemental evidence and cannot satisfy the merge gate. No policy change is required.
