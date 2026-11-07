@@ -27,6 +27,13 @@ from ingestion.supplier_models import (
     RowError,
     Run,
 )
+from ingestion.supplier_staging_paths import (
+    UnsafePath,
+    checked_directory,
+    checked_file,
+    open_file,
+    validate_open_file,
+)
 
 
 class IngestionError(Exception):
@@ -62,9 +69,7 @@ SOURCES = (
 
 
 def read_bounded(path: Path, limit: int = MAX_BYTES) -> bytes:
-    if path.is_symlink():
-        raise IngestionError("UNSAFE_PATH")
-    with path.open("rb") as stream:
+    with os.fdopen(open_file(path.absolute()), "rb") as stream:
         data = stream.read(limit + 1)
     if len(data) > limit:
         raise IngestionError("INPUT_LIMIT_EXCEEDED")
@@ -73,17 +78,30 @@ def read_bounded(path: Path, limit: int = MAX_BYTES) -> bytes:
 
 def atomic_write(path: Path, data: bytes) -> None:
     """Commit one checkpoint, not a database transaction or power-loss guarantee."""
-    if path.is_symlink():
-        raise IngestionError("UNSAFE_PATH")
+    before = checked_file(path)
+    parent = path.parent.lstat()
     fd, name = tempfile.mkstemp(prefix=".pending-", dir=path.parent)
     try:
         with os.fdopen(fd, "wb") as stream:
+            validate_open_file(Path(name), stream.fileno())
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
+            validate_open_file(Path(name), stream.fileno())
+        current = checked_file(path)
+        if (
+            not os.path.samestat(parent, path.parent.lstat())
+            or (current is None) != (before is None)
+            or (
+                current is not None and before is not None and not os.path.samestat(current, before)
+            )
+        ):
+            raise UnsafePath
         os.replace(name, path)
     finally:
-        Path(name).unlink(missing_ok=True)
+        checked_directory(path.parent)
+        if os.path.samestat(parent, path.parent.lstat()):
+            Path(name).unlink(missing_ok=True)
 
 
 def lock_file(stream: BinaryIO, unlock: bool = False) -> None:
@@ -100,21 +118,16 @@ def lock_file(stream: BinaryIO, unlock: bool = False) -> None:
 
 @contextmanager
 def exclusive(directory: Path) -> Iterator[None]:
-    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if directory.is_symlink():
-        raise IngestionError("UNSAFE_PATH")
+    directory = directory.absolute()
+    checked_directory(directory, create=True)
     path = directory / ".lock"
-    if path.is_symlink():
-        raise IngestionError("UNSAFE_PATH")
-    with path.open("a+b") as stream:
-        if path.stat().st_size == 0:
-            stream.write(b"0")
-            stream.flush()
+    with os.fdopen(open_file(path, lock=True), "r+b") as stream:
         try:
             lock_file(stream)
         except OSError:
             raise IngestionError("JOB_BUSY") from None
         try:
+            validate_open_file(path, stream.fileno())
             yield
         finally:
             lock_file(stream, unlock=True)
@@ -150,6 +163,58 @@ def finish(run: Run) -> None:
     )
 
 
+def parse_rows(raw: bytes) -> list[object] | None:
+    try:
+        rows = json.loads(raw, object_pairs_hook=unique_keys, parse_constant=reject_constant)
+    except ValueError, RecursionError:
+        return None
+    return rows if isinstance(rows, list) and len(rows) <= MAX_ROWS else None
+
+
+def normalize_row(
+    job: Job, raw_sha256: str, adapter_version: str, row_number: int, row: object
+) -> Candidate | RowError:
+    try:
+        value = OfferInput.model_validate(row)
+    except ValidationError:
+        return RowError(row_number=row_number)
+    warnings = ["IDENTITY_UNVERIFIED", "NOT_A_BUSINESS_OFFER"]
+    if value.purchase_cost is None:
+        warnings.append("PRICE_UNKNOWN")
+    return Candidate(
+        candidate_id=digest(f"{job.job_id}:{raw_sha256}:{adapter_version}:{row_number}".encode()),
+        row_number=row_number,
+        normalized=value,
+        modification_evidence="SPECIFIED" if value.modification else "UNKNOWN",
+        warnings=warnings,
+    )
+
+
+def verify_results(
+    run: Run, job: Job, raw_hash: str, adapter: str, rows: list[object] | None
+) -> None:
+    candidates: list[Candidate] = []
+    errors: list[RowError] = []
+    if rows is None:
+        if run.processed or run.status not in {"FAILED", "RUNNING"}:
+            raise IngestionError("CHECKPOINT_INVALID")
+    else:
+        if run.processed > len(rows):
+            raise IngestionError("CHECKPOINT_INVALID")
+        for number, row in enumerate(rows[: run.processed], 1):
+            result = normalize_row(job, raw_hash, adapter, number, row)
+            if isinstance(result, Candidate):
+                candidates.append(result)
+            else:
+                errors.append(result)
+        if run.status != "RUNNING" and (
+            run.processed != len(rows) or run.status != ("PARTIAL" if errors else "COMPLETE")
+        ):
+            raise IngestionError("CHECKPOINT_INVALID")
+    if candidates != run.candidates or errors != run.errors:
+        raise IngestionError("CHECKPOINT_INVALID")
+
+
 def execute(
     job: Job,
     workspace: Path,
@@ -178,42 +243,41 @@ def execute(
             sort_keys=True,
         ).encode()
     )
-    directory = workspace / str(job.job_id)
+    directory = workspace.absolute() / str(job.job_id)
     try:
         with exclusive(directory):
             state_path, raw_path = directory / "run.json", directory / "source.json"
             manifest_path = directory / "manifest.json"
-            if state_path.exists():
+            if checked_file(state_path) is not None:
                 try:
-                    run = Run.model_validate_json(read_bounded(state_path, 2 * MAX_BYTES))
+                    checkpoint = read_bounded(state_path, 2 * MAX_BYTES)
+                    run = Run.model_validate_json(checkpoint)
+                    saved_results = json.loads(
+                        checkpoint, object_pairs_hook=unique_keys, parse_constant=reject_constant
+                    )
+                    canonical = run.model_dump(mode="json")
+                    if saved_results != canonical:
+                        raise ValueError
                     manifest = Manifest.model_validate_json(read_bounded(manifest_path, 4096))
-                except ValidationError:
+                except ValueError, RecursionError:
                     raise IngestionError("CHECKPOINT_INVALID") from None
-                if (
-                    run.request_fingerprint != fingerprint
-                    or manifest.request_fingerprint != fingerprint
-                ):
+                if manifest.request_fingerprint != fingerprint:
                     raise IngestionError("JOB_ID_CONFLICT")
                 raw = read_bounded(raw_path)
-                if digest(raw) != run.raw_sha256 or digest(raw) != manifest.raw_sha256:
+                if digest(raw) != manifest.raw_sha256:
                     raise IngestionError("SOURCE_INTEGRITY_ERROR")
                 if (
                     run.job != job
+                    or run.request_fingerprint != fingerprint
+                    or run.raw_sha256 != manifest.raw_sha256
                     or run.source_version != source.version
                     or run.adapter_version != source.adapter_version
                     or run.supplier_reference != source.supplier_reference
                 ):
                     raise IngestionError("CHECKPOINT_INVALID")
+                rows = parse_rows(raw)
+                verify_results(run, job, manifest.raw_sha256, source.adapter_version, rows)
                 if run.status != "RUNNING":
-                    if run.status in {"COMPLETE", "PARTIAL"}:
-                        try:
-                            rows = json.loads(
-                                raw, object_pairs_hook=unique_keys, parse_constant=reject_constant
-                            )
-                            if not isinstance(rows, list) or len(rows) != run.processed:
-                                raise ValueError
-                        except ValueError, RecursionError, UnicodeError:
-                            raise IngestionError("CHECKPOINT_INVALID") from None
                     return run
                 if run.attempts >= 5:
                     raise IngestionError("ATTEMPT_LIMIT_EXCEEDED")
@@ -223,7 +287,7 @@ def execute(
                 # Bind identity before snapshot/state; never replace interrupted input.
                 raw = read_bounded(source.fixture)
                 manifest = Manifest(request_fingerprint=fingerprint, raw_sha256=digest(raw))
-                if manifest_path.exists():
+                if checked_file(manifest_path) is not None:
                     try:
                         saved = Manifest.model_validate_json(read_bounded(manifest_path, 4096))
                     except ValidationError:
@@ -234,7 +298,7 @@ def execute(
                         raise IngestionError("SOURCE_INTEGRITY_ERROR")
                 else:
                     atomic_write(manifest_path, manifest.model_dump_json().encode())
-                if raw_path.exists():
+                if checked_file(raw_path) is not None:
                     if read_bounded(raw_path) != raw:
                         raise IngestionError("SOURCE_INTEGRITY_ERROR")
                 else:
@@ -249,16 +313,9 @@ def execute(
                     started_at=now(),
                     events=[Event(code="STARTED", at=now())],
                 )
+                rows = parse_rows(raw)
             atomic_write(state_path, encode(run))
-            try:
-                rows = json.loads(
-                    raw, object_pairs_hook=unique_keys, parse_constant=reject_constant
-                )
-                if not isinstance(rows, list):
-                    raise ValueError
-                if len(rows) > MAX_ROWS:
-                    raise ValueError
-            except ValueError, RecursionError, UnicodeError:
+            if rows is None:
                 run.status = "FAILED"
                 finish(run)
                 run.events.append(Event(code="INPUT_INVALID", at=now()))
@@ -271,24 +328,14 @@ def execute(
                     raise IngestionError("TIME_LIMIT_EXCEEDED")
                 row_number = index + 1
                 event: Literal["ROW_STAGED", "ROW_INVALID"]
-                try:
-                    value = OfferInput.model_validate(rows[index])
-                    warnings = ["IDENTITY_UNVERIFIED", "NOT_A_BUSINESS_OFFER"]
-                    if value.purchase_cost is None:
-                        warnings.append("PRICE_UNKNOWN")
-                    candidate = Candidate(
-                        candidate_id=digest(
-                            f"{job.job_id}:{run.raw_sha256}:{source.adapter_version}:{row_number}".encode()
-                        ),
-                        row_number=row_number,
-                        normalized=value,
-                        modification_evidence="SPECIFIED" if value.modification else "UNKNOWN",
-                        warnings=warnings,
-                    )
-                    run.candidates.append(candidate)
+                result = normalize_row(
+                    job, run.raw_sha256, source.adapter_version, row_number, rows[index]
+                )
+                if isinstance(result, Candidate):
+                    run.candidates.append(result)
                     event = "ROW_STAGED"
-                except ValidationError:
-                    run.errors.append(RowError(row_number=row_number))
+                else:
+                    run.errors.append(result)
                     event = "ROW_INVALID"
                 run.processed = row_number
                 run.events.append(Event(code=event, at=now(), row_number=row_number))
@@ -300,6 +347,8 @@ def execute(
             run.events.append(Event(code=run.status, at=now()))
             atomic_write(state_path, encode(run))
             return run
+    except UnsafePath:
+        raise IngestionError("UNSAFE_PATH") from None
     except OSError:
         raise IngestionError("STORAGE_UNAVAILABLE") from None
 
@@ -334,8 +383,8 @@ def main() -> int:
     except ValidationError, ValueError, OSError, RecursionError:
         print(json.dumps({"code": "JOB_INVALID"}))
         return 3
-    except IngestionError as error:
-        print(json.dumps({"code": str(error)}))
+    except (IngestionError, UnsafePath) as error:
+        print(json.dumps({"code": "UNSAFE_PATH" if isinstance(error, UnsafePath) else str(error)}))
         return 3
 
 

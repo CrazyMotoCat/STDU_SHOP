@@ -1,5 +1,7 @@
 import json
+import os
 import socket
+import stat
 import subprocess
 import sys
 from dataclasses import replace
@@ -13,6 +15,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from ingestion import supplier_ingestion as runner
+from ingestion import supplier_staging_paths as staging_paths
 from ingestion.main import create_app
 from ingestion.supplier_ingestion import IngestionError, Source, execute
 from ingestion.supplier_models import MAX_BYTES, Job, OfferInput
@@ -312,7 +315,7 @@ def test_corrupt_raw_or_checkpoint_never_overwrites_evidence(tmp_path: Path) -> 
         execute(request, tmp_path)
 
 
-@pytest.mark.parametrize("change", ["coordinate", "source", "count"])
+@pytest.mark.parametrize("change", ["coordinate", "source", "count", "timestamp", "status"])
 def test_checkpoint_logical_provenance_consistency(tmp_path: Path, change: str) -> None:
     request = job()
     execute(request, tmp_path)
@@ -322,6 +325,10 @@ def test_checkpoint_logical_provenance_consistency(tmp_path: Path, change: str) 
         state["candidates"][0]["row_number"] = 2
     elif change == "source":
         state["supplier_reference"] = "TEST-other"
+    elif change == "timestamp":
+        state["started_at"] = "invalid"
+    elif change == "status":
+        state["status"] = "RUNNING"
     else:
         state["processed"] = 1
         state["candidates"] = state["candidates"][:1]
@@ -348,6 +355,167 @@ def test_no_network_business_credentials_or_http_endpoint(
     assert all(
         getattr(route, "path", "") != "/internal/v1/supplier-ingestion" for route in app.routes
     )
+
+
+@pytest.mark.parametrize("resume", [False, True])
+@pytest.mark.parametrize("tamper", ["price_and_id", "identity", "warning", "evidence"])
+def test_snapshot_detects_forged_candidates(tmp_path: Path, resume: bool, tamper: str) -> None:
+    request = job()
+
+    def stop(_: int) -> NoReturn:
+        raise KeyboardInterrupt
+
+    if resume:
+        with pytest.raises(KeyboardInterrupt):
+            execute(request, tmp_path, after_checkpoint=stop)
+    else:
+        execute(request, tmp_path)
+    directory = tmp_path / str(request.job_id)
+    checkpoint = directory / "run.json"
+    state = json.loads(checkpoint.read_bytes())
+    candidate = state["candidates"][0]
+    if tamper == "price_and_id":
+        candidate["normalized"]["purchase_cost"] = "999999"
+        candidate["candidate_id"] = "0" * 64
+    elif tamper == "identity":
+        candidate["normalized"].update(offer_name="TEST forgery", original_part_number="WRONG")
+    elif tamper == "warning":
+        candidate["warnings"] = []
+    else:
+        candidate["modification_evidence"] = "UNKNOWN"
+    checkpoint.write_text(json.dumps(state))
+    assert_checkpoint_rejected(request, tmp_path)
+
+
+def assert_checkpoint_rejected(request: Job, workspace: Path, *sources: Source) -> None:
+    directory = workspace / str(request.job_id)
+    before = {p.name: p.read_bytes() for p in directory.iterdir()}
+    with pytest.raises(IngestionError, match="^CHECKPOINT_INVALID$"):
+        execute(request, workspace, sources or runner.SOURCES)
+    assert {p.name: p.read_bytes() for p in directory.iterdir()} == before
+
+
+@pytest.mark.parametrize("resume", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_snapshot_detects_reclassified_row(tmp_path: Path, resume: bool, reverse: bool) -> None:
+    workspace = tmp_path / "runs"
+    source = fixture(tmp_path, b'[{"offer_name":"TEST"}, {"purchase_cost":1}]')
+    request = job()
+
+    def stop_at_end(number: int) -> None:
+        if number == 2:
+            raise KeyboardInterrupt
+
+    if resume:
+        with pytest.raises(KeyboardInterrupt):
+            execute(request, workspace, (source,), after_checkpoint=stop_at_end)
+    else:
+        execute(request, workspace, (source,))
+    file = workspace / str(request.job_id) / "run.json"
+    state = json.loads(file.read_bytes())
+    if reverse:
+        state["candidates"] = []
+        state["errors"].insert(0, {"row_number": 1, "code": "ROW_INVALID"})
+    else:
+        forged = dict(state["candidates"][0], row_number=2, candidate_id="0" * 64)
+        state["candidates"].append(forged)
+        state["errors"] = []
+        if not resume:
+            state["status"] = "COMPLETE"
+    file.write_text(json.dumps(state))
+    assert_checkpoint_rejected(request, workspace, source)
+
+
+@pytest.mark.parametrize("name", [".lock", "manifest.json", "source.json", "run.json"])
+def test_staging_rejects_hardlinks_before_external_write(tmp_path: Path, name: str) -> None:
+    request = job()
+    workspace = tmp_path / "runs"
+    directory = workspace / str(request.job_id)
+    directory.mkdir(parents=True)
+    external = tmp_path / "external.bin"
+    expected = b"" if name == ".lock" else b"outside bytes"
+    external.write_bytes(expected)
+    os.link(external, directory / name)
+    with pytest.raises(IngestionError, match="^UNSAFE_PATH$"):
+        execute(request, workspace)
+    assert external.read_bytes() == expected
+    assert (directory / name).samefile(external)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows junction")
+@pytest.mark.parametrize("component", ["ancestor", "workspace", "job"])
+def test_windows_junction_cannot_escape_staging(tmp_path: Path, component: str) -> None:
+    request = job()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "sentinel").write_bytes(b"outside bytes")
+    workspace = tmp_path / "parent" / "runs"
+    junction = {
+        "ancestor": workspace.parent,
+        "workspace": workspace,
+        "job": workspace / str(request.job_id),
+    }[component]
+    junction.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["cmd.exe", "/c", "mklink", "/J", str(junction), str(outside)],
+        check=True,
+        capture_output=True,
+        timeout=10,
+    )
+    try:
+        assert getattr(junction.lstat(), "st_reparse_tag", 0) != 0
+        with pytest.raises(IngestionError, match="^UNSAFE_PATH$"):
+            execute(request, workspace)
+        assert {p.name: p.read_bytes() for p in outside.iterdir()} == {"sentinel": b"outside bytes"}
+    finally:
+        junction.rmdir()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Win32 attribute lookup")
+def test_windows_raw_reparse_attribute_rejected_before_stat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert sys.platform == "win32"
+    request = job()
+    workspace = tmp_path / "runs"
+    workspace.mkdir()
+    original = getattr(staging_paths, "attributes", None)
+    assert callable(original)
+
+    def attributes(path: str) -> int:
+        if Path(path) == workspace:
+            return stat.FILE_ATTRIBUTE_REPARSE_POINT | stat.FILE_ATTRIBUTE_DIRECTORY
+        return int(original(path))
+
+    # Simulate an opaque tag that lstat might otherwise resolve as a directory.
+    monkeypatch.setattr(staging_paths, "attributes", attributes)
+    with pytest.raises(IngestionError, match="^UNSAFE_PATH$"):
+        execute(request, workspace)
+    assert not list(workspace.iterdir())
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux symlink")
+@pytest.mark.parametrize(
+    "component", ["ancestor", "job", ".lock", "manifest.json", "source.json", "run.json"]
+)
+def test_linux_symlink_cannot_escape_staging(tmp_path: Path, component: str) -> None:
+    request = job()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    sentinel = outside / "sentinel"
+    sentinel.write_bytes(b"outside bytes")
+    workspace = tmp_path / "parent" / "runs"
+    directory = workspace / str(request.job_id)
+    if component in {"ancestor", "job"}:
+        link = workspace.parent if component == "ancestor" else directory
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(outside, target_is_directory=True)
+    else:
+        directory.mkdir(parents=True)
+        (directory / component).symlink_to(sentinel)
+    with pytest.raises(IngestionError, match="^UNSAFE_PATH$"):
+        execute(request, workspace)
+    assert {p.name: p.read_bytes() for p in outside.iterdir()} == {"sentinel": b"outside bytes"}
 
 
 def test_mock_profile_disabled_in_production(

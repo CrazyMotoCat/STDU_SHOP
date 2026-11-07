@@ -126,6 +126,16 @@ class Run(StrictModel):
 
     @model_validator(mode="after")
     def checkpoint_consistent(self) -> Run:
+        started = datetime.fromisoformat(self.started_at)
+        if started.utcoffset() is None:
+            raise ValueError("checkpoint timestamp needs a timezone")
+        if self.status == "RUNNING":
+            if self.finished_at is not None or self.duration_ms is not None:
+                raise ValueError("running checkpoint cannot be finished")
+        elif self.finished_at is None or self.duration_ms is None:
+            raise ValueError("terminal checkpoint needs completion metadata")
+        elif datetime.fromisoformat(self.finished_at).utcoffset() is None:
+            raise ValueError("checkpoint timestamp needs a timezone")
         rows = [c.row_number for c in self.candidates] + [e.row_number for e in self.errors]
         if sorted(rows) != list(range(1, self.processed + 1)):
             raise ValueError("noncontiguous checkpoint")
