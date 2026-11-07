@@ -102,7 +102,8 @@ class E2Guards(unittest.TestCase):
 
 
 @unittest.skipUnless(
-    os.environ.get("WB_E2_REAL_PG") == "1", "explicit disposable PostgreSQL test"
+    os.environ.get("WB_E2_REAL_PG") == "1" or os.environ.get("WB_E34_REAL_PG") == "1",
+    "explicit disposable PostgreSQL test",
 )
 class E2Postgres(unittest.TestCase):
     def test_six_cases_on_owned_networkless_postgres(self):
@@ -218,6 +219,22 @@ class E2Postgres(unittest.TestCase):
             )
             self.assertEqual(len(result["trials"]), 6)
             self.assertEqual(result["reference_count"], 4)
+            if os.environ.get("WB_E34_REAL_PG") == "1":
+                import e3_cases
+                import e3_probe
+
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory) / "objects"
+                    storage = e3_probe.run(root)
+                    result3 = e3_cases.run_sql(
+                        lambda end: cases.Session(argv, end),
+                        time.monotonic() + 30,
+                        storage,
+                        lambda: e3_cases.file_state(root, expected_uid=os.getuid()),
+                    )
+                    self.assertEqual(len(result3["trials"]), 10)
+                    self.assertEqual(result3["reference_count"], 9)
+                    print("E3_SQL_ACCEPTANCE " + json.dumps(result3, sort_keys=True))
             print("E2_SQL_ACCEPTANCE " + json.dumps(result))
         finally:
             if create_requested:

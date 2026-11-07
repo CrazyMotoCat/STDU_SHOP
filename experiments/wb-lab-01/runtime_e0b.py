@@ -440,6 +440,8 @@ def verify_database(deadline, trace, ledger):
 
 
 def cleanup(deadline, ledger):
+    for auxiliary in ledger.get("auxiliary_containers", []):
+        base.cleanup(deadline, auxiliary)
     # Remove the only writer first. Never remove a volume with unconfirmed writer state.
     writer = {**ledger, "volume_create_requested": False}
     try:
@@ -448,6 +450,24 @@ def cleanup(deadline, ledger):
         # A create timeout may disclose its ID only during cleanup; retain it even if removal fails.
         if "container_id" in writer:
             ledger["container_id"] = writer["container_id"]
+    if ledger.get("phase") == "e3":
+        from e3_cases import cleanup_tree
+
+        media = ledger["volumes"]["media"]
+        if "identity" in media:
+            item = base.owned_volume(
+                base.inspect(deadline, "volume", media["name"]),
+                media["name"],
+                ledger["run_id"],
+            )
+            require(
+                all(
+                    item[key] == media["identity"][key]
+                    for key in ("CreatedAt", "Mountpoint")
+                ),
+                "E3_CLEANUP_VOLUME_IDENTITY",
+            )
+            cleanup_tree(ledger)
     for volume in ledger["volumes"].values():
         base.cleanup(
             deadline,
@@ -463,7 +483,8 @@ def cleanup(deadline, ledger):
 
 def run(host, *, phase="e0b", scenario=None):
     require(
-        (phase == "e0b" and scenario is None) or (phase == "e2" and callable(scenario)),
+        (phase == "e0b" and scenario is None)
+        or (phase in {"e2", "e3"} and callable(scenario)),
         "LAB_PHASE",
     )
     run_id = uuid.uuid4().hex
@@ -480,12 +501,21 @@ def run(host, *, phase="e0b", scenario=None):
             for role in ("pg", "media")
         },
     }
+    if phase == "e3":
+        ledger["phase"] = phase
+        ledger["media_device"] = host["mounts"]["root"]["maj:min"]
     evidence = {
         "status": "NOT_RUN",
         "ledger": ledger,
         "operations": [],
         "cleanup": "NOT_RUN",
-        "E1_to_E5" if phase == "e0b" else "E3_to_E5": "NOT_RUN",
+        (
+            "E1_to_E5"
+            if phase == "e0b"
+            else "E3_to_E5"
+            if phase == "e2"
+            else "E4_to_E5"
+        ): "NOT_RUN",
         "VDS_equivalence": "NOT_PROVEN",
     }
     record = path / "evidence.json"
@@ -693,6 +723,25 @@ def run(host, *, phase="e0b", scenario=None):
                 if isinstance(error, Blocked)
                 else type(error).__name__,
             )
+        if (
+            phase == "e3"
+            and len((json.dumps(evidence, indent=2) + "\n").encode()) > 16384
+        ):
+            # Keep final status, exact resource identities, and completed-case results.
+            scenario_report = evidence.get("scenario", {})
+            for key in ("postgres_cgroup_counters", "controller_metrics"):
+                if key in scenario_report:
+                    scenario_report[key] = "OMITTED_EVIDENCE_BUDGET"
+            operations = evidence["operations"]
+            evidence["operations"] = {
+                "count": len(operations),
+                "last_error": next(
+                    (row for row in reversed(operations) if row["error_type"]), None
+                ),
+                "detail": "OMITTED_EVIDENCE_BUDGET",
+            }
+            if evidence["status"] == "E3_RUNTIME_PASS":
+                evidence.update(status="BLOCKED", reason="E3_EVIDENCE_BUDGET")
         base.save(record, evidence)
     return evidence
 

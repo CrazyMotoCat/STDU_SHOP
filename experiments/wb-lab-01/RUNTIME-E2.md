@@ -2,7 +2,7 @@
 
 E1 Runtime PASS is accepted on `d1b1a3633d292e5d364e5252195340898fb2dafe`. Its three WB trials took 8.418 ms, 0.282 ms and 3.976 ms. The complete run took 7.974 s and cleanup was confirmed. Evidence SHA-256 is `ffbc52da74e6e32a6be8293376b98d6fa0cc701a99cc50cda07853929b949200`. E0b evidence remains `cb5f9c40c4dadf4e470dd2610396847b63ce130db2bcd64721d09c14d4a23255`.
 
-**E2 status PREPARED / WB NOT_RUN / OWNER_E2_RUNTIME_APPROVED REQUIRED.**
+**E2_RUNTIME_PASS / OWNER ACCEPTED.** WB run `d609b33a167d471185d20308b4fbc0c8` on `20ccf4be3fab558e25af88f1f7cbf74b63abd7f6` completed in 25.465 s. Six cases passed, with four references and no double application. Actual limits were 192 MiB RAM, swap 0, 0.5 CPU and 32 PIDs. Quality PASS, cleanup CONFIRMED, foreign inventory PRESERVED. Evidence SHA-256 `92a9ff282021348b282b684f475dbf878f668a59e4f1c2aed881b6d68e904ca2`.
 
 ## Scope and resources
 
@@ -31,4 +31,4 @@ Offline tests cover approval before provisioning, retained-file hashes/modes/sym
 
 After an independent review and successful local checks, FAST/FULL verify the completed implementation. The owner must separately authorize WB execution on that reviewed HEAD. The one-shot command is `python3 -B experiments/wb-lab-01/runtime_e2.py OWNER_E2_RUNTIME_APPROVED`. A successful WB run requires all six SQL cases, unchanged sentinel hashes, a healthy watchdog, final state checks, verified writer removal and removal of both owned volumes. Failure produces a blocked result and retained evidence. A second E2 invocation is blocked by the extra run directory.
 
-E3–E5 remain NOT_RUN. VDS equivalence and production durability remain NOT_PROVEN. This task ends at E2 preparation because its current owner instruction requires a separate E2 runtime authorization.
+E3–E5 remain NOT_RUN. VDS equivalence and production durability remain NOT_PROVEN. The next cycle is described in [RUNTIME-E34.md](RUNTIME-E34.md).

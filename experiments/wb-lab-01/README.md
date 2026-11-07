@@ -1,8 +1,6 @@
-# WB-LAB-01 — подготовка стенда VIS-CAT-02C
+# WB-LAB-01 — VIS-CAT-02C lab
 
-Статус **E1_CLOSED / E2_PREPARED_FOR_OWNER_DECISION**. Принятые результаты E0a, E0b и E1 сохранены. E1_RUNTIME_PASS на `d1b1a3633d292e5d364e5252195340898fb2dafe`, Quality PASS, FAST/FULL SUCCESS и cleanup CONFIRMED. Основа — [план #52](https://github.com/CrazyMotoCat/STDU_SHOP/pull/52) и [mock-модель #53](https://github.com/CrazyMotoCat/STDU_SHOP/pull/53). PR #54 остаётся Draft. E2–E5 NOT_RUN, VDS_equivalence NOT_PROVEN.
-
-Отчёты находятся в [RUNTIME-E0A.md](RUNTIME-E0A.md), [RUNTIME-E0B.md](RUNTIME-E0B.md), [RUNTIME-E1.md](RUNTIME-E1.md). Подготовка E2 и отдельный gate запуска описаны в [RUNTIME-E2.md](RUNTIME-E2.md).
+**E2 accepted. E3/E3b and E4a prepared.** See the [accepted E2 evidence](RUNTIME-E2.md) and [E3/E4a runbook](RUNTIME-E34.md). The physical board has yet to run E3–E5. VDS equivalence remains NOT_PROVEN. PR #54 remains Draft.
 
 ## Отклонения и бюджет
 
@@ -30,7 +28,7 @@ env -u DOCKER_HOST -u DOCKER_CONTEXT -u DOCKER_TLS_VERIFY \
 
 Preflight сверяет подтверждённый daemon ID по `GET /info` через `/var/run/docker.sock`. Признаки MemoryLimit, SwapLimit, CpuCfsQuota, CpuCfsPeriod и PidsLimit берутся из Engine API. У Docker CLI template на WB нет CPU CFS полей. Запрос использует timeout сокета 5 секунд и ограничение ответа 1 MiB. Неуспешный ответ, отсутствующий признак и несовпадение версий Engine 29.9.2 или Compose 5.6.1 дают BLOCKED.
 
-Принятый JSON сохранён в приватном evidence. Для будущего отдельного этапа агент выполняет свежий preflight самостоятельно после сохранения предыдущего evidence. `E0A_HOST_METADATA_PASS` подтверждает метаданные хоста и заявленную Docker поддержку лимитов. Сам host-collector оставляет `resource_ownership`, `container_cgroup_limits` и `E0b` как `NOT_RUN`: фактические runtime-утверждения E0a доказаны отдельным принятым запуском, а не метаданными хоста. Compose в этом пакете используется для рендера и статической проверки. В нём доступны только PostgreSQL и controller. Валидатор отклоняет добавление decoder-сервисов. Для будущего запуска декодеров предусмотрен controller с одним слотом, удерживаемым до подтверждённого удаления предыдущего контейнера. E2 требует отдельного разрешения владельца. E3–E5 ожидают следующих отдельных решений.
+Принятый JSON сохранён в приватном evidence. Для будущего отдельного этапа агент выполняет свежий preflight самостоятельно после сохранения предыдущего evidence. `E0A_HOST_METADATA_PASS` подтверждает метаданные хоста и заявленную Docker поддержку лимитов. Сам host-collector оставляет `resource_ownership`, `container_cgroup_limits` и `E0b` как `NOT_RUN`: фактические runtime-утверждения E0a доказаны отдельным принятым запуском, а не метаданными хоста. Compose в этом пакете используется для рендера и статической проверки. В нём доступны только PostgreSQL и controller. Валидатор отклоняет добавление decoder-сервисов. Для будущего запуска декодеров предусмотрен controller с одним слотом, удерживаемым до подтверждённого удаления предыдущего контейнера. E3/E3b и E4a требуют отдельного разрешения на совместный цикл.
 
 ARM64 codec build определён в Dockerfile.codec. Для будущей сборки использовать отдельный каталог wheels с wheel Pillow из requirements, полученным по HTTPS и сверенным с SHA-256. Запускать сборку из корня репозитория с `docker build --network none --platform linux/arm64 --build-context wheels=<путь> -f experiments/wb-lab-01/Dockerfile.codec -t stdu-wb-lab-codec:arm64 .`. Перед workload ledger должен закрепить локальный image ID и подтвердить Architecture. Boot PostgreSQL под UID 999 подтверждён E0b. Native codec build на WB остаётся NOT_RUN.
 

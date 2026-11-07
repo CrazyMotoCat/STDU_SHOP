@@ -117,9 +117,20 @@ def verify_volume_contents(deadline, ledger):
             )
 
 
-def run_probe(host):
+def run_probe(
+    host,
+    *,
+    phase="e1",
+    probe_name="e1_probe.py",
+    validator=validate_result,
+    volume_validator=verify_volume_contents,
+):
+    require(
+        (phase, probe_name) in {("e1", "e1_probe.py"), ("e4a", "e4_probe.py")},
+        "LAB_CONTROLLER_PHASE",
+    )
     run_id = uuid.uuid4().hex
-    name = "wb-lab-01-e1-" + run_id
+    name = f"wb-lab-01-{phase}-" + run_id
     run_dir = ROOT / run_id
     run_dir.mkdir(mode=0o700)
     path = run_dir / "evidence.json"
@@ -135,7 +146,7 @@ def run_probe(host):
         "host_mount": host["mounts"]["root"],
         "ledger": ledger,
         "cleanup": "NOT_RUN",
-        "E2_to_E5": "NOT_RUN",
+        ("E2_to_E5" if phase == "e1" else "E5"): "NOT_RUN",
         "VDS_equivalence": "NOT_PROVEN",
     }
     trace = []
@@ -239,7 +250,12 @@ def run_probe(host):
             "-I",
             "-B",
             "-c",
-            Path(__file__).with_name("e1_probe.py").read_text(encoding="utf-8"),
+            (
+                (Path(__file__).with_name("lab_metrics.py").read_text() + "\n")
+                if phase == "e4a"
+                else ""
+            )
+            + Path(__file__).with_name(probe_name).read_text(encoding="utf-8"),
             json.dumps(
                 {"device": device, "uid": 65532, "interfaces": ["lo"], "limits": LIMITS}
             ),
@@ -267,7 +283,7 @@ def run_probe(host):
         result = checked(deadline, "container", "start", "--attach", container_id)
         require(len(result) <= 8192, "PROBE_OUTPUT_BUDGET")
         probe = json.loads(result)
-        validate_result(probe, device)
+        validator(probe, device)
         evidence["observed"] = probe
         finished = owned_container(
             inspect(deadline, "container", container_id), name, run_id, container_id
@@ -318,7 +334,7 @@ def run_probe(host):
                     ledger["container_id"] = writer["container_id"]
             if ledger["volume_create_requested"]:
                 require("volume" in ledger, "E1_VOLUME_CREATION_UNCONFIRMED")
-                verify_volume_contents(cleanup_deadline, ledger)
+                volume_validator(cleanup_deadline, ledger)
             cleanup(cleanup_deadline, {**ledger, "container_create_requested": False})
             evidence["cleanup"] = "CONFIRMED"
             if before is not None:
@@ -329,7 +345,7 @@ def run_probe(host):
                 )
                 evidence["foreign_inventory"] = "PRESERVED"
             if evidence["status"] == "PROBE_PASS":
-                evidence["status"] = "E1_RUNTIME_PASS"
+                evidence["status"] = f"{phase.upper()}_RUNTIME_PASS"
         except (
             Blocked,
             OSError,

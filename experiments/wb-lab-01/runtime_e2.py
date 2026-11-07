@@ -18,9 +18,11 @@ RETAINED = {
 }
 
 
-def retained_evidence():
-    for run_id, digest in RETAINED.items():
-        directory = ROOT / run_id
+def retained_evidence(*, root=None, expected=None):
+    root = ROOT if root is None else root
+    expected = RETAINED if expected is None else expected
+    for run_id, digest in expected.items():
+        directory = root / run_id
         meta = directory.lstat()
         require(
             stat.S_ISDIR(meta.st_mode)
