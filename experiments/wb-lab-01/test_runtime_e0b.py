@@ -39,6 +39,7 @@ class E0bTests(unittest.TestCase):
             "Os": "linux",
             "Architecture": "arm64",
             "RepoDigests": [lab.IMAGE.replace("docker.io/library/", "")],
+            "Config": {"Volumes": {"/var/lib/postgresql": {}}},
         }
         self.assertEqual(lab.validate_image(item), "sha256:" + CID)
         for change in (
@@ -46,6 +47,11 @@ class E0bTests(unittest.TestCase):
             {"Architecture": "amd64"},
             {"RepoDigests": [lab.IMAGE.replace("library", "attacker")]},
             {"RepoDigests": ["postgres@sha256:" + "0" * 64]},
+            {"Config": {}},
+            {"Config": None},
+            {"Config": {"Volumes": ["/var/lib/postgresql"]}},
+            {"Config": {"Volumes": {"/var/lib/postgresql/data": {}}}},
+            {"Config": {"Volumes": {"/var/lib/postgresql": {}, "/untracked": {}}}},
         ):
             with self.subTest(change=change), self.assertRaises(lab.Blocked):
                 lab.validate_image({**item, **change})

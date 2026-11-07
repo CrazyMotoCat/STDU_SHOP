@@ -122,6 +122,15 @@ def validate_image(item):
         and base.HEX_ID.fullmatch(item["Id"][7:]),
         "E0B_LOCAL_IMAGE_ID",
     )
+    # Docker can materialize image-declared VOLUMEs during create. Reject unknown
+    # declarations before provisioning, so no anonymous volume escapes our ledger.
+    config = item.get("Config")
+    require(isinstance(config, dict), "E0B_IMAGE_VOLUME_DECLARATIONS")
+    declared = config.get("Volumes")
+    require(
+        isinstance(declared, dict) and set(declared) == {"/var/lib/postgresql"},
+        "E0B_IMAGE_VOLUME_DECLARATIONS",
+    )
     return item["Id"]
 
 
