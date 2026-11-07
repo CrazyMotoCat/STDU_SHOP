@@ -1,6 +1,8 @@
 # WB-LAB-01 — подготовка стенда VIS-CAT-02C
 
-Статус **E0a host evidence pending**. Профиль основан на [плане #52](https://github.com/CrazyMotoCat/STDU_SHOP/pull/52) и [mock-модели #53](https://github.com/CrazyMotoCat/STDU_SHOP/pull/53). Владелец подтвердил отпечаток SSH, Docker Engine 29.9.2, Compose 5.6.1, ext4 rootfs и 25 GiB свободного места. Владелец передал daemon ID, признаки лимитов Engine API и режим 0700. Фактический запуск обновлённого preflight ожидается.
+Статус **E0A_CLOSED / E0B_READY_FOR_OWNER_DECISION**. Владелец принял E0a Runtime на `6637080541348b95623641464f4de1add07f0fb4`: E0A_RUNTIME_PASS, Quality PASS, FAST/FULL SUCCESS, cleanup CONFIRMED. Основа — [план #52](https://github.com/CrazyMotoCat/STDU_SHOP/pull/52) и [mock-модель #53](https://github.com/CrazyMotoCat/STDU_SHOP/pull/53). PR #54 остаётся Draft, merge не разрешён. E0b–E5 NOT_RUN; VDS_equivalence NOT_PROVEN. Повторять E0a не требуется.
+
+Результаты и ограничения E0a — в [RUNTIME-E0A.md](RUNTIME-E0A.md); подготовка PostgreSQL-проверки — в [RUNTIME-E0B.md](RUNTIME-E0B.md). В текущей задаче E0b на WB не запускается.
 
 ## Отклонения и бюджет
 
@@ -17,7 +19,7 @@ WB заменяет отдельную VM с отдельным 4 GiB ext4-ус�
 
 Потолок 128 MiB для кодека выбран как стартовый профиль на основании x86-64 измерений 02B, где worker достигал 85 MiB RSS. RSS на x86-64 не подтверждает cgroup peak на ARM64. Первый декод — маленький синтетический fixture из 02B. Превышение ресурсов останавливает серию. Worker и verifier используют тот же кодек в отдельных процессах. Разнообразие декодеров остаётся NOT_PROVEN.
 
-## Первый пакет владельцу
+## Host preflight — описание принятой проверки
 
 Выполнить из checkout PR на подтверждённой локальной консоли WB. Владелец подтвердил режим 0700 для каталога `/mnt/data/stdu-wb-lab-01`. Preflight также проверяет владельца, пустоту каталога и фактические параметры монтирования.
 
@@ -28,7 +30,7 @@ env -u DOCKER_HOST -u DOCKER_CONTEXT -u DOCKER_TLS_VERIFY \
 
 Preflight сверяет подтверждённый daemon ID по `GET /info` через `/var/run/docker.sock`. Признаки MemoryLimit, SwapLimit, CpuCfsQuota, CpuCfsPeriod и PidsLimit берутся из Engine API. У Docker CLI template на WB нет CPU CFS полей. Запрос использует timeout сокета 5 секунд и ограничение ответа 1 MiB. Неуспешный ответ, отсутствующий признак и несовпадение версий Engine 29.9.2 или Compose 5.6.1 дают BLOCKED.
 
-Передать JSON проверки. `E0A_HOST_METADATA_PASS` подтверждает метаданные хоста и заявленную Docker поддержку лимитов. Поля `resource_ownership`, `container_cgroup_limits` и `E0b` остаются `NOT_RUN`. Compose в этом пакете используется для рендера и статической проверки. В нём доступны только PostgreSQL и controller. Валидатор отклоняет добавление decoder-сервисов. Для будущего запуска декодеров предусмотрен controller с одним слотом, удерживаемым до подтверждённого удаления предыдущего контейнера. E0b–E5 ожидают Quality PASS и отдельного разрешения.
+Принятый JSON сохранён в приватном evidence. Для будущего отдельного этапа агент выполняет свежий preflight самостоятельно после сохранения предыдущего evidence. `E0A_HOST_METADATA_PASS` подтверждает метаданные хоста и заявленную Docker поддержку лимитов. Сам host-collector оставляет `resource_ownership`, `container_cgroup_limits` и `E0b` как `NOT_RUN`: фактические runtime-утверждения E0a доказаны отдельным принятым запуском, а не метаданными хоста. Compose в этом пакете используется для рендера и статической проверки. В нём доступны только PostgreSQL и controller. Валидатор отклоняет добавление decoder-сервисов. Для будущего запуска декодеров предусмотрен controller с одним слотом, удерживаемым до подтверждённого удаления предыдущего контейнера. E0b–E5 ожидают Quality PASS и отдельного разрешения.
 
 ARM64 codec build определён в Dockerfile.codec. Для будущей сборки использовать отдельный каталог wheels с wheel Pillow из requirements, полученным по HTTPS и сверенным с SHA-256. Запускать сборку из корня репозитория с `docker build --network none --platform linux/arm64 --build-context wheels=<путь> -f experiments/wb-lab-01/Dockerfile.codec -t stdu-wb-lab-codec:arm64 .`. Перед workload ledger должен закрепить локальный image ID и подтвердить Architecture. Native build и boot PostgreSQL под UID 999 на WB остаются NOT_RUN.
 
