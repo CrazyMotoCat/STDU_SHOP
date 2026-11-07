@@ -30,6 +30,9 @@ const inquiryPermissionCodes = [
 const additivePermissionCodes = [
   ...supplierPermissionCodes,
   ...inquiryPermissionCodes,
+  ...Object.keys(
+    (await readJson('docs/contracts/R1-008B-rbac.json')).permissions,
+  ),
 ];
 
 function visitPermissionEnums(value, visit) {

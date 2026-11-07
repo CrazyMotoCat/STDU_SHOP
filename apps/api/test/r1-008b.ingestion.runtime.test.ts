@@ -428,6 +428,13 @@ describe.skipIf(!enabled)(
     });
 
     it('ING-12: PostgreSQL rejects missing provenance and malformed candidate evidence', async () => {
+      const roleId = randomUUID();
+      const [audit] = await owner.$queryRaw<{ valid: boolean }[]>`
+        SELECT audit_event_valid('staff.role.permissions.changed','SUCCESS','ROLE_PERMISSIONS_CHANGED',
+          jsonb_build_object('roleId',${roleId}::text,'addedPermissions',jsonb_build_array('ingestion.run'),
+            'removedPermissions','[]'::jsonb,'affectedUserCount',0)) AS valid
+      `;
+      expect(audit?.valid).toBe(true);
       const created = await run(String((await source('mixed-v1')).id));
       const id = String(created.id);
       await expect(

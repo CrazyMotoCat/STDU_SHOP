@@ -284,5 +284,21 @@ INSERT INTO permission(id,code,description) VALUES
  ('a008b001-0000-4000-8000-000000000002','ingestion.sources.write','Manage approved ingestion sources'),
  ('a008b001-0000-4000-8000-000000000003','ingestion.run','Manually request supplier ingestion'),
  ('a008b001-0000-4000-8000-000000000004','ingestion.review','Decide one staging candidate');
+-- Existing role commands retain their grant ceiling. Only the audit enum grows.
+DO $ingestion_audit_permissions$
+DECLARE definition text;
+DECLARE extended text;
+BEGIN
+ SELECT pg_get_functiondef('public.audit_event_valid_r1_002(text,text,text,jsonb)'::regprocedure) INTO definition;
+ extended := replace(definition,
+   $anchor$'catalog.products.documents.write'
+  ];$anchor$,
+   $add$'catalog.products.documents.write',
+    'ingestion.read','ingestion.sources.write','ingestion.run','ingestion.review'
+  ];$add$);
+ IF extended = definition THEN RAISE EXCEPTION 'R1-008B audit permission extension anchor missing'; END IF;
+ EXECUTE extended;
+END;
+$ingestion_audit_permissions$;
 GRANT SELECT,INSERT,UPDATE ON ingestion_source,ingestion_run,ingestion_row,ingestion_outbox TO stdu_runtime;
 GRANT SELECT,INSERT ON ingestion_source_revision,ingestion_decision,ingestion_command TO stdu_runtime;
