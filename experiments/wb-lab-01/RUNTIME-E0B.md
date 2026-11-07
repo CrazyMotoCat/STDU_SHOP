@@ -67,7 +67,15 @@ Machine-readable evidence records fixed operation names, elapsed time, assigned 
 
 Accepted E0a evidence was moved to the private archive during the authorized E0b campaign. Its SHA-256 remains `3b3a29f2f7788baebc40f44c69bbcfb4afb84dc89649d42b7e6ba832ed3a4c4e`. E0a stays closed.
 
-The blocked E0b run retains its original evidence under the lab root. The runner requires an empty lab root. A future authorized retry must first reconcile and preserve the failed run by exact ledger, verified resource absence and matching hash. The fix task leaves the evidence in place. A retry also needs a fresh preflight and verification of the existing pinned image.
+The blocked E0b run retains its original evidence under the lab root. The prepared `archive_e0b_failed.py` accepts only this run and its pinned evidence digest. Under a new `OWNER_E0B_RUNTIME_APPROVED` for the reviewed HEAD, the operator runs the archival command before a fresh preflight and the single retry:
+
+```sh
+python3 -B experiments/wb-lab-01/archive_e0b_failed.py OWNER_E0B_RUNTIME_APPROVED
+```
+
+The archival gate checks root ownership, private modes, the original WB ext4 mount, the failed-run ledger and the local daemon identity. It requires absence of the exact container ID, container name and both volume names, and rejects other WB lab resources. Unrelated Docker objects are outside the operation. It moves the original run directory to the existing private archive with an atomic no-replace rename. It syncs the run and both parent directories, verifies the original SHA-256 at the destination and requires an empty lab root. A failure before rename leaves the source in place. If a check fails after rename, the destination is retained and the operator must stop and reconcile it before preflight.
+
+Archival and E0b repeat remain `NOT_APPROVED` for this preparation. The retry also requires fresh preflight and verification of the existing pinned image.
 
 ## Acceptance matrix
 
@@ -85,4 +93,4 @@ The blocked E0b run retains its original evidence under the lab root. The runner
 | Crash recovery, lease fencing and connected-network canaries | Separate E1–E5                               | NOT_RUN                            |
 | VDS equivalence and production durability                    | Outside WB evidence                          | NOT_PROVEN                         |
 
-**E0B_FIX_READY_FOR_OWNER_RETRY_DECISION** is a code delivery status. Runtime remains BLOCKED pending separate authorization and a successful WB result.
+**E0B_RETRY_PREREQUISITES_READY_FOR_OWNER_DECISION** describes the prepared fix and archival gate. Runtime remains BLOCKED pending separate authorization and a successful WB result.
