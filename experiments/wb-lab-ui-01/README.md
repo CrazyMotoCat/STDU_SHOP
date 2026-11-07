@@ -1,6 +1,6 @@
 # WB-LAB-UI-01 — native SVG HMI
 
-**Status: `READY_FOR_OWNER_HOMEUI_IMPORT_DECISION`.** Desktop/mobile visual review passed. The owner accepted the WB-LAB-01 E0a runtime result; its evidence record is linked below. E0b–E5 remain `NOT_RUN`, and `VDS_equivalence` is `NOT_PROVEN`. No LIVE telemetry source is connected: the dashboard cold start stays neutral and does not inherit the accepted E0a result.
+**Status: `READY_FOR_OWNER_HOMEUI_IMPORT_APPROVAL`.** Desktop/mobile visual review passed. E0a is `E0A_RUNTIME_PASS / OWNER ACCEPTED`. E0b is `E0B_BLOCKED / E0B_DOCKER_COMMAND_FAILED` with cleanup `CONFIRMED`; E1–E5 remain `NOT_RUN`, and `VDS_equivalence` is `NOT_PROVEN`. Import is not authorized: it requires a separate exact `OWNER_HOMEUI_IMPORT_APPROVED`. No LIVE telemetry source is connected; cold start stays neutral and does not inherit E0a or E0b results.
 
 ## Package
 
@@ -26,7 +26,9 @@ Every screen keeps a static `DEMO · SYNTHETIC` marker separate from the bound m
 
 **E0a Runtime: `E0A_RUNTIME_PASS`**, accepted by the owner after the physical probe and independent Quality review. The accepted record reports cgroup memory 64 MiB, swap 0, CPU quota 0.25, pids limit 16, loopback-only networking, and confirmed scoped cleanup. Evidence record: run `23ceb807c68f4ae0bed724def6e58d68`, `evidence.json` SHA-256 `3b3a29f2f7788baebc40f44c69bbcfb4afb84dc89649d42b7e6ba832ed3a4c4e`; [owner's technical-acceptance review on PR #54](https://github.com/CrazyMotoCat/STDU_SHOP/pull/54#issuecomment-6702279053).
 
-The review limits `foreign_inventory: PRESERVED` to resource-identity existence; it does not verify every foreign resource attribute. **E0b–E5: `NOT_RUN`. `VDS_equivalence: NOT_PROVEN`.** This accepted experiment is documentation only: it is not wired to MQTT or the dashboard, and it does not seed `Stage_E0a_Status=PASS`.
+The review limits `foreign_inventory: PRESERVED` to resource-identity existence; it does not verify every foreign resource attribute. This accepted experiment is documentation only: it is not wired to MQTT or the dashboard, and it does not seed `Stage_E0a_Status=PASS`.
+
+**E0b Runtime: `E0B_BLOCKED / E0B_DOCKER_COMMAND_FAILED`**, run `742071b6115e4a00a8b65cc7151f8c39`, cleanup `CONFIRMED`, evidence SHA-256 `dc5836761bd02cce2cfbe504cc5cb363afbc0658f50a249e903b2267ddd0da28`; see the [E0b evidence report](https://github.com/CrazyMotoCat/STDU_SHOP/blob/2f0246c73d25045cf572a350884a441f41383666/experiments/wb-lab-01/RUNTIME-E0B.md). The one authorized attempt is blocked and must not be retried without separate `OWNER_E0B_RUNTIME_APPROVED`. E1–E5 remain `NOT_RUN`; `VDS_equivalence` remains `NOT_PROVEN`. This blocked result is not wired to MQTT or the dashboard and does not seed `Stage_E0b_Status=BLOCKED`.
 
 ## Local preview
 
@@ -46,9 +48,9 @@ Actual MQTT publishing is opt-in. For the separate demo transport check, use onl
 
 ## HomeUI version and upload
 
-Read-only inspection on 2026-11-05 confirmed Debian GNU/Linux 13.7 (ARM64, Linux 6.8.0-wb162) with `wb-mqtt-homeui` and `wb-homeui-backend` version `2.267.7`. The dashboard JSON shape is confirmed from the upstream HomeUI SVG editor source; import behavior against this installed build remains `NOT_VERIFIED` because no dashboard import was attempted. Runtime loading is a separate owner approval gate; this task does not touch `/mnt/data/etc/wb-webui.conf`, install packages, modify wb-rules, or alter broker ACLs.
+Read-only inspection on 2026-11-07 confirmed `wb-mqtt-homeui` and `wb-homeui-backend` version `2.267.7`. The installed editor bundle serializes its binding parameters with `JSON.stringify` and parses JSON input with `JSON.parse`; the generated binding array matches that syntax. The editor does not validate schema, so actual panel import/render remains `NOT_VERIFIED` until a separate owner-approved import. The persisted config has two dashboards, neither target panel ID collides, and the exact telemetry namespace returned no messages during a 5-second read-only subscription. These observations must be rechecked before import. This task does not write `/mnt/data/etc/wb-webui.conf`, install packages, modify wb-rules, or alter broker ACLs.
 
-HomeUI import compatibility for the installed `2.267.7` build remains `NOT_VERIFIED`. The prepared, non-executed backup/import/rollback procedure is in [`bindings.md`](bindings.md). It creates new panel entries, checks retained telemetry before loading, and never edits existing panels or `/mnt/data/etc/wb-webui.conf` directly.
+HomeUI import compatibility for the installed `2.267.7` build remains `NOT_VERIFIED`. The prepared, non-executed backup/import/rollback procedure is in [`bindings.md`](bindings.md). It backs up existing dashboards and bindings, creates only new panel entries, checks retained telemetry before loading, and rolls back only the exact new panel IDs. It never edits existing panels or `/mnt/data/etc/wb-webui.conf` directly. Import requires separate `OWNER_HOMEUI_IMPORT_APPROVED`.
 
 ## Checks
 
@@ -64,8 +66,8 @@ The checks cover XML parsing, stable unique IDs, no external resources/scripts, 
 
 ## Limitations / next steps
 
-- E0a Runtime is accepted as `E0A_RUNTIME_PASS` for the linked run only. It is not a LIVE telemetry source. E0b–E5 remain `NOT_RUN`, and `VDS_equivalence` remains `NOT_PROVEN`.
+- E0a is `E0A_RUNTIME_PASS / OWNER ACCEPTED` for the linked run only. E0b is `E0B_BLOCKED / E0B_DOCKER_COMMAND_FAILED`, cleanup `CONFIRMED`, for the linked run only. Neither result is a LIVE telemetry source or a cold-start default. E1–E5 remain `NOT_RUN`, and `VDS_equivalence` remains `NOT_PROVEN`.
 - The cold-start SVG displays no sample numbers, no `FRESH`, no `PASS`, and no `RUNNING`. Retained MQTT values remain historical/last-known when `Collector_Status=OFFLINE`; HomeUI does not combine these channels into an effective freshness calculation.
 - The installed HomeUI release is verified as `2.267.7`; editor import compatibility is `NOT_VERIFIED` until an owner-approved runtime import.
-- No dashboard import, WB MQTT publication, package install, or WB configuration change has been performed for this UI task. The E0a result above was accepted separately under PR #54.
-- Next status: `READY_FOR_OWNER_HOMEUI_IMPORT_DECISION`; the import plan is prepared but not executed. No LIVE source may be connected under this task.
+- No dashboard import, WB MQTT publication, package install, or WB configuration change has been performed for this UI task. E0a and E0b were run separately under WB-LAB-01 PR #54.
+- Next status: `READY_FOR_OWNER_HOMEUI_IMPORT_APPROVAL`; the import plan is prepared but not executed. Stop until the owner gives the exact `OWNER_HOMEUI_IMPORT_APPROVED`. No LIVE source may be connected under this task.
