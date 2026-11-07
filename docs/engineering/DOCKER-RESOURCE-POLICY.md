@@ -26,13 +26,25 @@ Save sanitized test evidence before removing disposable resources. If shutdown o
 
 ## Protected resources
 
-Automatically retain PostgreSQL/Redis named volumes even when created by a test, permanent environments, OPS-TEST-02, WB-LAB-01, foreign containers/networks, bind-mounted data and resources with unknown ownership. Their removal requires separate explicit authorization naming the exact scope. The policy does not inherit a right to delete a volume from successful test completion.
-
-Other volumes default to preservation. Automatic deletion is possible only when the current agent created them for this disposable run, exact identity/labels match, no container/process still uses them, no required data/evidence remains, and no stricter retention requirement applies. Never remove a host bind path as a side effect of container cleanup.
+Preserve permanent environments, OPS-TEST-02, WB-LAB-01, foreign resources, bind-mounted data and resources with uncertain ownership. This policy grants no removal authority for those resources. Never remove a host bind path as a side effect of container cleanup.
 
 Stopped containers may still belong to retained environments or ongoing investigations. Verify purpose before removal. OPS/WB resources cannot be swept as stale test leftovers.
 
 Remove a disposable image only by its recorded ID after checking all container references and other tasks' usage. Preserve shared base images and pinned digests until their trials finish. Build cache needs separate maintenance approval. Do not use global docker system prune, docker volume prune or docker image prune -a. A generic Compose down, --remove-orphans or down -v is not an ownership check. Any cleanup helper must respect the exact allowlist and volume exclusions.
+
+## Volume retention
+
+Record one classification in `retention.volume_class` for each volume:
+
+| Class            | Decision                                                                                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RETAINED`       | Preserve permanent PostgreSQL/Redis volumes, volumes used by retained environments, shared or external volumes, and volumes containing required evidence. |
+| `DISPOSABLE_LAB` | Eligible for scoped cleanup only when all identity, authorization, quiescence and evidence checks below pass.                                             |
+| `UNCLASSIFIED`   | Preserve until the volume's purpose, authorization and ownership are established. This is the default.                                                    |
+
+The owner must explicitly authorize removal of the run's disposable volumes before creation. Record the authorization reference and approved scope in the ledger, then bind the authorization to each exact creation record. A named PostgreSQL or Redis volume can qualify when it was newly created exclusively for that approved disposable laboratory run. Test success, a service name, a project label and a matching prefix confer no deletion authority.
+
+Before removal, require the same daemon, the exact recorded volume name, driver, labels and creation identity, a confirmed new volume from this run, no attached container or active writer, and saved required evidence. Confirm that no protected, shared or external classification applies. The stricter rule controls when classifications conflict. If a check is missing or inconclusive, preserve the volume and report the reason. Verify removal on the same daemon. A volume reappearing under the same name requires reconciliation and must be left untouched.
 
 ## Task report
 

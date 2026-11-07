@@ -53,12 +53,13 @@ P0 означает, что задача необходима для закон�
 
 ## Separate security follow-up
 
-- **SEC-API-ROUTE-001 — отдельная задача:** исследовать percent-encoded static staff-route path normalization и безопасную 404-обработку unmatched staff routes. `%64ownload` сейчас не достигает handler и не открывает storage/байты, но общий `HttpBoundaryFilter` возвращает 500 `INTERNAL_ERROR` вместо non-enumerating 404. Не расширять R1-010D-L0; закрыть отдельной матрицей всех staff маршрутов и регрессионными тестами.
+- **SEC-API-ROUTE-001 — owner review:** отдельное исправление нормализует framework `NotFoundException` для unmatched staff routes в безопасный 404 вместо прежнего 500. Percent-encoded статические альтернативы не достигают download service и не открывают storage/байты; настоящие внутренние ошибки остаются 500. [Root cause, ограниченная матрица маршрутов и результаты проверок](../plans/SEC-API-ROUTE-001.md). R1-010D-L0, RBAC и FROZEN-контракты не меняются. Merge требует отдельного решения владельца.
 
 ## Уточнения после технического ревью R1-001
 
 - **R1-002:** генерация OpenAPI из реализованного NestJS API и контрактная проверка в CI относительно зафиксированного контракта, включая DTO, HTTP-коды и auth/security requirements; генерация TS-клиента из того же OpenAPI. Не подменять проверку контракта статическим health JSON.
 - **До очередей ingestion (R1-008):** зафиксировать политику сохранения/восстановления Redis jobs: источник истины и допустимая потеря, persistence/backup, восстановление после рестарта, повторная доставка и идемпотентность. Текущий инфраструктурный Redis R1-001 не обещает сохранность jobs; конфигурацию очередей принимать до их реализации.
+- **R1-008A — mock-only foundation / owner review:** [локальный вертикальный срез, матрица проверок и recovery policy](../plans/R1-008A-ingestion-foundation.md), [draft extraction protocol](../contracts/R1-008A-mock-extraction.md). Ручной TEST CLI сохраняет raw/provenance и кандидатов без бизнес-записей; Redis queue и Nest run/staging/RBAC/audit-контракт следующего этапа не реализованы и требуют отдельного согласования. Текущий Redis AOF существующих workloads не заменяет эту job policy.
 - **R1-002, документационная часть:** актуализировать устаревший `README_START_HERE.md` по фактическому состоянию репозитория и командам запуска; синхронизировать с основным README. До этого актуальная инструкция запуска — корневой `README.md`.
 
 ## Рекомендуемые безопасные параллельные потоки
