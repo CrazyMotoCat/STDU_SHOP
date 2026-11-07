@@ -9,7 +9,7 @@ BRANCH: codex/wb-lab-01; PR #54 remains Draft, based on #53.
 
 COMPLETED: README and RUNTIME-E0A reconcile accepted runtime evidence and limitations. Prepared separately gated E0b runner: exact-ID PG container, two owned volumes, synthetic DB/role/schema/sentinels, readiness, actual-cgroup assertions, independent watchdog, scoped bounded cleanup and atomic evidence. Prepared hash-pinned archival of accepted E0a evidence; not executed. Added offline negative/orchestration tests and FAST CI step.
 
-VERIFIED: python -B -m unittest discover -s experiments/wb-lab-01: 44 tests, OK with two Linux-only skips on Windows. Ruff check and format passed. Independent read-only Quality PASS for preparation, independently ran 43 tests before the final additional volume-binding negative test. Exact-head hosted FAST/FULL must be verified after push; no pass inferred here.
+VERIFIED: python -B -m unittest discover -s experiments/wb-lab-01: 45 tests, OK with two Linux-only skips on Windows. Ruff check and format passed. Independent read-only Quality PASS for preparation, independently ran 43 tests before the final additional volume-binding negative test. Exact-head hosted FAST/FULL must be verified after push; no pass inferred here.
 
 DECISIONS: Owner accepted E0a on the LAST_SAFE_COMMIT; do not repeat. E0b preparation authorized, but creating PG/volumes or SQL writes on WB not authorized. No contracts/API/migrations/production files changed. E0b-E5 NOT_RUN; VDS_equivalence NOT_PROVEN.
 

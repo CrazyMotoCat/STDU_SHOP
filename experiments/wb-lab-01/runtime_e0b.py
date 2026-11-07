@@ -423,7 +423,13 @@ def verify_database(deadline, trace, ledger):
 
 def cleanup(deadline, ledger):
     # Remove the only writer first. Never remove a volume with unconfirmed writer state.
-    base.cleanup(deadline, {**ledger, "volume_create_requested": False})
+    writer = {**ledger, "volume_create_requested": False}
+    try:
+        base.cleanup(deadline, writer)
+    finally:
+        # A create timeout may disclose its ID only during cleanup; retain it even if removal fails.
+        if "container_id" in writer:
+            ledger["container_id"] = writer["container_id"]
     for volume in ledger["volumes"].values():
         base.cleanup(
             deadline,

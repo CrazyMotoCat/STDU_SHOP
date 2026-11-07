@@ -144,6 +144,25 @@ class E0bTests(unittest.TestCase):
             lab.cleanup(10, ledger)
         self.assertEqual(cleanup.call_count, 1)
 
+    def test_cleanup_retains_id_discovered_after_partial_create(self):
+        ledger = {
+            "run_id": RUN,
+            "name": "own",
+            "container_create_requested": True,
+            "volumes": {},
+        }
+
+        def discover_then_fail(deadline, writer):
+            writer["container_id"] = CID
+            raise lab.Blocked("CLEANUP_UNCONFIRMED")
+
+        with (
+            patch.object(lab.base, "cleanup", side_effect=discover_then_fail),
+            self.assertRaises(lab.Blocked),
+        ):
+            lab.cleanup(10, ledger)
+        self.assertEqual(ledger["container_id"], CID)
+
     def test_sql_uses_stdin_and_identity_mismatch_blocks(self):
         with patch.object(lab, "checked", return_value="row") as cli:
             self.assertEqual(
