@@ -25,16 +25,31 @@ The bindings use only:
 
 The JSON has no `write`, `click`, `long-press-write`, or dashboard navigation actions. There are no controls, buttons, or links in the SVG.
 
-## Import in HomeUI
+## HomeUI import readiness
 
-1. Open **Dashboards → List** and add a new SVG panel.
-2. Set a unique panel ID such as `stdu-lab-desktop` or `stdu-lab-mobile`, and a readable name.
-3. Upload the corresponding SVG file.
-4. In the binding editor, choose **JSON view**, paste the contents of `bindings.json`, and save.
-5. Use the editor's preview to check text, status colors, and the `DEMO · SYNTHETIC` mode badge. Confirm the displayed MQTT topic paths match this document.
-6. Save the dashboard and use the documented fullscreen or HMI mode. Do not enable a command binding.
+**Status: `READY_FOR_OWNER_HOMEUI_IMPORT_DECISION`; not imported.** The target was read-only verified as HomeUI `2.267.7`, but import compatibility with that installed build remains `NOT_VERIFIED`. This runbook prepares the operation; it does not authorize or perform it. This UI task has not changed controller configuration or published MQTT messages.
 
-The SVG Dashboard documentation describes editing bindings in the HomeUI editor and saving/exporting them through JSON view. It also recommends separate mobile and desktop drawings when the screen size requires it. This repository package follows that flow; the actual controller import is pending owner approval.
+### Pre-import backup and compatibility gate
+
+After a separate owner decision to proceed, the agent performs these steps through the HomeUI UI; no direct edit to `/mnt/data/etc/wb-webui.conf` is allowed:
+
+1. Confirm the installed HomeUI version and export every existing SVG panel and its JSON bindings through the UI. Save the exports off-controller in a timestamped, access-controlled backup directory. Record dashboard IDs, names, file sizes, and SHA-256 hashes in a manifest; verify every exported file is readable before proceeding.
+2. Export one existing panel's bindings from the target's own editor and compare its JSON shape with `bindings.json`. Require a JSON array of per-element objects. Validate every `id` against both supplied SVGs; IDs must be unique within each SVG and in the bindings array. The same stable SVG element IDs are intentionally shared by the two separate panels.
+3. Check the dashboard inventory for panel IDs `stdu-lab-desktop` and `stdu-lab-mobile`. Never overwrite an existing ID. If either is already present, choose a new unique suffix and record the actual IDs in the manifest before adding anything.
+4. Recheck the binding allowlist: only `read` and fixed `style` actions; all channels under `/devices/stdu_lab/controls/`; no `write`, `click`, `long-press-write`, navigation, or `/on` channel. Do not import if any check fails.
+5. Read-only inspect the exact `/devices/stdu_lab/controls/` telemetry namespace before creating panels. If it contains retained values, stop: do not clear or rewrite them. This prevents a retained `PASS`, `RUNNING`, or synthetic value from replacing the neutral SVG defaults on first load.
+
+### Add and verify new panels
+
+6. Add the desktop SVG as a **new** panel with its unique panel ID; import `bindings.json` via JSON view; preview and verify neutral `UNKNOWN`, `NO_DATA`, `NOT_RUN`, and em-dash states while the namespace is empty. Do not connect or configure a LIVE source.
+7. Repeat for the mobile SVG as another new panel with a different panel ID. Verify the `DEMO · SYNTHETIC` marker remains visible and confirm the binding editor contains no command action.
+8. Export both new panels and bindings again. Check their IDs, bindings, and SHA-256 against the manifest; confirm every pre-existing panel ID and backup checksum remains unchanged. Do not enable HMI mode or command bindings as part of this import readiness check.
+
+### Addressed rollback
+
+If either new panel fails validation, stop and remove only the exact new panel ID or IDs recorded in the manifest. Do not delete, replace, or restore over pre-existing panels. If an existing panel was unexpectedly changed, stop and restore only that panel's matching SVG and bindings from the verified backup through the UI; then compare its ID and checksum with the pre-import manifest. Verify the dashboard inventory afterward. Never edit the global config file directly, clear `/devices/#`, or delete MQTT topics as rollback.
+
+The [official SVG Dashboard guide](https://wiki.wirenboard.com/wiki/SVG-Dashboards) documents unique panel IDs and the UI export/import flow for bindings JSON. The plan above adds per-panel backups, namespace checks, ID collision handling, and targeted rollback. No step in this section has been executed on the controller.
 
 ## Expression note
 

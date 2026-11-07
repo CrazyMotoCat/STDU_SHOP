@@ -4,7 +4,9 @@
 
 This is a proposed read-only telemetry contract for WB-LAB-UI-01. The HomeUI panel only subscribes to the listed value controls. The demo publisher can publish synthetic values to a broker when explicitly invoked; it never subscribes to command channels. All control metadata declares `readonly=1`. The JSON panel bindings contain only `read` and `style` actions.
 
-**LIVE runtime source: `NOT_PROVEN`.** Owner-reported status: real-WB E0a Host Metadata `PASS`; E0a Runtime `BLOCKED: LOCAL_IMAGE_ID`; no container or volume was created in that attempt; E0b–E5 `NOT_RUN`. This is partial host metadata evidence, not a runtime experiment or LIVE telemetry source. The publisher in this package only emits synthetic values after explicit DEMO invocation and rejects `Source_Mode=LIVE`. A future LIVE adapter must read a reviewed, allowlisted run evidence source; it must not infer a runtime result from a model/mock, retained `RUNNING`, a stale source, or an unverified cleanup.
+**WB-LAB-01 experiment status:** E0a Runtime `E0A_RUNTIME_PASS`, accepted for the linked physical run; E0b–E5 `NOT_RUN`; `VDS_equivalence` `NOT_PROVEN`. Run `23ceb807c68f4ae0bed724def6e58d68`, `evidence.json` SHA-256 `3b3a29f2f7788baebc40f44c69bbcfb4afb84dc89649d42b7e6ba832ed3a4c4e`; [owner technical-acceptance review on PR #54](https://github.com/CrazyMotoCat/STDU_SHOP/pull/54#issuecomment-6702279053). The review limits `foreign_inventory: PRESERVED` to identity existence, not complete resource-attribute verification.
+
+**LIVE runtime telemetry source: `NOT_PROVEN`.** The accepted E0a result is evidence for that one experiment only; it is not an MQTT source and does not set any dashboard channel. The publisher in this package emits synthetic values only after explicit DEMO invocation and rejects `Source_Mode=LIVE`. A future LIVE adapter must read a reviewed, allowlisted run evidence source; it must not infer results from a model/mock, retained `RUNNING`, stale data, or unverified cleanup. Cold start remains `UNKNOWN` / `NO_DATA` / `NOT_RUN` with no measurements.
 
 ## Topic and payload rules
 
@@ -17,6 +19,7 @@ This is a proposed read-only telemetry contract for WB-LAB-UI-01. The HomeUI pan
 - The MQTT client uses a retained Last Will of `Collector_Status=OFFLINE`. On graceful shutdown it publishes the same state. Other retained controls, including `Telemetry_State`, remain unchanged. HomeUI cannot combine them into an effective freshness value, so the panel labels `Telemetry_State` as `LAST SAMPLE AGE` and separately shows the collector connection. `FRESH` means the last sample's age when published; with `Collector_Status=OFFLINE`, all retained values are last known and must not be read as current.
 - Suggested LIVE cadence: resource and status snapshot every 5 seconds; heartbeat every 2 seconds. `Telemetry_State` records `STALE` when source age is greater than 15 seconds, and `NO_DATA` when there has never been a valid source snapshot. It is not a current-availability signal.
 - The DEMO CLI uses a finite sample sequence (one second by default) solely to demonstrate updates and state transitions; it is not a service and not runtime evidence.
+- The isolated local-broker transport procedure is [`DEMO-PLAN.md`](DEMO-PLAN.md). It never targets the WB broker and does not subscribe to or publish command channels.
 
 ## Controls
 
