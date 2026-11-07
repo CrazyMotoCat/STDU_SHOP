@@ -3,6 +3,7 @@ import {
   Catch,
   ExceptionFilter,
   HttpException,
+  NotFoundException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
@@ -52,23 +53,25 @@ export class HttpBoundaryFilter implements ExceptionFilter {
     const error =
       exception instanceof StaffError
         ? exception
-        : publicInquiryRequest && exception instanceof HttpException
-          ? new StaffError(
-              exception.getStatus() === 404
-                ? 'NOT_FOUND'
-                : exception.getStatus() === 413
-                  ? 'FILE_TOO_LARGE'
-                  : exception.getStatus() === 415
-                    ? 'UNSUPPORTED_MEDIA_TYPE'
-                    : 'VALIDATION_ERROR',
-            )
-          : multerCode === 'LIMIT_FILE_SIZE' ||
-              parserType === 'entity.too.large' ||
-              parserStatus === 413
-            ? new StaffError('FILE_TOO_LARGE')
-            : parserType === 'entity.parse.failed' || parserStatus === 400
-              ? new StaffError('VALIDATION_ERROR')
-              : null;
+        : exception instanceof NotFoundException
+          ? new StaffError('NOT_FOUND')
+          : publicInquiryRequest && exception instanceof HttpException
+            ? new StaffError(
+                exception.getStatus() === 404
+                  ? 'NOT_FOUND'
+                  : exception.getStatus() === 413
+                    ? 'FILE_TOO_LARGE'
+                    : exception.getStatus() === 415
+                      ? 'UNSUPPORTED_MEDIA_TYPE'
+                      : 'VALIDATION_ERROR',
+              )
+            : multerCode === 'LIMIT_FILE_SIZE' ||
+                parserType === 'entity.too.large' ||
+                parserStatus === 413
+              ? new StaffError('FILE_TOO_LARGE')
+              : parserType === 'entity.parse.failed' || parserStatus === 400
+                ? new StaffError('VALIDATION_ERROR')
+                : null;
     const code = error?.code ?? 'INTERNAL_ERROR';
     const status = error?.getStatus() ?? 500;
     if (error?.retryAfter)
