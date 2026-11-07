@@ -21,7 +21,6 @@ STAGES = (
     ("E5", "Concurrency"),
 )
 STAGE_CODES = tuple(stage[0] for stage in STAGES)
-STAGE_NAMES = {stage[0]: stage[1] for stage in STAGES}
 STATUSES = ("NOT_RUN", "RUNNING", "PASS", "FAIL", "BLOCKED", "NOT_PROVEN", "SKIPPED")
 HEALTH = ("ONLINE", "OFFLINE", "UNKNOWN")
 FRESHNESS = ("FRESH", "STALE", "NO_DATA")
@@ -65,18 +64,17 @@ CONTROL_SCHEMA: dict[str, dict[str, Any]] = {
 for _code in STAGE_CODES:
     CONTROL_SCHEMA[f"Stage_{_code}_Status"] = _spec("text", f"{_code} runtime status", values=STATUSES)
 
-CONTROL_LABELS = {name: (spec["type"], spec["label"], spec["unit"]) for name, spec in CONTROL_SCHEMA.items()}
 DEFAULTS: dict[str, Any] = {
     "Source_Mode": "UNKNOWN",
     "Controller_Status": "UNKNOWN",
-    "Clock_UTC": "NO DATA",
+    "Clock_UTC": "NO_DATA",
     "RUN_ID": "NO RUN",
     "Stage": "UNKNOWN",
-    "Current_Test": "NO DATA",
+    "Current_Test": "NO_DATA",
     "Status": "NOT_RUN",
     "Progress": None,
-    "Elapsed": "NO DATA",
-    "Last_Update": "NO DATA",
+    "Elapsed": "—",
+    "Last_Update": "NO_DATA",
     "Passed": None,
     "Failed": None,
     "RAM_Available_MiB": None,
@@ -86,9 +84,9 @@ DEFAULTS: dict[str, Any] = {
     "Container_RAM_Peak_MiB": None,
     "PG_Status": "UNKNOWN",
     "Docker_Status": "UNKNOWN",
-    "Last_Event": "NO DATA",
-    "Last_Error": "NO DATA",
-    "Last_Event_At": "NO DATA",
+    "Last_Event": "NO_DATA",
+    "Last_Error": "NO_DATA",
+    "Last_Event_At": "NO_DATA",
     "Heartbeat": None,
     "Telemetry_State": "NO_DATA",
     "Collector_Status": "UNKNOWN",
@@ -145,8 +143,8 @@ def validate_demo_frame(frame: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("This publisher accepts DEMO frames only; LIVE source adapter is not implemented")
     if frame["Status"] not in STATUSES:
         raise ValueError("Status is outside the approved runtime state enumeration")
-    if frame["Stage"] not in (*STAGE_CODES, "UNKNOWN"):
-        raise ValueError("Stage is outside the approved stage enumeration")
+    if frame["Stage"] != "UNKNOWN" or any(frame[f"Stage_{code}_Status"] != "NOT_RUN" for code in STAGE_CODES):
+        raise ValueError("DEMO cannot report results for real lab stages")
     if not SAFE_ID.fullmatch(str(frame["RUN_ID"])):
         raise ValueError("RUN_ID contains unsupported characters")
 
@@ -181,25 +179,19 @@ def demo_frame(step: int, *, now: datetime | None = None, collector_connected: b
     stamp = instant.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     sequence = step % 4
     freshness = "STALE" if step % 5 == 4 else "FRESH"
-    stage_states = {f"Stage_{code}_Status": "NOT_RUN" for code in STAGE_CODES}
     if sequence in (0, 1):
-        current_stage = "E0a"
         current_status = "RUNNING" if sequence == 0 else "PASS"
-        stage_states["Stage_E0a_Status"] = current_status
         progress = 31 if sequence == 0 else 100
         passed, failed = (0, 0) if sequence == 0 else (1, 0)
-        current_test = STAGE_NAMES["E0a"]
-        last_event = "Synthetic E0a check started" if sequence == 0 else "Synthetic E0a check completed"
+        current_test = "DEMO · Sample A"
+        last_event = "Synthetic sample A started" if sequence == 0 else "Synthetic sample A passed"
         last_error = "No synthetic error"
     else:
-        current_stage = "E0b"
-        stage_states["Stage_E0a_Status"] = "PASS"
         current_status = "RUNNING" if sequence == 2 else "FAIL"
-        stage_states["Stage_E0b_Status"] = current_status
         progress = 42 if sequence == 2 else 100
         passed, failed = 1, 0 if sequence == 2 else 1
-        current_test = STAGE_NAMES["E0b"]
-        last_event = "Synthetic E0b check started" if sequence == 2 else "Synthetic E0b failure shown"
+        current_test = "DEMO · Sample B"
+        last_event = "Synthetic sample B started" if sequence == 2 else "Synthetic sample B failed"
         last_error = "Synthetic demo failure" if sequence == 3 else "No synthetic error"
 
     frame: dict[str, Any] = {
@@ -207,7 +199,7 @@ def demo_frame(step: int, *, now: datetime | None = None, collector_connected: b
         "Controller_Status": "UNKNOWN",
         "Clock_UTC": stamp,
         "RUN_ID": "DEMO-WBLAB-01",
-        "Stage": current_stage,
+        "Stage": "UNKNOWN",
         "Current_Test": current_test,
         "Status": current_status,
         "Progress": progress,
@@ -218,7 +210,7 @@ def demo_frame(step: int, *, now: datetime | None = None, collector_connected: b
         "RAM_Available_MiB": 1140 - (step % 5) * 12,
         "CPU_Load_Pct": 28 + (step % 4) * 3,
         "Disk_Free_GiB": 18.4,
-        "Swap_Used_MiB": 64,
+        "Swap_Used_MiB": 0 if sequence == 0 else 64,
         "Container_RAM_Peak_MiB": 318 + (step % 3) * 8,
         "PG_Status": "UNKNOWN",
         "Docker_Status": "UNKNOWN",
@@ -231,7 +223,7 @@ def demo_frame(step: int, *, now: datetime | None = None, collector_connected: b
         "Resource_Limit_Exceeded": "CLEAR",
         "Unknown_Cleanup": "UNKNOWN",
         "Runtime_Blocked": "ACTIVE",
-        **stage_states,
+        **{f"Stage_{code}_Status": "NOT_RUN" for code in STAGE_CODES},
     }
     return validate_demo_frame(frame)
 
@@ -244,10 +236,14 @@ def mqtt_messages(frame: dict[str, Any]) -> list[tuple[str, str, bool]]:
         (f"{BASE_TOPIC}/meta/driver", "stdu-wb-lab-ui-01-demo", True),
     ]
     for order, (name, spec) in enumerate(CONTROL_SCHEMA.items(), start=1):
+        if name.startswith("Stage_"):
+            continue
         base = control_topic(name)
         metadata = [
             ("name", spec["label"]),
-            ("type", spec["type"]),
+            # HomeUI numeric cells coerce absent or empty payloads to 0. Bind to text cells
+            # so the renderer can distinguish a missing value from the numeric string "0".
+            ("type", "text"),
             ("readonly", "1"),
             ("order", str(order)),
         ]

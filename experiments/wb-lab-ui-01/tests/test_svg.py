@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import unittest
 import xml.etree.ElementTree as ET
@@ -9,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from telemetry_bridge.contract import CONTROL_SCHEMA, STAGE_CODES  # noqa: E402
+from telemetry_bridge.contract import CONTROL_SCHEMA, DEFAULTS, DEVICE_ID, STAGE_CODES  # noqa: E402
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
 
@@ -39,8 +40,9 @@ class DashboardAssetTests(unittest.TestCase):
                     value = element.attrib.get(attr)
                     self.assertFalse(value and (value.startswith("http:") or value.startswith("https:") or value.startswith("//")))
             self.assertIn("DEMO", "".join(root.itertext()))
-            self.assertIn("NOT RUN", "".join(root.itertext()))
+            self.assertIn("NO LIVE RUNTIME SOURCE", "".join(root.itertext()))
             if name == "dashboard-mobile.svg":
+                self.assertIn("width:100%;height:auto", root.attrib["style"])
                 mobile_text_sizes = [int(element.attrib["font-size"]) for element in root.iter() if element.tag == f"{SVG_NS}text"]
                 self.assertGreaterEqual(min(mobile_text_sizes), 9, "mobile labels must remain legible at 375px width")
 
@@ -61,7 +63,8 @@ class DashboardAssetTests(unittest.TestCase):
                     rule = entry[action]
                     self.assertTrue(rule["enable"])
                     self.assertIn("channel", rule)
-                    control = rule["channel"].rsplit("/", maxsplit=1)[-1]
+                    device, control = rule["channel"].split("/")
+                    self.assertEqual(device, DEVICE_ID)
                     self.assertIn(control, CONTROL_SCHEMA)
         self.assertEqual(set(binding["id"] for binding in bindings), {
             "dash_mode", "dash_controller_status", "dash_clock", "dash_run_id", "dash_stage",
@@ -78,29 +81,29 @@ class DashboardAssetTests(unittest.TestCase):
         self.assertNotIn("dash_demo_notice", bound_ids)
         self.assertEqual(
             {entry["id"]: entry["read"]["channel"] for entry in bindings}["dash_mode"],
-            "/devices/stdu_lab/controls/Source_Mode",
+            "stdu_lab/Source_Mode",
         )
         neutral_values = {
             "dash_mode": "UNKNOWN",
             "dash_controller_status": "UNKNOWN",
-            "dash_clock": "NO DATA",
+            "dash_clock": "NO_DATA",
             "dash_run_id": "NO RUN",
             "dash_stage": "UNKNOWN",
-            "dash_current_test": "NO DATA",
+            "dash_current_test": "NO_DATA",
             "dash_run_status": "NOT_RUN",
             "dash_progress": "—",
             "dash_elapsed": "—",
-            "dash_last_update": "NO DATA",
+            "dash_last_update": "NO_DATA",
             "dash_passed": "—",
             "dash_failed": "—",
-            "dash_ram_available": "— MiB",
-            "dash_cpu_load": "—%",
-            "dash_disk_free": "— GiB",
-            "dash_swap_used": "— MiB",
-            "dash_container_peak": "— MiB",
-            "dash_last_event": "NO DATA",
-            "dash_last_error": "NO DATA",
-            "dash_event_time": "NO DATA",
+            "dash_ram_available": "—",
+            "dash_cpu_load": "—",
+            "dash_disk_free": "—",
+            "dash_swap_used": "—",
+            "dash_container_peak": "—",
+            "dash_last_event": "NO_DATA",
+            "dash_last_error": "NO_DATA",
+            "dash_event_time": "NO_DATA",
             "dash_snapshot_age": "NO_DATA",
             "dash_collector_status": "UNKNOWN",
             "dash_limit_exceeded": "UNKNOWN",
@@ -116,6 +119,37 @@ class DashboardAssetTests(unittest.TestCase):
             self.assertIn("OFFLINE = retained / last known", text_by_file[name])
             for code in STAGE_CODES:
                 self.assertEqual(values[f"dash_stage_{code}_status"], "NOT_RUN")
+
+    def test_read_expressions_use_homeui_renderer_fallback_and_preserve_zero(self) -> None:
+        bindings = json.loads((ROOT / "bindings.json").read_text(encoding="utf-8"))
+        actual = subprocess.run(
+            ["node", "-e", """
+                const bindings = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+                const inputs = [undefined, null, '', ' ', '-', 0, '0', '12.5',
+                    '<tspan>& hello</tspan>', 'ONLINE', 'OFFLINE', 'FRESH', 'STALE', '1e-05', '1e1000'];
+                const output = bindings.map(({ read }) => {
+                    const apply = new Function('val', `return ${read.value}`);
+                    return inputs.map(apply);
+                });
+                process.stdout.write(JSON.stringify(output));
+            """],
+            input=json.dumps(bindings, ensure_ascii=True),
+            capture_output=True,
+            encoding="utf-8",
+            check=True,
+        )
+        results = {}
+        for entry, values in zip(bindings, json.loads(actual.stdout), strict=True):
+            control = entry["read"]["channel"].split("/")[1]
+            results[control] = values
+            self.assertEqual(values[:5], [DEFAULTS[control] or "—"] * 5, control)
+        self.assertEqual(results["CPU_Load_Pct"][5:8], ["0%", "0%", "12.5%"])
+        self.assertEqual(results["RAM_Available_MiB"][5:8], ["0 MiB", "0 MiB", "12.5 MiB"])
+        self.assertEqual(results["Disk_Free_GiB"][5:8], ["0 GiB", "0 GiB", "12.5 GiB"])
+        self.assertEqual(results["Last_Event"][8], "&lt;tspan&gt;&amp; hello&lt;/tspan&gt;")
+        self.assertEqual(results["Collector_Status"][9:11], ["ONLINE", "OFFLINE"])
+        self.assertEqual(results["Telemetry_State"][11:13], ["FRESH AT SEND", "STALE AT SEND"])
+        self.assertEqual(results["CPU_Load_Pct"][13:], ["1e-05%", "—"])
 
 
 if __name__ == "__main__":

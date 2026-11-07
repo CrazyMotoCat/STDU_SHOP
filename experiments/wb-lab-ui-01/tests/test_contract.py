@@ -29,11 +29,17 @@ class ContractTests(unittest.TestCase):
         second_started = demo_frame(2, now=instant, collector_connected=True)
         failed = demo_frame(3, now=instant, collector_connected=True)
 
-        self.assertEqual((started["Status"], started["Stage_E0a_Status"]), ("RUNNING", "RUNNING"))
-        self.assertEqual((passed["Status"], passed["Stage_E0a_Status"], passed["Passed"]), ("PASS", "PASS", 1))
-        self.assertEqual((second_started["Status"], second_started["Stage_E0b_Status"]), ("RUNNING", "RUNNING"))
-        self.assertEqual((failed["Status"], failed["Stage_E0b_Status"], failed["Failed"]), ("FAIL", "FAIL", 1))
-        self.assertTrue(all(frame["Source_Mode"] == "DEMO" for frame in (started, passed, second_started, failed)))
+        self.assertEqual([frame["Status"] for frame in (started, passed, second_started, failed)],
+                         ["RUNNING", "PASS", "RUNNING", "FAIL"])
+        self.assertEqual((passed["Passed"], failed["Failed"], started["Swap_Used_MiB"]), (1, 1, 0))
+        for frame in (started, passed, second_started, failed):
+            self.assertEqual(frame["Source_Mode"], "DEMO")
+            self.assertEqual(frame["Stage"], "UNKNOWN")
+            for code in STAGE_CODES:
+                self.assertEqual(frame[f"Stage_{code}_Status"], "NOT_RUN")
+        passed["Stage_E0a_Status"] = "PASS"
+        with self.assertRaisesRegex(ValueError, "real lab stages"):
+            validate_demo_frame(passed)
 
     def test_freshness_and_collector_states(self) -> None:
         self.assertEqual(classify_freshness(15), "FRESH")
@@ -49,7 +55,7 @@ class ContractTests(unittest.TestCase):
         last_snapshot = demo_frame(0, collector_connected=False)
         self.assertEqual(last_snapshot["Telemetry_State"], "FRESH")
         self.assertEqual(last_snapshot["Collector_Status"], "OFFLINE")
-        self.assertIn("LAST SAMPLE AGE", (ROOT / "dashboard-desktop.svg").read_text(encoding="utf-8"))
+        self.assertIn("SAMPLE AGE AT SEND", (ROOT / "dashboard-desktop.svg").read_text(encoding="utf-8"))
         self.assertIn("OFFLINE = retained / last known", (ROOT / "dashboard-desktop.svg").read_text(encoding="utf-8"))
 
     def test_demo_adapter_rejects_live_or_unknown_payloads(self) -> None:
@@ -74,8 +80,12 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(len(topic_map), len(messages))
         for name in CONTROL_SCHEMA:
             root = control_topic(name)
+            if name.startswith("Stage_"):
+                self.assertFalse(any(topic == root or topic.startswith(f"{root}/") for topic in topic_map))
+                continue
             self.assertIn(root, topic_map)
             self.assertIn((f"{root}/meta/readonly", "1", True), messages)
+            self.assertIn((f"{root}/meta/type", "text", True), messages)
             self.assertFalse(any(topic.startswith(f"{root}/on") for topic, _payload, _retained in messages))
             retained = topic_map[root][1]
             self.assertEqual(retained, name != "Heartbeat")

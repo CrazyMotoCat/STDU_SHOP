@@ -3,12 +3,12 @@
     "id": "dash_mode",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Source_Mode",
-      "value": "val"
+      "channel": "stdu_lab/Source_Mode",
+      "value": "[\"DEMO\", \"LIVE\", \"UNKNOWN\"].includes(val) ? val : \"UNKNOWN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Source_Mode",
+      "channel": "stdu_lab/Source_Mode",
       "value": "(val == 'DEMO') ? ';fill:#f5bd55' : (val == 'LIVE') ? ';fill:#43d59c' : ';fill:#a4b2c4'"
     }
   },
@@ -16,12 +16,12 @@
     "id": "dash_controller_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Controller_Status",
-      "value": "val"
+      "channel": "stdu_lab/Controller_Status",
+      "value": "[\"ONLINE\", \"OFFLINE\", \"UNKNOWN\"].includes(val) ? val : \"UNKNOWN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Controller_Status",
+      "channel": "stdu_lab/Controller_Status",
       "value": "(val == 'ONLINE') ? ';fill:#43d59c' : (val == 'OFFLINE') ? ';fill:#fb7185' : ';fill:#a4b2c4'"
     }
   },
@@ -29,44 +29,44 @@
     "id": "dash_clock",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Clock_UTC",
-      "value": "val"
+      "channel": "stdu_lab/Clock_UTC",
+      "value": "typeof val === 'string' && val.trim() && val !== '-' ? val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : \"NO_DATA\""
     }
   },
   {
     "id": "dash_run_id",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/RUN_ID",
-      "value": "val"
+      "channel": "stdu_lab/RUN_ID",
+      "value": "typeof val === 'string' && val.trim() && val !== '-' ? val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : \"NO RUN\""
     }
   },
   {
     "id": "dash_stage",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage",
-      "value": "val"
+      "channel": "stdu_lab/Stage",
+      "value": "[\"E0a\", \"E0b\", \"E1\", \"E2\", \"E3\", \"E3b\", \"E4a\", \"E5\", \"UNKNOWN\"].includes(val) ? val : \"UNKNOWN\""
     }
   },
   {
     "id": "dash_current_test",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Current_Test",
-      "value": "val"
+      "channel": "stdu_lab/Current_Test",
+      "value": "typeof val === 'string' && val.trim() && val !== '-' ? val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : \"NO_DATA\""
     }
   },
   {
     "id": "dash_run_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Status",
-      "value": "val"
+      "channel": "stdu_lab/Status",
+      "value": "[\"NOT_RUN\", \"RUNNING\", \"PASS\", \"FAIL\", \"BLOCKED\", \"NOT_PROVEN\", \"SKIPPED\"].includes(val) ? val : \"NOT_RUN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Status",
+      "channel": "stdu_lab/Status",
       "value": "(val == 'PASS') ? ';fill:#43d59c' : (val == 'FAIL') ? ';fill:#fb7185' : (val == 'BLOCKED') ? ';fill:#f5bd55' : (val == 'RUNNING') ? ';fill:#59c8ed' : (val == 'NOT_PROVEN') ? ';fill:#c1a6ff' : (val == 'SKIPPED') ? ';fill:#90a2b8' : ';fill:#a4b2c4'"
     }
   },
@@ -74,92 +74,92 @@
     "id": "dash_progress",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Progress",
-      "value": "val + '%'"
+      "channel": "stdu_lab/Progress",
+      "value": "/^\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?$/i.test(String(val).trim()) && Number(val) <= 100 ? String(val).trim() + \"%\" : \"—\""
     }
   },
   {
     "id": "dash_elapsed",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Elapsed",
-      "value": "val"
+      "channel": "stdu_lab/Elapsed",
+      "value": "typeof val === 'string' && val.trim() && val !== '-' ? val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : \"—\""
     }
   },
   {
     "id": "dash_last_update",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Last_Update",
-      "value": "val"
+      "channel": "stdu_lab/Last_Update",
+      "value": "typeof val === 'string' && val.trim() && val !== '-' ? val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : \"NO_DATA\""
     }
   },
   {
     "id": "dash_passed",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Passed",
-      "value": "val"
+      "channel": "stdu_lab/Passed",
+      "value": "/^\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?$/i.test(String(val).trim()) && Number(val) <= 10000 ? String(val).trim() + \"\" : \"—\""
     }
   },
   {
     "id": "dash_failed",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Failed",
-      "value": "val"
+      "channel": "stdu_lab/Failed",
+      "value": "/^\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?$/i.test(String(val).trim()) && Number(val) <= 10000 ? String(val).trim() + \"\" : \"—\""
     }
   },
   {
     "id": "dash_ram_available",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/RAM_Available_MiB",
-      "value": "val + ' MiB'"
+      "channel": "stdu_lab/RAM_Available_MiB",
+      "value": "/^\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?$/i.test(String(val).trim()) && Number(val) <= 2147483647 ? String(val).trim() + \" MiB\" : \"—\""
     }
   },
   {
     "id": "dash_cpu_load",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/CPU_Load_Pct",
-      "value": "val + '%'"
+      "channel": "stdu_lab/CPU_Load_Pct",
+      "value": "/^\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?$/i.test(String(val).trim()) && Number(val) <= 100 ? String(val).trim() + \"%\" : \"—\""
     }
   },
   {
     "id": "dash_disk_free",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Disk_Free_GiB",
-      "value": "val + ' GiB'"
+      "channel": "stdu_lab/Disk_Free_GiB",
+      "value": "/^\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?$/i.test(String(val).trim()) && Number(val) <= 2147483647 ? String(val).trim() + \" GiB\" : \"—\""
     }
   },
   {
     "id": "dash_swap_used",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Swap_Used_MiB",
-      "value": "val + ' MiB'"
+      "channel": "stdu_lab/Swap_Used_MiB",
+      "value": "/^\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?$/i.test(String(val).trim()) && Number(val) <= 2147483647 ? String(val).trim() + \" MiB\" : \"—\""
     }
   },
   {
     "id": "dash_container_peak",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Container_RAM_Peak_MiB",
-      "value": "val + ' MiB'"
+      "channel": "stdu_lab/Container_RAM_Peak_MiB",
+      "value": "/^\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?$/i.test(String(val).trim()) && Number(val) <= 2147483647 ? String(val).trim() + \" MiB\" : \"—\""
     }
   },
   {
     "id": "dash_pg_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/PG_Status",
-      "value": "val"
+      "channel": "stdu_lab/PG_Status",
+      "value": "[\"ONLINE\", \"OFFLINE\", \"UNKNOWN\"].includes(val) ? val : \"UNKNOWN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/PG_Status",
+      "channel": "stdu_lab/PG_Status",
       "value": "(val == 'ONLINE') ? ';fill:#43d59c' : (val == 'OFFLINE') ? ';fill:#fb7185' : ';fill:#a4b2c4'"
     }
   },
@@ -167,12 +167,12 @@
     "id": "dash_docker_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Docker_Status",
-      "value": "val"
+      "channel": "stdu_lab/Docker_Status",
+      "value": "[\"ONLINE\", \"OFFLINE\", \"UNKNOWN\"].includes(val) ? val : \"UNKNOWN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Docker_Status",
+      "channel": "stdu_lab/Docker_Status",
       "value": "(val == 'ONLINE') ? ';fill:#43d59c' : (val == 'OFFLINE') ? ';fill:#fb7185' : ';fill:#a4b2c4'"
     }
   },
@@ -180,49 +180,49 @@
     "id": "dash_last_event",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Last_Event",
-      "value": "val"
+      "channel": "stdu_lab/Last_Event",
+      "value": "typeof val === 'string' && val.trim() && val !== '-' ? val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : \"NO_DATA\""
     }
   },
   {
     "id": "dash_last_error",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Last_Error",
-      "value": "val"
+      "channel": "stdu_lab/Last_Error",
+      "value": "typeof val === 'string' && val.trim() && val !== '-' ? val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : \"NO_DATA\""
     }
   },
   {
     "id": "dash_event_time",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Last_Event_At",
-      "value": "val"
+      "channel": "stdu_lab/Last_Event_At",
+      "value": "typeof val === 'string' && val.trim() && val !== '-' ? val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : \"NO_DATA\""
     }
   },
   {
     "id": "dash_snapshot_age",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Telemetry_State",
-      "value": "val"
+      "channel": "stdu_lab/Telemetry_State",
+      "value": "['FRESH', 'STALE'].includes(val) ? val + ' AT SEND' : \"NO_DATA\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Telemetry_State",
-      "value": "(val == 'FRESH') ? ';fill:#43d59c' : (val == 'STALE') ? ';fill:#f5bd55' : ';fill:#a4b2c4'"
+      "channel": "stdu_lab/Telemetry_State",
+      "value": "(val == 'STALE') ? ';fill:#f5bd55' : ';fill:#a4b2c4'"
     }
   },
   {
     "id": "dash_collector_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Collector_Status",
-      "value": "val"
+      "channel": "stdu_lab/Collector_Status",
+      "value": "[\"ONLINE\", \"OFFLINE\", \"UNKNOWN\"].includes(val) ? val : \"UNKNOWN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Collector_Status",
+      "channel": "stdu_lab/Collector_Status",
       "value": "(val == 'ONLINE') ? ';fill:#43d59c' : (val == 'OFFLINE') ? ';fill:#fb7185' : ';fill:#a4b2c4'"
     }
   },
@@ -230,12 +230,12 @@
     "id": "dash_limit_exceeded",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Resource_Limit_Exceeded",
-      "value": "val"
+      "channel": "stdu_lab/Resource_Limit_Exceeded",
+      "value": "[\"CLEAR\", \"ACTIVE\", \"UNKNOWN\"].includes(val) ? val : \"UNKNOWN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Resource_Limit_Exceeded",
+      "channel": "stdu_lab/Resource_Limit_Exceeded",
       "value": "(val == 'ACTIVE') ? ';fill:#fb7185' : (val == 'CLEAR') ? ';fill:#43d59c' : ';fill:#f5bd55'"
     }
   },
@@ -243,12 +243,12 @@
     "id": "dash_unknown_cleanup",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Unknown_Cleanup",
-      "value": "val"
+      "channel": "stdu_lab/Unknown_Cleanup",
+      "value": "[\"CLEAR\", \"ACTIVE\", \"UNKNOWN\"].includes(val) ? val : \"UNKNOWN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Unknown_Cleanup",
+      "channel": "stdu_lab/Unknown_Cleanup",
       "value": "(val == 'ACTIVE') ? ';fill:#fb7185' : (val == 'CLEAR') ? ';fill:#43d59c' : ';fill:#f5bd55'"
     }
   },
@@ -256,12 +256,12 @@
     "id": "dash_runtime_blocked",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Runtime_Blocked",
-      "value": "val"
+      "channel": "stdu_lab/Runtime_Blocked",
+      "value": "[\"CLEAR\", \"ACTIVE\", \"UNKNOWN\"].includes(val) ? val : \"UNKNOWN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Runtime_Blocked",
+      "channel": "stdu_lab/Runtime_Blocked",
       "value": "(val == 'ACTIVE') ? ';fill:#fb7185' : (val == 'CLEAR') ? ';fill:#43d59c' : ';fill:#f5bd55'"
     }
   },
@@ -269,12 +269,12 @@
     "id": "dash_stage_E0a_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E0a_Status",
-      "value": "val"
+      "channel": "stdu_lab/Stage_E0a_Status",
+      "value": "[\"NOT_RUN\", \"RUNNING\", \"PASS\", \"FAIL\", \"BLOCKED\", \"NOT_PROVEN\", \"SKIPPED\"].includes(val) ? val : \"NOT_RUN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E0a_Status",
+      "channel": "stdu_lab/Stage_E0a_Status",
       "value": "(val == 'PASS') ? ';fill:#43d59c' : (val == 'FAIL') ? ';fill:#fb7185' : (val == 'BLOCKED') ? ';fill:#f5bd55' : (val == 'RUNNING') ? ';fill:#59c8ed' : (val == 'NOT_PROVEN') ? ';fill:#c1a6ff' : (val == 'SKIPPED') ? ';fill:#90a2b8' : ';fill:#a4b2c4'"
     }
   },
@@ -282,12 +282,12 @@
     "id": "dash_stage_E0b_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E0b_Status",
-      "value": "val"
+      "channel": "stdu_lab/Stage_E0b_Status",
+      "value": "[\"NOT_RUN\", \"RUNNING\", \"PASS\", \"FAIL\", \"BLOCKED\", \"NOT_PROVEN\", \"SKIPPED\"].includes(val) ? val : \"NOT_RUN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E0b_Status",
+      "channel": "stdu_lab/Stage_E0b_Status",
       "value": "(val == 'PASS') ? ';fill:#43d59c' : (val == 'FAIL') ? ';fill:#fb7185' : (val == 'BLOCKED') ? ';fill:#f5bd55' : (val == 'RUNNING') ? ';fill:#59c8ed' : (val == 'NOT_PROVEN') ? ';fill:#c1a6ff' : (val == 'SKIPPED') ? ';fill:#90a2b8' : ';fill:#a4b2c4'"
     }
   },
@@ -295,12 +295,12 @@
     "id": "dash_stage_E1_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E1_Status",
-      "value": "val"
+      "channel": "stdu_lab/Stage_E1_Status",
+      "value": "[\"NOT_RUN\", \"RUNNING\", \"PASS\", \"FAIL\", \"BLOCKED\", \"NOT_PROVEN\", \"SKIPPED\"].includes(val) ? val : \"NOT_RUN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E1_Status",
+      "channel": "stdu_lab/Stage_E1_Status",
       "value": "(val == 'PASS') ? ';fill:#43d59c' : (val == 'FAIL') ? ';fill:#fb7185' : (val == 'BLOCKED') ? ';fill:#f5bd55' : (val == 'RUNNING') ? ';fill:#59c8ed' : (val == 'NOT_PROVEN') ? ';fill:#c1a6ff' : (val == 'SKIPPED') ? ';fill:#90a2b8' : ';fill:#a4b2c4'"
     }
   },
@@ -308,12 +308,12 @@
     "id": "dash_stage_E2_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E2_Status",
-      "value": "val"
+      "channel": "stdu_lab/Stage_E2_Status",
+      "value": "[\"NOT_RUN\", \"RUNNING\", \"PASS\", \"FAIL\", \"BLOCKED\", \"NOT_PROVEN\", \"SKIPPED\"].includes(val) ? val : \"NOT_RUN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E2_Status",
+      "channel": "stdu_lab/Stage_E2_Status",
       "value": "(val == 'PASS') ? ';fill:#43d59c' : (val == 'FAIL') ? ';fill:#fb7185' : (val == 'BLOCKED') ? ';fill:#f5bd55' : (val == 'RUNNING') ? ';fill:#59c8ed' : (val == 'NOT_PROVEN') ? ';fill:#c1a6ff' : (val == 'SKIPPED') ? ';fill:#90a2b8' : ';fill:#a4b2c4'"
     }
   },
@@ -321,12 +321,12 @@
     "id": "dash_stage_E3_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E3_Status",
-      "value": "val"
+      "channel": "stdu_lab/Stage_E3_Status",
+      "value": "[\"NOT_RUN\", \"RUNNING\", \"PASS\", \"FAIL\", \"BLOCKED\", \"NOT_PROVEN\", \"SKIPPED\"].includes(val) ? val : \"NOT_RUN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E3_Status",
+      "channel": "stdu_lab/Stage_E3_Status",
       "value": "(val == 'PASS') ? ';fill:#43d59c' : (val == 'FAIL') ? ';fill:#fb7185' : (val == 'BLOCKED') ? ';fill:#f5bd55' : (val == 'RUNNING') ? ';fill:#59c8ed' : (val == 'NOT_PROVEN') ? ';fill:#c1a6ff' : (val == 'SKIPPED') ? ';fill:#90a2b8' : ';fill:#a4b2c4'"
     }
   },
@@ -334,12 +334,12 @@
     "id": "dash_stage_E3b_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E3b_Status",
-      "value": "val"
+      "channel": "stdu_lab/Stage_E3b_Status",
+      "value": "[\"NOT_RUN\", \"RUNNING\", \"PASS\", \"FAIL\", \"BLOCKED\", \"NOT_PROVEN\", \"SKIPPED\"].includes(val) ? val : \"NOT_RUN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E3b_Status",
+      "channel": "stdu_lab/Stage_E3b_Status",
       "value": "(val == 'PASS') ? ';fill:#43d59c' : (val == 'FAIL') ? ';fill:#fb7185' : (val == 'BLOCKED') ? ';fill:#f5bd55' : (val == 'RUNNING') ? ';fill:#59c8ed' : (val == 'NOT_PROVEN') ? ';fill:#c1a6ff' : (val == 'SKIPPED') ? ';fill:#90a2b8' : ';fill:#a4b2c4'"
     }
   },
@@ -347,12 +347,12 @@
     "id": "dash_stage_E4a_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E4a_Status",
-      "value": "val"
+      "channel": "stdu_lab/Stage_E4a_Status",
+      "value": "[\"NOT_RUN\", \"RUNNING\", \"PASS\", \"FAIL\", \"BLOCKED\", \"NOT_PROVEN\", \"SKIPPED\"].includes(val) ? val : \"NOT_RUN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E4a_Status",
+      "channel": "stdu_lab/Stage_E4a_Status",
       "value": "(val == 'PASS') ? ';fill:#43d59c' : (val == 'FAIL') ? ';fill:#fb7185' : (val == 'BLOCKED') ? ';fill:#f5bd55' : (val == 'RUNNING') ? ';fill:#59c8ed' : (val == 'NOT_PROVEN') ? ';fill:#c1a6ff' : (val == 'SKIPPED') ? ';fill:#90a2b8' : ';fill:#a4b2c4'"
     }
   },
@@ -360,12 +360,12 @@
     "id": "dash_stage_E5_status",
     "read": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E5_Status",
-      "value": "val"
+      "channel": "stdu_lab/Stage_E5_Status",
+      "value": "[\"NOT_RUN\", \"RUNNING\", \"PASS\", \"FAIL\", \"BLOCKED\", \"NOT_PROVEN\", \"SKIPPED\"].includes(val) ? val : \"NOT_RUN\""
     },
     "style": {
       "enable": true,
-      "channel": "/devices/stdu_lab/controls/Stage_E5_Status",
+      "channel": "stdu_lab/Stage_E5_Status",
       "value": "(val == 'PASS') ? ';fill:#43d59c' : (val == 'FAIL') ? ';fill:#fb7185' : (val == 'BLOCKED') ? ';fill:#f5bd55' : (val == 'RUNNING') ? ';fill:#59c8ed' : (val == 'NOT_PROVEN') ? ';fill:#c1a6ff' : (val == 'SKIPPED') ? ';fill:#90a2b8' : ';fill:#a4b2c4'"
     }
   }

@@ -1,6 +1,6 @@
 # WB-LAB-UI-01 — native SVG HMI
 
-**Status: `READY_FOR_OWNER_HOMEUI_IMPORT_APPROVAL`.** Desktop/mobile visual review passed. E0a is `E0A_RUNTIME_PASS / OWNER ACCEPTED`. E0b is `E0B_BLOCKED / E0B_DOCKER_COMMAND_FAILED` with cleanup `CONFIRMED`; E1–E5 remain `NOT_RUN`, and `VDS_equivalence` is `NOT_PROVEN`. Import is not authorized: it requires a separate exact `OWNER_HOMEUI_IMPORT_APPROVED`. No LIVE telemetry source is connected; cold start stays neutral and does not inherit E0a or E0b results.
+**Status: verified on the WB test stand with HomeUI 2.267.7.** Desktop and mobile are installed. Both passed cold start, synthetic telemetry transitions, loss of the publisher, and reload. The test data was removed afterward; the panels now show their neutral state.
 
 ## Package
 
@@ -13,14 +13,14 @@
 - [`demo-publisher.py`](demo-publisher.py) — finite synthetic state sequence with optional host-side MQTT publishing.
 - [`telemetry_bridge/`](telemetry_bridge/) — allowlisted status/freshness validation and MQTT transport for DEMO only.
 - [`tests/`](tests/) — XML/ID/security/binding and MQTT contract/state checks.
-- [`screenshots/`](screenshots/) — desktop and mobile preview captures.
+- [`screenshots/`](screenshots/) — desktop and mobile captures from the installed HomeUI after the DEMO publisher disconnected.
 
-Preview captures:
+HomeUI captures with the last synthetic sample:
 
-- [Desktop · 1440 × 900](screenshots/desktop.png)
-- [Mobile · 375 px render of the 420 × 1560 SVG](screenshots/mobile.png)
+- [Desktop · 1440 px browser](screenshots/desktop.png)
+- [Mobile · 375 px browser](screenshots/mobile.png)
 
-Every screen keeps a static `DEMO · SYNTHETIC` marker separate from the bound mode value, so MQTT text cannot overwrite it. At cold start, the panel shows `NO_DATA`, `UNKNOWN`, `NOT_RUN`, and em dashes; synthetic measurements and statuses appear only after someone explicitly runs the DEMO publisher. Bound status fields are labeled as last reported. When the collector is offline, the screen explains that retained values are last known and sample age is the age reported at publish time, not current collector availability.
+Every screen keeps a static `DEMO · SYNTHETIC` marker separate from the bound mode value. At cold start or after empty payloads, the panel shows `NO_DATA`, `UNKNOWN`, `NOT_RUN`, and em dashes. The DEMO publisher changes the scenario status and counters and leaves every runtime stage channel untouched. When the collector is offline, the screen identifies retained values as last known and shows the sample age reported at publish time.
 
 ## Accepted WB-LAB-01 evidence
 
@@ -48,9 +48,9 @@ Actual MQTT publishing is opt-in. For the separate demo transport check, use onl
 
 ## HomeUI version and upload
 
-Read-only inspection on 2026-11-07 confirmed `wb-mqtt-homeui` and `wb-homeui-backend` version `2.267.7`. The installed editor bundle serializes its binding parameters with `JSON.stringify` and parses JSON input with `JSON.parse`; the generated binding array matches that syntax. The editor does not validate schema, so actual panel import/render remains `NOT_VERIFIED` until a separate owner-approved import. The persisted config has two dashboards, neither target panel ID collides, and the exact telemetry namespace returned no messages during a 5-second read-only subscription. These observations must be rechecked before import. This task does not write `/mnt/data/etc/wb-webui.conf`, install packages, modify wb-rules, or alter broker ACLs.
+HomeUI 2.267.7 indexes bindings by `device/control` and applies `read.value` even when the cell is missing. The generated expressions return explicit placeholders and escape free text before HomeUI writes it as SVG markup. DEMO publishes numeric payloads as text controls because HomeUI's numeric controls coerce missing values to zero. The expressions add units only to a valid numeric value.
 
-HomeUI import compatibility for the installed `2.267.7` build remains `NOT_VERIFIED`. The prepared, non-executed backup/import/rollback procedure is in [`bindings.md`](bindings.md). It backs up existing dashboards and bindings, creates only new panel entries, checks retained telemetry before loading, and rolls back only the exact new panel IDs. It never edits existing panels or `/mnt/data/etc/wb-webui.conf` directly. Import requires separate `OWNER_HOMEUI_IMPORT_APPROVED`.
+The stand import used HomeUI's per-dashboard API after comparing the original panels against the off-controller backup. Both exported SVG files matched the generated files byte for byte, both exports contained the same 35 read/style bindings, and the original `dashboard1` and `dashboard2` were unchanged. See [the import and rollback procedure](bindings.md). The desktop fits the page; the mobile panel scrolls at full available width.
 
 ## Checks
 
@@ -64,10 +64,6 @@ python -B demo-publisher.py --dry-run --steps 6 --interval-seconds 0.2
 
 The checks cover XML parsing, stable unique IDs, no external resources/scripts, both viewport bindings, no write actions, allowed MQTT controls, DEMO-only publishing, PASS/FAIL transitions, stale state, offline state, and heartbeat retention. They do not substitute for loading the panel into the controller.
 
-## Limitations / next steps
+## Runtime boundary
 
-- E0a is `E0A_RUNTIME_PASS / OWNER ACCEPTED` for the linked run only. E0b is `E0B_BLOCKED / E0B_DOCKER_COMMAND_FAILED`, cleanup `CONFIRMED`, for the linked run only. Neither result is a LIVE telemetry source or a cold-start default. E1–E5 remain `NOT_RUN`, and `VDS_equivalence` remains `NOT_PROVEN`.
-- The cold-start SVG displays no sample numbers, no `FRESH`, no `PASS`, and no `RUNNING`. Retained MQTT values remain historical/last-known when `Collector_Status=OFFLINE`; HomeUI does not combine these channels into an effective freshness calculation.
-- The installed HomeUI release is verified as `2.267.7`; editor import compatibility is `NOT_VERIFIED` until an owner-approved runtime import.
-- No dashboard import, WB MQTT publication, package install, or WB configuration change has been performed for this UI task. E0a and E0b were run separately under WB-LAB-01 PR #54.
-- Next status: `READY_FOR_OWNER_HOMEUI_IMPORT_APPROVAL`; the import plan is prepared but not executed. Stop until the owner gives the exact `OWNER_HOMEUI_IMPORT_APPROVED`. No LIVE source may be connected under this task.
+E0a and E0b are separately documented lab runs. The HomeUI test did not run any E0a–E5 experiment or attach a LIVE source. `VDS_equivalence` remains `NOT_PROVEN`. The screenshots show the synthetic last-reported snapshot with the collector `OFFLINE`; the approved test removed its own retained entries after capture. The local loopback DEMO procedure remains separate from any future stand publication.

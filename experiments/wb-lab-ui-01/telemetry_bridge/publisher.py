@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from typing import Any
+from uuid import uuid4
 
 from .contract import BASE_TOPIC, demo_frame, mqtt_messages
 
@@ -42,7 +43,7 @@ class DemoMqttPublisher:
 
         client = mqtt.Client(
             mqtt.CallbackAPIVersion.VERSION2,
-            client_id="stdu-wb-lab-ui-01-demo",
+            client_id=f"stdu-lab-demo-{uuid4().hex[:12]}",
             protocol=mqtt.MQTTv311,
         )
         if self.username is not None:
@@ -74,7 +75,7 @@ class DemoMqttPublisher:
 
     def _publish_messages(self, messages: list[tuple[str, str, bool]]) -> None:
         for topic, payload, retained in messages:
-            info = self.client.publish(topic, payload, qos=0, retain=retained)
+            info = self.client.publish(topic, payload, qos=1, retain=retained)
             info.wait_for_publish(timeout=5)
             if not info.is_published():
                 raise TimeoutError("An MQTT telemetry publish did not complete")
@@ -83,12 +84,10 @@ class DemoMqttPublisher:
         if self.client is None:
             return
         try:
-            offline = self.client.publish(
-                f"{BASE_TOPIC}/controls/Collector_Status", "OFFLINE", qos=1, retain=True
-            )
-            offline.wait_for_publish(timeout=3)
-            self.client.disconnect()
+            if self.client.is_connected():
+                self._publish_messages([(f"{BASE_TOPIC}/controls/Collector_Status", "OFFLINE", True)])
         finally:
+            self.client.disconnect()
             self.client.loop_stop()
             self.client = None
             self._connected.clear()

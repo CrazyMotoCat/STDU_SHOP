@@ -7,7 +7,7 @@ import json
 from html import escape
 from pathlib import Path
 
-from telemetry_bridge.contract import CONTROL_LABELS, STAGES
+from telemetry_bridge.contract import CONTROL_SCHEMA, DEFAULTS, DEVICE_ID, NUMERIC_BOUNDS, STAGES
 
 
 ROOT = Path(__file__).resolve().parent
@@ -65,14 +65,34 @@ def card_title(x: int, y: int, title: str, subtitle: str | None = None) -> list[
     return out
 
 
-def binding(id_: str, control: str, *, read: str | None = "val", style: str | None = None) -> dict:
-    topic = f"/devices/stdu_lab/controls/{control}"
-    item: dict = {"id": id_}
-    if read is not None:
-        item["read"] = {"enable": True, "channel": topic, "value": read}
+def binding(id_: str, control: str, *, style: str | None = None) -> dict:
+    channel = f"{DEVICE_ID}/{control}"
+    item = {"id": id_, "read": {"enable": True, "channel": channel, "value": read_expression(control)}}
     if style is not None:
-        item["style"] = {"enable": True, "channel": topic, "value": style}
+        item["style"] = {"enable": True, "channel": channel, "value": style}
     return item
+
+
+def read_expression(control: str) -> str:
+    """Return safe SVG text for HomeUI 2.267.7, which assigns the result to innerHTML."""
+    spec = CONTROL_SCHEMA[control]
+    fallback = json.dumps(DEFAULTS[control] or "—", ensure_ascii=False)
+    if spec["type"] == "value":
+        unit = spec["unit"]
+        suffix = {"%": "%", "MiB": " MiB", "GiB": " GiB"}.get(unit, "")
+        _, maximum = NUMERIC_BOUNDS[control]
+        return (
+            rf"/^\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(String(val).trim()) && Number(val) <= {maximum} "
+            f"? String(val).trim() + {json.dumps(suffix)} : {fallback}"
+        )
+    if control == "Telemetry_State":
+        return f"['FRESH', 'STALE'].includes(val) ? val + ' AT SEND' : {fallback}"
+    if spec["values"]:
+        return f"{json.dumps(spec['values'])}.includes(val) ? val : {fallback}"
+    return (
+        "typeof val === 'string' && val.trim() && val !== '-' ? "
+        "val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : " + fallback
+    )
 
 
 STATUS_STYLE = (
@@ -92,7 +112,6 @@ ALARM_STYLE = (
     "(val == 'CLEAR') ? ';fill:#43d59c' : ';fill:#f5bd55'"
 )
 TELEMETRY_STYLE = (
-    "(val == 'FRESH') ? ';fill:#43d59c' : "
     "(val == 'STALE') ? ';fill:#f5bd55' : ';fill:#a4b2c4'"
 )
 MODE_STYLE = (
@@ -110,10 +129,11 @@ STATUS_COLORS = {
 }
 
 
-def svg_start(title: str, width: int, height: int, description: str) -> list[str]:
+def svg_start(title: str, width: int, height: int, description: str, *, scrollable: bool = False) -> list[str]:
+    sizing = ' style="display:block;width:100%;height:auto"' if scrollable else ""
     return [
         '<?xml version="1.0" encoding="UTF-8"?>',
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="svg_title svg_desc">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="svg_title svg_desc"{sizing}>',
         f'<title id="svg_title">{esc(title)}</title>',
         f'<desc id="svg_desc">{esc(description)}</desc>',
         '<style>',
@@ -141,7 +161,7 @@ def header_desktop(out: list[str]) -> None:
         text(914, 87, "CONTROLLER", size=8, color=MUTED, weight=700, letter=0.6),
         text(1000, 87, "UNKNOWN", size=10, color=SLATE, weight=700, id_="dash_controller_status"),
         text(1150, 87, "UTC", size=8, color=MUTED, weight=700, anchor="end", letter=0.6),
-        text(1408, 87, "NO DATA", size=10, color=TEXT, weight=600, id_="dash_clock", anchor="end"),
+        text(1408, 87, "NO_DATA", size=10, color=TEXT, weight=600, id_="dash_clock", anchor="end"),
     ])
 
 
@@ -158,7 +178,7 @@ def header_mobile(out: list[str]) -> None:
         text(24, 128, "CTRL", size=9, color=MUTED, weight=700, letter=0.6),
         text(62, 128, "UNKNOWN", size=10, color=SLATE, weight=700, id_="dash_controller_status"),
         text(252, 128, "UTC", size=9, color=MUTED, weight=700, anchor="end", letter=0.6),
-        text(397, 128, "NO DATA", size=10, color=TEXT, weight=600, id_="dash_clock", anchor="end"),
+        text(397, 128, "NO_DATA", size=10, color=TEXT, weight=600, id_="dash_clock", anchor="end"),
     ])
 
 
@@ -170,7 +190,7 @@ def run_card_desktop(out: list[str]) -> None:
         rect(x + 24, y + 66, 74, 44, CARD_ALT, rx=10, stroke=STROKE),
         text(x + 61, y + 94, "UNKNOWN", size=12, color=SLATE, weight=700, id_="dash_stage", anchor="middle"),
         text(x + 118, y + 83, "LAST REPORTED TEST", size=9, color=MUTED, weight=700, letter=0.8),
-        text(x + 118, y + 105, "NO DATA", size=14, color=TEXT, weight=700, id_="dash_current_test"),
+        text(x + 118, y + 105, "NO_DATA", size=14, color=TEXT, weight=700, id_="dash_current_test"),
         text(x + 24, y + 140, "LAST STATUS", size=9, color=MUTED, weight=700, letter=0.8),
         text(x + 24, y + 165, "NOT_RUN", size=12, color=SLATE, weight=700, id_="dash_run_status"),
         text(x + 190, y + 140, "PROGRESS", size=9, color=MUTED, weight=700, letter=0.8),
@@ -184,7 +204,7 @@ def run_card_desktop(out: list[str]) -> None:
         text(x + 24, y + 190, "RUN", size=9, color=MUTED, weight=700),
         text(x + 63, y + 190, "NO RUN", size=10, weight=600, id_="dash_run_id"),
         text(x + 520, y + 190, "UPDATED", size=9, color=MUTED, weight=700),
-        text(x + 586, y + 190, "NO DATA", size=10, weight=600, id_="dash_last_update"),
+        text(x + 586, y + 190, "NO_DATA", size=10, weight=600, id_="dash_last_update"),
     ])
 
 
@@ -196,7 +216,7 @@ def run_card_mobile(out: list[str]) -> None:
         rect(x + 18, y + 58, 62, 40, CARD_ALT, rx=9, stroke=STROKE),
         text(x + 49, y + 84, "UNKNOWN", size=10, color=SLATE, weight=700, id_="dash_stage", anchor="middle"),
         text(x + 96, y + 68, "LAST REPORTED TEST", size=9, color=MUTED, weight=700, letter=0.7),
-        text(x + 96, y + 90, "NO DATA", size=13, weight=700, id_="dash_current_test"),
+        text(x + 96, y + 90, "NO_DATA", size=13, weight=700, id_="dash_current_test"),
         line(x + 18, y + 112, x + w - 18, y + 112),
         text(x + 18, y + 135, "LAST STATUS", size=9, color=MUTED, weight=700, letter=0.7),
         text(x + 18, y + 157, "NOT_RUN", size=11, color=SLATE, weight=700, id_="dash_run_status"),
@@ -207,7 +227,7 @@ def run_card_mobile(out: list[str]) -> None:
         text(x + 18, y + 183, "RUN", size=9, color=MUTED, weight=700),
         text(x + 50, y + 183, "NO RUN", size=11, weight=600, id_="dash_run_id"),
         text(x + 18, y + 205, "UPDATED", size=9, color=MUTED, weight=700),
-        text(x + 86, y + 205, "NO DATA", size=10, weight=600, id_="dash_last_update"),
+        text(x + 86, y + 205, "NO_DATA", size=10, weight=600, id_="dash_last_update"),
     ])
 
 
@@ -238,16 +258,15 @@ def matrix_rows(out: list[str], x: int, y: int, w: int, *, mobile: bool = False)
             text(status_x, row_y, cold_status, size=11 if mobile else 11, color=STATUS_COLORS[cold_status], weight=700, id_=f"dash_stage_{code}_status", anchor="end"),
         ])
     out.extend([
-        line(label_x, top + h - 45, status_x),
-        text(label_x, top + h - 23, "LIVE RUNTIME RESULTS: NOT RUN", size=10 if mobile else 9, color=AMBER, weight=700),
+        line(label_x, top + h - (45 if mobile else 32), status_x),
+        text(label_x, top + h - 23, "NO LIVE RUNTIME SOURCE", size=10 if mobile else 9, color=AMBER, weight=700),
     ])
 
 
-def metric_tile(out: list[str], x: int, y: int, w: int, h: int, label: str, value: str, id_: str, unit: str | None = None) -> None:
+def metric_tile(out: list[str], x: int, y: int, w: int, h: int, label: str, id_: str) -> None:
     out.append(rect(x, y, w, h, CARD_ALT, rx=9, stroke=STROKE))
     out.append(text(x + 12, y + 20, label.upper(), size=9 if w < 200 else 8, color=MUTED, weight=700, letter=0.55))
-    shown = f"{value}{unit}" if unit == "%" else (f"{value} {unit}" if unit else value)
-    out.append(text(x + 12, y + h - 14, shown, size=16, weight=700, id_=id_))
+    out.append(text(x + 12, y + h - 14, "—", size=16, weight=700, id_=id_))
 
 
 def resources_desktop(out: list[str]) -> None:
@@ -256,11 +275,11 @@ def resources_desktop(out: list[str]) -> None:
     out.extend(card_title(x + 22, y + 30, "Host resources", "No data until an explicit DEMO or verified LIVE publish"))
     gap = 10
     tile_w = (w - 44 - gap) // 2
-    metric_tile(out, x + 22, y + 67, tile_w, 70, "RAM available", "—", "dash_ram_available", "MiB")
-    metric_tile(out, x + 22 + tile_w + gap, y + 67, tile_w, 70, "CPU load", "—", "dash_cpu_load", "%")
-    metric_tile(out, x + 22, y + 147, tile_w, 70, "Disk free", "—", "dash_disk_free", "GiB")
-    metric_tile(out, x + 22 + tile_w + gap, y + 147, tile_w, 70, "Swap used", "—", "dash_swap_used", "MiB")
-    metric_tile(out, x + 22, y + 227, w - 44, 62, "Container RAM peak", "—", "dash_container_peak", "MiB")
+    metric_tile(out, x + 22, y + 67, tile_w, 70, "RAM available", "dash_ram_available")
+    metric_tile(out, x + 22 + tile_w + gap, y + 67, tile_w, 70, "CPU load", "dash_cpu_load")
+    metric_tile(out, x + 22, y + 147, tile_w, 70, "Disk free", "dash_disk_free")
+    metric_tile(out, x + 22 + tile_w + gap, y + 147, tile_w, 70, "Swap used", "dash_swap_used")
+    metric_tile(out, x + 22, y + 227, w - 44, 62, "Container RAM peak", "dash_container_peak")
     out.extend([
         text(x + 22, y + 317, "POSTGRESQL", size=8, color=MUTED, weight=700, letter=0.8),
         text(x + 154, y + 317, "UNKNOWN", size=11, color=SLATE, weight=700, id_="dash_pg_status"),
@@ -276,13 +295,13 @@ def resources_mobile(out: list[str]) -> None:
     out.extend(card_title(x + 18, y + 27, "Host resources", "Values appear only after an explicit DEMO / LIVE publish"))
     gap = 8
     tile_w = (w - 36 - gap) // 2
-    metric_tile(out, x + 18, y + 56, tile_w, 58, "RAM available", "—", "dash_ram_available", "MiB")
-    metric_tile(out, x + 18 + tile_w + gap, y + 56, tile_w, 58, "CPU load", "—", "dash_cpu_load", "%")
-    metric_tile(out, x + 18, y + 122, tile_w, 58, "Disk free", "—", "dash_disk_free", "GiB")
-    metric_tile(out, x + 18 + tile_w + gap, y + 122, tile_w, 58, "Swap used", "—", "dash_swap_used", "MiB")
+    metric_tile(out, x + 18, y + 56, tile_w, 58, "RAM available", "dash_ram_available")
+    metric_tile(out, x + 18 + tile_w + gap, y + 56, tile_w, 58, "CPU load", "dash_cpu_load")
+    metric_tile(out, x + 18, y + 122, tile_w, 58, "Disk free", "dash_disk_free")
+    metric_tile(out, x + 18 + tile_w + gap, y + 122, tile_w, 58, "Swap used", "dash_swap_used")
     out.extend([
         text(x + 18, y + 203, "CONTAINER RAM PEAK", size=9, color=MUTED, weight=700),
-        text(x + 18, y + 224, "— MiB", size=13, weight=700, id_="dash_container_peak"),
+        text(x + 18, y + 224, "—", size=13, weight=700, id_="dash_container_peak"),
         text(x + 198, y + 203, "POSTGRESQL", size=9, color=MUTED, weight=700),
         text(x + 198, y + 224, "UNKNOWN", size=11, color=SLATE, weight=700, id_="dash_pg_status"),
         text(x + 292, y + 203, "DOCKER", size=9, color=MUTED, weight=700),
@@ -300,7 +319,7 @@ def safety_panel(out: list[str], x: int, y: int, w: int, h: int, *, mobile: bool
         "Age when published · OFFLINE = retained / last known",
     ))
     entries = [
-        ("LAST SAMPLE AGE", "NO_DATA", "dash_snapshot_age", TELEMETRY_STYLE),
+        ("SAMPLE AGE AT SEND", "NO_DATA", "dash_snapshot_age", TELEMETRY_STYLE),
         ("COLLECTOR", "UNKNOWN", "dash_collector_status", HEALTH_STYLE),
         ("RESOURCE LIMIT", "UNKNOWN", "dash_limit_exceeded", ALARM_STYLE),
         ("UNKNOWN CLEANUP", "UNKNOWN", "dash_unknown_cleanup", ALARM_STYLE),
@@ -334,12 +353,12 @@ def events_desktop(out: list[str]) -> None:
     out.extend(card_title(x + 22, y + 28, "Latest event & error"))
     out.extend([
         text(x + 22, y + 65, "EVENT", size=8, color=MUTED, weight=700, letter=0.7),
-        text(x + 112, y + 65, "NO DATA", size=11, weight=600, id_="dash_last_event"),
+        text(x + 112, y + 65, "NO_DATA", size=11, weight=600, id_="dash_last_event"),
         text(x + 22, y + 91, "ERROR", size=8, color=MUTED, weight=700, letter=0.7),
-        text(x + 112, y + 91, "NO DATA", size=11, weight=600, id_="dash_last_error"),
+        text(x + 112, y + 91, "NO_DATA", size=11, weight=600, id_="dash_last_error"),
         text(x + 22, y + 113, "EVENT TIME (UTC)", size=8, color=MUTED, weight=700, letter=0.6),
-        text(x + 157, y + 113, "NO DATA", size=9, weight=600, id_="dash_event_time"),
-        text(x + w - 22, y + 113, "LIVE RUNTIME EVIDENCE: NOT RUN", size=8, color=AMBER, weight=700, anchor="end"),
+        text(x + 157, y + 113, "NO_DATA", size=9, weight=600, id_="dash_event_time"),
+        text(x + w - 22, y + 113, "NO LIVE RUNTIME SOURCE", size=8, color=AMBER, weight=700, anchor="end"),
     ])
 
 
@@ -349,11 +368,11 @@ def events_mobile(out: list[str]) -> None:
     out.extend(card_title(x + 18, y + 27, "Latest event & error"))
     out.extend([
         text(x + 18, y + 67, "EVENT", size=9, color=MUTED, weight=700),
-        text(x + 82, y + 67, "NO DATA", size=11, weight=600, id_="dash_last_event"),
+        text(x + 82, y + 67, "NO_DATA", size=11, weight=600, id_="dash_last_event"),
         text(x + 18, y + 96, "ERROR", size=9, color=MUTED, weight=700),
-        text(x + 82, y + 96, "NO DATA", size=11, weight=600, id_="dash_last_error"),
+        text(x + 82, y + 96, "NO_DATA", size=11, weight=600, id_="dash_last_error"),
         text(x + 18, y + 126, "EVENT TIME (UTC)", size=9, color=MUTED, weight=700),
-        text(x + 150, y + 126, "NO DATA", size=10, weight=600, id_="dash_event_time"),
+        text(x + 150, y + 126, "NO_DATA", size=10, weight=600, id_="dash_event_time"),
         line(x + 18, y + 143, x + w - 18),
         text(x + 18, y + 166, "DEMO PASS", size=9, color=MUTED, weight=700),
         text(x + 96, y + 166, "—", size=11, weight=700, id_="dash_passed"),
@@ -366,39 +385,38 @@ def events_mobile(out: list[str]) -> None:
 def build_bindings() -> list[dict]:
     result: list[dict] = []
     read_map = {
-        "dash_mode": ("Source_Mode", "val", MODE_STYLE),
-        "dash_controller_status": ("Controller_Status", "val", HEALTH_STYLE),
-        "dash_clock": ("Clock_UTC", "val", None),
-        "dash_run_id": ("RUN_ID", "val", None),
-        "dash_stage": ("Stage", "val", None),
-        "dash_current_test": ("Current_Test", "val", None),
-        "dash_run_status": ("Status", "val", STATUS_STYLE),
-        "dash_progress": ("Progress", "val + '%'", None),
-        "dash_elapsed": ("Elapsed", "val", None),
-        "dash_last_update": ("Last_Update", "val", None),
-        "dash_passed": ("Passed", "val", None),
-        "dash_failed": ("Failed", "val", None),
-        "dash_ram_available": ("RAM_Available_MiB", "val + ' MiB'", None),
-        "dash_cpu_load": ("CPU_Load_Pct", "val + '%'", None),
-        "dash_disk_free": ("Disk_Free_GiB", "val + ' GiB'", None),
-        "dash_swap_used": ("Swap_Used_MiB", "val + ' MiB'", None),
-        "dash_container_peak": ("Container_RAM_Peak_MiB", "val + ' MiB'", None),
-        "dash_pg_status": ("PG_Status", "val", HEALTH_STYLE),
-        "dash_docker_status": ("Docker_Status", "val", HEALTH_STYLE),
-        "dash_last_event": ("Last_Event", "val", None),
-        "dash_last_error": ("Last_Error", "val", None),
-        "dash_event_time": ("Last_Event_At", "val", None),
-        "dash_snapshot_age": ("Telemetry_State", "val", TELEMETRY_STYLE),
-        "dash_collector_status": ("Collector_Status", "val", HEALTH_STYLE),
-        "dash_limit_exceeded": ("Resource_Limit_Exceeded", "val", ALARM_STYLE),
-        "dash_unknown_cleanup": ("Unknown_Cleanup", "val", ALARM_STYLE),
-        "dash_runtime_blocked": ("Runtime_Blocked", "val", ALARM_STYLE),
+        "dash_mode": ("Source_Mode", MODE_STYLE),
+        "dash_controller_status": ("Controller_Status", HEALTH_STYLE),
+        "dash_clock": ("Clock_UTC", None),
+        "dash_run_id": ("RUN_ID", None),
+        "dash_stage": ("Stage", None),
+        "dash_current_test": ("Current_Test", None),
+        "dash_run_status": ("Status", STATUS_STYLE),
+        "dash_progress": ("Progress", None),
+        "dash_elapsed": ("Elapsed", None),
+        "dash_last_update": ("Last_Update", None),
+        "dash_passed": ("Passed", None),
+        "dash_failed": ("Failed", None),
+        "dash_ram_available": ("RAM_Available_MiB", None),
+        "dash_cpu_load": ("CPU_Load_Pct", None),
+        "dash_disk_free": ("Disk_Free_GiB", None),
+        "dash_swap_used": ("Swap_Used_MiB", None),
+        "dash_container_peak": ("Container_RAM_Peak_MiB", None),
+        "dash_pg_status": ("PG_Status", HEALTH_STYLE),
+        "dash_docker_status": ("Docker_Status", HEALTH_STYLE),
+        "dash_last_event": ("Last_Event", None),
+        "dash_last_error": ("Last_Error", None),
+        "dash_event_time": ("Last_Event_At", None),
+        "dash_snapshot_age": ("Telemetry_State", TELEMETRY_STYLE),
+        "dash_collector_status": ("Collector_Status", HEALTH_STYLE),
+        "dash_limit_exceeded": ("Resource_Limit_Exceeded", ALARM_STYLE),
+        "dash_unknown_cleanup": ("Unknown_Cleanup", ALARM_STYLE),
+        "dash_runtime_blocked": ("Runtime_Blocked", ALARM_STYLE),
     }
-    for id_, (control, expression, style) in read_map.items():
-        result.append(binding(id_, control, read=expression, style=style))
+    for id_, (control, style) in read_map.items():
+        result.append(binding(id_, control, style=style))
     for code, _ in STAGES:
         result.append(binding(f"dash_stage_{code}_status", f"Stage_{code}_Status", style=STATUS_STYLE))
-        result[-1]["read"] = {"enable": True, "channel": f"/devices/stdu_lab/controls/Stage_{code}_Status", "value": "val"}
     return result
 
 
@@ -428,6 +446,7 @@ def render_mobile() -> str:
         420,
         1560,
         "Compact read-only Wiren Board HMI. Cold start is neutral; synthetic sample data appears only after an explicit DEMO publish.",
+        scrollable=True,
     )
     header_mobile(out)
     run_card_mobile(out)
