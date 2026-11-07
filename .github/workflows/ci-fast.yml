@@ -67,6 +67,7 @@ jobs:
           uv run --project services/ingestion --locked ruff check experiments/wb-lab-01
           uv run --project services/ingestion --locked ruff format --check experiments/wb-lab-01
           python3 -B -m unittest discover -s experiments/wb-lab-01
+          sudo -n python3 -B -m unittest discover -s experiments/wb-lab-01 -p test_runtime_e0b.py -k test_sentinel_umask_and_uid_999
 
   contracts:
     name: Frozen contracts

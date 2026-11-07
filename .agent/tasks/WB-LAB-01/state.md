@@ -1,22 +1,19 @@
 # WB-LAB-01 checkpoint
 
-TASK: WB-LAB-01 E0a closeout + E0b preparation
-STATUS: E0A_CLOSED / E0B_READY_FOR_OWNER_DECISION
-PHASE: PREPARATION_ONLY / NO_MERGE / NO_E0B_EXECUTION
-CHECKPOINT_STATUS: SAFE
-LAST_SAFE_COMMIT: 6637080541348b95623641464f4de1add07f0fb4 (accepted E0a)
-BRANCH: codex/wb-lab-01; PR #54 remains Draft, based on #53.
+TASK: E0b sentinel permissions fix
+STATUS: E0B_FIX_READY_FOR_OWNER_RETRY_DECISION
+PHASE: OFFLINE_FIX / E0B_REPEAT_NOT_APPROVED / NO_MERGE
+BRANCH: codex/wb-lab-01, Draft PR #54
+RUNTIME_BASELINE: `36fb3cfc3ffb6831e7207415b2f277590ac494c2`
 
-COMPLETED: README and RUNTIME-E0A reconcile accepted runtime evidence and limitations. Prepared separately gated E0b runner: exact-ID PG container, two owned volumes, synthetic DB/role/schema/sentinels, readiness, actual-cgroup assertions, independent watchdog, scoped bounded cleanup and atomic evidence. Prepared hash-pinned archival of accepted E0a evidence; not executed. Added offline negative/orchestration tests and FAST CI step.
+OBSERVED: one authorized E0b runtime `742071b6115e4a00a8b65cc7151f8c39` ended BLOCKED / E0B_DOCKER_COMMAND_FAILED. Readiness, DB identity, SQL sentinel, restricted role, actual cgroup equality and host file hashes passed. In-container sha256sum exited 1. Actual loopback and final OOM checks were not reached. Cleanup CONFIRMED and prior inventory preserved.
 
-VERIFIED: python -B -m unittest discover -s experiments/wb-lab-01: 45 tests, OK with two Linux-only skips on Windows. Ruff check and format passed. Independent read-only Quality PASS for preparation, independently ran 43 tests before the final additional volume-binding negative test. Exact-head hosted FAST/FULL must be verified after push; no pass inferred here.
+CAUSE: the wrapper used umask 077. A root-owned sentinel requested as 0444 became 0400, denying the UID 999 reader. This explains the observed failure. Inode metadata and stderr were not retained.
 
-DECISIONS: Owner accepted E0a on the LAST_SAFE_COMMIT; do not repeat. E0b preparation authorized, but creating PG/volumes or SQL writes on WB not authorized. No contracts/API/migrations/production files changed. E0b-E5 NOT_RUN; VDS_equivalence NOT_PROVEN.
+FIX: explicitly fchmod the exclusively opened synthetic sentinel FD to 0444, verify regular type and mode with fstat and retain both fsyncs. Add a bounded hash read failure code and regressions for permissions, UID 999, collision, descriptor errors and cleanup.
 
-EVIDENCE: E0a accepted run23ceb807c68f4ae0bed724def6e58d68 retained on WB; SHA256 3b3a29f2f7788baebc40f44c69bbcfb4afb84dc89649d42b7e6ba832ed3a4c4e. No archival performed in this preparation task. Raw evidence remains private.
+VERIFICATION: targeted E0b and full WB offline suites are run locally. FAST includes the actual UID 999 read test on Linux. Review and hosted FAST/FULL are verified against the pushed fix SHA.
 
-BLOCKERS: Pinned PG image availability and ARM64 UID/tool compatibility not established locally on WB; cold initdb latency and memory/IO not measured. Accepted E0a evidence intentionally occupies lab root; archive only after separate E0b authorization using the prepared strict procedure. Disk watermark is sampled, not a quota. Host supervisory overhead not PG-cgroup-bound.
+EVIDENCE: blocked run raw SHA-256 `dc5836761bd02cce2cfbe504cc5cb363afbc0658f50a249e903b2267ddd0da28`. Local and WB copies match. Accepted E0a remains closed and archived with SHA-256 `3b3a29f2f7788baebc40f44c69bbcfb4afb84dc89649d42b7e6ba832ed3a4c4e`.
 
-DO_NOT_REPEAT: E0a, 02B benchmark, architecture proof experiments. No E0b-E5, merge, prune, deployment, reboot, firmware/firewall/host changes or production migrations.
-
-NEXT_ACTION: After exact-head CI, await OWNER_E0B_RUNTIME_APPROVED on the reviewed revision (and pinned-image acquisition as needed), then the agent alone performs the bounded prepared sequence; no manual owner command work required.
+NEXT: separate OWNER_E0B_RUNTIME_APPROVED on the reviewed fix HEAD is required for a repeat. Preserve the failed run before any future approved preflight. E1–E5 NOT_RUN. VDS equivalence NOT_PROVEN.

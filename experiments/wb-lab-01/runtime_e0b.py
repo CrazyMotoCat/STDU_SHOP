@@ -92,9 +92,11 @@ def cli(deadline, trace, *args, input_text=None):
         row["elapsed_ms"] = round((time.monotonic() - started) * 1000)
 
 
-def checked(deadline, trace, *args, input_text=None):
+def checked(
+    deadline, trace, *args, input_text=None, failure="E0B_DOCKER_COMMAND_FAILED"
+):
     result = cli(deadline, trace, *args, input_text=input_text)
-    require(result.returncode == 0, "E0B_DOCKER_COMMAND_FAILED")
+    require(result.returncode == 0, failure)
     return result.stdout.strip()
 
 
@@ -162,6 +164,13 @@ def seed_volume(source, sentinel, pg):
             dir_fd=fd,
         )
         try:
+            # This file contains only a synthetic nonce. Its reader runs as UID 999.
+            os.fchmod(file_fd, 0o444)
+            meta = os.fstat(file_fd)
+            require(
+                stat.S_ISREG(meta.st_mode) and stat.S_IMODE(meta.st_mode) == 0o444,
+                "E0B_SENTINEL_MODE_OR_TYPE",
+            )
             os.write(file_fd, sentinel.encode("ascii"))
             os.fsync(file_fd)
         finally:
@@ -601,6 +610,7 @@ def run(host):
             "sha256sum",
             "/var/lib/postgresql/e0b.sentinel",
             "/media/e0b.sentinel",
+            failure="E0B_MOUNTED_SENTINEL_READ_FAILED",
         ).splitlines()
         require(
             mounted

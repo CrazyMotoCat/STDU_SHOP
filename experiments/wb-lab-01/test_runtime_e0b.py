@@ -1,7 +1,10 @@
 """Offline E0b acceptance: fake CLI only, never creates Docker/PG resources."""
 
 import json
+import os
+import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import ExitStack
@@ -118,6 +121,146 @@ class E0bTests(unittest.TestCase):
                 link.symlink_to(owned, target_is_directory=True)
                 with self.assertRaises(OSError):
                     lab.seed_volume(link, "z" * 64, False)
+
+    @unittest.skipUnless(
+        sys.platform == "linux" and os.geteuid() == 0, "Linux UID switch requires root"
+    )
+    def test_sentinel_umask_and_uid_999(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.chmod(0o711)
+            pg, media = root / "pg", root / "media"
+            for path in (pg, media):
+                path.mkdir()
+                path.chmod(0o755)
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    "-c",
+                    (
+                        "import os, sys\nfrom pathlib import Path\nfrom runtime_e0b import seed_volume\n"
+                        "old = os.umask(0o077)\ntry:\n"
+                        "    seed_volume(Path(sys.argv[1]), 'p' * 64, True)\n"
+                        "    seed_volume(Path(sys.argv[2]), 'm' * 64, False)\n"
+                        "finally:\n    os.umask(old)\n"
+                    ),
+                    str(pg),
+                    str(media),
+                ],
+                cwd=Path(lab.__file__).parent,
+                check=True,
+                timeout=5,
+            )
+            files = [path / "e0b.sentinel" for path in (pg, media)]
+            for file in files:
+                info = file.stat()
+                self.assertEqual(info.st_uid, 0)
+                self.assertTrue(stat.S_ISREG(info.st_mode))
+                self.assertEqual(stat.S_IMODE(info.st_mode), 0o444)
+            reader = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-B",
+                    "-c",
+                    (
+                        "import hashlib, os, sys\nfrom pathlib import Path\n"
+                        "assert (os.geteuid(), os.getegid(), os.getgroups()) == (999, 999, [])\n"
+                        "for file in sys.argv[1:]:\n"
+                        "    print(hashlib.sha256(Path(file).read_bytes()).hexdigest())\n"
+                    ),
+                    *map(str, files),
+                ],
+                user=999,
+                group=999,
+                extra_groups=[],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=5,
+            )
+            expected = [
+                lab.hashlib.sha256(byte * 64).hexdigest() for byte in (b"p", b"m")
+            ]
+            self.assertEqual(reader.stdout.splitlines(), expected)
+            self.assertEqual([lab.sentinel_hash(p) for p in (pg, media)], expected)
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux directory-fd semantics")
+    def test_seed_refuses_file_or_symlink_even_after_empty_check(self):
+        for symlink in (False, True):
+            with (
+                self.subTest(symlink=symlink),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                root = Path(directory)
+                volume = root / "volume"
+                volume.mkdir()
+                sentinel = volume / "e0b.sentinel"
+                foreign = root / "foreign" if symlink else sentinel
+                foreign.write_bytes(b"foreign")
+                if symlink:
+                    sentinel.symlink_to(foreign)
+                before = foreign.stat()
+                with (
+                    patch.object(lab.os, "listdir", return_value=[]),
+                    self.assertRaises(FileExistsError),
+                ):
+                    lab.seed_volume(volume, "x" * 64, False)
+                self.assertEqual(foreign.read_bytes(), b"foreign")
+                self.assertEqual(foreign.stat().st_mode, before.st_mode)
+                self.assertEqual(foreign.stat().st_ino, before.st_ino)
+                self.assertEqual(sentinel.is_symlink(), symlink)
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux directory-fd semantics")
+    def test_seed_stops_before_write_on_fchmod_or_fstat_failure(self):
+        for operation, fault, expected in (
+            ("fchmod", {"side_effect": OSError("chmod failed")}, OSError),
+            ("fstat", {"side_effect": OSError("stat failed")}, OSError),
+            (
+                "fstat",
+                {"return_value": SimpleNamespace(st_mode=stat.S_IFREG | 0o400)},
+                lab.Blocked,
+            ),
+            (
+                "fstat",
+                {"return_value": SimpleNamespace(st_mode=stat.S_IFDIR | 0o444)},
+                lab.Blocked,
+            ),
+        ):
+            with (
+                self.subTest(operation=operation, fault=fault),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                with (
+                    patch.object(lab.os, operation, **fault),
+                    patch.object(lab.os, "fsync") as sync,
+                ):
+                    with self.assertRaises(expected):
+                        lab.seed_volume(Path(directory), "x" * 64, False)
+                    sync.assert_not_called()
+                self.assertEqual((Path(directory) / "e0b.sentinel").read_bytes(), b"")
+
+    def test_mounted_sentinel_command_failure_has_safe_reason(self):
+        with (
+            patch.object(
+                lab,
+                "cli",
+                return_value=SimpleNamespace(
+                    returncode=1, stdout="private-output", stderr="private-error"
+                ),
+            ),
+            self.assertRaisesRegex(lab.Blocked, "^E0B_MOUNTED_SENTINEL_READ_FAILED$"),
+        ):
+            lab.checked(
+                30,
+                [],
+                "container",
+                "exec",
+                CID,
+                "sha256sum",
+                failure="E0B_MOUNTED_SENTINEL_READ_FAILED",
+            )
 
     def test_cleanup_orders_writer_before_volumes_and_never_foreign(self):
         ledger = {
@@ -294,7 +437,7 @@ class E0bTests(unittest.TestCase):
         self.assertEqual(result["cleanup"], "CLEANUP_UNCONFIRMED")
         self.assertEqual(result["status"], "BLOCKED")
 
-    def fake_run(self, failure=None, watchdog_exit=0):
+    def fake_run(self, failure=None, watchdog_exit=0, seed_failure=None):
         with tempfile.TemporaryDirectory() as directory, ExitStack() as stack:
             root = Path(directory)
             state, tokens = {}, {}
@@ -363,7 +506,8 @@ class E0bTests(unittest.TestCase):
                     lab,
                     "seed_volume",
                     MagicMock(
-                        side_effect=lambda path, token, pg: tokens.update({path: token})
+                        side_effect=seed_failure
+                        or (lambda path, token, pg: tokens.update({path: token}))
                     ),
                 ),
                 (
@@ -390,6 +534,18 @@ class E0bTests(unittest.TestCase):
             result = lab.run({})
             lab.cleanup.assert_called_once()
             return result
+
+    def test_seed_failure_blocks_container_creation_and_reaches_cleanup(self):
+        for error in (
+            OSError("descriptor error"),
+            lab.Blocked("E0B_SENTINEL_MODE_OR_TYPE"),
+        ):
+            result = self.fake_run(seed_failure=error)
+            self.assertEqual(result["status"], "BLOCKED")
+            self.assertEqual(result["cleanup"], "CONFIRMED")
+            self.assertFalse(result["ledger"]["container_create_requested"])
+            self.assertTrue(result["ledger"]["volumes"]["pg"]["requested"])
+            self.assertFalse(result["ledger"]["volumes"]["media"]["requested"])
 
     def test_normal_mock_lifecycle_and_partial_create_timeouts(self):
         result = self.fake_run()

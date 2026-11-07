@@ -1,6 +1,14 @@
-# WB-LAB-01 E0b — preparation, not executed
+# WB-LAB-01 E0b sentinel permissions fix
 
-**Status: PREPARED / OWNER DECISION REQUIRED. E0b–E5 NOT_RUN.** E0a was accepted by the owner on `6637080541348b95623641464f4de1add07f0fb4`; it must not be repeated. This package adds no production schema, migrations, credentials, media API or decoder. It does not alter the accepted E0a runner.
+**Status E0B_BLOCKED / E0B_REPEAT_NOT_APPROVED.** One authorized WB attempt on `36fb3cfc3ffb6831e7207415b2f277590ac494c2` ended in `E0B_DOCKER_COMMAND_FAILED`. Run `742071b6115e4a00a8b65cc7151f8c39`. E1–E5 remain NOT_RUN and VDS equivalence remains NOT_PROVEN.
+
+PostgreSQL readiness passed on poll 8, about 12.573 s after Docker start. SQL verified the database identity, SQL sentinel and restricted `wb_probe` role. Exact cgroup comparisons passed for 192 MiB memory, zero swap, 0.5 CPU and 32 PID. Both host-side sentinel hashes passed. Watchdog completed without recording a stop condition. The runner finished in 21.176 s, including preflight and cleanup. Peak RAM, CPU use and disk writes were not measured.
+
+Docker events confirmed that the in-container `sha256sum` exited 1 after 279 ms. The wrapper used `umask 077` to protect evidence. Linux applies that mask to the requested file mode `0444`, producing a root-owned `0400` sentinel that UID 999 cannot read. This is the leading explanation. The inode metadata and per-file stderr were not captured. The mounted-hash assertion, actual loopback check and final OOM check were not reached.
+
+The fix sets and verifies mode `0444` on the exclusively opened sentinel descriptor before writing. File and directory fsync are preserved. This mode is for synthetic sentinel nonces only. The runtime now records `E0B_MOUNTED_SENTINEL_READ_FAILED` on a nonzero hash command exit, while hash mismatch retains its separate code. No raw Docker stdout/stderr is added to evidence.
+
+Cleanup CONFIRMED by independent read-only inventory comparison. The exact container and both owned volumes were absent. Prior IDs and names were preserved. The matching WB/local evidence SHA-256 is `dc5836761bd02cce2cfbe504cc5cb363afbc0658f50a249e903b2267ddd0da28`.
 
 ## Dependencies and integration
 
@@ -14,7 +22,7 @@ Recommended later integration: independently approve/merge #52 documentation, th
 
 ## Gate and exact resources
 
-Only a future explicit **OWNER_E0B_RUNTIME_APPROVED** permits the agent to archive accepted E0a evidence and execute `runtime_e0b.py`. The argument is an operator-intent gate, not cryptographic authorization. Neither import, tests, CI nor the present owner task executes it. No commands are submitted to the WB for this stage beyond read-only image inspection.
+The original owner approval covered one attempt and is consumed. A new explicit **OWNER_E0B_RUNTIME_APPROVED** on the reviewed fix HEAD is required for any WB repeat. The CLI argument records operator intent. Offline tests exercise the runner with fake Docker operations and synthetic local files.
 
 One random 32-hex run ID names:
 
@@ -24,7 +32,7 @@ One random 32-hex run ID names:
 
 Every created object has `stdu.wb-lab-01.run=<id>`. The ledger persists create intent before invoking Docker, exact IDs, volume name/CreatedAt/Mountpoint and image ID. Volume sources must resolve without symlinks to the exact approved DockerRoot/volumes/name/_data, on the confirmed ext4 device. Only the just-created empty PG directory is chowned, by directory fd, to UID/GID 999; there is no recursive chown or deletion by host path. Source sentinels use exclusive no-follow writes and fsync.
 
-Use the PostgreSQL digest already specified in this lab's Compose: `docker.io/library/postgres@sha256:d628bc2cef336ab1f527cd6e8de5f04827c069e5f24153b5e99d9bf64e5ff925`. Only explicit official Docker Hub aliases of this same digest are accepted, with inspected ARM64/Linux identity. `--pull=never` prevents acquisition during runtime. Read-only WB inspection confirmed this pinned image is absent locally; acquisition and ARM64/UID/tool compatibility remain entry prerequisites, not PASS. There is no mutable tag fallback. Before any create, image-declared Volumes must be exactly `/var/lib/postgresql`, which the runner explicitly mounts. Missing, child or extra declarations block provisioning, preventing Docker from allocating an anonymous volume outside the ledger.
+Use the PostgreSQL digest already specified in this lab's Compose: `docker.io/library/postgres@sha256:d628bc2cef336ab1f527cd6e8de5f04827c069e5f24153b5e99d9bf64e5ff925`. Only explicit official Docker Hub aliases of this same digest are accepted, with inspected ARM64/Linux identity. `--pull=never` prevents acquisition during runtime. The previous authorized campaign obtained this image and verified its digest, ARM64 platform and volume declaration on WB. There is no mutable tag fallback. Before any create, image-declared Volumes must be exactly `/var/lib/postgresql`, which the runner explicitly mounts. Missing, child or extra declarations block provisioning, preventing Docker from allocating an anonymous volume outside the ledger.
 
 ## Workload and limits
 
@@ -55,24 +63,26 @@ Runtime PASS requires readiness, identity/role/sentinel assertions, actual cgrou
 
 Machine-readable evidence records fixed operation names, elapsed time, assigned budgets and error types. It excludes arbitrary stdout/stderr, secrets and host inventory lists. Only synthetic sentinels are used. Raw evidence stays on WB and in ignored local storage; publish a reviewed summary, not raw host output.
 
-## Evidence preservation and future execution sequence
+## Evidence and retry gate
 
-After separate authorization, the agent must first preserve the accepted E0a run using the prepared `archive_e0a_pass.py` with the E0b approval argument. It verifies the exact known SHA-256, successful state, owned identities, daemon and absent Docker resources, then moves only that run directory to the existing root-owned 0700 sibling archive on the same filesystem and fsyncs both directories. Unexpected SGID, symlinks, existing destination or extra files block archival; no automatic chmod of pre-existing directories. Do not archive during this preparation task.
+Accepted E0a evidence was moved to the private archive during the authorized E0b campaign. Its SHA-256 remains `3b3a29f2f7788baebc40f44c69bbcfb4afb84dc89649d42b7e6ba832ed3a4c4e`. E0a stays closed.
 
-Then verify the reviewed Git revision and pinned local image, run fresh host preflight on the empty lab root and execute only E0b. Preserve the final JSON even on failure, independently recheck owned object absence, retrieve a hash-matching local copy and stop. A retry requires explicit analysis of the retained evidence; the runner refuses a nonempty root. No E1–E5, real power loss, ENOSPC, reboot, host firewall or system setting changes.
+The blocked E0b run retains its original evidence under the lab root. The runner requires an empty lab root. A future authorized retry must first reconcile and preserve the failed run by exact ledger, verified resource absence and matching hash. The fix task leaves the evidence in place. A retry also needs a fresh preflight and verification of the existing pinned image.
 
 ## Acceptance matrix
 
-| Property                                                           | Offline check       | WB status          |
-| ------------------------------------------------------------------ | ------------------- | ------------------ |
-| Wrong/missing approval cannot reach provisioning                   | Unit test           | NOT_RUN            |
-| Exact image digest and ARM64 aliases; foreign references rejected  | Unit test           | NOT_PROVEN locally |
-| Readiness failure / CLI failure / deadline                         | Fake CLI tests      | NOT_RUN            |
-| DB identity and SQL sentinel, restricted role                      | Fake SQL tests      | NOT_RUN            |
-| Volume ownership/source/device/symlink safety                      | Unit/negative tests | NOT_RUN            |
-| Partial create, interrupt, uncertain cleanup, foreign preservation | Lifecycle tests     | NOT_RUN            |
-| Actual PG memory/CPU/PIDs, cold initdb latency, disk use           | Prepared assertions | NOT_RUN            |
-| Crash/recovery, lease fencing, connected-network canaries          | Separate E1–E5      | NOT_RUN            |
-| VDS equivalence and production durability                          | Outside WB evidence | NOT_PROVEN         |
+| Property                                                     | Offline check                                | WB result for the one approved run |
+| ------------------------------------------------------------ | -------------------------------------------- | ---------------------------------- |
+| Exact image digest, platform and volume declaration          | Negative metadata tests                      | PASS                               |
+| Readiness, DB identity, SQL sentinel and restricted role     | Fake SQL and readiness tests                 | PASS                               |
+| Volume ownership, source and device                          | Negative binding tests                       | PASS                               |
+| Host sentinel hashes                                         | Local synthetic files                        | PASS                               |
+| File mode with `umask 077`, readable by UID 999              | Isolated Linux subprocess, PG and media      | Fix pending WB retry               |
+| Mounted sentinel hashes                                      | Simulated Docker failure and hash comparison | BLOCKED at hash command            |
+| Actual PG cgroup limits                                      | Expected-value comparisons                   | PASS                               |
+| Actual loopback and final OOM assertion                      | Prepared assertions                          | NOT_RUN                            |
+| Watchdog and scoped cleanup                                  | Lifecycle and refusal tests                  | CONFIRMED                          |
+| Crash recovery, lease fencing and connected-network canaries | Separate E1–E5                               | NOT_RUN                            |
+| VDS equivalence and production durability                    | Outside WB evidence                          | NOT_PROVEN                         |
 
-Next owner decision: approve this exact prepared revision for a single bounded E0b campaign, including the scoped archival and any separately documented pinned-image acquisition. Until then: **E0A_CLOSED / E0B_READY_FOR_OWNER_DECISION**, not E0B_RUNTIME_PASS.
+**E0B_FIX_READY_FOR_OWNER_RETRY_DECISION** is a code delivery status. Runtime remains BLOCKED pending separate authorization and a successful WB result.
