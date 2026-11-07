@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import stat
+import sys
 import time
 from contextlib import ExitStack
 from pathlib import Path
@@ -151,20 +152,25 @@ def main():
     resource.setrlimit(resource.RLIMIT_FSIZE, (len(PAYLOAD), len(PAYLOAD)))
     cgroup = Path("/sys/fs/cgroup")
     root = Path("/media")
+    expected = json.loads(sys.argv[1])
+    dev = root.stat().st_dev
+    actual = {
+        "device": f"{os.major(dev)}:{os.minor(dev)}",
+        "uid": os.getuid(),
+        "interfaces": sorted(os.listdir("/sys/class/net")),
+        "limits": {
+            name: (cgroup / name).read_text().strip() for name in expected["limits"]
+        },
+    }
+    if actual != expected:
+        raise RuntimeError("E1_ACTUAL_ISOLATION")
     results = run(root)
     usage = resource.getrusage(resource.RUSAGE_SELF)
-    dev = root.stat().st_dev
     print(
         json.dumps(
             {
                 "trials": results,
-                "device": f"{os.major(dev)}:{os.minor(dev)}",
-                "uid": os.getuid(),
-                "interfaces": sorted(os.listdir("/sys/class/net")),
-                "limits": {
-                    name: (cgroup / name).read_text().strip()
-                    for name in ("memory.max", "memory.swap.max", "cpu.max", "pids.max")
-                },
+                **actual,
                 "metrics": {
                     "rss_peak_kib": usage.ru_maxrss,
                     "user_s": usage.ru_utime,

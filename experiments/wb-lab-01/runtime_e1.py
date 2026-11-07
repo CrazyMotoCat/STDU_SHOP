@@ -240,6 +240,9 @@ def run_probe(host):
             "-B",
             "-c",
             Path(__file__).with_name("e1_probe.py").read_text(encoding="utf-8"),
+            json.dumps(
+                {"device": device, "uid": 65532, "interfaces": ["lo"], "limits": LIMITS}
+            ),
         )
         require(HEX_ID.fullmatch(container_id), "CONTAINER_ID_FORMAT")
         ledger["container_id"] = container_id
@@ -313,7 +316,8 @@ def run_probe(host):
             finally:
                 if "container_id" in writer:
                     ledger["container_id"] = writer["container_id"]
-            if "volume" in ledger:
+            if ledger["volume_create_requested"]:
+                require("volume" in ledger, "E1_VOLUME_CREATION_UNCONFIRMED")
                 verify_volume_contents(cleanup_deadline, ledger)
             cleanup(cleanup_deadline, {**ledger, "container_create_requested": False})
             evidence["cleanup"] = "CONFIRMED"
@@ -365,12 +369,23 @@ def main():
             == ROOT / E0B_RUN / "evidence.json",
             "E1_E0B_EVIDENCE_PATH",
         )
-        prior = ROOT / E0B_RUN / "evidence.json"
-        require(
-            prior.stat().st_size <= 16384
-            and hashlib.sha256(prior.read_bytes()).hexdigest() == E0B_SHA,
-            "E1_E0B_EVIDENCE_HASH",
+        prior_fd = os.open(
+            ROOT / E0B_RUN / "evidence.json",
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
         )
+        with os.fdopen(prior_fd, "rb") as prior:
+            meta = os.fstat(prior.fileno())
+            require(
+                stat.S_ISREG(meta.st_mode)
+                and meta.st_uid == 0
+                and stat.S_IMODE(meta.st_mode) == 0o600
+                and 0 < meta.st_size <= 16384,
+                "E1_E0B_EVIDENCE_FILE",
+            )
+            require(
+                hashlib.sha256(prior.read(16385)).hexdigest() == E0B_SHA,
+                "E1_E0B_EVIDENCE_HASH",
+            )
         current, locked = ROOT.stat(), os.fstat(fd)
         require(
             (current.st_dev, current.st_ino) == (locked.st_dev, locked.st_ino),

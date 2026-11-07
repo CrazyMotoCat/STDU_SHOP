@@ -2,6 +2,7 @@
 
 import errno
 import hashlib
+import json
 import os
 import sys
 import tempfile
@@ -17,6 +18,32 @@ import runtime_e1 as runner
     sys.platform == "linux", "Linux directory fd and hard-link semantics"
 )
 class E1Tests(unittest.TestCase):
+    def test_wrong_live_isolation_stops_before_first_trial(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with (
+                patch.object(probe, "Path", return_value=root),
+                patch.object(
+                    probe.sys,
+                    "argv",
+                    [
+                        "probe",
+                        json.dumps(
+                            {
+                                "device": "999:999",
+                                "uid": os.getuid(),
+                                "interfaces": [],
+                                "limits": {},
+                            }
+                        ),
+                    ],
+                ),
+                patch.object(probe, "run") as run,
+                self.assertRaisesRegex(RuntimeError, "E1_ACTUAL_ISOLATION"),
+            ):
+                probe.main()
+            run.assert_not_called()
+
     def test_three_trials_preserve_canary_and_publish_original_inode(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

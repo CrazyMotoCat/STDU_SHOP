@@ -181,7 +181,7 @@ def collect(expected_daemon, *, retained_runs=()):
     )
     require(
         sorted(p.name for p in ROOT.iterdir()) == sorted(retained_runs),
-        "LAB_ROOT_UNEXPECTED_CONTENTS",
+        "LAB_ROOT_UNEXPECTED_CONTENTS" if retained_runs else "LAB_ROOT_NOT_EMPTY",
     )
     root, data, lab, engine = (
         mount(p) for p in ("/", "/mnt/data", ROOT, info["DockerRootDir"])
