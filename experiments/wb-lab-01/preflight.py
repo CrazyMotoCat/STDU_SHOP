@@ -135,7 +135,7 @@ def verify_runtime(info, compose, controllers, expected_daemon):
     )
 
 
-def collect(expected_daemon):
+def collect(expected_daemon, *, retained_runs=()):
     require(
         platform.system() == "Linux" and platform.machine() == "aarch64",
         "ARM64_LINUX_REQUIRED",
@@ -179,7 +179,10 @@ def collect(expected_daemon):
         and os.access(ROOT, os.W_OK | os.X_OK),
         "LAB_ROOT_OWNER_OR_MODE",
     )
-    require(not any(ROOT.iterdir()), "LAB_ROOT_NOT_EMPTY")
+    require(
+        sorted(p.name for p in ROOT.iterdir()) == sorted(retained_runs),
+        "LAB_ROOT_UNEXPECTED_CONTENTS",
+    )
     root, data, lab, engine = (
         mount(p) for p in ("/", "/mnt/data", ROOT, info["DockerRootDir"])
     )

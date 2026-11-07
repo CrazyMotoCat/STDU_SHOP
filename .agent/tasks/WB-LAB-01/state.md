@@ -19,3 +19,5 @@ VERIFICATION: the sentinel fix at `2f0246c73d25045cf572a350884a441f41383666` pas
 EVIDENCE: blocked run raw SHA-256 `dc5836761bd02cce2cfbe504cc5cb363afbc0658f50a249e903b2267ddd0da28`. Local and WB copies match. Accepted E0a remains closed and archived with SHA-256 `3b3a29f2f7788baebc40f44c69bbcfb4afb84dc89649d42b7e6ba832ed3a4c4e`.
 
 NEXT: separate OWNER_E0B_RUNTIME_APPROVED on the new reviewed HEAD is required for actual archival and one repeat. Preserve the failed run before any future approved preflight. E1–E5 NOT_RUN. VDS equivalence NOT_PROVEN.
+
+E0B CLOSEOUT / E1: E0B_RUNTIME_PASS and Quality PASS on d018cdef14d3e2e9f6d47032fb291ff3c95baa93. Accepted E0b evidence SHA-256 cb5f9c40c4dadf4e470dd2610396847b63ce130db2bcd64721d09c14d4a23255. Owner authorized one E1 series. The execution profile and stop conditions are in RUNTIME-E1.md. E2–E5 are outside this authorization.
