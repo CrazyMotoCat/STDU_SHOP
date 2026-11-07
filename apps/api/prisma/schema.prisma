@@ -48,6 +48,10 @@ model StaffUser {
   engineeredInquiries        Inquiry[]                  @relation("InquiryEngineer")
   inquiryComments            InquiryComment[]           @relation("InquiryCommentAuthor")
   inquiryCommandResults      InquiryCommandIdempotency[]
+  ingestionSources          IngestionSource[]
+  ingestionRuns             IngestionRun[]
+  ingestionDecisions        IngestionDecision[]
+  ingestionCommands         IngestionCommand[]
 
   @@index([state, id], map: "staff_user_state_id_idx")
   @@map("staff_user")
@@ -565,6 +569,7 @@ model Supplier {
   createdBy            StaffUser          @relation("SupplierCreator", fields: [createdByStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   updatedBy            StaffUser          @relation("SupplierUpdater", fields: [updatedByStaffUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   offers               SupplierOffer[]
+  ingestionSources     IngestionSource[]
 
   @@index([state, updatedAt, id], map: "supplier_state_updated_id_idx")
   @@map("supplier")
@@ -833,4 +838,127 @@ model InquiryCommandIdempotency {
 
   @@index([expiresAt, id], map: "inquiry_command_idempotency_expiry_idx")
   @@map("inquiry_command_idempotency")
+}
+
+model IngestionSource {
+  id             String                    @id @db.Uuid
+  supplierId     String                    @map("supplier_id") @db.Uuid
+  adapterVersion String                    @map("adapter_version") @db.VarChar(40)
+  fixtureKey     String                    @map("fixture_key") @db.VarChar(40)
+  state          String                    @db.VarChar(16)
+  maxRows        Int                       @map("max_rows")
+  maxAttempts    Int                       @map("max_attempts")
+  timeoutMs      Int                       @map("timeout_ms")
+  version        Int                       @default(1)
+  actorId        String                    @map("actor_id") @db.Uuid
+  createdAt      DateTime                  @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                  @default(dbgenerated("clock_timestamp()")) @map("updated_at") @db.Timestamptz(6)
+  actor          StaffUser                 @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  supplier       Supplier                  @relation(fields: [supplierId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  revisions      IngestionSourceRevision[]
+  runs           IngestionRun[]
+
+  @@map("ingestion_source")
+}
+
+model IngestionSourceRevision {
+  id        String          @id @db.Uuid
+  sourceId  String          @map("source_id") @db.Uuid
+  version   Int
+  snapshot  Json
+  actorId   String          @map("actor_id") @db.Uuid
+  createdAt DateTime        @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  source    IngestionSource @relation(fields: [sourceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([sourceId, version], map: "ingestion_source_revision_version_key")
+  @@map("ingestion_source_revision")
+}
+
+model IngestionRun {
+  id             String           @id @db.Uuid
+  sourceId       String           @map("source_id") @db.Uuid
+  sourceVersion  Int              @map("source_version")
+  sourceSnapshot Json             @map("source_snapshot")
+  actorId        String           @map("actor_id") @db.Uuid
+  requestId      String           @map("request_id") @db.Uuid
+  state          String           @db.VarChar(16)
+  processed      Int              @default(0)
+  candidateCount Int              @default(0) @map("candidate_count")
+  errorCount     Int              @default(0) @map("error_count")
+  attempts       Int              @default(0)
+  leaseToken     String?          @map("lease_token") @db.Uuid
+  leaseUntil     DateTime?        @map("lease_until") @db.Timestamptz(6)
+  nextAttemptAt  DateTime         @default(dbgenerated("clock_timestamp()")) @map("next_attempt_at") @db.Timestamptz(6)
+  rawSnapshot    Bytes?           @map("raw_snapshot") @db.ByteA
+  sourceHash     String?          @map("source_hash") @db.VarChar(64)
+  diagnosticCode String?          @map("diagnostic_code") @db.VarChar(40)
+  version        Int              @default(1)
+  createdAt      DateTime         @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  startedAt      DateTime?        @map("started_at") @db.Timestamptz(6)
+  finishedAt     DateTime?        @map("finished_at") @db.Timestamptz(6)
+  actor          StaffUser        @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  source         IngestionSource  @relation(fields: [sourceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  rows           IngestionRow[]
+  outbox         IngestionOutbox?
+
+  @@index([state, nextAttemptAt], map: "ingestion_run_recovery_idx")
+  @@map("ingestion_run")
+}
+
+model IngestionRow {
+  id                   String              @id @db.VarChar(64)
+  runId                String              @map("run_id") @db.Uuid
+  rowNumber            Int                 @map("row_number")
+  sourceHash           String              @map("source_hash") @db.VarChar(64)
+  normalized           Json?
+  warnings             Json
+  modificationEvidence String?             @map("modification_evidence") @db.VarChar(16)
+  errorCode            String?             @map("error_code") @db.VarChar(32)
+  reviewState          String              @map("review_state") @db.VarChar(16)
+  version              Int                 @default(1)
+  createdAt            DateTime            @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  run                  IngestionRun        @relation(fields: [runId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  decisions            IngestionDecision[]
+
+  @@unique([runId, rowNumber], map: "ingestion_row_coordinate_key")
+  @@map("ingestion_row")
+}
+
+model IngestionDecision {
+  id        String       @id @db.Uuid
+  rowId     String       @unique(map: "ingestion_decision_row_key") @map("row_id") @db.VarChar(64)
+  actorId   String       @map("actor_id") @db.Uuid
+  decision  String       @db.VarChar(16)
+  reason    String       @db.VarChar(500)
+  createdAt DateTime     @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  row       IngestionRow @relation(fields: [rowId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor     StaffUser    @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("ingestion_decision")
+}
+
+model IngestionCommand {
+  id             String    @id @db.Uuid
+  actorId        String    @map("actor_id") @db.Uuid
+  key            String    @db.VarChar(128)
+  requestHash    String    @map("request_hash") @db.VarChar(64)
+  responseStatus Int       @map("response_status")
+  responseBody   Json      @map("response_body")
+  createdAt      DateTime  @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  actor          StaffUser @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([actorId, key], map: "ingestion_command_actor_key")
+  @@map("ingestion_command")
+}
+
+model IngestionOutbox {
+  id             String       @id @db.Uuid
+  runId          String       @unique(map: "ingestion_outbox_run_key") @map("run_id") @db.Uuid
+  dispatches     Int          @default(0)
+  nextDispatchAt DateTime     @default(dbgenerated("clock_timestamp()")) @map("next_dispatch_at") @db.Timestamptz(6)
+  createdAt      DateTime     @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  run            IngestionRun @relation(fields: [runId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([nextDispatchAt], map: "ingestion_outbox_due_idx")
+  @@map("ingestion_outbox")
 }

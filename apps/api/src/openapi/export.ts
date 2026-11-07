@@ -27,6 +27,7 @@ import { REGISTERED_PERMISSION_CODES } from '../permissions/policy.js';
 import { StaffController } from '../staff/staff.controller.js';
 import { SupplierStaffController } from '../suppliers/suppliers.controller.js';
 import { StaffInquiriesController } from '../inquiries/inquiries.controller.js';
+import { SupplierIngestionController } from '../supplier-ingestion/supplier-ingestion.controller.js';
 import { STAFF_OPERATION_CONTRACT_NOTES } from './operation-notes.js';
 import { STAFF_OPENAPI_ROOT_EXTENSIONS } from './root-extensions.js';
 
@@ -281,7 +282,8 @@ function finalizeDocument(document: OpenAPIObject) {
       !path.startsWith('/v1/staff') ||
       path.startsWith('/v1/staff/catalog') ||
       path.startsWith('/v1/staff/supplier') ||
-      path.startsWith('/v1/staff/inquiries')
+      path.startsWith('/v1/staff/inquiries') ||
+      path.startsWith('/v1/staff/ingestion')
     )
       delete document.paths[path];
   inventoryRoutes(document);
@@ -377,6 +379,19 @@ export async function createStaffOpenApi() {
 
 export async function createCatalogRuntimeOpenApi() {
   return createNestOpenApiDocument();
+}
+
+export async function createIngestionOpenApi() {
+  const document = await createNestOpenApiDocument();
+  document.info.title = 'STDU R1-008B Supplier Ingestion';
+  for (const path of Object.keys(document.paths))
+    if (!path.startsWith('/v1/staff/ingestion/')) delete document.paths[path];
+  inventoryRoutes(document, [SupplierIngestionController], 10);
+  const schemas = document.components?.schemas;
+  if (schemas)
+    for (const name of Object.keys(schemas))
+      if (!name.startsWith('Ingestion')) delete schemas[name];
+  return document;
 }
 
 export async function createSupplierRuntimeOpenApi() {

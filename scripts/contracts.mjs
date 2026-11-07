@@ -61,6 +61,7 @@ async function main() {
     generated,
     additivePermissions,
     inquiryPermissions,
+    resolve(root, 'docs/contracts/R1-008B-rbac.json'),
   ]);
   await run('pnpm', [
     'exec',
