@@ -1,4 +1,6 @@
-# WB-LAB-01 E0b sentinel permissions fix
+# WB-LAB-01 E0b results and sentinel permissions fix
+
+**Accepted result E0B_RUNTIME_PASS** on `d018cdef14d3e2e9f6d47032fb291ff3c95baa93`, run `0768c90d5d434eaea045682734e3ff85`. Quality PASS and cleanup CONFIRMED. The complete runtime took 21.275 s. Sentinel checks passed inside the container. Evidence SHA-256 `cb5f9c40c4dadf4e470dd2610396847b63ce130db2bcd64721d09c14d4a23255`. The earlier blocked attempt and its fix are retained below as history.
 
 **Status E0B_BLOCKED / E0B_REPEAT_NOT_APPROVED.** One authorized WB attempt on `36fb3cfc3ffb6831e7207415b2f277590ac494c2` ended in `E0B_DOCKER_COMMAND_FAILED`. Run `742071b6115e4a00a8b65cc7151f8c39`. E1–E5 remain NOT_RUN and VDS equivalence remains NOT_PROVEN.
 

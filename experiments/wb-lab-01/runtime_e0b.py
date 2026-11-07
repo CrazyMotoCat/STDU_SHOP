@@ -461,9 +461,13 @@ def cleanup(deadline, ledger):
         )
 
 
-def run(host):
+def run(host, *, phase="e0b", scenario=None):
+    require(
+        (phase == "e0b" and scenario is None) or (phase == "e2" and callable(scenario)),
+        "LAB_PHASE",
+    )
     run_id = uuid.uuid4().hex
-    name = "wb-lab-01-e0b-" + run_id
+    name = f"wb-lab-01-{phase}-" + run_id
     path = ROOT / run_id
     path.mkdir(mode=0o700)
     ledger = {
@@ -481,7 +485,7 @@ def run(host):
         "ledger": ledger,
         "operations": [],
         "cleanup": "NOT_RUN",
-        "E1_to_E5": "NOT_RUN",
+        "E1_to_E5" if phase == "e0b" else "E3_to_E5": "NOT_RUN",
         "VDS_equivalence": "NOT_PROVEN",
     }
     record = path / "evidence.json"
@@ -639,6 +643,12 @@ def run(host):
             "E0B_END_DEADLINE_OR_WATCHDOG",
         )
         evidence["observed"] = {"limits": PG_LIMITS, "sentinel_hashes": hashes}
+        if scenario is not None:
+            evidence["scenario"] = scenario(deadline, ledger, evidence)
+            require(
+                all(sentinel_hash(sources[k]) == hashes[k] for k in hashes),
+                "E2_SENTINEL_CHANGED",
+            )
         final = base.owned_container(
             base.inspect(deadline, "container", cid), name, run_id, cid
         )
@@ -674,7 +684,7 @@ def run(host):
                 )
                 evidence["foreign_inventory"] = "PRESERVED"
             if evidence["status"] == "PROBE_PASS":
-                evidence["status"] = "E0B_RUNTIME_PASS"
+                evidence["status"] = f"{phase.upper()}_RUNTIME_PASS"
         except ERRORS as error:
             evidence.update(
                 status="BLOCKED",

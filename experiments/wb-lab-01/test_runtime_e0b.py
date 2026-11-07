@@ -437,7 +437,14 @@ class E0bTests(unittest.TestCase):
         self.assertEqual(result["cleanup"], "CLEANUP_UNCONFIRMED")
         self.assertEqual(result["status"], "BLOCKED")
 
-    def fake_run(self, failure=None, watchdog_exit=0, seed_failure=None):
+    def fake_run(
+        self,
+        failure=None,
+        watchdog_exit=0,
+        seed_failure=None,
+        phase="e0b",
+        scenario=None,
+    ):
         with tempfile.TemporaryDirectory() as directory, ExitStack() as stack:
             root = Path(directory)
             state, tokens = {}, {}
@@ -452,7 +459,7 @@ class E0bTests(unittest.TestCase):
                     return args[-1]
                 if operation == "container.create":
                     state["name"] = args[args.index("--name") + 1]
-                    state["run"] = state["name"].split("e0b-")[1]
+                    state["run"] = state["name"].rsplit("-", 1)[1]
                     return CID
                 if operation == "container.exec":
                     if "sha256sum" in args:
@@ -531,9 +538,22 @@ class E0bTests(unittest.TestCase):
             ]
             for target, name, value in mocks:
                 stack.enter_context(patch.object(target, name, value))
-            result = lab.run({})
+            result = lab.run({}, phase=phase, scenario=scenario)
             lab.cleanup.assert_called_once()
             return result
+
+    def test_e2_scenario_failure_preserves_progress_and_reaches_cleanup(self):
+        def failed(deadline, ledger, evidence):
+            evidence["scenario"] = {"trials": [{"case": "synthetic_completed"}]}
+            raise lab.Blocked("E2_QUERY_FAILED")
+
+        result = self.fake_run(phase="e2", scenario=failed)
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertEqual(result["cleanup"], "CONFIRMED")
+        self.assertEqual(result["reason"], "E2_QUERY_FAILED")
+        self.assertEqual(len(result["scenario"]["trials"]), 1)
+        self.assertEqual(result["E3_to_E5"], "NOT_RUN")
+        self.assertTrue(result["ledger"]["name"].startswith("wb-lab-01-e2-"))
 
     def test_seed_failure_blocks_container_creation_and_reaches_cleanup(self):
         for error in (

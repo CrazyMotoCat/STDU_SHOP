@@ -9,3 +9,7 @@ Three sequential trials exercise successful promotion, exclusive-create collisio
 The output records step and trial timings, actual cgroup limits, peak RSS and cgroup memory, user/system CPU and cgroup I/O. The host checks the workload output, exit and watchdog, confirms writer absence, checks the exact owned volume and refuses cleanup on unexpected contents. PASS requires confirmed removal and preservation of pre-existing Docker inventory. The host keeps the private run ledger and evidence. WB ext4 results do not establish power-loss durability or VDS equivalence. E2–E5 remain NOT_RUN.
 
 The approved one-shot entry point is `python3 -B experiments/wb-lab-01/runtime_e1.py OWNER_E1_RUNTIME_APPROVED`. It requires the pinned local image and the exact retained E0b evidence in the lab root. Subsequent execution is blocked by the presence of the E1 evidence directory.
+
+## Accepted WB result
+
+E1_RUNTIME_PASS on d1b1a3633d292e5d364e5252195340898fb2dafe. Run f84982069c8f41fabc90998f4c6b941f. Three trials took 8.418 ms, 0.282 ms and 3.976 ms, and the full controller cycle took 7.974 s. Peak RSS was 17740 KiB, cgroup memory peak 23642112 bytes and CPU usage 1041605 microseconds. Block-device 179:0 reported 12468224 read and 200704 written bytes. The volume used ext4 device 179:2. Cleanup and preservation of pre-existing resources were independently confirmed. Quality PASS. Raw evidence remains private with SHA-256 ffbc52da74e6e32a6be8293376b98d6fa0cc701a99cc50cda07853929b949200.
