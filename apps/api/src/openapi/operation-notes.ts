@@ -1,5 +1,105 @@
 // Contract-facing invariant notes attached to guarded implementation routes.
 export const STAFF_OPERATION_CONTRACT_NOTES = {
+  ingestion_listSources: {
+    invariants: [
+      'Current staff permission is required. Results are confined to supplier ingestion staging.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_getSource: {
+    invariants: [
+      'Current staff permission is required. Results are confined to supplier ingestion staging.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_createSource: {
+    invariants: [
+      'Current staff permission is required. Results are confined to supplier ingestion staging.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_updateSource: {
+    invariants: [
+      'Current staff permission is required. Results are confined to supplier ingestion staging.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_requestRun: {
+    invariants: [
+      'Current staff permission is required. Results are confined to supplier ingestion staging.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_listRuns: {
+    invariants: [
+      'Current staff permission is required. Results are confined to supplier ingestion staging.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_getRun: {
+    invariants: [
+      'Current staff permission is required. Results are confined to supplier ingestion staging.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_rows: {
+    invariants: [
+      'Current staff permission is required. Results are confined to supplier ingestion staging.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_decide: {
+    invariants: [
+      'Current staff permission is required. Results are confined to supplier ingestion staging.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_decisions: {
+    invariants: [
+      'Current staff permission is required. Results are confined to supplier ingestion staging.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
   getCsrf: {
     invariants: [
       'No valid staff session: hash-only ephemeral Redis login challenge + HttpOnly cookie. Valid session: stable HMAC binding. No cache/logging.',

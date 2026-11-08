@@ -671,7 +671,7 @@ describe.skipIf(
     expect(counts.rows[0]).toEqual({
       users: 0,
       sessions: 0,
-      permissions: 38,
+      permissions: 42,
       r1_002_permissions: 12,
       r1_004_permissions: 12,
       r1_007_permissions: 5,

@@ -1,0 +1,18 @@
+[
+  {
+    "supplier_part_number": "TEST-MIXED-001",
+    "offer_name": "TEST synthetic relay module",
+    "original_part_number": "TEST-RELAY-001",
+    "purchase_cost": "120.00",
+    "currency": "RUB"
+  },
+  {
+    "offer_name": "TEST malformed cost row",
+    "purchase_cost": 12.5,
+    "currency": "RUB"
+  },
+  {
+    "supplier_part_number": "TEST-MIXED-003",
+    "offer_name": "TEST synthetic interface without price"
+  }
+]

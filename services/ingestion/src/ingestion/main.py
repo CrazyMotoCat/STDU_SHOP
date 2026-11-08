@@ -14,6 +14,7 @@ from ingestion.catalog_import_parser import (
     parse_csv_records,
     parse_xlsx_records,
 )
+from ingestion.supplier_backend import router as supplier_backend_router
 
 
 def create_app(
@@ -21,6 +22,7 @@ def create_app(
     client_factory: Callable[[], httpx.AsyncClient] | None = None,
 ) -> FastAPI:
     app = FastAPI(title="STDU ingestion", docs_url=None, redoc_url=None, openapi_url=None)
+    app.include_router(supplier_backend_router)
 
     @app.get("/health/live")
     async def live() -> dict[str, str]:

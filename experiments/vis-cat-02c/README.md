@@ -1,6 +1,6 @@
-# VIS-CAT-02C preparation
+# VIS-CAT-02C plan and mock preparation
 
-The owner approved the [plan at b1e6e11](https://github.com/CrazyMotoCat/STDU_SHOP/pull/52) and then selected preparation of code and mock tests because the separate Linux/ext4 test host is unavailable. This slice provides an in-memory reference model and preflight policy functions. These functions do not provision resources or connect to Docker, PostgreSQL or a filesystem volume.
+The owner approved the plan at `b1e6e11` in PR #52 and selected mock preparation pending a separate Linux/ext4 test host. PR #53 combines the [plan](../../docs/plans/VIS-CAT-02C-plan.md), [run conditions](../../docs/plans/VIS-CAT-02C-owner-approval.md) and the in-memory reference model. The model and preflight functions work with synthetic fixtures without provisioning resources.
 
 Run from the repository root with Python 3.14:
 
@@ -9,7 +9,7 @@ python -B experiments/vis-cat-02c/run_mocks.py
 python -B -m unittest discover -s experiments/vis-cat-02c -p test_models.py -v
 ```
 
-The runner emits a JSON summary on stdout and test diagnostics on stderr. It reports each actual runtime experiment as NOT_RUN or BLOCKED. A successful model test establishes the modeled rule only.
+The runner emits `MOCK_ONLY` evidence on stdout and test diagnostics on stderr. In this slice E0, E1–E3, E3b, E4a and E5 remain `NOT_RUN`, E4b remains `BLOCKED`, and the target filesystem match remains `NOT_PROVEN`. Runtime evidence for WB-LAB-01 is tracked separately in PR #54.
 
 ## Prepared code
 
@@ -27,6 +27,6 @@ Before target execution, provide the approved context/daemon identity, the empty
 
 The mock binding predicate joins the media mount source to the approved device UUID and number. The live collector that obtains and authenticates these observations remains unimplemented. The model reports UNKNOWN when the database cannot answer a commit inquiry. It reports COMMITTED only after checking the recorded reference, and distinguishes a pending attempt from a fenced or unknown generation. Modeled cleanup requires ownership, exact generation, quiescence and a shared deadline.
 
-## CI recovery
+## Integration
 
-PR #52 is a low-risk documentation Draft. The classifier intentionally skips FULL in that state and the required merge gate rejects a skipped run. The existing Ready for Review workflow runs FULL on the current merge candidate. Before any future integration, update the branch from main and use that transition. A manually dispatched FULL produces supplemental evidence and cannot satisfy the merge gate. No policy change is required.
+PR #53 requires FAST, FULL and the merge gate on the combined revision, followed by owner merge approval for that SHA. After a merge commit, verify that `b1e6e11fc2d43823de635055aa8e16cfc56533a6` is an ancestor of `origin/main` before closing PR #52 as integrated.
