@@ -10,11 +10,10 @@ import { createApiApp } from '../src/app.factory.js';
 import { IdentityCrypto } from '../src/identity/crypto.js';
 import {
   DATABASE,
-  REDIS,
   type PrismaDatabase,
 } from '../src/database/database.module.js';
 import { SupplierIngestionWorker } from '../src/supplier-ingestion/supplier-ingestion.worker.js';
-import type { Redis } from 'ioredis';
+import { Redis } from 'ioredis';
 
 type Json = Record<string, unknown>;
 type Result = { status: number; body: Json };
@@ -264,7 +263,16 @@ describe.skipIf(!enabled)(
       api = `http://127.0.0.1:${app.getHttpServer().address().port}`;
       database = app.get<PrismaDatabase>(DATABASE);
       worker = app.get(SupplierIngestionWorker);
-      redis = app.get<Redis>(REDIS);
+      redis = new Redis(process.env.REDIS_URL!, {
+        lazyConnect: true,
+        connectTimeout: 1500,
+        commandTimeout: 2000,
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 0,
+        retryStrategy: () => 100,
+      });
+      redis.on('error', () => {});
+      await redis.connect();
       full = await actor([...permissions, 'suppliers.write'], 'full');
       const created = await full.write('POST', '/v1/staff/suppliers', {
         legalName: 'TEST R1-008B synthetic supplier',
@@ -276,6 +284,7 @@ describe.skipIf(!enabled)(
 
     afterAll(async () => {
       vi.restoreAllMocks();
+      redis?.disconnect();
       await app?.close();
       await owner?.$disconnect();
     });
@@ -652,14 +661,7 @@ describe.skipIf(!enabled)(
       const id = String(created.id);
       await redis.lpush(QUEUE, id);
       await ownedCompose(['restart', 'redis']);
-      await redis.connect().catch(() => undefined);
-      for (let i = 0; i < 30; i++) {
-        try {
-          if ((await redis.ping()) === 'PONG') break;
-        } catch {
-          await new Promise((r) => setTimeout(r, 100));
-        }
-      }
+      await expect.poll(() => redis.ping(), { timeout: 10000 }).toBe('PONG');
       await redis.flushdb();
       expect(await redis.llen(QUEUE)).toBe(0);
       const completed = await finish(id);
