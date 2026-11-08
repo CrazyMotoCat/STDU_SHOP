@@ -68,6 +68,10 @@ export const REGISTERED_PERMISSION_CODES = [
   ...CATALOG_PERMISSION_CODES,
   ...SUPPLIER_PERMISSION_CODES,
   ...INQUIRY_PERMISSION_CODES,
+  'ingestion.read',
+  'ingestion.sources.write',
+  'ingestion.run',
+  'ingestion.review',
 ] as const;
 
 export const FULL_ADMIN_PERMISSIONS = PERMISSION_CODES;
