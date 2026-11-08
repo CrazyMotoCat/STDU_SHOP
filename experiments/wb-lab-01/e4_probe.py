@@ -25,6 +25,55 @@ DENIAL = {
     errno.EADDRNOTAVAIL,
 }
 
+STAGES = {
+    "isolation",
+    "namespace",
+    "positive_ipv4_tcp",
+    "positive_ipv4_udp",
+    "ipv4_tcp",
+    "ipv6_tcp",
+    "ipv4_udp",
+    "ipv6_udp",
+    "dns_udp",
+    "metrics",
+}
+FAILURE_CODES = {
+    "NON_LOOPBACK_INTERFACE",
+    "IPV4_ROUTE",
+    "IPV6_ROUTE",
+    "UNEXPECTED_MOUNT",
+    "MEDIA_NOT_READ_ONLY",
+    "POSITIVE_OBSERVER_TIMEOUT",
+    "POSITIVE_OBSERVER_MISSING",
+    "OBSERVER_EXIT",
+    "OBSERVER_EXIT_TIMEOUT",
+    "OBSERVER_CLEANUP_UNCONFIRMED",
+    "UNPROVEN_EGRESS_DENIAL",
+    "EGRESS_NOT_DENIED",
+    "ACTUAL_CONTROLLER_ISOLATION",
+    "METRICS_BUDGET",
+    "RESOURCE_ERROR",
+    "PROBE_TIMEOUT",
+    "OS_ERROR",
+    "UNEXPECTED_EXCEPTION",
+}
+CURRENT_STAGE = "isolation"
+
+
+def failure_code(error):
+    if isinstance(error, OSError) and error.errno in {
+        errno.ENOMEM,
+        errno.EAGAIN,
+        errno.EMFILE,
+        errno.ENFILE,
+    }:
+        return "RESOURCE_ERROR"
+    if isinstance(error, TimeoutError):
+        return "PROBE_TIMEOUT"
+    if isinstance(error, RuntimeError) and str(error) in FAILURE_CODES:
+        return str(error)
+    return "OS_ERROR" if isinstance(error, OSError) else "UNEXPECTED_EXCEPTION"
+
 
 def need(ok, code):
     if not ok:
@@ -154,6 +203,9 @@ def namespace():
         "/sys/firmware",
         "/sys/devices/virtual/powercap",
     }
+    mount_lines = Path("/proc/self/mountinfo").read_text().splitlines()
+    media = [line.split() for line in mount_lines if line.split()[4] == "/media"]
+    need(len(media) == 1 and "ro" in media[0][5].split(","), "MEDIA_NOT_READ_ONLY")
     points = [
         line.split()[4]
         for line in Path("/proc/self/mountinfo").read_text().splitlines()
@@ -165,10 +217,13 @@ def namespace():
         "ipv6_non_loopback_routes": 0,
         "configured_mounts": ["/media"],
         "mount_count": len(points),
+        "media_read_only": True,
     }
 
 
 def run():
+    global CURRENT_STAGE
+    CURRENT_STAGE = "namespace"
     # Establish route isolation before sending any probe, including the positives.
     topology = namespace()
     rows = []
@@ -176,6 +231,7 @@ def run():
         ("positive_ipv4_tcp", socket.SOCK_STREAM),
         ("positive_ipv4_udp", socket.SOCK_DGRAM),
     ):
+        CURRENT_STAGE = name
         start = time.monotonic()
         rows.append(
             {
@@ -185,6 +241,7 @@ def run():
             }
         )
     for name, family, kind, address, port in NEGATIVE:
+        CURRENT_STAGE = name
         start = time.monotonic()
         rows.append(
             {
@@ -198,9 +255,25 @@ def run():
 
 
 def main():
+    global CURRENT_STAGE
+    CURRENT_STAGE = "isolation"
     actual = isolation(json.loads(sys.argv[1]))  # noqa: F821
-    print(json.dumps({"trials": run(), **actual, "metrics": read_metrics()}))  # noqa: F821
+    trials = run()
+    CURRENT_STAGE = "metrics"
+    print(json.dumps({"trials": trials, **actual, "metrics": read_metrics()}))  # noqa: F821
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (Exception, KeyboardInterrupt) as error:  # noqa: BLE001 -- bounded fail-closed process boundary
+        print(
+            json.dumps(
+                {
+                    "probe_status": "FAILED",
+                    "code": failure_code(error),
+                    "stage": CURRENT_STAGE,
+                }
+            )
+        )
+        sys.exit(73)

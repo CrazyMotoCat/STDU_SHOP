@@ -1,6 +1,6 @@
 # WB-LAB-01 — VIS-CAT-02C lab
 
-**E2 accepted. E3/E3b and E4a prepared.** See the [accepted E2 evidence](RUNTIME-E2.md) and [E3/E4a runbook](RUNTIME-E34.md). The physical board has yet to run E3–E5. VDS equivalence remains NOT_PROVEN. PR #54 remains Draft.
+**E3 accepted. E4a-only fix prepared.** See the [accepted E2 evidence](RUNTIME-E2.md) and [E3/E4a runbook](RUNTIME-E34.md). The combined cycle produced E3_RUNTIME_PASS and E4a BLOCKED. See [E4a-only retry](RUNTIME-E4A.md). E5 remains NOT_RUN. VDS equivalence remains NOT_PROVEN. PR #54 remains Draft.
 
 ## Отклонения и бюджет
 

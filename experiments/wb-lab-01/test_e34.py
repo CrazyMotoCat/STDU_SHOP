@@ -228,7 +228,7 @@ class GateTests(unittest.TestCase):
     def test_gate_precedes_any_resource_or_host_access(self):
         with (
             patch.object(sys, "argv", ["runtime_e34.py"]),
-            patch.object(runner, "collect") as collect,
+            patch.object(runner.pg, "collect") as collect,
             patch.object(pg, "run") as run,
             self.assertRaisesRegex(Blocked, "OWNER_E3_E4A_RUNTIME_APPROVAL_REQUIRED"),
         ):

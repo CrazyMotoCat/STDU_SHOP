@@ -21,31 +21,39 @@ RETAINED = {
 def retained_evidence(*, root=None, expected=None):
     root = ROOT if root is None else root
     expected = RETAINED if expected is None else expected
+    payloads = {}
     for run_id, digest in expected.items():
-        directory = root / run_id
-        meta = directory.lstat()
-        require(
-            stat.S_ISDIR(meta.st_mode)
-            and meta.st_uid == 0
-            and stat.S_IMODE(meta.st_mode) == 0o700,
-            "E2_RETAINED_DIRECTORY",
+        directory_fd = os.open(
+            root / run_id, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
         )
-        fd = os.open(
-            directory / "evidence.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
-        )
-        with os.fdopen(fd, "rb") as stream:
-            meta = os.fstat(stream.fileno())
+        try:
+            meta = os.fstat(directory_fd)
             require(
-                stat.S_ISREG(meta.st_mode)
+                stat.S_ISDIR(meta.st_mode)
                 and meta.st_uid == 0
-                and stat.S_IMODE(meta.st_mode) == 0o600
-                and 0 < meta.st_size <= 16384,
-                "E2_RETAINED_FILE",
+                and stat.S_IMODE(meta.st_mode) == 0o700,
+                "E2_RETAINED_DIRECTORY",
             )
-            require(
-                hashlib.sha256(stream.read(16385)).hexdigest() == digest,
-                "E2_RETAINED_SHA256",
+            fd = os.open(
+                "evidence.json",
+                os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                dir_fd=directory_fd,
             )
+            with os.fdopen(fd, "rb") as stream:
+                meta = os.fstat(stream.fileno())
+                require(
+                    stat.S_ISREG(meta.st_mode)
+                    and meta.st_uid == 0
+                    and stat.S_IMODE(meta.st_mode) == 0o600
+                    and 0 < meta.st_size <= 16384,
+                    "E2_RETAINED_FILE",
+                )
+                raw = stream.read(16385)
+                require(hashlib.sha256(raw).hexdigest() == digest, "E2_RETAINED_SHA256")
+                payloads[run_id] = raw
+        finally:
+            os.close(directory_fd)
+    return payloads
 
 
 def scenario(deadline, ledger, evidence):

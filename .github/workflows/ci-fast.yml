@@ -72,6 +72,10 @@ jobs:
         run: |
           docker image pull --platform linux/amd64 docker.io/library/postgres@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
           WB_E2_REAL_PG=1 WB_E34_REAL_PG=1 python3 -B -m unittest discover -s experiments/wb-lab-01 -p test_e2.py -k E2Postgres
+      - name: E4a disposable read-only media and diagnostics
+        run: |
+          docker image pull --platform linux/amd64 docker.io/library/python@sha256:f21c0d5a44c56805654c15abccc1b2fd576c8d93aca0a3f74b4aba2dc92510e2
+          WB_E4A_REAL_DOCKER=1 python3 -B -m unittest discover -s experiments/wb-lab-01 -p test_e4a_fix.py
 
   contracts:
     name: Frozen contracts

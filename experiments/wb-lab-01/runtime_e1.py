@@ -33,6 +33,7 @@ from runtime_e0a import (
     TRACE,
     checked,
     cleanup,
+    command,
     inspect,
     owned_container,
     owned_volume,
@@ -115,6 +116,117 @@ def verify_volume_contents(deadline, ledger):
                 and meta.st_size <= len(PAYLOAD),
                 "E1_UNKNOWN_FILE",
             )
+
+
+def validate_controller_mount(item, image_id, name, source, phase):
+    require(len(item["Mounts"]) == 1, "CONTROLLER_MOUNT_COUNT")
+    if phase == "e4a":
+        # Validate the actual inspect response. Never normalize a writable mount.
+        require(item["Mounts"][0]["RW"] is False, "E4A_MEDIA_NOT_READ_ONLY")
+        validate_container(item, image_id, name, source)
+    else:
+        require(item["Mounts"][0]["RW"] is True, "E1_WRITABLE_MOUNT")
+        normalized = {**item, "Mounts": [{**item["Mounts"][0], "RW": False}]}
+        validate_container(normalized, image_id, name, source)
+
+
+def start_e4a(deadline, cid, name, run_id, evidence):
+    result = command(deadline, "container", "start", "--attach", cid)
+    evidence["start_diagnostic"] = {
+        "cli_returncode": result.returncode,
+        "stdout_bytes": len(result.stdout.encode()),
+        "stderr_bytes": len(result.stderr.encode()),
+        "stderr_sha256": hashlib.sha256(result.stderr.encode()).hexdigest(),
+    }
+    require(
+        len(result.stdout.encode()) <= 8192 and len(result.stderr.encode()) <= 8192,
+        "E4A_OUTPUT_BUDGET",
+    )
+    if result.returncode:
+        from e4_probe import FAILURE_CODES, STAGES
+
+        try:
+            failure = json.loads(result.stdout)
+        except (ValueError, TypeError):
+            failure = {}
+        if (
+            isinstance(failure, dict)
+            and failure.get("probe_status") == "FAILED"
+            and isinstance(failure.get("code"), str)
+            and failure.get("code") in FAILURE_CODES
+            and isinstance(failure.get("stage"), str)
+            and failure.get("stage") in STAGES
+        ):
+            evidence["probe_failure"] = {key: failure[key] for key in ("code", "stage")}
+        raise Blocked("E4A_START_OR_PROBE_NONZERO")
+    return result.stdout.strip()
+
+
+def observe_e4a(deadline, ledger, evidence):
+    item = inspect(deadline, "container", ledger["container_id"])
+    if item is None:
+        evidence["container_state"] = {"status": "ABSENT"}
+        return
+    owned_container(item, ledger["name"], ledger["run_id"], ledger["container_id"])
+    state = item["State"]
+    status = state["Status"]
+    require(
+        status
+        in {"created", "running", "paused", "restarting", "removing", "exited", "dead"},
+        "E4A_UNKNOWN_STATE",
+    )
+    error = state.get("Error", "")
+    require(
+        isinstance(error, str)
+        and type(state["ExitCode"]) is int
+        and type(state["OOMKilled"]) is bool,
+        "E4A_STATE_SHAPE",
+    )
+    evidence["container_state"] = {
+        "status": status,
+        "exit_code": state["ExitCode"],
+        "oom_killed": state["OOMKilled"],
+        "has_engine_error": bool(error),
+        "engine_error_sha256": hashlib.sha256(error.encode()).hexdigest(),
+    }
+
+
+def classify_e4a(evidence):
+    state = evidence.get("container_state", {})
+    operation = evidence.get("failure_operation") or {}
+    if (
+        evidence.get("watchdog_failure")
+        or evidence.get("reason") == "WATCHDOG_STOP_CONDITION"
+    ):
+        category = "WATCHDOG_FAILURE"
+    elif state.get("oom_killed"):
+        category = "OOM_RESOURCE_FAILURE"
+    elif operation.get("error_type") == "TimeoutExpired":
+        category = "DOCKER_TIMEOUT"
+    elif evidence.get("probe_failure"):
+        code = evidence["probe_failure"]["code"]
+        category = (
+            "PROBE_RESOURCE_FAILURE"
+            if code == "RESOURCE_ERROR"
+            else "PYTHON_PROBE_FAILURE"
+        )
+    elif state.get("status") in {"created", "dead"} and state.get("has_engine_error"):
+        category = "DOCKER_START_FAILURE"
+    elif state.get("status") == "exited" and state.get("exit_code") != 0:
+        category = "CONTAINER_NONZERO_ROOT_CAUSE_NOT_PROVEN"
+    elif (
+        evidence["status"] == "E4A_RUNTIME_PASS"
+        and state.get("status") == "exited"
+        and state.get("exit_code") == 0
+        and state.get("oom_killed") is False
+        and state.get("has_engine_error") is False
+    ):
+        category = "PASS"
+    else:
+        category = "ROOT_CAUSE_NOT_PROVEN"
+    if evidence["status"] == "E4A_RUNTIME_PASS" and category != "PASS":
+        evidence.update(status="BLOCKED", reason="E4A_DIAGNOSTIC_UNCONFIRMED")
+    evidence["diagnostic_category"] = category
 
 
 def run_probe(
@@ -244,7 +356,8 @@ def run_probe(
             "--cpus=0.25",
             "--pids-limit=16",
             "--mount",
-            f"type=volume,source={name},target=/media,volume-nocopy",
+            f"type=volume,source={name},target=/media,volume-nocopy"
+            + (",readonly" if phase == "e4a" else ""),
             image_id,
             "python",
             "-I",
@@ -266,13 +379,7 @@ def run_probe(
         item = owned_container(
             inspect(deadline, "container", container_id), name, run_id, container_id
         )
-        require(
-            len(item["Mounts"]) == 1 and item["Mounts"][0]["RW"] is True,
-            "E1_WRITABLE_MOUNT",
-        )
-        # Reuse the accepted checks for every other container property.
-        normalized = {**item, "Mounts": [{**item["Mounts"][0], "RW": False}]}
-        validate_container(normalized, image_id, name, str(source))
+        validate_controller_mount(item, image_id, name, str(source), phase)
         watcher = context.Process(
             target=watchdog,
             args=(deadline, name, run_id, container_id, stop, ready, diagnostic_write),
@@ -280,7 +387,11 @@ def run_probe(
         watcher.start()
         require(ready.wait(4) and watcher.is_alive(), "WATCHDOG_NOT_READY")
         thresholds(mem_available(), shutil.disk_usage(ROOT).free)
-        result = checked(deadline, "container", "start", "--attach", container_id)
+        result = (
+            start_e4a(deadline, container_id, name, run_id, evidence)
+            if phase == "e4a"
+            else checked(deadline, "container", "start", "--attach", container_id)
+        )
         require(len(result) <= 8192, "PROBE_OUTPUT_BUDGET")
         probe = json.loads(result)
         validator(probe, device)
@@ -319,12 +430,29 @@ def run_probe(
         try:
             if watcher is not None and watcher.pid is not None:
                 watcher.join(4)
+                if phase == "e4a":
+                    evidence["watchdog_exit_code"] = watcher.exitcode
                 require(not watcher.is_alive(), "WATCHDOG_STOP_UNCONFIRMED")
                 if watcher.exitcode != 0:
                     evidence["status"] = "BLOCKED"
                     evidence["reason"] = "WATCHDOG_STOP_CONDITION"
             if diagnostic_read.poll():
                 evidence["watchdog_failure"] = diagnostic_read.recv()
+            if phase == "e4a" and "container_id" in ledger:
+                try:
+                    observe_e4a(cleanup_deadline, ledger, evidence)
+                except (
+                    Blocked,
+                    OSError,
+                    KeyError,
+                    ValueError,
+                    TypeError,
+                    subprocess.TimeoutExpired,
+                ):
+                    evidence.update(
+                        status="BLOCKED", reason="E4A_STATE_OBSERVATION_UNCONFIRMED"
+                    )
+                    evidence["container_state"] = {"status": "UNCONFIRMED"}
             require(engine_info()["ID"] == DAEMON, "E1_DAEMON_CHANGED")
             writer = {**ledger, "volume_create_requested": False}
             try:
@@ -360,6 +488,8 @@ def run_probe(
             evidence["cleanup_reason"] = (
                 str(error) if isinstance(error, Blocked) else type(error).__name__
             )
+        if phase == "e4a":
+            classify_e4a(evidence)
         diagnostic_read.close()
         diagnostic_write.close()
         save(path, evidence)
