@@ -9,6 +9,13 @@ const read = (path) =>
   );
 const original = read('docs/ci/legacy-ci.yml.txt');
 const full = read('.github/workflows/ci-full.yml');
+const ingestionAcceptance = [
+  '      - name: R1-008B isolated supplier ingestion recovery and staff HTTP',
+  '        run: |',
+  '          pnpm ingestion:contract:check',
+  '          pnpm test:r1-008b',
+  '',
+].join('\n');
 
 test('the redundant legacy workflow is retired', () => {
   assert.equal(
@@ -30,8 +37,12 @@ test('FULL retains every original step in order, including commands, env, cleanu
     .replace(
       / {6}- name: CI policy tests and diff hygiene\n[\s\S]*?(?= {6}- run: pnpm toolchain:check)/,
       '',
-    );
+    )
+    .replace(ingestionAcceptance, '');
   assert.equal(normalized.trimEnd(), originalSteps.trimEnd());
+});
+test('FULL runs the R1-008B contract and isolated recovery suite', () => {
+  assert.equal(full.split(ingestionAcceptance).length, 2);
 });
 test('gate always runs, explicit required success and main groups are unique', () => {
   assert(full.includes('if: ${{ always() }}\n    needs: [plan, full]'));

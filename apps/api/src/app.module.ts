@@ -8,6 +8,7 @@ import { StaffModule } from './staff/staff.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { SuppliersModule } from './suppliers/suppliers.module.js';
 import { InquiriesModule } from './inquiries/inquiries.module.js';
+import { SupplierIngestionModule } from './supplier-ingestion/supplier-ingestion.module.js';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { InquiriesModule } from './inquiries/inquiries.module.js';
     CatalogModule,
     SuppliersModule,
     InquiriesModule,
+    SupplierIngestionModule,
   ],
   controllers: [HealthController],
   providers: [
