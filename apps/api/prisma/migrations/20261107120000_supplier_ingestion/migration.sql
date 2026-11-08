@@ -252,7 +252,7 @@ CREATE FUNCTION audit_event_valid(p_action text,p_outcome text,p_reason text,p_c
 RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
 BEGIN
  IF p_action NOT LIKE 'ingestion.%' THEN
-  RETURN audit_event_valid_pre_r1_008b(p_action,p_outcome,p_reason,p_changes);
+  RETURN public.audit_event_valid_pre_r1_008b(p_action,p_outcome,p_reason,p_changes);
  END IF;
  IF p_action NOT IN ('ingestion.source.created','ingestion.source.changed','ingestion.run.requested',
   'ingestion.command.denied','ingestion.run.started','ingestion.run.snapshot','ingestion.run.completed',
