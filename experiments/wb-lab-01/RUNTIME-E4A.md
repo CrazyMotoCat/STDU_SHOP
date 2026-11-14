@@ -1,6 +1,6 @@
 # WB-LAB-01 E4a-only retry preparation
 
-**E4A_MOUNT_DIAG_READY.** The next physical run requires `OWNER_E4A_ONLY_RUNTIME_APPROVED` on the reviewed HEAD. E3 is accepted. Its ten scenarios created nine correct references, with cleanup CONFIRMED and preserved foreign inventory.
+**E4A_MASK_FIX_READY_FOR_OWNER_RUNTIME_DECISION.** The next physical run requires `OWNER_E4A_ONLY_RUNTIME_APPROVED` on the reviewed HEAD. E3 is accepted. Its ten scenarios created nine correct references, with cleanup CONFIRMED and preserved foreign inventory.
 
 ## Historical evidence
 
@@ -17,6 +17,16 @@ The probe uses one bounded read of its own mountinfo to check the exact allowlis
 The snapshot limit is 64 KiB and 256 rows. Each encoded destination is limited to 384 characters and filesystem type to 48. A limit hit blocks the probe. `truncated: true` marks omitted rows or an input that could not be fully read within budget. Counts are null when the full snapshot could not be inspected. The host validates the bounded schema before writing the report into evidence.
 
 The allowlist is unchanged. Unknown mounts stop execution before canaries. The next authorized run can identify the namespace destination and metadata that triggered the rejection. A destination name or filesystem type alone does not establish provenance. Before proposing any exception, compare these observations with the owned container's validated Docker mount configuration and the expected engine/kernel mounts. If provenance is unproven, keep the profile blocked.
+
+## Conditional ALSA directory mask
+
+The third WB attempt at 1d9553e2d136ccb0280e01778695110650a9b1eb stopped before canaries after 9.823 s. Run 1868a7f417f04796a63e14321e17e100 returned exit 73 and cleanup CONFIRMED. Its SHA-256 is 97a75068c46bb66709e6fec94b2f793528d5d976c0c56b24fad7e76cc7a0e151. The only unknown mount of 22 was /proc/asound, a read-only tmpfs rooted at /. The report was complete. The original exact allowlist did not cover this directory mask.
+
+WB reported Docker Engine 29.9.2 (build 0367cbe), containerd v2.4.2 and runc 1.5.2. The host has /proc/asound. The exact Engine source revision was unavailable. [Moby v28.5.2](https://github.com/moby/moby/blob/v28.5.2/oci/defaults.go#L188) is a pinned reference for its default mask list. It includes /proc/asound, /proc/acpi, /proc/interrupts, /proc/kcore, /proc/keys, /proc/latency_stats, /proc/timer_list, /proc/timer_stats, /proc/sched_debug, /proc/scsi, /sys/firmware, /sys/devices/virtual/powercap and present CPU thermal-throttle paths. [The OCI spec builder](https://github.com/moby/moby/blob/v28.5.2/daemon/oci_linux.go#L971) maps configured HostConfig MaskedPaths and ReadonlyPaths into the separate OCI Linux fields. [runc 1.5.2](https://github.com/opencontainers/runc/blob/v1.5.2/libcontainer/rootfs_linux.go#L1250) skips absent paths and masks existing directories with RO tmpfs. The third run's actual MaskedPaths were not retained. Historical origin remains MASK_ORIGIN_NOT_PROVEN.
+
+The exception requires runc, network none, one owned RO media volume, no additional bind/volume/tmpfs declarations, /proc/asound in MaskedPaths and the expected ReadonlyPaths. The runner records bounded policy summaries and list digests before starting and before removal. It requires the two policy observations to match. Missing or ambiguous policy blocks. The namespace check accepts one /proc/asound only with that attestation and exact tmpfs type and source, mount root /, and exclusively RO mount and superblock access. Other unknown mounts still block. The topology result records whether the exception was actually observed.
+
+Local Docker confirmed the effective inspect policy, a real RO runc directory mask, eight canaries, cgroup limits and cleanup. The local kernel has no ALSA proc directory. Fixtures cover exact /proc/asound acceptance and rejection of wrong type, root or access. Physical PASS requires all eight canaries, stable policy, actual RO media, confirmed cleanup and preserved inventory. The three failed E4a records are hash-pinned alongside accepted E0b–E3 evidence.
 
 ## Corrected profile and diagnostics
 

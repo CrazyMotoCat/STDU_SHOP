@@ -254,7 +254,7 @@ def read_mountinfo():
         return stream.read(MOUNTINFO_BYTES + 1)
 
 
-def verify_mounts(snapshot):
+def verify_mounts(snapshot, *, asound_mask_confirmed=False):
     if len(snapshot) > MOUNTINFO_BYTES:
         raise MountFailure(
             "MOUNTINFO_BUDGET", mount_report(None, None, [], truncated=True)
@@ -296,6 +296,7 @@ def verify_mounts(snapshot):
     media_access = []
     unknown = []
     unlisted = 0
+    asound_seen = False
     for line in lines:
         head, separator, tail = line.partition(b" - ")
         fields, details = head.split(b" "), tail.split(b" ")
@@ -316,6 +317,18 @@ def verify_mounts(snapshot):
         mode = access.pop().decode("ascii")
         if path == b"/media":
             media_access.append(mode)
+        if (
+            asound_mask_confirmed is True
+            and not asound_seen
+            and path == b"/proc/asound"
+            and details[0] == b"tmpfs"
+            and details[1] == b"tmpfs"
+            and set(details[2].split(b",")) & {b"ro", b"rw"} == {b"ro"}
+            and mode == "ro"
+            and fields[3] == b"/"
+        ):
+            asound_seen = True
+            continue
         if path.decode("ascii", errors="surrogateescape") in allowed:
             continue
         unlisted += 1
@@ -344,31 +357,34 @@ def verify_mounts(snapshot):
             ),
         )
     need(media_access == ["ro"], "MEDIA_NOT_READ_ONLY")
-    return len(lines)
+    return len(lines), asound_seen
 
 
-def namespace():
+def namespace(*, asound_mask_confirmed=False):
     need(sorted(os.listdir("/sys/class/net")) == ["lo"], "NON_LOOPBACK_INTERFACE")
     ipv4 = Path("/proc/net/route").read_text().splitlines()[1:]
     need(not any(line.strip() for line in ipv4), "IPV4_ROUTE")
     ipv6 = Path("/proc/net/ipv6_route").read_text().splitlines()
     need(all(line.split()[-1] == "lo" for line in ipv6 if line.strip()), "IPV6_ROUTE")
-    mount_count = verify_mounts(read_mountinfo())
+    mount_count, asound_mask_observed = verify_mounts(
+        read_mountinfo(), asound_mask_confirmed=asound_mask_confirmed
+    )
     return {
         "interfaces": ["lo"],
         "ipv4_routes": 0,
         "ipv6_non_loopback_routes": 0,
         "configured_mounts": ["/media"],
         "mount_count": mount_count,
+        "asound_mask_observed": asound_mask_observed,
         "media_read_only": True,
     }
 
 
-def run():
+def run(*, asound_mask_confirmed=False):
     global CURRENT_STAGE
     CURRENT_STAGE = "namespace"
     # Establish route isolation before sending any probe, including the positives.
-    topology = namespace()
+    topology = namespace(asound_mask_confirmed=asound_mask_confirmed)
     rows = []
     for name, kind in (
         ("positive_ipv4_tcp", socket.SOCK_STREAM),
@@ -400,8 +416,10 @@ def run():
 def main():
     global CURRENT_STAGE
     CURRENT_STAGE = "isolation"
-    actual = isolation(json.loads(sys.argv[1]))  # noqa: F821
-    trials = run()
+    expected = json.loads(sys.argv[1])
+    mask_confirmed = expected.pop("asound_mask_confirmed", False)
+    actual = isolation(expected)  # noqa: F821
+    trials = run(asound_mask_confirmed=mask_confirmed)
     CURRENT_STAGE = "metrics"
     print(json.dumps({"trials": trials, **actual, "metrics": read_metrics()}))  # noqa: F821
 

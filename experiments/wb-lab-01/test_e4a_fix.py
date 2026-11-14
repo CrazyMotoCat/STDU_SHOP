@@ -133,10 +133,74 @@ class FixTests(unittest.TestCase):
         self.assertNotIn("private-string", json.dumps(evidence))
         self.assertEqual(evidence["container_state"]["exit_code"], 73)
 
+    def test_asound_mask_requires_attestation_and_exact_mount_properties(self):
+        media = b"1 0 8:1 / /media ro - ext4 device rw\n"
+        mask = b"2 1 0:2 / /proc/asound ro - tmpfs tmpfs ro\n"
+        self.assertEqual(
+            probe.verify_mounts(media + mask, asound_mask_confirmed=True), (2, True)
+        )
+        for bad, attested in (
+            (mask, False),
+            (mask.replace(b"/asound ro", b"/asound rw"), True),
+            (mask.replace(b"- tmpfs", b"- ext4"), True),
+            (mask.replace(b"0:2 / ", b"0:2 /subdir "), True),
+            (mask.replace(b"tmpfs tmpfs", b"tmpfs other"), True),
+            (mask.replace(b"tmpfs ro", b"tmpfs rw"), True),
+            (mask.replace(b"tmpfs ro", b"tmpfs ro,rw"), True),
+            (mask.replace(b"/asound", b"/other"), True),
+            (mask + mask, True),
+        ):
+            with (
+                self.subTest(bad=bad, attested=attested),
+                self.assertRaisesRegex(probe.MountFailure, "UNEXPECTED_MOUNT"),
+            ):
+                probe.verify_mounts(media + bad, asound_mask_confirmed=attested)
+
+    def test_policy_requires_real_mount_configuration_and_stable_masks(self):
+        host = {
+            "Mounts": [
+                {
+                    "Target": "/media",
+                    "Source": "owned",
+                    "Type": "volume",
+                    "ReadOnly": True,
+                }
+            ],
+            "Runtime": "runc",
+            "NetworkMode": "none",
+            "MaskedPaths": ["/proc/asound", "/private-host"],
+            "ReadonlyPaths": sorted(runner.E4A_READONLY_PATHS),
+        }
+        item = {"HostConfig": host, "Mounts": [{"Name": "owned"}]}
+        evidence = {}
+        runner.record_e4a_policy(item, evidence, "before_start")
+        runner.record_e4a_policy(item, evidence, "before_cleanup")
+        self.assertNotIn("/private-host", json.dumps(evidence))
+        for change in (
+            {"Binds": ["/private-host:/proc/asound:ro"]},
+            {"Tmpfs": {"/proc/asound": "ro"}},
+            {"VolumesFrom": ["foreign"]},
+            {"Mounts": host["Mounts"] + [{"Target": "/proc/asound", "Type": "volume"}]},
+            {"MaskedPaths": None},
+            {"MaskedPaths": []},
+            {"ReadonlyPaths": None},
+            {"Runtime": "custom"},
+        ):
+            with (
+                self.subTest(change=change),
+                self.assertRaisesRegex(Blocked, "E4A_MASK_ORIGIN_NOT_PROVEN"),
+            ):
+                runner.record_e4a_policy(
+                    {**item, "HostConfig": {**host, **change}}, {}, "before_start"
+                )
+        host["MaskedPaths"].append("/changed")
+        with self.assertRaisesRegex(Blocked, "E4A_MASK_POLICY_CHANGED"):
+            runner.record_e4a_policy(item, evidence, "before_cleanup")
+
     def test_mount_snapshot_allows_known_points_and_rejects_writable_media(self):
         known = b"1 0 0:2 / / rw - overlay overlay rw\n"
         media = b"2 1 8:1 / /media ro - ext4 device rw\n"
-        self.assertEqual(probe.verify_mounts(known + media), 2)
+        self.assertEqual(probe.verify_mounts(known + media), (2, False))
         with self.assertRaisesRegex(RuntimeError, "MEDIA_NOT_READ_ONLY"):
             probe.verify_mounts(known + media.replace(b"/media ro", b"/media rw"))
 
@@ -449,7 +513,25 @@ class LocalDocker(unittest.TestCase):
                     + repr(source)
                     + ")"
                 )
-                expected = {"uid": 65532, "interfaces": ["lo"], "limits": base.LIMITS}
+                if readonly and fault is None:
+                    # Confirm an actual runc directory mask on this kernel. ALSA may
+                    # be absent here, so /proc/asound itself is covered by fixtures.
+                    check_mask = (
+                        "snap=open('/proc/self/mountinfo','rb').read(65537); "
+                        "assert len(snap)<=65536; "
+                        "assert any(line.split(b' - ')[0].split()[3:5] in "
+                        "([b'/',b'/proc/acpi'],[b'/',b'/proc/asound'],[b'/',b'/sys/firmware']) "
+                        "and b'ro' in line.split(b' - ')[0].split()[5].split(b',') "
+                        "and line.split(b' - ')[-1].split()[:2]==[b'tmpfs',b'tmpfs'] "
+                        "for line in snap.splitlines()); "
+                    )
+                    code = check_mask + code
+                expected = {
+                    "uid": 65532,
+                    "interfaces": ["lo"],
+                    "limits": base.LIMITS,
+                    "asound_mask_confirmed": fault != "mount",
+                }
                 if fault == "uid":
                     expected["uid"] = 0
                 requested = True
@@ -502,6 +584,8 @@ class LocalDocker(unittest.TestCase):
                         item, item["Image"], name, volume["Mountpoint"], "e4a"
                     )
                     evidence = {}
+                    if fault != "mount":
+                        runner.record_e4a_policy(item, evidence, "before_start")
                     if fault:
                         with self.assertRaisesRegex(
                             Blocked, "E4A_START_OR_PROBE_NONZERO"
@@ -561,6 +645,22 @@ class LocalDocker(unittest.TestCase):
                             time.monotonic() + 3,
                             {"container_id": cid, "name": name, "run_id": run_id},
                             evidence,
+                        )
+                        runner.observe_e4a(
+                            time.monotonic() + 3,
+                            {
+                                "container_id": cid,
+                                "name": name,
+                                "run_id": run_id,
+                                "image_id": item["Image"],
+                            },
+                            evidence,
+                            volume["Mountpoint"],
+                        )
+                        self.assertTrue(
+                            evidence["docker_mask_policy"]["before_cleanup"][
+                                "confirmed"
+                            ]
                         )
                         self.assertFalse(evidence["container_state"]["oom_killed"])
                         self.assertEqual(evidence["container_state"]["exit_code"], 0)

@@ -130,6 +130,92 @@ def validate_controller_mount(item, image_id, name, source, phase):
         validate_container(normalized, image_id, name, source)
 
 
+E4A_READONLY_PATHS = {
+    "/proc/bus",
+    "/proc/fs",
+    "/proc/irq",
+    "/proc/sys",
+    "/proc/sysrq-trigger",
+}
+E4A_MASKED_PATHS = {
+    "/proc/acpi",
+    "/proc/asound",
+    "/proc/interrupts",
+    "/proc/kcore",
+    "/proc/keys",
+    "/proc/latency_stats",
+    "/proc/sched_debug",
+    "/proc/scsi",
+    "/proc/timer_list",
+    "/proc/timer_stats",
+    "/sys/devices/virtual/powercap",
+    "/sys/firmware",
+}
+
+
+def e4a_policy_paths(value, known):
+    if (
+        not isinstance(value, list)
+        or len(value) > 256
+        or not all(
+            isinstance(path, str) and path.startswith("/") and len(path) <= 512
+            for path in value
+        )
+    ):
+        return {"available": False}
+    return {
+        "available": True,
+        "count": len(value),
+        "known": sorted(known.intersection(value)),
+        "sha256": hashlib.sha256(json.dumps(sorted(value)).encode()).hexdigest(),
+    }
+
+
+def record_e4a_policy(item, evidence, stage):
+    host = item["HostConfig"]
+    mounts = host.get("Mounts")
+    configured_ok = (
+        isinstance(mounts, list)
+        and len(mounts) == 1
+        and isinstance(mounts[0], dict)
+        and mounts[0].get("Target") == "/media"
+        and mounts[0].get("Type") == "volume"
+        and mounts[0].get("ReadOnly") is True
+        and len(item["Mounts"]) == 1
+        and mounts[0].get("Source") == item["Mounts"][0].get("Name")
+        and not host.get("Binds")
+        and not host.get("Tmpfs")
+        and not host.get("VolumesFrom")
+    )
+    masked = e4a_policy_paths(host.get("MaskedPaths"), E4A_MASKED_PATHS)
+    readonly = e4a_policy_paths(host.get("ReadonlyPaths"), E4A_READONLY_PATHS)
+    report = {
+        "configured_mounts": [{"target": "/media", "type": "volume", "access": "ro"}]
+        if configured_ok
+        else None,
+        "additional_mounts_absent": configured_ok,
+        "masked_paths": masked,
+        "readonly_paths": readonly,
+        "runtime": "runc" if host.get("Runtime") == "runc" else None,
+        "network_mode": "none" if host.get("NetworkMode") == "none" else None,
+    }
+    report["confirmed"] = (
+        configured_ok
+        and report["runtime"] == "runc"
+        and report["network_mode"] == "none"
+        and not host.get("CapAdd")
+        and "/proc/asound" in masked.get("known", [])
+        and E4A_READONLY_PATHS <= set(readonly.get("known", []))
+    )
+    evidence.setdefault("docker_mask_policy", {})[stage] = report
+    require(report["confirmed"], "E4A_MASK_ORIGIN_NOT_PROVEN")
+    if stage == "before_cleanup":
+        require(
+            report == evidence["docker_mask_policy"].get("before_start"),
+            "E4A_MASK_POLICY_CHANGED",
+        )
+
+
 def start_e4a(deadline, cid, name, run_id, evidence):
     result = command(deadline, "container", "start", "--attach", cid)
     evidence["start_diagnostic"] = {
@@ -169,10 +255,11 @@ def start_e4a(deadline, cid, name, run_id, evidence):
     return result.stdout.strip()
 
 
-def observe_e4a(deadline, ledger, evidence):
+def observe_e4a(deadline, ledger, evidence, source=None):
     item = inspect(deadline, "container", ledger["container_id"])
     if item is None:
         evidence["container_state"] = {"status": "ABSENT"}
+        require(source is None, "E4A_MASK_POLICY_UNCONFIRMED_AFTER_START")
         return
     owned_container(item, ledger["name"], ledger["run_id"], ledger["container_id"])
     state = item["State"]
@@ -196,6 +283,11 @@ def observe_e4a(deadline, ledger, evidence):
         "has_engine_error": bool(error),
         "engine_error_sha256": hashlib.sha256(error.encode()).hexdigest(),
     }
+    if source is not None:
+        record_e4a_policy(item, evidence, "before_cleanup")
+        validate_controller_mount(
+            item, ledger["image_id"], ledger["name"], str(source), "e4a"
+        )
 
 
 def classify_e4a(evidence):
@@ -377,7 +469,13 @@ def run_probe(
             )
             + Path(__file__).with_name(probe_name).read_text(encoding="utf-8"),
             json.dumps(
-                {"device": device, "uid": 65532, "interfaces": ["lo"], "limits": LIMITS}
+                {
+                    "device": device,
+                    "uid": 65532,
+                    "interfaces": ["lo"],
+                    "limits": LIMITS,
+                    **({"asound_mask_confirmed": True} if phase == "e4a" else {}),
+                }
             ),
         )
         require(HEX_ID.fullmatch(container_id), "CONTAINER_ID_FORMAT")
@@ -386,7 +484,11 @@ def run_probe(
         item = owned_container(
             inspect(deadline, "container", container_id), name, run_id, container_id
         )
+        if phase == "e4a":
+            record_e4a_policy(item, evidence, "before_start")
         validate_controller_mount(item, image_id, name, str(source), phase)
+        if phase == "e4a":
+            save(path, evidence)
         watcher = context.Process(
             target=watchdog,
             args=(deadline, name, run_id, container_id, stop, ready, diagnostic_write),
@@ -447,7 +549,12 @@ def run_probe(
                 evidence["watchdog_failure"] = diagnostic_read.recv()
             if phase == "e4a" and "container_id" in ledger:
                 try:
-                    observe_e4a(cleanup_deadline, ledger, evidence)
+                    observe_e4a(
+                        cleanup_deadline,
+                        ledger,
+                        evidence,
+                        ledger["volume"]["Mountpoint"],
+                    )
                 except (
                     Blocked,
                     OSError,
@@ -455,11 +562,14 @@ def run_probe(
                     ValueError,
                     TypeError,
                     subprocess.TimeoutExpired,
-                ):
+                ) as error:
                     evidence.update(
-                        status="BLOCKED", reason="E4A_STATE_OBSERVATION_UNCONFIRMED"
+                        status="BLOCKED",
+                        reason=str(error)
+                        if isinstance(error, Blocked)
+                        else "E4A_STATE_OBSERVATION_UNCONFIRMED",
                     )
-                    evidence["container_state"] = {"status": "UNCONFIRMED"}
+                    evidence.setdefault("container_state", {"status": "UNCONFIRMED"})
             require(engine_info()["ID"] == DAEMON, "E1_DAEMON_CHANGED")
             writer = {**ledger, "volume_create_requested": False}
             try:
