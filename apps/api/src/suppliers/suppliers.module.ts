@@ -7,5 +7,6 @@ import { SuppliersService } from './suppliers.service.js';
   imports: [IdentityModule],
   controllers: [SupplierStaffController],
   providers: [SuppliersService],
+  exports: [SuppliersService],
 })
 export class SuppliersModule {}

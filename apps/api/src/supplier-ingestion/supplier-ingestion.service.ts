@@ -3,7 +3,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Prisma } from '../generated/prisma/client.js';
 import { DATABASE, PrismaDatabase } from '../database/database.module.js';
 import { createAuditEvent } from '../audit/audit.service.js';
-import { assertCurrentActor } from '../permissions/policy.js';
+import {
+  assertCurrentActor,
+  assertHasPermission,
+} from '../permissions/policy.js';
 import { StaffError } from '../identity/errors.js';
 import type { StaffRequest } from '../identity/request.js';
 import type {
@@ -81,7 +84,7 @@ export class SupplierIngestionService {
     return request.staff;
   }
 
-  private async command(
+  async command(
     request: StaffRequest,
     key: string | undefined,
     operation: string,
@@ -89,8 +92,10 @@ export class SupplierIngestionService {
     resource: string,
     input: unknown,
     work: (tx: IngestionTx) => Promise<{ status: number; data: unknown }>,
+    additionalPermissions: readonly string[] = [],
   ) {
     const actor = this.principal(request, permission);
+    for (const code of additionalPermissions) this.principal(request, code);
     if (!key || !/^[\x21-\x7e]{8,128}$/.test(key))
       throw new StaffError('VALIDATION_ERROR');
     const hash = createHash('sha256')
@@ -104,6 +109,8 @@ export class SupplierIngestionService {
       async (tx) => {
         await tx.$queryRaw`SELECT pg_advisory_xact_lock(${lock})::text`;
         await assertCurrentActor(tx, actor, permission);
+        for (const code of additionalPermissions)
+          await assertHasPermission(tx, actor.id, code);
         const prior = await tx.ingestionCommand.findUnique({
           where: { actorId_key: { actorId: actor.id, key } },
         });
@@ -128,7 +135,7 @@ export class SupplierIngestionService {
             'ingestion.command.denied',
             null,
             error.code,
-            {},
+            operation === 'apply' ? { rowId: resource } : {},
             request,
             'DENIED',
           );

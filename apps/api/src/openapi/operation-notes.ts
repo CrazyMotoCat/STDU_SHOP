@@ -709,4 +709,35 @@ export const STAFF_OPERATION_CONTRACT_NOTES = {
       'FORBIDDEN',
     ],
   },
+  ingestion_previewApply: {
+    invariants: [
+      'Staff-only comparison requires ingestion.read, suppliers.read and suppliers.offers.read. Missing source values preserve existing values. Identity is exact and never inferred from names.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_applications: {
+    invariants: [
+      'Append-only application provenance is staff-only under current ingestion and supplier read permissions.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_apply: {
+    invariants: [
+      'Intentional single accepted candidate command with CSRF, current ingestion review and supplier write permissions, durable idempotency and expected offer/row versions. Revision and provenance commit atomically. No catalog mutation.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+      'CSRF_INVALID',
+    ],
+  },
 } as const;

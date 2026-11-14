@@ -27,6 +27,9 @@ const project = `stdu-r1-008b-test-${process.pid}-${randomUUID().slice(0, 8)}`;
 const pgPassword = randomBytes(32).toString('base64url');
 const runtimePassword = randomBytes(32).toString('base64url');
 const redisPassword = randomBytes(32).toString('base64url');
+const review =
+  process.argv.includes('--review') ||
+  process.env.R1_009A_TEST_ENABLED === 'true';
 const portEnv = {};
 let composeAttempted = false;
 let exitCode = 0;
@@ -117,11 +120,11 @@ async function run(command, args, options = {}) {
   );
 }
 
-async function reservePort() {
+async function reservePort(port = 0) {
   const server = createServer();
   await new Promise((accept, reject) => {
     server.once('error', reject);
-    server.listen(0, '127.0.0.1', accept);
+    server.listen(port, '127.0.0.1', accept);
   });
   const address = server.address();
   if (!address || typeof address === 'string')
@@ -190,6 +193,9 @@ async function main() {
   const pgPort = await reservePort();
   const redisPort = await reservePort();
   const pythonPort = await reservePort();
+  const webOrigin = review
+    ? 'https://127.0.0.1:' + (await reservePort())
+    : null;
   const ingestionToken = randomBytes(32).toString('hex');
   Object.assign(portEnv, {
     R1_008B_TEST_PG_PORT: String(pgPort),
@@ -245,17 +251,26 @@ async function main() {
     MIGRATION_DATABASE_URL: ownerUrl,
     STAFF_DATABASE_URL: runtimeUrl,
     REDIS_URL: redisUrl,
-    APP_ENV: 'development',
+    APP_ENV: review ? 'production' : 'development',
     HOST: '127.0.0.1',
     PORT: '3001',
-    COOKIE_PROFILE: 'loopback',
-    STAFF_ORIGINS: 'http://127.0.0.1:3000',
+    COOKIE_PROFILE: review ? 'https' : 'loopback',
+    STAFF_ORIGINS: webOrigin ?? 'http://127.0.0.1:3000',
+    ...(webOrigin
+      ? {
+          R1_009A_WEB_ORIGIN: webOrigin,
+          PUBLIC_WEB_ORIGIN: webOrigin,
+          TRUSTED_PROXY_ADDRESS: '127.0.0.1',
+          SUPPLIER_OFFER_FRESHNESS_DAYS: '',
+        }
+      : {}),
     SESSION_HMAC_KEY: randomBytes(32).toString('hex'),
     RATE_LIMIT_KEY: randomBytes(32).toString('hex'),
     SUPPLIER_INGESTION_TOKEN: ingestionToken,
     SUPPLIER_INGESTION_URL: `http://127.0.0.1:${pythonPort}`,
     SUPPLIER_INGESTION_WORKER_ENABLED: 'false',
     R1_008B_TEST_ENABLED: 'true',
+    R1_009A_TEST_ENABLED: review ? 'true' : 'false',
     R1_008B_TEST_COMPOSE_PROJECT: project,
     R1_008B_TEST_COMPOSE_FILE: composeFile,
     ...portEnv,
@@ -306,7 +321,9 @@ async function main() {
             vitestCli,
             'run',
             '--silent=false',
-            'apps/api/test/r1-008b.ingestion.runtime.test.ts',
+            review
+              ? 'apps/api/test/r1-009a.review.runtime.test.ts'
+              : 'apps/api/test/r1-008b.ingestion.runtime.test.ts',
           ],
           {
             cwd: repoRoot,

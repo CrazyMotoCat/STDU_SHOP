@@ -525,7 +525,7 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
   );
   await afterFirst.end();
   if (
-    before.rowCount !== 6 ||
+    before.rowCount !== 7 ||
     before.rows.map((row) => row.migration_name).join('\0') !==
       [
         '20261022120000_staff_identity',
@@ -534,6 +534,7 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
         '20261025120000_supplier_domain',
         '20261026140000_inquiry_domain',
         '20261107120000_supplier_ingestion',
+        '20261108090000_ingestion_manual_apply',
       ].join('\0') ||
     sentinel.rows[0]?.payload !== 'must-survive-migration' ||
     models.rows[0]?.count !== 11 ||

@@ -26,6 +26,7 @@
     "test:r1-006b": "node apps/api/scripts/run-r1-006b-runtime.mjs",
     "test:r1-007b": "node apps/api/scripts/run-r1-007b-runtime.mjs",
     "test:r1-008b": "node apps/api/scripts/run-r1-008b-runtime.mjs",
+    "test:r1-009a": "node apps/api/scripts/run-r1-008b-runtime.mjs --review",
     "ingestion:contract:check": "node scripts/ingestion-contract.mjs",
     "test:r1-010b": "node apps/api/scripts/run-r1-010b-runtime.mjs",
     "test:r1-010c:e2e": "node scripts/run-r1-010c-e2e.mjs",

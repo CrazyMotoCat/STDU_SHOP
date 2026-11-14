@@ -727,6 +727,7 @@ export default function SupplierWorkspace({
       >
         Сопоставления
       </Link>
+      <Link href="/staff/suppliers/ingestion">Проверка источников</Link>
     </nav>
   );
 
