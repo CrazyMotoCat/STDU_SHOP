@@ -23,7 +23,7 @@ Intents commit before the writer starts. The controller has no DB socket or cred
 
 E4a uses `network=none` with no published ports, private PID/cgroup namespaces, dropped capabilities and one empty owned media mount. The original E4a attempt used RW despite this runbook previously describing RO. The corrected E4a-only profile requires read-only. Inspect and the actual mountpoint allowlist must agree. Eight checks cover TCP/UDP loopback positives observed by a separate receiver process, IPv4/IPv6 TCP and UDP negatives, one DNS datagram to a documentation address, and namespace/routes/mounts. Negative probes require explicit local denial. A timeout, connection refusal or successful UDP send blocks the stage. Host packet capture and service-specific host/PostgreSQL/verifier canaries remain NOT_PROVEN.
 
-Evidence includes per-case latency, controller RSS, cgroup memory peak, CPU and I/O, PostgreSQL cgroup counters, exact ownership ledger and cleanup. Missing counters are explicit. Peak RSS for individual PostgreSQL processes is outside this measurement. The E4a-only retry remains NOT_RUN on WB and E5 is a separate phase.
+Evidence includes per-case latency, controller RSS, cgroup memory peak, CPU and I/O, PostgreSQL cgroup counters, exact ownership ledger and cleanup. Missing counters are explicit. Peak RSS for individual PostgreSQL processes is outside this measurement. The later E4a-only run is accepted in [RUNTIME-E4A.md](RUNTIME-E4A.md). E5 = NOT_RUN. VDS_EQUIVALENCE = NOT_PROVEN. PHYSICAL_POWER_LOSS_DURABILITY = NOT_PROVEN.
 
 ```sh
 python3 -B -m unittest discover -s experiments/wb-lab-01

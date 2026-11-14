@@ -1,6 +1,19 @@
-# WB-LAB-01 E4a-only retry preparation
+# WB-LAB-01 E4a acceptance and historical retries
 
-**E4A_MASK_FIX_READY_FOR_OWNER_RUNTIME_DECISION.** The next physical run requires `OWNER_E4A_ONLY_RUNTIME_APPROVED` on the reviewed HEAD. E3 is accepted. Its ten scenarios created nine correct references, with cleanup CONFIRMED and preserved foreign inventory.
+**E4A_RUNTIME_PASS / ACCEPTED.** Run da496b6c17c1458d86e9d4c299526c95 started on 2026-11-14 at 18:33:14 +10:00 (volume creation) at HEAD 17976ff576661756d8a3354873dbd7cfc8db6854. Total 9.663 s. SHA-256 70c755b6e2e83d8bdecb69f0e1541e17b0f4b2bf8d77289f18ce868c1f23cc13. E3 remains accepted.
+
+| Check                                    | Observed                                                                                                                                          |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IPv4 TCP and UDP positive controls       | Both independently received on loopback                                                                                                           |
+| IPv4/IPv6 TCP and UDP negatives, UDP DNS | Five ENETUNREACH results, sent=false                                                                                                              |
+| Namespace topology                       | Only lo, no IPv4 or non-loopback IPv6 routes, 22 mounts, RO /media, asound_mask_observed=true                                                     |
+| Mask policy                              | runc, network none, identical pre-start and pre-cleanup policy, 12 MaskedPaths including /proc/asound, plus a separate list of five ReadonlyPaths |
+| cgroup v2                                | 67108864 bytes memory, zero swap, cpu.max 25000 100000, 16 PIDs                                                                                   |
+| Exit and cleanup                         | Exit 0, OOMKilled=false, watchdog 0, exact container and volume absent, inventory 0/0/3 unchanged, retained hashes verified                       |
+
+The historical three failures remain below. The successful run establishes masking for its own container. The earlier mount attribution remains unproven. The evidence establishes isolation for this network-none profile. It provides no host packet capture or attached-network result.
+
+**E5 = NOT_RUN. VDS_EQUIVALENCE = NOT_PROVEN. PHYSICAL_POWER_LOSS_DURABILITY = NOT_PROVEN.**
 
 ## Historical evidence
 
@@ -34,15 +47,15 @@ E1 retains its writable media mount. E4a creates `--mount type=volume,...,target
 
 The bounded profile remains 64 MiB memory, zero additional swap, 0.25 CPU, 16 PIDs, network none and private namespaces. Workload deadline is 30 s, start command budget is 12 s and cleanup deadline is 10 s. Safe diagnostics record numeric CLI return code, output lengths and stderr SHA-256, a limited probe stage/error code, actual container status, ExitCode, OOMKilled and the presence/hash of Engine Error. Raw error strings and arbitrary output are omitted. The top-level probe converts exceptions to a fixed-code failure report and exits nonzero. Watchdog exit and timeout remain separate diagnostic categories. Failure to observe state marks BLOCKED while cleanup still attempts to remove the authenticated writer and volume.
 
-## One-shot execution gate
+## Historical one-shot execution gate
 
 ```sh
 python3 -B experiments/wb-lab-01/runtime_e4a.py OWNER_E4A_ONLY_RUNTIME_APPROVED
 ```
 
-The agent verifies the checkout and staged hashes, uses the pinned existing Python image and executes the above command only after owner approval. The runner obtains the lab root lock and checks host metadata and watermarks. The retained evidence bytes are read through bounded nofollow descriptors, hash-checked and parsed from the same bytes. It verifies prior cleanup and absence of prior container IDs, names and volumes. A new run ID and evidence directory are created. The retired combined entry point returns `COMBINED_E3_E4A_RETIRED`. E4a-only never invokes E3 or provisions PostgreSQL.
+The command records the prior approved entry point. The accepted run is complete. The runner obtains the lab root lock and checks host metadata and watermarks. The retained evidence bytes are read through bounded nofollow descriptors, hash-checked and parsed from the same bytes. It verifies prior cleanup and absence of prior container IDs, names and volumes. A new run ID and evidence directory are created. The retired combined entry point returns `COMBINED_E3_E4A_RETIRED`. E4a-only never invokes E3 or provisions PostgreSQL.
 
-The successful retry requires all eight existing canaries, actual RO mount, confirmed stop/cleanup and preserved inventory. Both historical E4a failure records are hash-pinned along with accepted E0b–E3 evidence. A retry directory prevents another invocation. Any uncertain condition produces BLOCKED and retained evidence.
+The successful retry requires all eight existing canaries, actual RO mount, confirmed stop/cleanup and preserved inventory. All three historical E4a failure records are hash-pinned along with accepted E0b–E3 evidence. A retry directory prevents another invocation. Any uncertain condition produces BLOCKED and retained evidence.
 
 ## Verification and evidence limits
 

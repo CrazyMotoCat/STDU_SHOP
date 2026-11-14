@@ -1,6 +1,19 @@
 # WB-LAB-01 — VIS-CAT-02C lab
 
-**E3 accepted. E4a-only fix prepared.** See the [accepted E2 evidence](RUNTIME-E2.md) and [E3/E4a runbook](RUNTIME-E34.md). The combined cycle produced E3_RUNTIME_PASS and E4a BLOCKED. See [E4a-only retry](RUNTIME-E4A.md). E5 remains NOT_RUN. VDS equivalence remains NOT_PROVEN. PR #54 remains Draft.
+**E4A_RUNTIME_PASS принят. План E5 подготовлен.** PR #54 остаётся Draft.
+
+| Этап   | Результат на WB  | Граница доказательства                                                               |
+| ------ | ---------------- | ------------------------------------------------------------------------------------ |
+| E0a    | E0A_RUNTIME_PASS | Метаданные, владение ресурсами, фактические cgroup limits и очистка                  |
+| E0b    | E0B_RUNTIME_PASS | Изолированный PostgreSQL, sentinel-файлы и очистка                                   |
+| E1     | E1_RUNTIME_PASS  | Три сценария эксклюзивной записи, fsync и no-replace promotion                       |
+| E2     | E2_RUNTIME_PASS  | Шесть SQL-сценариев CAS, lease expiry, fencing, replay и rollback                    |
+| E3/E3b | E3_RUNTIME_PASS  | Десять сценариев контролируемых отказов, девять корректных ссылок, cleanup CONFIRMED |
+| E4a    | E4A_RUNTIME_PASS | 8/8 canaries, RO /media, подтверждённая маска /proc/asound и cleanup CONFIRMED       |
+
+E4a выполнен 2026-11-14 на 17976ff576661756d8a3354873dbd7cfc8db6854. Run da496b6c17c1458d86e9d4c299526c95. Evidence SHA-256 70c755b6e2e83d8bdecb69f0e1541e17b0f4b2bf8d77289f18ce868c1f23cc13. См. [E4a](RUNTIME-E4A.md) и [программу E5](RUNTIME-E5.md).
+
+**E5 = NOT_RUN. VDS_EQUIVALENCE = NOT_PROVEN. PHYSICAL_POWER_LOSS_DURABILITY = NOT_PROVEN.**
 
 ## Отклонения и бюджет
 
@@ -13,7 +26,7 @@ WB заменяет отдельную VM с отдельным 4 GiB ext4-ус�
 | Worker     | 128 MiB | 0.75 |  16 | Один decode job, 8 MiB scratch                               |
 | Verifier   | 128 MiB | 0.75 |  16 | Отдельный UID и отдельный запуск после worker, 8 MiB scratch |
 
-Текущий E0a Compose содержит только PostgreSQL и controller с суммарным потолком 256 MiB. Для будущей схемы сумма четырёх потолков составляет 512 MiB. При последовательной работе worker/verifier активный потолок 384 MiB, оставшиеся 128 MiB служат резервом для хостовой части запуска и мониторинга. Измерения накладных расходов Docker и cgroup peak на WB ещё нужны. Для всех контейнеров memory-swap равен memory. Concurrency 1. Порог запуска и остановки — MemAvailable 768 MiB и 4 GiB свободного места. Предлагаемый предел записи на серию — PG 128 MiB, media 64 MiB и evidence 32 MiB. Docker logs до 2 MiB на контейнер. Предельные размеры каталогов проверять отдельно от общего watermark. Изображения в локальном registry/cache и их скачивание измерять до серии отдельно.
+Текущий E0a Compose содержит только PostgreSQL и controller с суммарным потолком 256 MiB. Для будущей схемы сумма четырёх потолков составляет 512 MiB. При последовательной работе worker/verifier активный потолок 384 MiB, разница с суммой четырёх потолков составляет 128 MiB и не измеряет резерв ОС. Измерения накладных расходов Docker и cgroup peak на WB ещё нужны. Для всех контейнеров memory-swap равен memory. Concurrency 1. Порог запуска и остановки — MemAvailable 768 MiB и 4 GiB свободного места. Предлагаемый предел записи на серию — PG 128 MiB, media 64 MiB и evidence 32 MiB. Docker logs до 2 MiB на контейнер. Предельные размеры каталогов проверять отдельно от общего watermark. Изображения в локальном registry/cache и их скачивание измерять до серии отдельно.
 
 Потолок 128 MiB для кодека выбран как стартовый профиль на основании x86-64 измерений 02B, где worker достигал 85 MiB RSS. RSS на x86-64 не подтверждает cgroup peak на ARM64. Первый декод — маленький синтетический fixture из 02B. Превышение ресурсов останавливает серию. Worker и verifier используют тот же кодек в отдельных процессах. Разнообразие декодеров остаётся NOT_PROVEN.
 
@@ -28,7 +41,7 @@ env -u DOCKER_HOST -u DOCKER_CONTEXT -u DOCKER_TLS_VERIFY \
 
 Preflight сверяет подтверждённый daemon ID по `GET /info` через `/var/run/docker.sock`. Признаки MemoryLimit, SwapLimit, CpuCfsQuota, CpuCfsPeriod и PidsLimit берутся из Engine API. У Docker CLI template на WB нет CPU CFS полей. Запрос использует timeout сокета 5 секунд и ограничение ответа 1 MiB. Неуспешный ответ, отсутствующий признак и несовпадение версий Engine 29.9.2 или Compose 5.6.1 дают BLOCKED.
 
-Принятый JSON сохранён в приватном evidence. Для будущего отдельного этапа агент выполняет свежий preflight самостоятельно после сохранения предыдущего evidence. `E0A_HOST_METADATA_PASS` подтверждает метаданные хоста и заявленную Docker поддержку лимитов. Сам host-collector оставляет `resource_ownership`, `container_cgroup_limits` и `E0b` как `NOT_RUN`: фактические runtime-утверждения E0a доказаны отдельным принятым запуском, а не метаданными хоста. Compose в этом пакете используется для рендера и статической проверки. В нём доступны только PostgreSQL и controller. Валидатор отклоняет добавление decoder-сервисов. Для будущего запуска декодеров предусмотрен controller с одним слотом, удерживаемым до подтверждённого удаления предыдущего контейнера. E3/E3b и E4a требуют отдельного разрешения на совместный цикл.
+Принятый JSON сохранён в приватном evidence. Для будущего отдельного этапа агент выполняет свежий preflight самостоятельно после сохранения предыдущего evidence. `E0A_HOST_METADATA_PASS` подтверждает метаданные хоста и заявленную Docker поддержку лимитов. Сам host-collector оставляет `resource_ownership`, `container_cgroup_limits` и `E0b` как `NOT_RUN`: фактические runtime-утверждения E0a доказаны отдельным принятым запуском, а не метаданными хоста. Compose в этом пакете используется для рендера и статической проверки. В нём доступны только PostgreSQL и controller. Валидатор отклоняет добавление decoder-сервисов. Для будущего запуска декодеров предусмотрен controller с одним слотом, удерживаемым до подтверждённого удаления предыдущего контейнера. E3/E3b и E4a приняты. Следующий физический этап требует отдельного разрешения на E5.
 
 ARM64 codec build определён в Dockerfile.codec. Для будущей сборки использовать отдельный каталог wheels с wheel Pillow из requirements, полученным по HTTPS и сверенным с SHA-256. Запускать сборку из корня репозитория с `docker build --network none --platform linux/arm64 --build-context wheels=<путь> -f experiments/wb-lab-01/Dockerfile.codec -t stdu-wb-lab-codec:arm64 .`. Перед workload ledger должен закрепить локальный image ID и подтвердить Architecture. Boot PostgreSQL под UID 999 подтверждён E0b. Native codec build на WB остаётся NOT_RUN.
 

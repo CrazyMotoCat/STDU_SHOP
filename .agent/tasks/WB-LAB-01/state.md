@@ -1,12 +1,12 @@
 # WB-LAB-01 checkpoint
 
-TASK E4A-MASK-POLICY-FIX
-STATUS E4A_MASK_FIX_READY_FOR_OWNER_RUNTIME_DECISION
+TASK E4A-ACCEPTANCE + E5-PLAN
+STATUS WB_LAB_01_E4A_ACCEPTED_E5_PLAN_READY
 BRANCH codex/wb-lab-01, Draft PR #54
-BASELINE 06af094750f6a3c77da7acd09325a1e84d1dcdff
+BASELINE 17976ff576661756d8a3354873dbd7cfc8db6854
 
-E3 accepted. The E4a-only retry stopped at UNEXPECTED_MOUNT with cleanup CONFIRMED. The exact mount and origin remain unproven. Both failed E4a runs remain hash-pinned in the history gate.
+E4A_RUNTIME_PASS accepted. WB run da496b6c17c1458d86e9d4c299526c95 on 2026-11-14 at the baseline HEAD, 9.663 s, 8/8 canaries and cleanup CONFIRMED. Evidence SHA-256 70c755b6e2e83d8bdecb69f0e1541e17b0f4b2bf8d77289f18ce868c1f23cc13. All three historical failures remain retained.
 
-The namespace probe now records a bounded mount report from one snapshot. The exact allowlist and canary criteria are preserved. The local Docker fixture confirms the normal RO profile and rejects a real unknown RW tmpfs before network probes. See experiments/wb-lab-01/RUNTIME-E4A.md. The next physical E4a-only run requires OWNER_E4A_ONLY_RUNTIME_APPROVED on the reviewed HEAD.
+E5 = NOT_RUN. VDS_EQUIVALENCE = NOT_PROVEN. PHYSICAL_POWER_LOSS_DURABILITY = NOT_PROVEN.
 
-Third E4a diagnostic identified /proc/asound, RO tmpfs, root /. Historical provenance remains MASK_ORIGIN_NOT_PROVEN. The conditional exception requires live Docker mask policy and exact mount attributes. The next run retains all historical hashes.
+The plan is experiments/wb-lab-01/RUNTIME-E5.md. Next owner decision authorizes only E5A after the measurement runner is reviewed. Codec image provisioning and worker/verifier workload require a distinct decision.
