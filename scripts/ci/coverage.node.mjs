@@ -17,6 +17,12 @@ const ingestionAcceptance = [
   '',
 ].join('\n');
 
+const reviewAcceptance = [
+  '      - name: R1-009A isolated individual supplier review and apply',
+  '        run: pnpm test:r1-009a',
+  '',
+].join('\n');
+
 test('the redundant legacy workflow is retired', () => {
   assert.equal(
     existsSync(new URL('../../.github/workflows/ci.yml', import.meta.url)),
@@ -38,12 +44,17 @@ test('FULL retains every original step in order, including commands, env, cleanu
       / {6}- name: CI policy tests and diff hygiene\n[\s\S]*?(?= {6}- run: pnpm toolchain:check)/,
       '',
     )
-    .replace(ingestionAcceptance, '');
+    .replace(ingestionAcceptance, '')
+    .replace(reviewAcceptance, '');
   assert.equal(normalized.trimEnd(), originalSteps.trimEnd());
 });
 test('FULL runs the R1-008B contract and isolated recovery suite', () => {
   assert.equal(full.split(ingestionAcceptance).length, 2);
 });
+test('FULL runs the isolated R1-009A individual apply suite', () => {
+  assert.equal(full.split(reviewAcceptance).length, 2);
+});
+
 test('gate always runs, explicit required success and main groups are unique', () => {
   assert(full.includes('if: ${{ always() }}\n    needs: [plan, full]'));
   assert(full.includes('github.event.pull_request.number || github.run_id'));

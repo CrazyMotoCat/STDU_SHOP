@@ -118,3 +118,25 @@ export class IngestionRowsPage {
   @Max(100)
   afterRow?: number;
 }
+
+export class IngestionPreviewQuery {
+  @ApiProperty({ type: String, format: 'uuid' }) @IsUUID('4') offerId!: string;
+}
+
+export class IngestionApplyInput {
+  @ApiProperty({ type: String, format: 'uuid' }) @IsUUID('4') offerId!: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  expectedRowVersion!: number;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  expectedOfferVersion!: number;
+  @ApiProperty({ type: String, format: 'uuid' })
+  @IsUUID('4')
+  expectedOfferRevisionId!: string;
+  @ApiProperty({ type: String, format: 'uuid' })
+  @IsUUID('4')
+  decisionId!: string;
+}

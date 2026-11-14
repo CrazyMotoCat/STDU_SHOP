@@ -1325,7 +1325,15 @@ export class SuppliersService {
 
   async getSupplierOffer(request: StaffRequest, offerId: string) {
     this.require(request, 'suppliers.offers.read', 'suppliers.read');
-    const row = await this.db.supplierOffer.findUnique({
+    return this.getSupplierOfferInTransaction(this.db, request, offerId);
+  }
+
+  async getSupplierOfferInTransaction(
+    tx: Tx,
+    request: StaffRequest,
+    offerId: string,
+  ) {
+    const row = await tx.supplierOffer.findUnique({
       where: { id: offerId },
       include: {
         supplier: true,
@@ -1415,7 +1423,7 @@ export class SuppliersService {
     offerId: string,
     input: ReviseSupplierOfferDto,
   ) {
-    const normalized = offerInput(input);
+    offerInput(input);
     return this.mutate(
       request,
       key,
@@ -1423,71 +1431,89 @@ export class SuppliersService {
       'PATCH',
       `/v1/staff/supplier-offers/${offerId}`,
       input,
-      async (tx, actorId) => {
-        const supplierRef = await tx.supplierOffer.findUnique({
-          where: { id: offerId },
-          select: { supplierId: true },
-        });
-        if (!supplierRef) throw new StaffError('NOT_FOUND');
-        await this.lock(tx, 'supplier', supplierRef.supplierId);
-        await this.lock(tx, 'supplier_offer', offerId);
-        const current = await tx.supplierOffer.findUnique({
-          where: { id: offerId },
-          include: { supplier: true, currentRevision: true },
-        });
-        if (!current) throw new StaffError('NOT_FOUND');
-        if (current.version !== input.expectedVersion)
-          throw new StaffError('VERSION_CONFLICT');
-        if (current.state !== 'ACTIVE' || current.supplier.state !== 'ACTIVE')
-          throw new StaffError('INVALID_STATE_TRANSITION');
-        await this.assertBrandActive(tx, normalized.brandId);
-        const revisionNo =
-          (await tx.supplierOfferRevision.count({ where: { offerId } })) + 1;
-        const revisionId = randomUUID();
-        await tx.supplierOfferRevision.create({
-          data: {
-            id: revisionId,
-            offerId,
-            revisionNo,
-            ...normalized,
-            recordedByStaffUserId: actorId,
-          },
-        });
-        const version = current.version + 1;
-        await tx.supplierOffer.update({
-          where: { id: offerId },
-          data: {
-            currentRevisionId: revisionId,
-            version,
-            updatedByStaffUserId: actorId,
-          },
-        });
-        await this.audit(
+      async (tx) => {
+        return this.reviseSupplierOfferInTransaction(
           tx,
           request,
-          actorId,
-          'supplier_offer.revised',
-          'SupplierOffer',
           offerId,
-          null,
-          {
-            supplierId: current.supplierId,
-            offerId,
-            revisionId,
-            actorId,
-            version,
-            changedFieldNames: [...ALLOWED_OFFER_FIELDS].sort(),
-          },
+          input,
         );
-        return {
-          status: 200,
-          data: resultEnvelope(
-            { id: offerId, version, revisionId },
-            request.requestId,
-          ),
-        };
       },
     );
+  }
+
+  // Shared by the existing manual endpoint and one-row ingestion APPLY.
+  // The caller owns the transaction, authorization and durable command receipt.
+  async reviseSupplierOfferInTransaction(
+    tx: Tx,
+    request: StaffRequest,
+    offerId: string,
+    input: ReviseSupplierOfferDto,
+  ) {
+    const normalized = offerInput(input);
+    const actorId = request.staff!.id;
+    const supplierRef = await tx.supplierOffer.findUnique({
+      where: { id: offerId },
+      select: { supplierId: true },
+    });
+    if (!supplierRef) throw new StaffError('NOT_FOUND');
+    await this.lock(tx, 'supplier', supplierRef.supplierId);
+    await this.lock(tx, 'supplier_offer', offerId);
+    const current = await tx.supplierOffer.findUnique({
+      where: { id: offerId },
+      include: { supplier: true, currentRevision: true },
+    });
+    if (!current) throw new StaffError('NOT_FOUND');
+    if (current.version !== input.expectedVersion)
+      throw new StaffError('VERSION_CONFLICT');
+    if (current.state !== 'ACTIVE' || current.supplier.state !== 'ACTIVE')
+      throw new StaffError('INVALID_STATE_TRANSITION');
+    await this.assertBrandActive(tx, normalized.brandId);
+    const revisionNo =
+      (await tx.supplierOfferRevision.count({ where: { offerId } })) + 1;
+    const revisionId = randomUUID();
+    await tx.supplierOfferRevision.create({
+      data: {
+        id: revisionId,
+        offerId,
+        revisionNo,
+        ...normalized,
+        recordedByStaffUserId: actorId,
+      },
+    });
+    const version = current.version + 1;
+    await tx.supplierOffer.update({
+      where: { id: offerId },
+      data: {
+        currentRevisionId: revisionId,
+        version,
+        updatedByStaffUserId: actorId,
+      },
+    });
+    await this.audit(
+      tx,
+      request,
+      actorId,
+      'supplier_offer.revised',
+      'SupplierOffer',
+      offerId,
+      null,
+      {
+        supplierId: current.supplierId,
+        offerId,
+        revisionId,
+        actorId,
+        version,
+        changedFieldNames: [...ALLOWED_OFFER_FIELDS].sort(),
+      },
+    );
+    return {
+      status: 200,
+      data: resultEnvelope(
+        { id: offerId, version, revisionId },
+        request.requestId,
+      ),
+    };
   }
 
   private async assertBrandActive(tx: Tx, brandId: string | null) {
