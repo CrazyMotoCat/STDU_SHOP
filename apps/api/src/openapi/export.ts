@@ -383,10 +383,10 @@ export async function createCatalogRuntimeOpenApi() {
 
 export async function createIngestionOpenApi() {
   const document = await createNestOpenApiDocument();
-  document.info.title = 'STDU R1-008B Supplier Ingestion';
+  document.info.title = 'STDU Supplier Ingestion and Manual Review';
   for (const path of Object.keys(document.paths))
     if (!path.startsWith('/v1/staff/ingestion/')) delete document.paths[path];
-  inventoryRoutes(document, [SupplierIngestionController], 10);
+  inventoryRoutes(document, [SupplierIngestionController], 13);
   const schemas = document.components?.schemas;
   if (schemas)
     for (const name of Object.keys(schemas))

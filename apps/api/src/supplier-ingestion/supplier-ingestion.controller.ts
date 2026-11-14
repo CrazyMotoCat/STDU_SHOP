@@ -1,4 +1,6 @@
+import { SupplierApplyService } from './supplier-apply.service.js';
 import {
+  ingestionApplyResponses,
   ingestionResponses,
   ingestionErrorSchema,
 } from './supplier-ingestion.openapi.js';
@@ -46,6 +48,8 @@ import {
   SupplierIngestionService,
 } from './supplier-ingestion.service.js';
 import {
+  IngestionPreviewQuery,
+  IngestionApplyInput,
   IngestionSourceInput,
   IngestionSourcePatch,
   IngestionRunInput,
@@ -138,6 +142,8 @@ export class SupplierIngestionController {
   constructor(
     @Inject(SupplierIngestionService)
     private readonly service: SupplierIngestionService,
+    @Inject(SupplierApplyService)
+    private readonly applyService: SupplierApplyService,
   ) {}
   private async respond(
     response: Response,
@@ -380,5 +386,83 @@ export class SupplierIngestionController {
   @StaffOperation({ permission: 'ingestion.read', csrf: 'NONE', audit: 'none' })
   decisions(@Req() request: StaffRequest, @Param('id', rowId) id: string) {
     return this.service.decisions(request, id);
+  }
+
+  @Get('rows/:id/preview')
+  @ApiOperation({ operationId: 'ingestion_previewApply' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiQuery({
+    name: 'offerId',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'One staging row, explicit selected offer, comparison and safe provenance history',
+    schema: ingestionApplyResponses.preview,
+  })
+  @StaffOperation({ permission: 'ingestion.read', csrf: 'NONE', audit: 'none' })
+  preview(
+    @Req() request: StaffRequest,
+    @Param('id', rowId) id: string,
+    @Query() query: IngestionPreviewQuery,
+  ) {
+    return this.applyService.preview(request, id, query.offerId);
+  }
+
+  @Get('rows/:id/applications')
+  @ApiOperation({ operationId: 'ingestion_applications' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Immutable one-row application provenance',
+    schema: ingestionApplyResponses.applications,
+  })
+  @StaffOperation({ permission: 'ingestion.read', csrf: 'NONE', audit: 'none' })
+  applications(@Req() request: StaffRequest, @Param('id', rowId) id: string) {
+    return this.applyService.applications(request, id);
+  }
+
+  @Post('rows/:id/apply')
+  @ApiOperation({ operationId: 'ingestion_apply' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiBody({ type: IngestionApplyInput })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Manually applied one accepted row, immutable revision and provenance',
+    schema: ingestionApplyResponses.apply,
+  })
+  @StaffOperation({
+    permission: 'ingestion.read',
+    csrf: 'STAFF_BOUND',
+    audit: 'supplier_offer.revised',
+  })
+  apply(
+    @Req() request: StaffRequest,
+    @Headers('idempotency-key') key: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+    @Param('id', rowId) id: string,
+    @Body() input: IngestionApplyInput,
+  ) {
+    return this.respond(
+      response,
+      this.applyService.apply(request, key, id, input),
+    );
   }
 }
