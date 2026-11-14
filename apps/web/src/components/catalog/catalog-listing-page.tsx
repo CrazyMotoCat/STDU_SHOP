@@ -1,8 +1,12 @@
+import Link from 'next/link';
+import { CatalogFilterPanel } from './catalog-filter-panel';
+import { catalogTestSiteEnabled } from '../../lib/catalog/test-site-config';
 import { notFound } from 'next/navigation';
 import type { PageSearchParams } from '../../lib/catalog/query';
 import {
   categoryAncestorsFromSearchParams,
   firstValue,
+  hrefWithQuery,
   productFiltersFromSearchParams,
   productQueryFromSearchParams,
 } from '../../lib/catalog/query';
@@ -91,6 +95,29 @@ export async function CatalogListingPage({
       )
     : [];
   const filterValues = productFiltersFromSearchParams(searchParams);
+  const activeCount =
+    filterValues.length +
+    Number(Boolean(query.brandSlug)) +
+    Number(query.includeDescendants === false && !filterValues.length) +
+    Number(Boolean(query.sort && query.sort !== 'name_asc')) +
+    Number(Boolean(query.pageSize && query.pageSize !== 24));
+  const resetHref = hrefWithQuery(
+    pathname,
+    searchParams,
+    {},
+    {
+      omit: [
+        'q',
+        'brandSlug',
+        'filter',
+        'includeDescendants',
+        'sort',
+        'pageSize',
+        'page',
+        'categoryCursor',
+      ],
+    },
+  );
   const filterCategory = query.categorySlug ?? currentCategory?.slug;
   const categoryLabel =
     categoryNames.join(' / ') || filterCategory || 'выбранной категории';
@@ -104,7 +131,7 @@ export async function CatalogListingPage({
         title={currentCategory?.name ?? 'Инженерное оборудование'}
         description={
           currentCategory
-            ? `Опубликованные товары и дочерние разделы: ${currentCategory.name}.`
+            ? `${catalogTestSiteEnabled() ? 'Демонстрационные позиции' : 'Опубликованные товары и дочерние разделы'}: ${currentCategory.name}.`
             : 'Электротехническое оборудование для комплектации проектов и инженерных решений.'
         }
         visual={!currentCategory}
@@ -152,7 +179,7 @@ export async function CatalogListingPage({
           />
         )}
         <div className={styles.browseBand}>
-          <aside className={styles.filterPanel} aria-label="Параметры каталога">
+          <CatalogFilterPanel activeCount={activeCount}>
             <div className={styles.filterPanelHeading}>
               <p className={styles.eyebrow}>БЫСТРЫЙ ПОДБОР</p>
               <h2>Поиск и фильтры</h2>
@@ -168,6 +195,7 @@ export async function CatalogListingPage({
             />
             <details
               className={styles.advancedFilters}
+              id="catalog-technical-filters"
               open={filterValues.length > 0}
             >
               <summary>
@@ -175,7 +203,12 @@ export async function CatalogListingPage({
                 <span className={styles.detailsToggle} aria-hidden="true" />
               </summary>
               <div className={styles.advancedFiltersContent}>
-                {filterCategory ? (
+                {catalogTestSiteEnabled() ? (
+                  <p className={styles.inlineNote}>
+                    В тестовом каталоге доступны поиск и категории. Расширенные
+                    технические фильтры для демонстрационных данных не включены.
+                  </p>
+                ) : filterCategory ? (
                   <TechnicalFilterForm
                     action={pathname}
                     categorySlug={filterCategory}
@@ -200,7 +233,12 @@ export async function CatalogListingPage({
                 )}
               </div>
             </details>
-          </aside>
+            {activeCount || query.q ? (
+              <Link className={styles.resetFilters} href={resetHref}>
+                Сбросить параметры
+              </Link>
+            ) : null}
+          </CatalogFilterPanel>
           <div>
             {products.ok ? (
               <CatalogResults

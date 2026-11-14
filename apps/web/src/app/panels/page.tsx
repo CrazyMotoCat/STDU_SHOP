@@ -108,7 +108,7 @@ export default function PanelsPage() {
               <div className={styles.heroCopy}>
                 <p className={styles.eyebrow}>ЭЛЕКТРОТЕХНИЧЕСКИЕ ШКАФЫ</p>
                 <h1 id="panels-title">
-                  Проектирование и изготовление <em>электрощитов</em>
+                  Проектирование и&nbsp;изготовление <em>электрощитов</em>
                 </h1>
                 <p className={styles.heroLead}>
                   От технической задачи и схемы до комплектации, сборки и

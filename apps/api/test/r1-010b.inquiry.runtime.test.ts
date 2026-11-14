@@ -1,3 +1,13 @@
+import { createServer as createHttpServer } from 'node:http';
+import { once } from 'node:events';
+import { Pool } from 'pg';
+import { Readable } from 'node:stream';
+import { InquiryScanStreamServer } from '../src/inquiries/scan-stream.server.js';
+import {
+  FLAGS,
+  scanNext,
+  validateStructure,
+} from '../src/scan-worker/cloudmersive.js';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { createServer } from 'node:net';
@@ -3609,6 +3619,172 @@ describe.skipIf(!runtimeEnabled)(
       expect(denied.body.code).toBe('FILE_NOT_ACCESSIBLE');
     });
 
+    it.skipIf(process.env.SEC_API_02_SYNTHETIC_SCAN_ENABLED !== 'true')(
+      'SEC-API-02 binds concurrent mocked scans to the original and keeps L0 closed',
+      async () => {
+        const archive = minimalXlsx(true);
+        expect(await validateStructure(archive, 'xlsx')).toBe(true);
+        const damaged = Buffer.from(archive);
+        const workbook = damaged.indexOf(Buffer.from('xl/workbook.xml'));
+        const payloadStart = workbook + 'xl/workbook.xml'.length;
+        damaged[payloadStart] = damaged[payloadStart]! ^ 0xff;
+        expect(await validateStructure(damaged, 'xlsx')).toBe(false);
+        const capability = randomBytes(32).toString('base64url');
+        const created = await createInquiry({
+          ...equipmentPayload('Synthetic scanner test'),
+          uploadCapability: capability,
+        });
+        const inquiry = await ownerDb!.inquiry.findUniqueOrThrow({
+          where: {
+            publicReference: data<{ publicReference: string }>(created)
+              .publicReference,
+          },
+        });
+        const bytes = minimalPdf();
+        const fixtures = new Map([
+          [createHash('sha256').update(bytes).digest('hex'), 'pdf' as const],
+        ]);
+        const createDocument = async () => {
+          const auth = { 'X-Inquiry-Upload-Capability': capability };
+          const intent = await publicRequest(
+            'POST',
+            '/v1/public/inquiry-attachments/upload-intents',
+            {
+              filename: 'synthetic.pdf',
+              declaredMimeType: 'application/pdf',
+              sizeBytes: bytes.length,
+            },
+            { ...auth, 'Idempotency-Key': randomUUID() },
+          );
+          expect(intent.status).toBe(201);
+          const intentId = String(obj(intent.body.data).intentId);
+          const uploaded = await publicRequest(
+            'PUT',
+            `/v1/public/inquiry-attachments/upload-intents/${intentId}/content`,
+            bytes,
+            {
+              ...auth,
+              'Idempotency-Key': randomUUID(),
+              'Content-Type': 'application/octet-stream',
+            },
+          );
+          expect(uploaded.status).toBe(201);
+          return ownerDb!.inquirySourceDocument.findUniqueOrThrow({
+            where: { uploadIntentId: intentId },
+          });
+        };
+        let calls = 0;
+        let transmitted = Buffer.alloc(0);
+        const server = createHttpServer((request, response) => {
+          const chunks: Buffer[] = [];
+          request.on('data', (chunk: Buffer) => chunks.push(chunk));
+          request.on('end', () => {
+            transmitted = Buffer.concat(chunks);
+            calls++;
+            if (calls === 3) {
+              response.writeHead(429).end();
+              return;
+            }
+            response.writeHead(200, { 'Content-Type': 'application/json' });
+            response.end(
+              JSON.stringify({
+                ...Object.fromEntries(FLAGS.map((flag) => [flag, false])),
+                CleanResult: calls === 1,
+                FoundViruses:
+                  calls === 1
+                    ? null
+                    : [
+                        {
+                          FileName: 'synthetic.pdf',
+                          VirusName: 'synthetic threat',
+                        },
+                      ],
+                VerifiedFileFormat: 'pdf',
+              }),
+            );
+          });
+        });
+        const listening = once(server, 'listening');
+        server.listen(0, '127.0.0.1');
+        const pool = new Pool({
+          connectionString: process.env.SEC_API_02_WORKER_DATABASE_URL,
+        });
+        try {
+          await listening;
+          const address = server.address();
+          if (!address || typeof address === 'string')
+            throw new Error('Mock unavailable');
+          const storage = app!.get(PrivateFileStorage);
+          const streamPort = app!.get(InquiryScanStreamServer).port;
+          const run = () => scanNext(pool, streamPort, address.port, fixtures);
+          const candidate = await createDocument();
+          expect(await Promise.all([run(), run()])).toEqual(
+            expect.arrayContaining(['CLEAN_VERIFIED', null]),
+          );
+          expect(calls).toBe(1);
+          expect(transmitted.includes(bytes)).toBe(true);
+          const threat = await createDocument();
+          expect(await run()).toBe('INFECTED');
+          const changed = await createDocument();
+          const tamper = vi
+            .spyOn(storage, 'openInquiryQuarantineForScan')
+            .mockResolvedValueOnce(Readable.from([Buffer.alloc(bytes.length)]));
+          try {
+            expect(await run()).toBe('SCAN_ERROR');
+            expect(calls).toBe(2);
+          } finally {
+            tamper.mockRestore();
+          }
+          const blocked = await createDocument();
+          expect(await run()).toBe('PROVIDER_BLOCKED');
+          const pending = await createDocument();
+          expect(await run()).toBeNull();
+          expect(calls).toBe(3);
+          const download = vi.spyOn(storage, 'openInquiryQuarantine');
+          try {
+            for (const [document, state] of [
+              [candidate, 'SCAN_ERROR'],
+              [threat, 'REJECTED'],
+              [changed, 'SCAN_ERROR'],
+              [blocked, 'SCAN_ERROR'],
+              [pending, 'QUARANTINED'],
+            ] as const) {
+              expect(
+                (
+                  await ownerDb!.inquirySourceDocument.findUniqueOrThrow({
+                    where: { id: document.id },
+                  })
+                ).safetyState,
+              ).toBe(state);
+              const denied = await fullActor.agent.request(
+                'GET',
+                `/v1/staff/inquiries/${inquiry.id}/documents/${document.id}/download`,
+              );
+              expect(denied.status).toBe(404);
+              expect(denied.body.code).toBe('FILE_NOT_ACCESSIBLE');
+              expect(
+                await ownerDb!.auditEvent.count({
+                  where: {
+                    entityId: document.id,
+                    action: 'inquiry.document.downloaded',
+                    outcome: 'SUCCESS',
+                  },
+                }),
+              ).toBe(0);
+            }
+            expect(download).not.toHaveBeenCalled();
+          } finally {
+            download.mockRestore();
+          }
+          expect(await run()).toBeNull();
+        } finally {
+          await pool.end();
+          server.close();
+          server.closeAllConnections();
+        }
+      },
+    );
+
     it('R1-010D-L0: originals remain inaccessible after authorization in every state', async () => {
       const capability = randomBytes(32).toString('base64url');
       const created = await createInquiry({
@@ -3773,17 +3949,42 @@ describe.skipIf(!runtimeEnabled)(
         expect(range.rawBody).not.toContain(
           bytes.subarray(0, 11).toString('utf8'),
         );
-        const encoded = await fullActor.agent.request(
-          'GET',
+        const forbiddenPaths = [
           path.replace('/download', '/%64ownload'),
+          path.replace('/download', '/%2564ownload'),
+          path.replace('/documents/', '/%64ocuments/'),
+          path.replace('/download', '//download'),
+          path.replace('/download', '/%2fdownload'),
+          path.replace('/download', '/down%2Fload'),
+          path.replace('/inquiries/', '/%69nquiries/'),
+          path.replace('/download', '/unregistered'),
+          '/v1/staff/auth/%6de',
+          '/v1/staff/%75sers',
+          '/v1/staff/catalog/%70roducts',
+        ];
+        const download = vi.spyOn(
+          app!.get(InquiriesService),
+          'downloadDocument',
         );
-        // The existing boundary maps this encoded route to INTERNAL_ERROR.
-        // The security property here is that it cannot return file bytes.
-        expect(encoded.status).toBe(500);
-        expect(encoded.body.code).toBe('INTERNAL_ERROR');
-        expect(encoded.rawBody).not.toContain(
-          bytes.subarray(0, 11).toString('utf8'),
-        );
+        try {
+          for (const url of forbiddenPaths) {
+            for (const agent of [fullActor.agent, anonymous]) {
+              const unmatched = await agent.request('GET', url);
+              expect(unmatched.status).toBe(404);
+              expect(unmatched.body.code).toBe('NOT_FOUND');
+              expect(unmatched.headers.get('content-type')).toContain(
+                'application/json',
+              );
+              expect(unmatched.rawBody).not.toContain(
+                bytes.subarray(0, 11).toString('utf8'),
+              );
+              expect(download).not.toHaveBeenCalled();
+              expect(open).not.toHaveBeenCalled();
+            }
+          }
+        } finally {
+          download.mockRestore();
+        }
         expect(open).not.toHaveBeenCalled();
         expect(
           await ownerDb!.auditEvent.count({

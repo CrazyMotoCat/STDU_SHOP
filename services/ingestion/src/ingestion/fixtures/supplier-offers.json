@@ -1,0 +1,22 @@
+[
+  {
+    "supplier_part_number": "TEST-0001",
+    "offer_name": "TEST synthetic control module",
+    "source_brand_text": "TEST Instruments",
+    "manufacturer_name": "TEST Instruments",
+    "original_part_number": "TEST-CTRL-001",
+    "modification": "A",
+    "purchase_cost": "1250.00",
+    "currency": "RUB",
+    "source_vat_text": "TEST: tax unspecified",
+    "availability_text": "TEST: source-reported availability",
+    "source_observed_at": "2026-11-07T00:00:00Z",
+    "source_url": "https://mock.invalid/offers/TEST-0001"
+  },
+  {
+    "supplier_part_number": "TEST-0002",
+    "offer_name": "TEST synthetic interface module",
+    "manufacturer_name": "TEST Instruments",
+    "original_part_number": "TEST-IF-002"
+  }
+]

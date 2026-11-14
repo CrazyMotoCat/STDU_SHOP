@@ -1,3 +1,7 @@
+import { catalogTestSiteEnabled } from '../../lib/catalog/test-site-config';
+import demoData from '../../lib/catalog/iek-demo-data.json';
+import { getDemoMedia } from '../../lib/catalog/demo-media';
+import { DemoProductPhoto } from './demo-product-photo';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -197,20 +201,52 @@ export function ProductImage({
       aria-label={
         state === 'loading'
           ? `Загрузка изображения: ${label}`
-          : `Публичная фотография товара не подключена: ${label}`
+          : `Изображение товара не предоставлено: ${label}`
       }
       aria-busy={state === 'loading'}
     >
-      <svg aria-hidden="true" viewBox="0 0 64 64" fill="none">
-        <path d="M13 14h12M13 14v12m38-12H39m12 0v12M13 50h12m-12 0V38m38 12H39m12 0V38" />
-        <path d="M19 32h8l5-8 8 16 5-8h1" />
-        <circle cx="19" cy="32" r="2" />
-        <circle cx="45" cy="32" r="2" />
-      </svg>
+      <span className={styles.productImageMark} aria-hidden="true">
+        <svg aria-hidden="true" viewBox="0 0 64 64" fill="none">
+          <path d="M13 14h12M13 14v12m38-12H39m12 0v12M13 50h12m-12 0V38m38 12H39m12 0V38" />
+          <path d="M19 32h8l5-8 8 16 5-8h1" />
+          <circle cx="19" cy="32" r="2" />
+          <circle cx="45" cy="32" r="2" />
+        </svg>
+      </span>
       <span>
-        {state === 'loading' ? 'Загрузка изображения' : 'Фото не подключено'}
+        {state === 'loading'
+          ? 'Загрузка изображения'
+          : compact
+            ? 'Фото нет'
+            : 'Фотография пока недоступна'}
       </span>
     </div>
+  );
+}
+
+function ProductMedia({
+  product,
+  compact = false,
+  gallery = false,
+}: {
+  product: PublicProductCard;
+  compact?: boolean;
+  gallery?: boolean;
+}) {
+  const demo = getDemoMedia(product);
+  const fallback = (
+    <ProductImage compact={compact} label={product.displayName} />
+  );
+  return demo ? (
+    <DemoProductPhoto
+      key={product.slug}
+      images={demo.images}
+      compact={compact}
+      gallery={gallery}
+      fallback={fallback}
+    />
+  ) : (
+    fallback
   );
 }
 
@@ -226,6 +262,9 @@ function ProductIdentity({ product }: { product: PublicProductCard }) {
           {product.displayName}
         </Link>
       </h3>
+      {catalogTestSiteEnabled() && getDemoMedia(product)?.summary ? (
+        <p className={styles.demoSummary}>{getDemoMedia(product)?.summary}</p>
+      ) : null}
       <dl className={styles.identityList}>
         {product.manufacturerName ? (
           <div>
@@ -236,7 +275,11 @@ function ProductIdentity({ product }: { product: PublicProductCard }) {
         {product.originalPartNumber ? (
           <div>
             <dt>Артикул</dt>
-            <dd>{product.originalPartNumber}</dd>
+            <dd className={styles.productPartNumber}>
+              <code className={styles.productCode}>
+                {product.originalPartNumber}
+              </code>
+            </dd>
           </div>
         ) : null}
         {product.modification ? (
@@ -262,7 +305,7 @@ function PriceDisplay({ product }: { product: PublicProductCard }) {
 function ProductTile({ product }: { product: PublicProductCard }) {
   return (
     <article className={styles.productTile}>
-      <ProductImage label={product.displayName} />
+      <ProductMedia product={product} />
       <div className={styles.productTileBody}>
         <ProductIdentity product={product} />
         <div className={styles.productTileFooter}>
@@ -282,7 +325,7 @@ function ProductTile({ product }: { product: PublicProductCard }) {
 function ProductListItem({ product }: { product: PublicProductCard }) {
   return (
     <article className={styles.productListItem}>
-      <ProductImage compact label={product.displayName} />
+      <ProductMedia compact product={product} />
       <ProductIdentity product={product} />
       <PriceDisplay product={product} />
       <Link
@@ -455,11 +498,12 @@ export function ProductSearchForm({
           />
         </label>
         <button className={styles.applyButton} type="submit">
-          Применить параметры <span aria-hidden="true">→</span>
+          Найти <span aria-hidden="true">→</span>
         </button>
       </div>
       <details
         className={styles.searchOptions}
+        id="catalog-search-options"
         open={Boolean(query.brandSlug || categorySlug)}
       >
         <summary>
@@ -565,7 +609,6 @@ export function TechnicalSummary({
     <section className={styles.detailSection} aria-labelledby="spec-title">
       <div className={styles.sectionHeading}>
         <div>
-          <p className={styles.eyebrow}>ПАРАМЕТРЫ ИЗ ОПУБЛИКОВАННОЙ РЕДАКЦИИ</p>
           <h2 id="spec-title">{title}</h2>
         </div>
         <span className={styles.sectionIndex}>
@@ -579,7 +622,6 @@ export function TechnicalSummary({
             <tr>
               <th scope="col">Параметр</th>
               <th scope="col">Значение</th>
-              <th scope="col">Код</th>
             </tr>
           </thead>
           <tbody>
@@ -587,9 +629,6 @@ export function TechnicalSummary({
               <tr key={attribute.attributeCode}>
                 <th scope="row">{attribute.label}</th>
                 <td>{formatAttributeValue(attribute)}</td>
-                <td className={styles.attributeCode}>
-                  {attribute.attributeCode}
-                </td>
               </tr>
             ))}
           </tbody>
@@ -820,6 +859,18 @@ export function CatalogResults({
 }
 
 export function ProductDetailView({ product }: { product: PublicProduct }) {
+  const categoryLink = categoryHref([product.category.slug]);
+  const brand = product.brand?.name.trim();
+  const manufacturer = product.manufacturerName?.trim();
+  const productNames =
+    brand && brand.toLowerCase() === manufacturer?.toLowerCase()
+      ? brand
+      : [brand, manufacturer].filter(Boolean).join(' · ');
+  const productHint = product.originalPartNumber
+    ? `${product.originalPartNumber} — ${product.displayName}`
+    : product.displayName;
+  const quoteHref = `/request-quote?${new URLSearchParams({ kind: 'equipment', product: productHint.slice(0, 120) })}`;
+
   return (
     <>
       <CatalogBreadcrumbs
@@ -827,7 +878,7 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
           { label: 'Каталог', href: '/catalog' },
           {
             label: product.category.name,
-            href: `/catalog/category/${encodeURIComponent(product.category.slug)}`,
+            href: categoryLink,
           },
           { label: product.displayName },
         ]}
@@ -835,48 +886,57 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
       <main id="main" className={styles.content}>
         <div className={styles.productDetailHeader}>
           <section
-            className={styles.detailMedia}
-            aria-label="Изображения и документы"
+            className={styles.detailIdentity}
+            aria-label="Идентификация товара"
           >
-            <ProductImage label={product.displayName} />
-            <p className={styles.mediaNote}>
-              Публичные фото и документы не подключены.
-            </p>
-          </section>
-          <section aria-label="Идентификация товара">
-            <p className={styles.eyebrow}>ИДЕНТИФИКАЦИЯ</p>
             <h1 className={styles.productTitle}>{product.displayName}</h1>
-            <p className={styles.productSubtitle}>
-              {product.brand?.name ?? 'Бренд не указан'}
-              {product.manufacturerName ? ` · ${product.manufacturerName}` : ''}
-            </p>
+            {productNames ? (
+              <p className={styles.productSubtitle}>{productNames}</p>
+            ) : null}
             <dl className={styles.productFacts}>
               <div>
-                <dt>Оригинальный артикул</dt>
-                <dd>{product.originalPartNumber ?? 'Не указан'}</dd>
+                <dt>Артикул</dt>
+                <dd>
+                  {product.originalPartNumber ? (
+                    <code className={styles.productCode}>
+                      {product.originalPartNumber}
+                    </code>
+                  ) : (
+                    'Не указан'
+                  )}
+                </dd>
               </div>
-              <div>
-                <dt>Модификация</dt>
-                <dd>{product.modification ?? 'Не указана'}</dd>
-              </div>
-              <div>
-                <dt>Категория</dt>
-                <dd>{product.category.name}</dd>
-              </div>
-              {product.brand ? (
+              {product.modification ? (
                 <div>
-                  <dt>Бренд</dt>
-                  <dd>{product.brand.name}</dd>
+                  <dt>Модификация</dt>
+                  <dd>{product.modification}</dd>
                 </div>
               ) : null}
+              <div>
+                <dt>Категория</dt>
+                <dd>
+                  <Link href={categoryLink}>{product.category.name}</Link>
+                </dd>
+              </div>
             </dl>
             <div className={styles.priceCallout}>
               <span>Стоимость</span>
               <strong>{product.priceDisplay.label}</strong>
-              <button className={styles.disabledQuote} type="button" disabled>
-                Запросить коммерческое предложение — скоро
-              </button>
+              <Link className={styles.quoteLink} href={quoteHref}>
+                Запросить коммерческое предложение
+              </Link>
             </div>
+          </section>
+          <section
+            className={styles.detailMedia}
+            aria-label="Изображения и документы"
+          >
+            <ProductMedia gallery product={product} />
+            <p className={styles.mediaNote}>
+              {getDemoMedia(product)
+                ? 'Фото предоставлены владельцем. Основной вид и составное изображение.'
+                : 'Материалы и документы для этой позиции пока не опубликованы.'}
+            </p>
           </section>
         </div>
 
@@ -895,12 +955,53 @@ export function ProductDetailView({ product }: { product: PublicProduct }) {
             className={styles.descriptionBlock}
             aria-labelledby="description-title"
           >
-            <p className={styles.eyebrow}>ОПУБЛИКОВАННЫЕ ДАННЫЕ</p>
+            <p className={styles.eyebrow}>
+              {catalogTestSiteEnabled()
+                ? 'ДАННЫЕ ДЕМОНСТРАЦИОННОЙ ПОЗИЦИИ'
+                : 'ОПУБЛИКОВАННЫЕ ДАННЫЕ'}
+            </p>
             <h2 id="description-title">Подробное описание</h2>
             <p>{product.description}</p>
           </section>
         ) : null}
         <TechnicalSummary attributes={product.attributes} />
+        {catalogTestSiteEnabled() && getDemoMedia(product) ? (
+          <details className={styles.descriptionBlock}>
+            <summary>Источники характеристик и ограничения demo</summary>
+            <p>
+              Демонстрационные данные, не публикация товара в базе каталога.
+              Цена и наличие не предоставлены.
+            </p>
+            <ul>
+              {getDemoMedia(product)?.item.verifiedAttributes.map(
+                (attribute) => (
+                  <li key={attribute.code}>
+                    {attribute.label} —{' '}
+                    {attribute.evidenceTier === 'manufacturer'
+                      ? 'производитель'
+                      : attribute.evidenceTier === 'distributor_same_sku'
+                        ? 'поставщик, точный артикул'
+                        : 'не подтверждено'}
+                    .{' '}
+                    {attribute.sourceIds.map((id) => (
+                      <a
+                        key={id}
+                        href={
+                          demoData.sources[id as keyof typeof demoData.sources]
+                            .url
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Источник ↗{' '}
+                      </a>
+                    ))}
+                  </li>
+                ),
+              )}
+            </ul>
+          </details>
+        ) : null}
         <ProductRelations product={product} />
         <nav
           className={styles.bottomNavigation}

@@ -1,3 +1,10 @@
+import { createHash } from 'node:crypto';
+import {
+  demoCards,
+  demoProducts,
+  demoData,
+  makeDemoProducts,
+} from './iek-demo-fixture.mjs';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:net';
 import { createServer as createHttpServer } from 'node:http';
@@ -12,7 +19,7 @@ import { withProcesses } from './process-lifecycle.mjs';
 const web = resolve(root, 'apps/web');
 const requireWeb = createRequire(resolve(web, 'package.json'));
 const nextCli = requireWeb.resolve('next/dist/bin/next');
-const artifacts = resolve(root, 'artifacts/verification/R1-005V-01');
+const artifacts = resolve(root, 'artifacts/verification/VIS-CAT-01/after');
 const categories = [
   { slug: 'switchgear', name: 'Низковольтное оборудование', sortOrder: 10 },
   { slug: 'automation', name: 'Промышленная автоматика', sortOrder: 20 },
@@ -43,6 +50,17 @@ const sampleCards = [
     manufacturerName: 'Northstar Controls',
     originalPartNumber: 'MCB-32',
     modification: null,
+    category: { name: breakers.name, slug: breakers.slug },
+    priceDisplay,
+  },
+  {
+    slug: 'industrial-rccb-vis-cat-fixture',
+    displayName:
+      'Устройство защитного отключения селективное четырёхполюсное для промышленной автоматики',
+    brand: { name: 'VIS-CAT Fixture', slug: 'vis-cat-fixture' },
+    manufacturerName: 'Изолированная тестовая позиция',
+    originalPartNumber: 'VIS-CAT-01-DEMO-4P-RCD-125A-SELECTIVE-REFERENCE-2026',
+    modification: '125 A / 4P',
     category: { name: breakers.name, slug: breakers.slug },
     priceDisplay,
   },
@@ -85,6 +103,13 @@ const sampleProduct = {
       target: sampleCards[1],
     },
   ],
+};
+const longSampleProduct = {
+  ...sampleCards[2],
+  summary: 'Изолированная фикстура для проверки длинной карточки товара.',
+  description: null,
+  attributes: [],
+  relations: [],
 };
 const observedQueries = [];
 
@@ -162,10 +187,13 @@ const fixtureServer = createHttpServer((request, response) => {
       json(response, envelope(null, {}), 400);
       return;
     }
-    let rows = [...sampleCards];
+    let rows =
+      url.searchParams.get('q') === 'iek-demo'
+        ? [...demoCards]
+        : [...sampleCards];
     const query = url.searchParams.get('q')?.toLowerCase();
     const brand = url.searchParams.get('brandSlug');
-    if (query)
+    if (query && query !== 'iek-demo')
       rows = rows.filter((product) =>
         [
           product.displayName,
@@ -193,6 +221,14 @@ const fixtureServer = createHttpServer((request, response) => {
     return;
   }
 
+  const demo = demoProducts.find(
+    (product) => url.pathname === `/v1/public/catalog/products/${product.slug}`,
+  );
+  if (demo) {
+    json(response, envelope(demo, {}));
+    return;
+  }
+
   const slug = /^\/v1\/public\/catalog\/products\/([^/]+)$/.exec(
     url.pathname,
   )?.[1];
@@ -204,8 +240,14 @@ const fixtureServer = createHttpServer((request, response) => {
     response.writeHead(503).end();
     return;
   }
-  if (slug === sampleProduct.slug) {
-    json(response, envelope(sampleProduct, {}));
+  if (slug === sampleProduct.slug || slug === longSampleProduct.slug) {
+    json(
+      response,
+      envelope(
+        slug === sampleProduct.slug ? sampleProduct : longSampleProduct,
+        {},
+      ),
+    );
     return;
   }
   response.writeHead(404).end();
@@ -242,16 +284,52 @@ async function captureAndCheck(page, url, name, width, height) {
   const dimensions = await page.evaluate(() => ({
     viewport: innerWidth,
     document: document.documentElement.scrollWidth,
+    overflow: [...document.body.querySelectorAll('*')]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          tag: element.tagName.toLowerCase(),
+          className:
+            typeof element.className === 'string' ? element.className : '',
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          width: Math.round(rect.width),
+        };
+      })
+      .filter((element) => element.right > innerWidth + 1 || element.left < -1)
+      .sort((left, right) => right.right - left.right)
+      .slice(0, 8),
   }));
-  assert.ok(
-    dimensions.document <= dimensions.viewport,
-    `Horizontal overflow at ${width}px: ${JSON.stringify(dimensions)}`,
-  );
   await page.screenshot({
     path: resolve(artifacts, `${name}-${width}.png`),
     fullPage: true,
     animations: 'disabled',
   });
+  assert.ok(
+    dimensions.document <= dimensions.viewport,
+    `Horizontal overflow at ${width}px: ${JSON.stringify(dimensions)}`,
+  );
+}
+
+async function assertProductLayout(page, width) {
+  const boxes = await page.evaluate(() => ({
+    identity: document
+      .querySelector('[class*="detailIdentity"]')
+      ?.getBoundingClientRect()
+      .toJSON(),
+    media: document
+      .querySelector('[class*="detailMedia"]')
+      ?.getBoundingClientRect()
+      .toJSON(),
+  }));
+  assert.ok(boxes.identity && boxes.media, 'Product layout blocks must exist.');
+  const fitsSideBySide =
+    width >= 1024 && boxes.media.right <= boxes.identity.left;
+  const fitsStacked = width < 1024 && boxes.identity.bottom <= boxes.media.top;
+  assert.ok(
+    fitsSideBySide || fitsStacked,
+    `Product media and identity must not overlap at ${width}px: ${JSON.stringify(boxes)}`,
+  );
 }
 
 async function waitForPortRelease(port) {
@@ -271,7 +349,219 @@ async function waitForPortRelease(port) {
   );
 }
 
+async function assertTestSiteBoundary() {
+  const screenshots = resolve(
+    root,
+    'artifacts/verification/VIS-CAT-01B/test-site-build',
+  );
+  await mkdir(screenshots, { recursive: true });
+  for (const mode of ['staging', 'production', 'default']) {
+    const port = await reservePort();
+    const base = `http://127.0.0.1:${port}`;
+    await withProcesses(
+      [
+        {
+          name: `iek-test-site-${mode}`,
+          command: process.execPath,
+          args: [
+            nextCli,
+            'start',
+            '--hostname',
+            '127.0.0.1',
+            '--port',
+            String(port),
+          ],
+          cwd: web,
+          env: {
+            APP_ENV: mode === 'production' ? 'production' : 'test',
+            CATALOG_TEST_SITE_ENABLED: mode === 'default' ? 'false' : 'true',
+            API_INTERNAL_URL: 'http://127.0.0.1:1',
+            NEXT_TELEMETRY_DISABLED: '1',
+          },
+          quiet: true,
+        },
+      ],
+      async (signal) => {
+        await waitForPage(`${base}/catalog`, signal);
+        const browser = await chromium.launch({ headless: true });
+        const errors = [];
+        try {
+          const page = await browser.newPage();
+          page.on('pageerror', (error) => errors.push(error.message));
+          await page.goto(`${base}/catalog`, { waitUntil: 'networkidle' });
+          if (mode !== 'staging') {
+            assert.equal(await page.getByRole('note').count(), 0);
+            assert.equal(
+              await page.locator('article[class*="productTile"]').count(),
+              0,
+            );
+            await page
+              .getByRole('heading', { name: 'Не удалось загрузить каталог' })
+              .first()
+              .waitFor();
+            console.log(
+              `PASS ${mode}: real API failure remains visible, no staging fixture fallback.`,
+            );
+            return;
+          }
+          await page
+            .getByRole('note')
+            .filter({ hasText: 'Серверные демонстрационные данные' })
+            .waitFor();
+          assert.equal(
+            await page.locator('article[class*="productTile"]').count(),
+            2,
+          );
+          for (const product of demoProducts) {
+            await page.goto(
+              `${base}/catalog/category/${product.category.slug}`,
+              { waitUntil: 'networkidle' },
+            );
+            assert.equal(
+              await page.locator('article[class*="productTile"]').count(),
+              1,
+            );
+            await page
+              .getByText(product.originalPartNumber, { exact: true })
+              .waitFor();
+          }
+          await page.goto(`${base}/catalog`, { waitUntil: 'networkidle' });
+          await page
+            .getByLabel('Поиск по каталогу', { exact: true })
+            .fill('AR-B06S-1N-C06C030');
+          await page.getByRole('button', { name: /^Найти$/ }).click();
+          await page.waitForURL(/q=AR-B06S-1N-C06C030/);
+          assert.equal(
+            await page.locator('article[class*="productTile"]').count(),
+            1,
+          );
+          await page
+            .getByRole('link', {
+              name: demoProducts[1].displayName,
+              exact: true,
+            })
+            .click();
+          await page.waitForURL(
+            /catalog\/product\/iek-armat-c6-b06s-avdt-demo/,
+          );
+          for (const width of [320, 375, 768, 1024, 1440]) {
+            for (const view of ['grid', 'list', 'table']) {
+              await captureAndCheck(
+                page,
+                `${base}/catalog?view=${view}`,
+                `test-site-${view}`,
+                width,
+                900,
+              );
+              if (view === 'grid' && [375, 1440].includes(width))
+                await page.screenshot({
+                  path: resolve(screenshots, `catalog-${width}.png`),
+                  fullPage: true,
+                });
+            }
+            for (const product of demoProducts) {
+              await captureAndCheck(
+                page,
+                `${base}/catalog/product/${product.slug}`,
+                `test-site-${product.slug}`,
+                width,
+                900,
+              );
+              await assertProductLayout(page, width);
+              assert.equal(await page.locator('table tbody tr').count(), 20);
+              if ([375, 1440].includes(width))
+                await page.screenshot({
+                  path: resolve(screenshots, `${product.slug}-${width}.png`),
+                  fullPage: true,
+                });
+              const photo = page.locator('[class*="detailMedia"] img');
+              assert.ok(
+                await photo.evaluate(
+                  (img) => img.complete && img.naturalWidth > 0,
+                ),
+              );
+              await page
+                .getByRole('button', { name: 'Несколько ракурсов' })
+                .focus();
+              await page.keyboard.press('Enter');
+              await page
+                .getByRole('button', {
+                  name: 'Несколько ракурсов',
+                  pressed: true,
+                })
+                .waitFor();
+              assert.match(await photo.getAttribute('src'), /-group.webp$/);
+              await photo.evaluate((img) => img.decode());
+              assert.ok(
+                await photo.evaluate(
+                  (img) => img.complete && img.naturalWidth > 0,
+                ),
+              );
+            }
+          }
+          for (const product of demoData.products)
+            for (const image of product.images) {
+              const response = await fetch(`${base}${image.publicSrc}`);
+              assert.equal(response.status, 200);
+              assert.match(
+                response.headers.get('content-type') ?? '',
+                /image\/webp/,
+              );
+              assert.equal(
+                createHash('sha256')
+                  .update(Buffer.from(await response.arrayBuffer()))
+                  .digest('hex'),
+                image.sha256,
+              );
+            }
+          assert.deepEqual(errors, []);
+          console.log(
+            'PASS production Next build with explicit staging: canonical catalog, categories, search/detail navigation, both SKUs, four static WebPs, five widths, no external fixture service/API or .local dependency.',
+          );
+        } finally {
+          await browser.close();
+        }
+      },
+    );
+    await waitForPortRelease(port);
+  }
+}
+
 async function main() {
+  assert.deepEqual(
+    makeDemoProducts(),
+    makeDemoProducts(),
+    'Fixtures must be repeatable without writes or duplicate identities.',
+  );
+  assert.equal(
+    new Set(demoProducts.map((product) => product.originalPartNumber)).size,
+    2,
+  );
+  assert.equal(
+    demoProducts[0].attributes.find(
+      (attribute) => attribute.attributeCode === 'rated_operating_voltage',
+    ).value,
+    400,
+  );
+  assert.equal(
+    demoProducts[1].attributes.find(
+      (attribute) => attribute.attributeCode === 'rated_operating_voltage',
+    ).value,
+    230,
+  );
+  assert.equal(
+    demoProducts[1].attributes.find(
+      (attribute) => attribute.attributeCode === 'neutral_disconnection',
+    ).value,
+    true,
+  );
+  assert.equal(
+    demoProducts[1].attributes.find(
+      (attribute) => attribute.attributeCode === 'installation_depth',
+    ).value,
+    '76.2',
+  );
+  const demoMode = 'approved-static';
   await mkdir(artifacts, { recursive: true });
   await new Promise((accept, reject) => {
     fixtureServer.once('error', reject);
@@ -297,6 +587,8 @@ async function main() {
     env: {
       API_INTERNAL_URL: `http://127.0.0.1:${apiAddress.port}`,
       NEXT_TELEMETRY_DISABLED: '1',
+      APP_ENV: 'test',
+      CATALOG_TEST_SITE_ENABLED: 'false',
     },
     quiet: true,
   };
@@ -321,7 +613,10 @@ async function main() {
             .getByText('Автоматический выключатель ACB-100')
             .first()
             .waitFor();
-          assert.equal(await page.getByText('Цена по запросу').count(), 2);
+          assert.equal(await page.getByText('Цена по запросу').count(), 3);
+          await page
+            .getByText('VIS-CAT-01-DEMO-4P-RCD-125A-SELECTIVE-REFERENCE-2026')
+            .waitFor();
           await page
             .getByRole('link', {
               name: /Загрузить следующую страницу категорий/,
@@ -332,13 +627,20 @@ async function main() {
             fullPage: true,
             animations: 'disabled',
           });
+          for (const width of [1024, 768, 375, 320]) {
+            await captureAndCheck(
+              page,
+              `${baseUrl}/catalog`,
+              `catalog-grid-${width}`,
+              width,
+              900,
+            );
+          }
 
           await page
             .getByLabel('Поиск по каталогу', { exact: true })
             .fill('MCB-32');
-          await page
-            .getByRole('button', { name: /Применить параметры/ })
-            .click();
+          await page.getByRole('button', { name: /^Найти$/ }).click();
           await page.waitForURL(/q=MCB-32/);
           await page
             .getByText('Модульный выключатель MCB-32')
@@ -347,6 +649,24 @@ async function main() {
           assert.equal(
             await page.getByText('Автоматический выключатель ACB-100').count(),
             0,
+          );
+          assert.equal(
+            await page.locator('article[class*="productTile"]').count(),
+            1,
+          );
+          await captureAndCheck(
+            page,
+            page.url(),
+            'catalog-single-1440',
+            1440,
+            900,
+          );
+          await captureAndCheck(
+            page,
+            page.url(),
+            'catalog-single-390',
+            390,
+            844,
           );
           await page.goto(`${baseUrl}/catalog?brandSlug=northstar`, {
             waitUntil: 'networkidle',
@@ -381,6 +701,15 @@ async function main() {
             1440,
             1000,
           );
+          for (const width of [1024, 768, 375, 320]) {
+            await captureAndCheck(
+              page,
+              `${baseUrl}/catalog/category/breakers`,
+              `category-grid-${width}`,
+              width,
+              900,
+            );
+          }
           await page.goto(`${categoryUrl}&filter=rated_current%3Aeq%3A100`, {
             waitUntil: 'networkidle',
           });
@@ -393,36 +722,69 @@ async function main() {
             null,
             'An omitted includeDescendants value must not be silently defaulted by the frontend.',
           );
-          await page.goto(categoryUrl, { waitUntil: 'networkidle' });
-          await page
-            .getByRole('heading', { name: 'Автоматические выключатели' })
-            .first()
-            .waitFor();
-          await page.getByText('Расширенные технические фильтры').click();
-          const filterForm = page.getByRole('region', {
-            name: 'Технический фильтр',
-          });
-          await filterForm
-            .getByRole('button', { name: 'Добавить условие' })
-            .click();
-          await filterForm
-            .getByPlaceholder('например voltage')
-            .fill('rated_current');
-          await filterForm.getByPlaceholder('значение параметра').fill('100');
-          await filterForm
-            .getByRole('button', { name: /Применить фильтры/ })
-            .click();
-          await page.waitForURL(/includeDescendants=false/);
-          await page
-            .getByText('Автоматический выключатель ACB-100')
-            .first()
-            .waitFor();
-          const appliedQuery = observedQueries.at(-1);
-          assert.equal(appliedQuery?.get('categorySlug'), 'breakers');
-          assert.equal(appliedQuery?.get('includeDescendants'), 'false');
-          assert.deepEqual(appliedQuery?.getAll('filter'), [
-            'rated_current:eq:100',
-          ]);
+          for (const width of [1440, 320]) {
+            await page.setViewportSize({ width, height: 900 });
+            await page.goto(categoryUrl, { waitUntil: 'networkidle' });
+            await page
+              .getByRole('heading', { name: 'Автоматические выключатели' })
+              .first()
+              .waitFor();
+            if (width === 320) {
+              const disclosure = page.getByRole('button', {
+                name: 'Фильтры',
+                exact: true,
+              });
+              assert.equal(
+                await disclosure.getAttribute('aria-expanded'),
+                'false',
+              );
+              await disclosure.click();
+              assert.equal(
+                await disclosure.getAttribute('aria-expanded'),
+                'true',
+              );
+            }
+            await page.getByText('Расширенные технические фильтры').click();
+            const filterForm = page.getByRole('region', {
+              name: 'Технический фильтр',
+            });
+            await filterForm
+              .getByRole('button', { name: 'Добавить условие' })
+              .click();
+            await filterForm
+              .getByPlaceholder('например voltage')
+              .fill('rated_current');
+            await filterForm.getByPlaceholder('значение параметра').fill('100');
+            await filterForm
+              .getByRole('button', { name: /Применить фильтры/ })
+              .click();
+            await page.waitForURL(/includeDescendants=false/);
+            await page
+              .getByText('Автоматический выключатель ACB-100')
+              .first()
+              .waitFor();
+            const appliedQuery = observedQueries.at(-1);
+            assert.equal(appliedQuery?.get('categorySlug'), 'breakers');
+            assert.equal(appliedQuery?.get('includeDescendants'), 'false');
+            assert.deepEqual(appliedQuery?.getAll('filter'), [
+              'rated_current:eq:100',
+            ]);
+            await page
+              .getByRole('link', { name: 'Сбросить параметры' })
+              .click();
+            await page.waitForURL(`${categoryUrl}&categorySlug=breakers`);
+            assert.deepEqual(observedQueries.at(-1)?.getAll('filter'), []);
+            assert.equal(
+              observedQueries.at(-1)?.get('includeDescendants'),
+              null,
+            );
+          }
+          await page.goto(
+            `${categoryUrl}&includeDescendants=false&filter=rated_current%3Aeq%3A100`,
+            {
+              waitUntil: 'networkidle',
+            },
+          );
 
           await page.getByRole('link', { name: /Таблица/ }).click();
           await page.waitForURL(/view=table/);
@@ -435,17 +797,74 @@ async function main() {
               name: 'Опубликованное оборудование и основные сведения',
             })
             .waitFor();
-          await page.getByRole('link', { name: /Список/ }).click();
+          const listViewLink = page.getByRole('link', { name: /Список/ });
+          await page.getByRole('link', { name: /Плитка/ }).focus();
+          await page.keyboard.press('Tab');
+          assert.equal(
+            await listViewLink.evaluate(
+              (element) => element === document.activeElement,
+            ),
+            true,
+            'Keyboard tab order must include the list view switch.',
+          );
+          await page.keyboard.press('Enter');
           await page.waitForURL(/view=list/);
           await page.locator('[class*="productListItem"]').first().waitFor();
           assert.equal(
             new URL(page.url()).searchParams.get('includeDescendants'),
             'false',
           );
+          await captureAndCheck(
+            page,
+            page.url(),
+            'category-list-1440',
+            1440,
+            900,
+          );
+          await captureAndCheck(
+            page,
+            page.url(),
+            'category-list-390',
+            390,
+            844,
+          );
           await page.getByRole('link', { name: /Таблица/ }).click();
           await page.waitForURL(/view=table/);
 
           await captureAndCheck(page, page.url(), 'category-table', 1440, 1000);
+          for (const width of [1024, 768, 375, 320]) {
+            await captureAndCheck(
+              page,
+              page.url(),
+              `category-table-${width}`,
+              width,
+              900,
+            );
+          }
+          const mobileTableScroll = await page
+            .locator('[class*="tableScroll"]')
+            .evaluate((element) => ({
+              clientWidth: element.clientWidth,
+              scrollWidth: element.scrollWidth,
+              tabIndex: element.tabIndex,
+            }));
+          assert.ok(
+            mobileTableScroll.scrollWidth > mobileTableScroll.clientWidth &&
+              mobileTableScroll.tabIndex === 0,
+            `Mobile table must keep its own keyboard-scrollable viewport: ${JSON.stringify(mobileTableScroll)}`,
+          );
+          for (const view of ['list', 'table']) {
+            for (const width of [1440, 1024, 768, 375, 320]) {
+              await captureAndCheck(
+                page,
+                `${baseUrl}/catalog?view=${view}`,
+                `catalog-${view}`,
+                width,
+                900,
+              );
+            }
+          }
+          await page.setViewportSize({ width: 1440, height: 1000 });
           await page.goto(`${baseUrl}/catalog/product/breaker-acb-100`, {
             waitUntil: 'networkidle',
           });
@@ -460,19 +879,46 @@ async function main() {
           await page
             .getByRole('heading', { name: 'Совместимое оборудование' })
             .waitFor();
-          assert.equal(
-            await page
-              .getByRole('button', {
-                name: /Запросить коммерческое предложение/,
-              })
-              .isDisabled(),
-            true,
+          const quoteLink = page.getByRole('link', {
+            name: 'Запросить коммерческое предложение',
+          });
+          const quoteUrl = new URL(
+            await quoteLink.getAttribute('href'),
+            baseUrl,
           );
+          assert.equal(quoteUrl.pathname, '/request-quote');
+          assert.equal(quoteUrl.searchParams.get('kind'), 'equipment');
+          assert.match(quoteUrl.searchParams.get('product'), /ACB-100/);
+          const desktopProductOrder = await page.evaluate(() => ({
+            mediaRight: document
+              .querySelector('[class*="detailMedia"]')
+              ?.getBoundingClientRect().right,
+            identityLeft: document
+              .querySelector('[class*="detailIdentity"]')
+              ?.getBoundingClientRect().left,
+          }));
+          assert.ok(
+            desktopProductOrder.mediaRight !== undefined &&
+              desktopProductOrder.identityLeft !== undefined &&
+              desktopProductOrder.mediaRight < desktopProductOrder.identityLeft,
+            `Desktop product media must stay beside the identity panel: ${JSON.stringify(desktopProductOrder)}`,
+          );
+          await assertProductLayout(page, 1440);
           await page.screenshot({
             path: resolve(artifacts, 'product-desktop.png'),
             fullPage: true,
             animations: 'disabled',
           });
+          for (const width of [1024, 768, 375, 320]) {
+            await captureAndCheck(
+              page,
+              `${baseUrl}/catalog/product/breaker-acb-100`,
+              `product-${width}`,
+              width,
+              900,
+            );
+            await assertProductLayout(page, width);
+          }
 
           await captureAndCheck(
             page,
@@ -495,6 +941,198 @@ async function main() {
             375,
             812,
           );
+          await assertProductLayout(page, 375);
+          const mobileProductOrder = await page.evaluate(() => ({
+            titleTop: document.querySelector('h1')?.getBoundingClientRect().top,
+            mediaTop: document
+              .querySelector('[class*="detailMedia"]')
+              ?.getBoundingClientRect().top,
+          }));
+          assert.ok(
+            mobileProductOrder.titleTop !== undefined &&
+              mobileProductOrder.mediaTop !== undefined &&
+              mobileProductOrder.titleTop < mobileProductOrder.mediaTop,
+            `Mobile product identity must precede its media placeholder: ${JSON.stringify(mobileProductOrder)}`,
+          );
+          for (const width of [1440, 1024, 768, 375, 320]) {
+            await captureAndCheck(
+              page,
+              `${baseUrl}/catalog/product/${longSampleProduct.slug}`,
+              `product-long-${width}`,
+              width,
+              900,
+            );
+            await assertProductLayout(page, width);
+          }
+          await page
+            .getByRole('heading', {
+              name: longSampleProduct.displayName,
+              level: 1,
+            })
+            .waitFor();
+          await page
+            .getByText(longSampleProduct.originalPartNumber, { exact: true })
+            .waitFor();
+          await page.emulateMedia({ reducedMotion: 'reduce' });
+          const reducedAnimation = await page
+            .locator('[class*="productImage"]')
+            .first()
+            .evaluate((element) => {
+              element.setAttribute('data-state', 'loading');
+              return getComputedStyle(element).animationName;
+            });
+          assert.equal(reducedAnimation, 'none');
+          await page.emulateMedia({ reducedMotion: 'no-preference' });
+          await captureAndCheck(
+            page,
+            `${baseUrl}/catalog?q=no-such-item`,
+            'catalog-empty',
+            375,
+            812,
+          );
+          await captureAndCheck(
+            page,
+            `${baseUrl}/catalog?q=fixture-api-outage`,
+            'catalog-api-error',
+            375,
+            812,
+          );
+          const demoArtifacts = resolve(
+            root,
+            'artifacts/verification/VIS-CAT-01B',
+            demoMode,
+          );
+          await mkdir(demoArtifacts, { recursive: true });
+          for (const width of [320, 375, 768, 1024, 1440]) {
+            await captureAndCheck(
+              page,
+              `${baseUrl}/catalog?q=iek-demo`,
+              'iek-catalog',
+              width,
+              900,
+            );
+            assert.equal(
+              await page.locator('article[class*="productTile"]').count(),
+              2,
+            );
+            for (const img of await page.locator('article img').all())
+              assert.ok(
+                await img.evaluate(
+                  (image) => image.complete && image.naturalWidth > 0,
+                ),
+              );
+            if ([375, 1440].includes(width))
+              await page.screenshot({
+                path: resolve(demoArtifacts, `catalog-${width}.png`),
+                fullPage: true,
+              });
+            for (const product of demoProducts) {
+              await captureAndCheck(
+                page,
+                `${baseUrl}/catalog/product/${product.slug}`,
+                product.slug,
+                width,
+                900,
+              );
+              await assertProductLayout(page, width);
+              const primary = page.locator('[class*="detailMedia"] img');
+              assert.ok(
+                await primary.evaluate(
+                  (image) => image.complete && image.naturalWidth > 0,
+                ),
+              );
+              assert.equal(await page.locator('table tbody tr').count(), 20);
+              await page
+                .getByRole('button', { name: 'Несколько ракурсов' })
+                .focus();
+              await page.keyboard.press('Enter');
+              await page
+                .getByRole('button', {
+                  name: 'Несколько ракурсов',
+                  pressed: true,
+                })
+                .waitFor();
+              assert.match(await primary.getAttribute('src'), /group.webp$/);
+              if ([375, 1440].includes(width)) {
+                await page.screenshot({
+                  path: resolve(
+                    demoArtifacts,
+                    `${product.slug}-group-${width}.png`,
+                  ),
+                  fullPage: true,
+                });
+                await page
+                  .getByRole('button', { name: 'Основной вид' })
+                  .click();
+                await page.screenshot({
+                  path: resolve(demoArtifacts, `${product.slug}-${width}.png`),
+                  fullPage: true,
+                });
+              }
+              const src = await primary.getAttribute('src');
+              const response = await fetch(`${baseUrl}${src}`);
+              assert.equal(
+                response.headers.get('cache-control'),
+                'public, max-age=0',
+              );
+              const expected = demoData.products
+                .find((item) => item.slug === product.slug)
+                .images.find((image) =>
+                  image.src.endsWith(
+                    src.endsWith('group.webp') ? '/group.webp' : '/main.webp',
+                  ),
+                ).sha256;
+              assert.equal(
+                createHash('sha256')
+                  .update(Buffer.from(await response.arrayBuffer()))
+                  .digest('hex'),
+                expected,
+              );
+            }
+          }
+          for (const view of ['list', 'table'])
+            for (const width of [320, 375, 768, 1024, 1440]) {
+              await captureAndCheck(
+                page,
+                `${baseUrl}/catalog?q=iek-demo&view=${view}`,
+                `iek-${view}`,
+                width,
+                900,
+              );
+              if (view === 'list') {
+                assert.equal(await page.locator('article img').count(), 2);
+                for (const image of await page.locator('article img').all())
+                  assert.ok(
+                    await image.evaluate(
+                      (img) => img.complete && img.naturalWidth > 0,
+                    ),
+                  );
+              }
+            }
+          await page.goto(`${baseUrl}/catalog/product/${sampleProduct.slug}`, {
+            waitUntil: 'networkidle',
+          });
+          assert.equal(
+            await page.locator('[class*="detailMedia"] img').count(),
+            0,
+          );
+          await page.screenshot({
+            path: resolve(demoArtifacts, 'fallback-1440.png'),
+            fullPage: true,
+          });
+          await page.route('**/images/catalog/demo/iek-armat/**', (route) =>
+            route.abort(),
+          );
+          await page.goto(
+            `${baseUrl}/catalog/product/${demoProducts[0].slug}`,
+            { waitUntil: 'networkidle' },
+          );
+          await page
+            .getByRole('img', {
+              name: `Изображение товара не предоставлено: ${demoProducts[0].displayName}`,
+            })
+            .waitFor();
+          await page.unroute('**/images/catalog/demo/iek-armat/**');
           const missingProduct = await page.goto(
             `${baseUrl}/catalog/product/not-published`,
             { waitUntil: 'domcontentloaded' },
@@ -569,6 +1207,7 @@ async function main() {
     );
   }
 
+  await assertTestSiteBoundary();
   assert.ok(
     observedQueries.length >= 4,
     'The SSR pages must call the public products operation.',
@@ -578,7 +1217,10 @@ async function main() {
   );
 }
 
-main().catch((error) => {
+(process.argv.includes('--test-site-only')
+  ? assertTestSiteBoundary()
+  : main()
+).catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

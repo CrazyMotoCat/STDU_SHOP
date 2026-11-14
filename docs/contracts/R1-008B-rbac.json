@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "ingestion.read": "Read staff staging and decision history",
+    "ingestion.sources.write": "Register and change approved TEST sources",
+    "ingestion.run": "Request one manual run",
+    "ingestion.review": "Decide one staged candidate"
+  },
+  "defaultGrants": []
+}

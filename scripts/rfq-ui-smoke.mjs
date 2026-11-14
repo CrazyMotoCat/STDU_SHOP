@@ -404,6 +404,12 @@ async function checkEquipmentFlow(page, baseUrl) {
   );
 
   const itemName = page.getByLabel('Наименование').first();
+  assert.equal(await itemName.inputValue(), 'TEST-HINT-ONLY');
+  assert.equal(
+    await page.getByPlaceholder('Артикул или код').first().inputValue(),
+    '',
+  );
+  await itemName.clear();
   const checkButton = page.getByRole('button', {
     name: /Проверить заполнение/,
   });

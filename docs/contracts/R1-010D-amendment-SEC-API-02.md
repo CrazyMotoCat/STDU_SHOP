@@ -1,0 +1,21 @@
+# R1-010D Amendment SEC-API-02
+
+Version **1.0.2**. Owner-approved for implementation against Draft PR #45 at `a7bc754a3da1c4ee4cbcc2db04e825f2172ed281`. Applies exclusively to the mock-only synthetic test profile. R1-010D 1.0.1 remains the baseline and its manifest remains intact.
+
+| Baseline requirement                      | SEC-API-02 test profile                                                                                                                                                                                                                                  |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ClamAV and local scanner evidence         | Substitute the Cloudmersive Advanced response contract through an HTTP mock on IPv4 loopback. There is no real provider endpoint or credential in the profile.                                                                                           |
+| Private scan access and original identity | Preserve a versioned, expiring lease and private stream. Before submission the worker validates a terminal stream marker, expected size, SHA-256, synthetic fixture allowlist and bounded structural checks on the same bytes.                           |
+| Scan result                               | A coherent threat for the exact original becomes REJECTED. A coherent negative result is internal candidate evidence only and maps to SCAN_ERROR. Incomplete and failed results map to SCAN_ERROR. The database finalizer cannot set CLEAN.              |
+| Scheduling                                | One active lease, one claim per job, and at most 20 conservative reservations per disposable database. Transport failures consume the reservation. Mock 401, 403 and 429 halt new claims for the rest of the test database lifetime. No automatic retry. |
+| L0                                        | All staff downloads of originals remain denied after mandatory authorization and before storage, irrespective of scan state.                                                                                                                             |
+
+The default Prisma migration directory excludes the mock migration. The disposable harness sets an explicit SQL opt-in and creates an isolated named database, then supplies a restricted worker login. App and worker verify the test flag, process mode and database name. The private listener uses IPv4 loopback. The SQL opt-in is an operator intent check. Database administrator privileges remain trusted. No account credentials, real documents or hosted requests are authorized. The bounded structural check is defense in depth, with no claim of complete PDF or OOXML inspection.
+
+## Separate future eligibility decision
+
+A later R1-010 amendment must define independently authorized eligibility bound to the document ID, exact immutable original, SHA-256, size and active policy. It must specify eligibility issuance and revocation, the download authorization point, matching the bytes served, and external fail-closed rollout and rollback. Existing session, permission and scope checks must still run on each download. This proposal grants no eligibility or download access.
+
+The disposable migration is an alternative to Stage B. Both use the same job objects and roles, so applying this migration over PR #28 is outside the profile. The mock verdict is a worker assertion and cannot serve as independently issued eligibility evidence.
+
+The one-shot worker is available after build at `apps/api/dist/scan-worker/cloudmersive-main.js`. Supply the disposable harness's restricted database URL in `SEC_API_02_WORKER_DATABASE_URL`, loopback ports in `SEC_API_02_STREAM_PORT` and `SEC_API_02_MOCK_PORT`, and a comma-separated list of synthetic fixtures as `SHA256:pdf`, `SHA256:csv` or `SHA256:xlsx` in `SEC_API_02_FIXTURES`. The app and worker both require `APP_ENV=development`, `NODE_ENV=test` and `SEC_API_02_SYNTHETIC_SCAN_ENABLED=true`. The disposable runtime command provisions and tests the profile without manual database setup.

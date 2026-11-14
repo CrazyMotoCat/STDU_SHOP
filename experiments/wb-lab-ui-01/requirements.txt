@@ -1,0 +1,2 @@
+# Optional, host-side demo publisher dependency. Never install this on the WB controller.
+paho-mqtt>=2.1,<3
