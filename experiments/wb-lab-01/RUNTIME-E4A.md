@@ -1,12 +1,22 @@
 # WB-LAB-01 E4a-only retry preparation
 
-**E4A_FIX_READY_FOR_OWNER_RUNTIME_DECISION.** The next physical run requires `OWNER_E4A_ONLY_RUNTIME_APPROVED` on the reviewed HEAD. E3 is accepted. Its ten scenarios created nine correct references, with cleanup CONFIRMED and preserved foreign inventory.
+**E4A_MOUNT_DIAG_READY.** The next physical run requires `OWNER_E4A_ONLY_RUNTIME_APPROVED` on the reviewed HEAD. E3 is accepted. Its ten scenarios created nine correct references, with cleanup CONFIRMED and preserved foreign inventory.
 
 ## Historical evidence
 
 The retained E3 run is `117941e7f5a74f99ab27087493bc0dfa`, SHA-256 `b6f0bdc6c7abd86f77ca7ef97820a90daa5b470a4cb1cd6cd844ace7be7f3e2d`. The E4a failed run is `bc51510604f541218d3a12671468d327`, SHA-256 `80be049dc6a2148a43735af3b2f1b48ba9f58a65eb1389b08d37ae4149315a24`. Both original files stay in their existing directories together with E0b/E1/E2.
 
 **ROOT_CAUSE_NOT_PROVEN** for that E4a attempt. The saved trace records a nonzero result from `docker start --attach` after 7475 ms within its 12000 ms budget. It contains neither CLI return code, attached stdout/stderr, container State/ExitCode/OOMKilled/Error nor a Python exception. No watchdog failure is recorded. Cleanup and resource absence are confirmed. A start failure and a nonzero probe exit remain distinguishable hypotheses. The RW mount was a verified configuration defect, but its causal role in the original exit is unproven.
+
+The subsequent E4a-only retry on `06af094750f6a3c77da7acd09325a1e84d1dcdff` stopped with `UNEXPECTED_MOUNT` during namespace inspection (probe exit 73). Its run ID is `6ba94701ce914d939e150995b3397b96` and evidence SHA-256 is `9006427c320fe771ed5c4b6fb1c3d4fcdca51c9c3abe473a20992396f90935ff`. Cleanup was confirmed. The inventory and prior evidence were preserved. The eight canaries did not execute. The evidence identifies the failing check, but does not identify the unexpected mount or prove its origin.
+
+## Mount diagnostics
+
+The probe uses one bounded read of its own mountinfo to check the exact allowlist and `/media` access. If an unknown mount appears, the report records total and unknown mount counts and up to four unknown namespace destinations. Each row includes the losslessly percent-encoded destination, filesystem type, RO/RW access, observed `nosuid`, `nodev` and `noexec` flags, and whether the mount root was `/`. Decode percent escapes once to recover the destination bytes. Mount sources, root paths, raw mountinfo and arbitrary options are omitted.
+
+The snapshot limit is 64 KiB and 256 rows. Each encoded destination is limited to 384 characters and filesystem type to 48. A limit hit blocks the probe. `truncated: true` marks omitted rows or an input that could not be fully read within budget. Counts are null when the full snapshot could not be inspected. The host validates the bounded schema before writing the report into evidence.
+
+The allowlist is unchanged. Unknown mounts stop execution before canaries. The next authorized run can identify the namespace destination and metadata that triggered the rejection. A destination name or filesystem type alone does not establish provenance. Before proposing any exception, compare these observations with the owned container's validated Docker mount configuration and the expected engine/kernel mounts. If provenance is unproven, keep the profile blocked.
 
 ## Corrected profile and diagnostics
 
@@ -22,11 +32,11 @@ python3 -B experiments/wb-lab-01/runtime_e4a.py OWNER_E4A_ONLY_RUNTIME_APPROVED
 
 The agent verifies the checkout and staged hashes, uses the pinned existing Python image and executes the above command only after owner approval. The runner obtains the lab root lock and checks host metadata and watermarks. The retained evidence bytes are read through bounded nofollow descriptors, hash-checked and parsed from the same bytes. It verifies prior cleanup and absence of prior container IDs, names and volumes. A new run ID and evidence directory are created. The retired combined entry point returns `COMBINED_E3_E4A_RETIRED`. E4a-only never invokes E3 or provisions PostgreSQL.
 
-The successful retry requires all eight existing canaries, actual RO mount, confirmed stop/cleanup and preserved inventory. The original failed evidence stays unchanged. A retry directory prevents another invocation. Any uncertain condition produces BLOCKED and retained evidence.
+The successful retry requires all eight existing canaries, actual RO mount, confirmed stop/cleanup and preserved inventory. Both historical E4a failure records are hash-pinned along with accepted E0b–E3 evidence. A retry directory prevents another invocation. Any uncertain condition produces BLOCKED and retained evidence.
 
 ## Verification and evidence limits
 
-Local tests cover the RW rejection, unchanged E1 behavior, authenticated-history replacement race, residue rejection, partial Docker create reconciliation and failure classification without leaking arbitrary error text. The opt-in local Docker fixture uses a new named volume with an actual RO mount, checks inspect and namespace observations, and confirms exact cleanup. An RW fixture is rejected while still in created state. The eight RO canaries passed on local x86-64 Docker. This is preparatory evidence for the upcoming ARM64/WB run.
+Local tests cover the RW rejection, unchanged E1 behavior, authenticated-history replacement race, residue rejection, partial Docker create reconciliation and failure classification without leaking arbitrary error text. The opt-in local Docker fixture uses a new named volume with an actual RO mount, checks inspect and namespace observations, and confirms exact cleanup. An RW fixture is rejected while still in created state. The eight RO canaries passed on local x86-64 Docker. A separate fixture injected a real unexpected RW tmpfs and verified the bounded failure report before canaries. This is preparatory evidence for the upcoming ARM64/WB run.
 
 ```sh
 WB_E4A_REAL_DOCKER=1 python3 -B -m unittest discover -s experiments/wb-lab-01 -p test_e4a_fix.py

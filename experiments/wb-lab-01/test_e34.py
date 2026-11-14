@@ -219,6 +219,11 @@ class NetworkTests(unittest.TestCase):
                     "read_text",
                     lambda path, content=content: content[str(path)],
                 ),
+                patch.object(
+                    net,
+                    "read_mountinfo",
+                    return_value=content["/proc/self/mountinfo"].encode(),
+                ),
                 self.assertRaises(RuntimeError),
             ):
                 net.namespace()

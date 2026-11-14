@@ -143,7 +143,7 @@ def start_e4a(deadline, cid, name, run_id, evidence):
         "E4A_OUTPUT_BUDGET",
     )
     if result.returncode:
-        from e4_probe import FAILURE_CODES, STAGES
+        from e4_probe import FAILURE_CODES, STAGES, validate_mount_report
 
         try:
             failure = json.loads(result.stdout)
@@ -158,6 +158,13 @@ def start_e4a(deadline, cid, name, run_id, evidence):
             and failure.get("stage") in STAGES
         ):
             evidence["probe_failure"] = {key: failure[key] for key in ("code", "stage")}
+            if failure["stage"] == "namespace" and failure["code"] in {
+                "UNEXPECTED_MOUNT",
+                "MOUNTINFO_BUDGET",
+            }:
+                mount_report = validate_mount_report(failure.get("mount_report"))
+                if mount_report is not None:
+                    evidence["probe_failure"]["mount_report"] = mount_report
         raise Blocked("E4A_START_OR_PROBE_NONZERO")
     return result.stdout.strip()
 

@@ -133,6 +133,149 @@ class FixTests(unittest.TestCase):
         self.assertNotIn("private-string", json.dumps(evidence))
         self.assertEqual(evidence["container_state"]["exit_code"], 73)
 
+    def test_mount_snapshot_allows_known_points_and_rejects_writable_media(self):
+        known = b"1 0 0:2 / / rw - overlay overlay rw\n"
+        media = b"2 1 8:1 / /media ro - ext4 device rw\n"
+        self.assertEqual(probe.verify_mounts(known + media), 2)
+        with self.assertRaisesRegex(RuntimeError, "MEDIA_NOT_READ_ONLY"):
+            probe.verify_mounts(known + media.replace(b"/media ro", b"/media rw"))
+
+    def test_mount_diagnostics_exclude_source_and_escape_namespace_destination(self):
+        media = b"2 1 8:1 / /media ro - ext4 device rw\n"
+        unknown_rows = (
+            rb"3 1 0:9 / /unexpected\040rw\011\012\134% rw - tmpfs tmpfs rw",
+            b"4 1 8:2 /secret-host-root /proc/extra ro - ext4 /secret-host-source rw",
+            b"5 1 8:3 /private-volume-root /extra-volume rw - ext4 /private-volume-source rw",
+        )
+        with self.assertRaisesRegex(probe.MountFailure, "UNEXPECTED_MOUNT") as caught:
+            probe.verify_mounts(media + b"\n".join(unknown_rows))
+        report = caught.exception.report
+        self.assertEqual(report["mount_count"], 4)
+        self.assertEqual(report["unknown_count"], 3)
+        self.assertFalse(report["truncated"])
+        self.assertEqual(
+            report["unknown_mounts"],
+            [
+                {
+                    "mountpoint": "/unexpected%20rw%09%0A%5C%25",
+                    "filesystem": "tmpfs",
+                    "access": "rw",
+                    "flags": [],
+                    "root_is_slash": True,
+                },
+                {
+                    "mountpoint": "/proc/extra",
+                    "filesystem": "ext4",
+                    "access": "ro",
+                    "flags": [],
+                    "root_is_slash": False,
+                },
+                {
+                    "mountpoint": "/extra-volume",
+                    "filesystem": "ext4",
+                    "access": "rw",
+                    "flags": [],
+                    "root_is_slash": False,
+                },
+            ],
+        )
+        self.assertNotIn("secret-host", json.dumps(report))
+        self.assertNotIn("private-volume", json.dumps(report))
+        payload = {
+            "probe_status": "FAILED",
+            "code": "UNEXPECTED_MOUNT",
+            "stage": "namespace",
+            "mount_report": report,
+        }
+        evidence = {}
+        report["unknown_mounts"][0]["source"] = "/private-host"
+        with (
+            patch.object(
+                runner,
+                "command",
+                return_value=SimpleNamespace(
+                    returncode=73, stdout=json.dumps(payload), stderr=""
+                ),
+            ),
+            self.assertRaises(Blocked),
+        ):
+            runner.start_e4a(time.monotonic() + 1, "id", "name", "run", evidence)
+        self.assertNotIn("/private-host", json.dumps(evidence))
+        self.assertEqual(evidence["probe_failure"]["mount_report"]["unknown_count"], 3)
+
+    def test_mount_report_budget_is_fail_closed(self):
+        media = b"2 1 8:1 / /media ro - ext4 device rw\n"
+        fixtures = (
+            (b"x" * (probe.MOUNTINFO_BYTES + 1), "MOUNTINFO_BUDGET", None, 0),
+            (b"x\n" * (probe.MAX_MOUNTS + 1), "MOUNTINFO_BUDGET", None, 0),
+            (
+                media + b"3 1 0:9 / /extra rw - tmpfs tmpfs rw\n" * 5,
+                "UNEXPECTED_MOUNT",
+                5,
+                4,
+            ),
+            (
+                media + b"3 1 0:9 / /" + b"x" * 400 + b" rw - tmpfs tmpfs rw",
+                "UNEXPECTED_MOUNT",
+                1,
+                0,
+            ),
+        )
+        for data, code, count, retained in fixtures:
+            with (
+                self.subTest(code=code, count=count),
+                self.assertRaisesRegex(probe.MountFailure, code) as caught,
+            ):
+                probe.verify_mounts(data)
+            report = caught.exception.report
+            self.assertIs(probe.validate_mount_report(report)["truncated"], True)
+            self.assertEqual(report["unknown_count"], count)
+            self.assertEqual(len(report["unknown_mounts"]), retained)
+
+    def test_namespace_reads_mount_snapshot_once_and_never_runs_canaries_on_unknown(
+        self,
+    ):
+        with (
+            patch.object(probe.os, "listdir", return_value=["lo"]),
+            patch.object(probe.Path, "read_text", return_value=""),
+            patch.object(
+                probe,
+                "read_mountinfo",
+                return_value=b"1 0 0:1 / /media ro - ext4 dev rw\n2 1 0:2 / /unknown rw - tmpfs none rw\n",
+            ) as read,
+            patch.object(probe, "positive") as positive,
+            patch.object(probe, "negative") as negative,
+            self.assertRaisesRegex(probe.MountFailure, "UNEXPECTED_MOUNT"),
+        ):
+            probe.run()
+        read.assert_called_once_with()
+        positive.assert_not_called()
+        negative.assert_not_called()
+
+    def test_malformed_mount_fields_and_report_cannot_escape_evidence_boundary(self):
+        invalid = rb"1 0 0:1 / /bad\077 rw - ext4 dev rw"
+        with self.assertRaisesRegex(RuntimeError, "MOUNTINFO_INVALID"):
+            probe.verify_mounts(invalid)
+        for path in ("/bad\ncontrol", "/bad%xx", "/" + "a" * 400):
+            self.assertIsNone(
+                probe.validate_mount_report(
+                    probe.mount_report(
+                        2,
+                        1,
+                        [
+                            {
+                                "mountpoint": path,
+                                "filesystem": "ext4",
+                                "access": "ro",
+                                "flags": [],
+                                "root_is_slash": True,
+                            }
+                        ],
+                        truncated=False,
+                    )
+                )
+            )
+
     def test_unknown_exception_message_cannot_enter_probe_diagnostic(self):
         self.assertEqual(
             probe.failure_code(RuntimeError("private-string")), "UNEXPECTED_EXCEPTION"
@@ -276,7 +419,12 @@ class LocalDocker(unittest.TestCase):
                 ("network", ("-q", "--no-trunc")),
             )
         }
-        for readonly, inject_failure in ((False, False), (True, False), (True, True)):
+        for readonly, fault in (
+            (False, None),
+            (True, None),
+            (True, "uid"),
+            (True, "mount"),
+        ):
             run_id = uuid.uuid4().hex
             name = "wb-e4a-fix-local-" + run_id
             cid = None
@@ -302,7 +450,7 @@ class LocalDocker(unittest.TestCase):
                     + ")"
                 )
                 expected = {"uid": 65532, "interfaces": ["lo"], "limits": base.LIMITS}
-                if inject_failure:
+                if fault == "uid":
                     expected["uid"] = 0
                 requested = True
                 cid = cli(
@@ -328,6 +476,11 @@ class LocalDocker(unittest.TestCase):
                     "--mount",
                     f"type=volume,source={name},target=/media,volume-nocopy"
                     + (",readonly" if readonly else ""),
+                    *(
+                        ("--tmpfs", "/wb-unknown:rw,nosuid,nodev,noexec,size=1m")
+                        if fault == "mount"
+                        else ()
+                    ),
                     image,
                     "python",
                     "-I",
@@ -349,7 +502,7 @@ class LocalDocker(unittest.TestCase):
                         item, item["Image"], name, volume["Mountpoint"], "e4a"
                     )
                     evidence = {}
-                    if inject_failure:
+                    if fault:
                         with self.assertRaisesRegex(
                             Blocked, "E4A_START_OR_PROBE_NONZERO"
                         ):
@@ -363,13 +516,32 @@ class LocalDocker(unittest.TestCase):
                         )
                         evidence["status"] = "BLOCKED"
                         runner.classify_e4a(evidence)
-                        self.assertEqual(
-                            evidence["probe_failure"],
-                            {
-                                "code": "ACTUAL_CONTROLLER_ISOLATION",
-                                "stage": "isolation",
-                            },
-                        )
+                        failure = evidence["probe_failure"]
+                        if fault == "mount":
+                            self.assertEqual(
+                                (failure["code"], failure["stage"]),
+                                ("UNEXPECTED_MOUNT", "namespace"),
+                            )
+                            self.assertEqual(
+                                failure["mount_report"]["unknown_mounts"],
+                                [
+                                    {
+                                        "mountpoint": "/wb-unknown",
+                                        "filesystem": "tmpfs",
+                                        "access": "rw",
+                                        "flags": ["nosuid", "nodev", "noexec"],
+                                        "root_is_slash": True,
+                                    }
+                                ],
+                            )
+                        else:
+                            self.assertEqual(
+                                failure,
+                                {
+                                    "code": "ACTUAL_CONTROLLER_ISOLATION",
+                                    "stage": "isolation",
+                                },
+                            )
                         self.assertEqual(evidence["container_state"]["exit_code"], 73)
                         self.assertEqual(
                             evidence["diagnostic_category"], "PYTHON_PROBE_FAILURE"

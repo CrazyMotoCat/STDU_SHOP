@@ -4,11 +4,13 @@ import errno
 import hashlib
 import json
 import os
+import re
 import selectors
 import socket
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote_from_bytes
 
 NEGATIVE = (
     ("ipv4_tcp", socket.AF_INET, socket.SOCK_STREAM, "192.0.2.1", 9),
@@ -42,6 +44,8 @@ FAILURE_CODES = {
     "IPV4_ROUTE",
     "IPV6_ROUTE",
     "UNEXPECTED_MOUNT",
+    "MOUNTINFO_BUDGET",
+    "MOUNTINFO_INVALID",
     "MEDIA_NOT_READ_ONLY",
     "POSITIVE_OBSERVER_TIMEOUT",
     "POSITIVE_OBSERVER_MISSING",
@@ -168,12 +172,98 @@ def negative(family, kind, destination, port):
     raise RuntimeError("EGRESS_NOT_DENIED")
 
 
-def namespace():
-    need(sorted(os.listdir("/sys/class/net")) == ["lo"], "NON_LOOPBACK_INTERFACE")
-    ipv4 = Path("/proc/net/route").read_text().splitlines()[1:]
-    need(not any(line.strip() for line in ipv4), "IPV4_ROUTE")
-    ipv6 = Path("/proc/net/ipv6_route").read_text().splitlines()
-    need(all(line.split()[-1] == "lo" for line in ipv6 if line.strip()), "IPV6_ROUTE")
+MOUNTINFO_BYTES = 64 * 1024
+MAX_MOUNTS = 256
+MAX_UNKNOWN_MOUNTS = 4
+MAX_MOUNTPOINT_LENGTH = 384
+SAFETY_FLAGS = ("nosuid", "nodev", "noexec")
+FILESYSTEM = re.compile(r"[A-Za-z0-9_.+-]{1,48}")
+ENCODED_MOUNTPOINT = re.compile(r"/(?:[A-Za-z0-9/_.~-]|%[0-9A-F]{2})*")
+MOUNT_ESCAPES = {rb"\134": b"\\", rb"\040": b" ", rb"\011": b"\t", rb"\012": b"\n"}
+
+
+class MountFailure(RuntimeError):
+    def __init__(self, code, report):
+        super().__init__(code)
+        self.report = report
+
+
+def mount_report(mount_count, unknown_count, entries, *, truncated):
+    return {
+        "mount_count": mount_count,
+        "unknown_count": unknown_count,
+        "unknown_mounts": entries,
+        "truncated": truncated,
+    }
+
+
+def validate_mount_report(report):
+    """Only copy bounded fields across the container/evidence boundary."""
+    if not isinstance(report, dict) or type(report.get("truncated")) is not bool:
+        return None
+    count, unknown, rows = (
+        report.get(k) for k in ("mount_count", "unknown_count", "unknown_mounts")
+    )
+    if not isinstance(rows, list) or len(rows) > MAX_UNKNOWN_MOUNTS:
+        return None
+    if count is None or unknown is None:
+        if count is None and unknown is None and not rows and report["truncated"]:
+            return mount_report(None, None, [], truncated=True)
+        return None
+    if not (
+        type(count) is int
+        and type(unknown) is int
+        and 0 <= len(rows) <= unknown <= count <= MAX_MOUNTS
+    ):
+        return None
+    if unknown == 0 or report["truncated"] != (len(rows) < unknown):
+        return None
+    safe = []
+    for row in rows:
+        if not isinstance(row, dict):
+            return None
+        point, fs, access = (row.get(k) for k in ("mountpoint", "filesystem", "access"))
+        flags = row.get("flags")
+        root_is_slash = row.get("root_is_slash")
+        if not (
+            isinstance(point, str)
+            and len(point) <= MAX_MOUNTPOINT_LENGTH
+            and ENCODED_MOUNTPOINT.fullmatch(point)
+            and isinstance(fs, str)
+            and FILESYSTEM.fullmatch(fs)
+            and access in ("ro", "rw")
+            and type(root_is_slash) is bool
+            and isinstance(flags, list)
+            and flags == [flag for flag in SAFETY_FLAGS if flag in flags]
+        ):
+            return None
+        safe.append(
+            {
+                "mountpoint": point,
+                "filesystem": fs,
+                "access": access,
+                "flags": flags,
+                "root_is_slash": root_is_slash,
+            }
+        )
+    return mount_report(count, unknown, safe, truncated=report["truncated"])
+
+
+def read_mountinfo():
+    with Path("/proc/self/mountinfo").open("rb") as stream:
+        return stream.read(MOUNTINFO_BYTES + 1)
+
+
+def verify_mounts(snapshot):
+    if len(snapshot) > MOUNTINFO_BYTES:
+        raise MountFailure(
+            "MOUNTINFO_BUDGET", mount_report(None, None, [], truncated=True)
+        )
+    lines = snapshot.splitlines()
+    if len(lines) > MAX_MOUNTS:
+        raise MountFailure(
+            "MOUNTINFO_BUDGET", mount_report(None, None, [], truncated=True)
+        )
     # Engine-side inspect separately authenticates the only configured mount.
     allowed = {
         "/",
@@ -203,20 +293,73 @@ def namespace():
         "/sys/firmware",
         "/sys/devices/virtual/powercap",
     }
-    mount_lines = Path("/proc/self/mountinfo").read_text().splitlines()
-    media = [line.split() for line in mount_lines if line.split()[4] == "/media"]
-    need(len(media) == 1 and "ro" in media[0][5].split(","), "MEDIA_NOT_READ_ONLY")
-    points = [
-        line.split()[4]
-        for line in Path("/proc/self/mountinfo").read_text().splitlines()
-    ]
-    need(set(points) <= allowed and points.count("/media") == 1, "UNEXPECTED_MOUNT")
+    media_access = []
+    unknown = []
+    unlisted = 0
+    for line in lines:
+        head, separator, tail = line.partition(b" - ")
+        fields, details = head.split(b" "), tail.split(b" ")
+        need(separator and len(fields) >= 6 and len(details) == 3, "MOUNTINFO_INVALID")
+        raw_path = fields[4]
+        need(raw_path.startswith(b"/"), "MOUNTINFO_INVALID")
+        # Decode only Linux mountinfo's four escapes, once. Encode unsafe display bytes.
+        pieces = re.split(rb"(\\[0-7]{3})", raw_path)
+        need(
+            all(part in MOUNT_ESCAPES for part in pieces[1::2])
+            and all(b"\\" not in part for part in pieces[::2]),
+            "MOUNTINFO_INVALID",
+        )
+        path = b"".join(MOUNT_ESCAPES.get(part, part) for part in pieces)
+        flags = fields[5].split(b",")
+        access = set(flags) & {b"ro", b"rw"}
+        need(len(access) == 1, "MOUNTINFO_INVALID")
+        mode = access.pop().decode("ascii")
+        if path == b"/media":
+            media_access.append(mode)
+        if path.decode("ascii", errors="surrogateescape") in allowed:
+            continue
+        unlisted += 1
+        point = quote_from_bytes(path, safe="/")
+        fstype = details[0].decode("ascii", errors="surrogateescape")
+        if (
+            len(unknown) < MAX_UNKNOWN_MOUNTS
+            and len(point) <= MAX_MOUNTPOINT_LENGTH
+            and FILESYSTEM.fullmatch(fstype)
+        ):
+            unknown.append(
+                {
+                    "mountpoint": point,
+                    "filesystem": fstype,
+                    "access": mode,
+                    "flags": [flag for flag in SAFETY_FLAGS if flag.encode() in flags],
+                    "root_is_slash": fields[3] == b"/",
+                }
+            )
+
+    if unlisted:
+        raise MountFailure(
+            "UNEXPECTED_MOUNT",
+            mount_report(
+                len(lines), unlisted, unknown, truncated=len(unknown) < unlisted
+            ),
+        )
+    need(media_access == ["ro"], "MEDIA_NOT_READ_ONLY")
+    return len(lines)
+
+
+def namespace():
+    need(sorted(os.listdir("/sys/class/net")) == ["lo"], "NON_LOOPBACK_INTERFACE")
+    ipv4 = Path("/proc/net/route").read_text().splitlines()[1:]
+    need(not any(line.strip() for line in ipv4), "IPV4_ROUTE")
+    ipv6 = Path("/proc/net/ipv6_route").read_text().splitlines()
+    need(all(line.split()[-1] == "lo" for line in ipv6 if line.strip()), "IPV6_ROUTE")
+    mount_count = verify_mounts(read_mountinfo())
     return {
         "interfaces": ["lo"],
         "ipv4_routes": 0,
         "ipv6_non_loopback_routes": 0,
         "configured_mounts": ["/media"],
-        "mount_count": len(points),
+        "mount_count": mount_count,
         "media_read_only": True,
     }
 
@@ -267,13 +410,12 @@ if __name__ == "__main__":
     try:
         main()
     except (Exception, KeyboardInterrupt) as error:  # noqa: BLE001 -- bounded fail-closed process boundary
-        print(
-            json.dumps(
-                {
-                    "probe_status": "FAILED",
-                    "code": failure_code(error),
-                    "stage": CURRENT_STAGE,
-                }
-            )
-        )
+        failure = {
+            "probe_status": "FAILED",
+            "code": failure_code(error),
+            "stage": CURRENT_STAGE,
+        }
+        if isinstance(error, MountFailure):
+            failure["mount_report"] = error.report
+        print(json.dumps(failure))
         sys.exit(73)
