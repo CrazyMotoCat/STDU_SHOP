@@ -8,6 +8,7 @@ datasource db {
 }
 
 model StaffUser {
+  ingestionApplications IngestionApplication[]
   id                    String         @id @db.Uuid
   email                 String         @db.VarChar(254)
   emailNormalized       String         @unique(map: "staff_user_email_normalized_key") @map("email_normalized") @db.VarChar(254)
@@ -601,6 +602,7 @@ model SupplierRevision {
 }
 
 model SupplierOffer {
+  ingestionApplications IngestionApplication[]
   id                     String                  @id @db.Uuid
   supplierId             String                  @map("supplier_id") @db.Uuid
   state                  String                  @db.Text
@@ -625,6 +627,8 @@ model SupplierOffer {
 }
 
 model SupplierOfferRevision {
+  ingestionApplicationResults IngestionApplication[] @relation("IngestionAppliedRevision")
+  ingestionApplicationBases IngestionApplication[] @relation("IngestionBaseRevision")
   id                    String                 @id @db.Uuid
   offerId               String                 @map("offer_id") @db.Uuid
   revisionNo            Int                    @map("revision_no")
@@ -841,6 +845,7 @@ model InquiryCommandIdempotency {
 }
 
 model IngestionSource {
+  applications IngestionApplication[]
   id             String                    @id @db.Uuid
   supplierId     String                    @map("supplier_id") @db.Uuid
   adapterVersion String                    @map("adapter_version") @db.VarChar(40)
@@ -875,6 +880,7 @@ model IngestionSourceRevision {
 }
 
 model IngestionRun {
+  applications IngestionApplication[]
   id             String           @id @db.Uuid
   sourceId       String           @map("source_id") @db.Uuid
   sourceVersion  Int              @map("source_version")
@@ -906,6 +912,7 @@ model IngestionRun {
 }
 
 model IngestionRow {
+  application IngestionApplication?
   id                   String              @id @db.VarChar(64)
   runId                String              @map("run_id") @db.Uuid
   rowNumber            Int                 @map("row_number")
@@ -925,6 +932,7 @@ model IngestionRow {
 }
 
 model IngestionDecision {
+  application IngestionApplication?
   id        String       @id @db.Uuid
   rowId     String       @unique(map: "ingestion_decision_row_key") @map("row_id") @db.VarChar(64)
   actorId   String       @map("actor_id") @db.Uuid
@@ -961,4 +969,30 @@ model IngestionOutbox {
 
   @@index([nextDispatchAt], map: "ingestion_outbox_due_idx")
   @@map("ingestion_outbox")
+}
+
+
+model IngestionApplication {
+  id String @id @db.Uuid
+  sourceId String @map("source_id") @db.Uuid
+  runId String @map("run_id") @db.Uuid
+  rowId String @unique(map: "ingestion_application_row_key") @map("row_id") @db.VarChar(64)
+  decisionId String @unique(map: "ingestion_application_decision_key") @map("decision_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  offerId String @map("offer_id") @db.Uuid
+  baseRevisionId String @map("base_revision_id") @db.Uuid
+  revisionId String @unique(map: "ingestion_application_revision_key") @map("revision_id") @db.Uuid
+  sourceHash String @map("source_hash") @db.VarChar(64)
+  version Int
+  createdAt DateTime @default(dbgenerated("clock_timestamp()")) @map("created_at") @db.Timestamptz(6)
+  source IngestionSource @relation(fields: [sourceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  run IngestionRun @relation(fields: [runId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  row IngestionRow @relation(fields: [rowId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  decision IngestionDecision @relation(fields: [decisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor StaffUser @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  offer SupplierOffer @relation(fields: [offerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  baseRevision SupplierOfferRevision @relation("IngestionBaseRevision", fields: [baseRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  revision SupplierOfferRevision @relation("IngestionAppliedRevision", fields: [revisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("ingestion_application")
 }

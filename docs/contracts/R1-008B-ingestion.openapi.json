@@ -4329,10 +4329,1581 @@
           "FORBIDDEN"
         ]
       }
+    },
+    "/v1/staff/ingestion/rows/{id}/preview": {
+      "get": {
+        "operationId": "ingestion_previewApply",
+        "parameters": [
+          {
+            "name": "offerId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One staging row, explicit selected offer, comparison and safe provenance history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "row": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "runId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "rowNumber": {
+                              "type": "integer"
+                            },
+                            "sourceHash": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "normalized": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "nullable": true
+                            },
+                            "warnings": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "modificationEvidence": {
+                              "type": "string",
+                              "enum": ["SPECIFIED", "UNKNOWN"],
+                              "nullable": true
+                            },
+                            "errorCode": {
+                              "type": "string",
+                              "enum": ["ROW_INVALID"],
+                              "nullable": true
+                            },
+                            "reviewState": {
+                              "type": "string",
+                              "enum": [
+                                "PENDING",
+                                "ACCEPTED",
+                                "REJECTED",
+                                "NOT_APPLICABLE"
+                              ]
+                            },
+                            "version": {
+                              "type": "integer"
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "runId",
+                            "rowNumber",
+                            "sourceHash",
+                            "normalized",
+                            "warnings",
+                            "modificationEvidence",
+                            "errorCode",
+                            "reviewState",
+                            "version",
+                            "createdAt"
+                          ]
+                        },
+                        "offer": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "supplierId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "supplierName": {
+                              "type": "string"
+                            },
+                            "catalogProductId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
+                            },
+                            "state": {
+                              "type": "string",
+                              "enum": ["ACTIVE", "ARCHIVED"]
+                            },
+                            "version": {
+                              "type": "integer"
+                            },
+                            "currentMatchProposalId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "nullable": true
+                            },
+                            "freshness": {
+                              "type": "string",
+                              "enum": ["CURRENT", "STALE", "UNKNOWN"]
+                            },
+                            "matchStatus": {
+                              "type": "string",
+                              "enum": [
+                                "UNMATCHED",
+                                "CURRENT",
+                                "REVIEW_REQUIRED"
+                              ]
+                            },
+                            "currentRevision": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "revisionNo": {
+                                  "type": "integer"
+                                },
+                                "supplierPartNumber": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "offerName": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "sourceBrandText": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "brandId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "nullable": true
+                                },
+                                "manufacturerName": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "originalPartNumber": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "modification": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "modificationEvidence": {
+                                  "type": "string",
+                                  "enum": [
+                                    "SPECIFIED",
+                                    "CONFIRMED_NONE",
+                                    "UNKNOWN"
+                                  ]
+                                },
+                                "purchaseCost": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "sourceVatText": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "availabilityText": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "leadTimeText": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "sourceObservedAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "nullable": true
+                                },
+                                "expiresAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "nullable": true
+                                },
+                                "sourceUrl": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "origin": {
+                                  "type": "string",
+                                  "enum": ["MANUAL"]
+                                },
+                                "recordedAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "recordedByStaffUserId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "revisionNo",
+                                "supplierPartNumber",
+                                "offerName",
+                                "sourceBrandText",
+                                "brandId",
+                                "manufacturerName",
+                                "originalPartNumber",
+                                "modification",
+                                "modificationEvidence",
+                                "purchaseCost",
+                                "currency",
+                                "sourceVatText",
+                                "availabilityText",
+                                "leadTimeText",
+                                "sourceObservedAt",
+                                "expiresAt",
+                                "sourceUrl",
+                                "origin",
+                                "recordedAt",
+                                "recordedByStaffUserId"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "supplierId",
+                            "supplierName",
+                            "catalogProductId",
+                            "state",
+                            "version",
+                            "currentMatchProposalId",
+                            "freshness",
+                            "matchStatus",
+                            "currentRevision"
+                          ]
+                        },
+                        "fields": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "field": {
+                                "type": "string"
+                              },
+                              "current": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "proposed": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "NEW",
+                                  "CHANGED",
+                                  "UNCHANGED",
+                                  "MISSING"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "current",
+                              "proposed",
+                              "state"
+                            ]
+                          }
+                        },
+                        "eligible": {
+                          "type": "boolean"
+                        },
+                        "blockedReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "application": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "sourceId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "runId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "rowId": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "decisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "actorId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "offerId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "baseRevisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "revisionId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "sourceHash": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "version": {
+                              "type": "integer"
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "sourceId",
+                            "runId",
+                            "rowId",
+                            "decisionId",
+                            "actorId",
+                            "offerId",
+                            "baseRevisionId",
+                            "revisionId",
+                            "sourceHash",
+                            "version",
+                            "createdAt"
+                          ],
+                          "nullable": true
+                        },
+                        "original": {
+                          "type": "object",
+                          "additionalProperties": true,
+                          "nullable": true
+                        },
+                        "conflicts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "actorUserId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "nullable": true
+                              },
+                              "reasonCode": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "actorUserId",
+                              "reasonCode",
+                              "createdAt"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "row",
+                        "offer",
+                        "fields",
+                        "eligible",
+                        "blockedReason",
+                        "application",
+                        "original",
+                        "conflicts"
+                      ]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency or audit unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "summary": "",
+        "tags": ["Supplier ingestion"],
+        "x-audit": "none",
+        "x-csrf": "NONE",
+        "x-permission": "ingestion.read",
+        "x-invariants": [
+          "Staff-only comparison requires ingestion.read, suppliers.read and suppliers.offers.read. Missing source values preserve existing values. Identity is exact and never inferred from names."
+        ],
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ]
+      }
+    },
+    "/v1/staff/ingestion/rows/{id}/applications": {
+      "get": {
+        "operationId": "ingestion_applications",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable one-row application provenance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "sourceId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "runId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "rowId": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "decisionId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "actorId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "offerId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "baseRevisionId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "revisionId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "sourceHash": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "sourceId",
+                          "runId",
+                          "rowId",
+                          "decisionId",
+                          "actorId",
+                          "offerId",
+                          "baseRevisionId",
+                          "revisionId",
+                          "sourceHash",
+                          "version",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency or audit unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "summary": "",
+        "tags": ["Supplier ingestion"],
+        "x-audit": "none",
+        "x-csrf": "NONE",
+        "x-permission": "ingestion.read",
+        "x-invariants": [
+          "Append-only application provenance is staff-only under current ingestion and supplier read permissions."
+        ],
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN"
+        ]
+      }
+    },
+    "/v1/staff/ingestion/rows/{id}/apply": {
+      "post": {
+        "operationId": "ingestion_apply",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "description": "Session/challenge-bound HMAC, not staff credential; no logs/storage."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestionApplyInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Manually applied one accepted row, immutable revision and provenance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "sourceId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "runId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "rowId": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "decisionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "actorId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "offerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "baseRevisionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "revisionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "sourceHash": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "sourceId",
+                        "runId",
+                        "rowId",
+                        "decisionId",
+                        "actorId",
+                        "offerId",
+                        "baseRevisionId",
+                        "revisionId",
+                        "sourceHash",
+                        "version",
+                        "createdAt"
+                      ]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or CSRF denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency or audit unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["code", "message", "requestId"],
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["field", "code"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "staffCookie": []
+          }
+        ],
+        "summary": "",
+        "tags": ["Supplier ingestion"],
+        "x-audit": "supplier_offer.revised",
+        "x-csrf": "STAFF_BOUND",
+        "x-permission": "ingestion.read",
+        "x-invariants": [
+          "Intentional single accepted candidate command with CSRF, current ingestion review and supplier write permissions, durable idempotency and expected offer/row versions. Revision and provenance commit atomically. No catalog mutation."
+        ],
+        "x-errors-before-object-lookup": [
+          "AUTH_REQUIRED",
+          "PASSWORD_CHANGE_REQUIRED",
+          "FORBIDDEN",
+          "CSRF_INVALID"
+        ]
+      }
     }
   },
   "info": {
-    "title": "STDU R1-008B Supplier Ingestion",
+    "title": "STDU Supplier Ingestion and Manual Review",
     "description": "Generated from the implemented Staff controllers and guards.",
     "version": "1.0.0",
     "contact": {}
@@ -4463,6 +6034,38 @@
           }
         },
         "required": ["expectedVersion", "decision", "reason"]
+      },
+      "IngestionApplyInput": {
+        "type": "object",
+        "properties": {
+          "offerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedRowVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "expectedOfferVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "expectedOfferRevisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decisionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "offerId",
+          "expectedRowVersion",
+          "expectedOfferVersion",
+          "expectedOfferRevisionId",
+          "decisionId"
+        ]
       }
     }
   },

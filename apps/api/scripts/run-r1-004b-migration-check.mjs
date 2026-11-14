@@ -611,6 +611,7 @@ async function applyMigrationState(port, database, baseSql, populated) {
       ['20261025120000_supplier_domain', true],
       ['20261026140000_inquiry_domain', true],
       ['20261107120000_supplier_ingestion', true],
+      ['20261108090000_ingestion_manual_apply', true],
     ],
   );
 
