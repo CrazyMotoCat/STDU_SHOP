@@ -1,0 +1,87 @@
+# WB-LAB-01. Requires an exclusive, preflight-approved project ID.
+x-isolation: &isolation
+  platform: linux/arm64
+  pull_policy: never
+  restart: 'no'
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  ipc: private
+  init: true
+  logging:
+    driver: local
+    options:
+      max-size: 1m
+      max-file: '2'
+  labels:
+    stdu.wb-lab-01.run: ${WB_RUN_ID:?Supply a freshly generated run ID}
+
+services:
+  postgres:
+    <<: *isolation
+    image: docker.io/library/postgres@sha256:d628bc2cef336ab1f527cd6e8de5f04827c069e5f24153b5e99d9bf64e5ff925
+    user: '999:999'
+    cpus: 0.5
+    mem_limit: 192m
+    memswap_limit: 192m
+    pids_limit: 32
+    shm_size: 16m
+    environment:
+      POSTGRES_USER: wb_lab_bootstrap
+      POSTGRES_DB: wb_lab_${WB_RUN_ID:?Supply a freshly generated run ID}
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+    command:
+      - postgres
+      - -c
+      - max_connections=6
+      - -c
+      - shared_buffers=24MB
+      - -c
+      - work_mem=1MB
+      - -c
+      - maintenance_work_mem=16MB
+      - -c
+      - statement_timeout=5000
+      - -c
+      - lock_timeout=3000
+      - -c
+      - idle_in_transaction_session_timeout=10000
+    secrets: [pg_password]
+    volumes: [pgdata:/var/lib/postgresql]
+    tmpfs:
+      - '/tmp:size=8m,mode=1777,nosuid,nodev,noexec'
+      - '/var/run/postgresql:size=2m,mode=1777,nosuid,nodev,noexec'
+    networks: [lab]
+
+  controller:
+    <<: *isolation
+    image: docker.io/library/python@sha256:591aae3636984765cba4e358b8e514c5ce7ed8093230592f3d2cccc590af71b8
+    user: '65532:65532'
+    cpus: 0.25
+    mem_limit: 64m
+    memswap_limit: 64m
+    pids_limit: 16
+    # The E0 profile has no workload entry point.
+    command: [python, -c, "print('WB-LAB-01 controller image')"]
+    volumes: [media:/media]
+    networks: [lab]
+
+networks:
+  lab:
+    internal: true
+    labels:
+      stdu.wb-lab-01.run: ${WB_RUN_ID:?Supply a freshly generated run ID}
+
+volumes:
+  pgdata:
+    driver: local
+    labels:
+      stdu.wb-lab-01.run: ${WB_RUN_ID:?Supply a freshly generated run ID}
+  media:
+    driver: local
+    labels:
+      stdu.wb-lab-01.run: ${WB_RUN_ID:?Supply a freshly generated run ID}
+
+secrets:
+  pg_password:
+    file: ${WB_PG_PASSWORD_FILE:?Supply the run-private secret path}

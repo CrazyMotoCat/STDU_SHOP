@@ -62,6 +62,20 @@ jobs:
           uv run --project services/ingestion --locked mypy --config-file services/ingestion/pyproject.toml services/ingestion/src services/ingestion/tests
           uv run --project services/ingestion --locked mypy --platform win32 --check-untyped-defs scripts/windows_job.py
           uv run --project services/ingestion --locked pytest services/ingestion/tests
+      - name: WB laboratory offline safety tests (no Docker or SSH)
+        run: |
+          uv run --project services/ingestion --locked ruff check experiments/wb-lab-01
+          uv run --project services/ingestion --locked ruff format --check experiments/wb-lab-01
+          python3 -B -m unittest discover -s experiments/wb-lab-01
+          sudo -n python3 -B -m unittest discover -s experiments/wb-lab-01 -p test_runtime_e0b.py -k test_sentinel_umask_and_uid_999
+      - name: E2 and E3 disposable PostgreSQL invariants
+        run: |
+          docker image pull --platform linux/amd64 docker.io/library/postgres@sha256:1c59e2c3c818eaa0f0628f695b36e7c9e362d6b219b36a54a32df645cbd7e1af
+          WB_E2_REAL_PG=1 WB_E34_REAL_PG=1 python3 -B -m unittest discover -s experiments/wb-lab-01 -p test_e2.py -k E2Postgres
+      - name: E4a disposable read-only media and diagnostics
+        run: |
+          docker image pull --platform linux/amd64 docker.io/library/python@sha256:f21c0d5a44c56805654c15abccc1b2fd576c8d93aca0a3f74b4aba2dc92510e2
+          WB_E4A_REAL_DOCKER=1 python3 -B -m unittest discover -s experiments/wb-lab-01 -p test_e4a_fix.py
 
   contracts:
     name: Frozen contracts
