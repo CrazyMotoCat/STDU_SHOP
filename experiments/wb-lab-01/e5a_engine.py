@@ -139,7 +139,9 @@ class Engine:
     def __init__(self, transport=unix_request):
         self.transport = transport
 
-    def request(self, method, path, deadline, *, statuses=(200,), body=None):
+    def request(
+        self, method, path, deadline, *, statuses=(200,), body=None, shape=dict
+    ):
         require(time.monotonic() < deadline, "E5A_ENGINE_DEADLINE")
         code, raw = self.transport(method, path, body, deadline)
         require(time.monotonic() < deadline, "E5A_ENGINE_DEADLINE")
@@ -147,7 +149,7 @@ class Engine:
         if code in (204, 404):
             return None
         result = json.loads(raw)
-        require(isinstance(result, dict), "E5A_ENGINE_OBJECT")
+        require(isinstance(result, shape), "E5A_ENGINE_OBJECT")
         return result
 
     def attest(self, intent, deadline):

@@ -38,6 +38,7 @@ class E1Tests(unittest.TestCase):
                         ),
                     ],
                 ),
+                patch("resource.setrlimit"),
                 patch.object(probe, "run") as run,
                 self.assertRaisesRegex(RuntimeError, "E1_ACTUAL_ISOLATION"),
             ):

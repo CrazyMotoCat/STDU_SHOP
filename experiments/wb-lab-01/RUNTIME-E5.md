@@ -35,4 +35,8 @@ A future separate decision must fix the codec image digest, synthetic input and 
 
 Owner gate for the next physical stage is OWNER_E5A_RUNTIME_APPROVED for one E5A campaign on a reviewed measurement-runner HEAD. This preparation supplies the runbook and offline acceptance checks.
 
+The offline campaign model in `runtime_e5a.py` exercises phase ordering, host sampling during simulated startup and abort handling. The cgroup reader binds counters to a container ID and process start time. The evidence writer publishes a private file without replacing any prior evidence. The SQL helper checks socket permissions and reconciles a lost commit response using a separate read. The watchdog process and exact-identity cleanup have separate fake-backend tests. A physical entry point still requires concrete Docker provisioning, a persisted and independently attested ledger, integrated crash recovery, socket and database attestation, the two-session SQL case, and full evidence schema validation.
+
 Offline check: python3 -B -m unittest discover -s experiments/wb-lab-01 -p test_e5_plan.py. This checks host sample gaps, phase coverage, idle observation windows, watermarks and observed margins. The future runner must separately verify last sample freshness against phase closure and required process/cgroup streams.
+
+The paired SQL watchdog checks apparent file bytes every 250 ms within the supplied phase deadline. A sample at or above 128 MiB, an unavailable sample or an overdue sample blocks the phase and starts addressed cleanup. This is a sampled stop threshold. Writes can exceed it between samples and the filesystem does not enforce it as a quota.
