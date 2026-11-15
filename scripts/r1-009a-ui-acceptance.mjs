@@ -10,10 +10,22 @@ import { chromium } from 'playwright';
 import { withProcesses } from './process-lifecycle.mjs';
 import { root } from './lib.mjs';
 
-export async function reviewUiAcceptance({ api, cookies, runId, offerId }) {
+export async function reviewUiAcceptance({
+  api,
+  cookies,
+  runId,
+  rowId,
+  offerId,
+  brandId,
+}) {
   const origin = process.env.R1_009A_WEB_ORIGIN;
   assert.match(origin ?? '', /^https:\/\/127\.0\.0\.1:\d+$/);
-  const screenshots = resolve(root, '.local/r1-009a/screenshots');
+  const screenshots = resolve(
+    root,
+    brandId
+      ? '.local/r1-009b-create/screenshots'
+      : '.local/r1-009a/screenshots',
+  );
   await mkdir(screenshots, { recursive: true });
   const reservation = netServer();
   await new Promise((ok, fail) => {
@@ -190,6 +202,12 @@ export async function reviewUiAcceptance({ api, cookies, runId, offerId }) {
             );
             throw error;
           }
+          if (brandId) {
+            await createUiFlow({ page, rowId, brandId, screenshots });
+            assert.deepEqual(errors, []);
+            await context.close();
+            return;
+          }
           await page
             .getByRole('button', { name: 'Строка 1', exact: true })
             .click();
@@ -259,4 +277,87 @@ export async function reviewUiAcceptance({ api, cookies, runId, offerId }) {
     proxy.closeAllConnections();
     await new Promise((ok) => proxy.close(ok));
   }
+}
+
+async function createUiFlow({ page, rowId, brandId, screenshots }) {
+  let createRequests = 0;
+  page.on('request', (request) => {
+    if (
+      request.method() === 'POST' &&
+      request.url().endsWith('/rows/' + rowId + '/create')
+    )
+      createRequests++;
+  });
+  await page.getByTestId('row-' + rowId).click();
+  const inspect = page.getByRole('button', {
+    name: 'Проверить исходные данные для создания',
+  });
+  await inspect.click();
+  await page
+    .getByRole('heading', { name: 'Исходные данные', exact: true })
+    .waitFor();
+  await page
+    .getByLabel('Причина решения')
+    .fill('TEST confirmed original supplier identity');
+  await page
+    .getByRole('button', { name: 'Одобрить строку (ACCEPT)', exact: true })
+    .click();
+  await page
+    .getByText('Строка одобрена. Применение выполняется отдельным действием.', {
+      exact: true,
+    })
+    .waitFor();
+  assert.equal(createRequests, 0);
+  await inspect.click();
+  await page.getByLabel('Подтверждённый бренд').selectOption(brandId);
+  await page
+    .getByRole('button', { name: 'Предпросмотр создания', exact: true })
+    .click();
+  const proceed = page.getByRole('button', {
+    name: 'Подтвердить точную идентичность и перейти к созданию',
+  });
+  await proceed.waitFor();
+  const acknowledgement = page.getByRole('checkbox', {
+    name: 'Архивные совпадения проверены',
+  });
+  await acknowledgement.waitFor();
+  assert.equal(await proceed.isEnabled(), false);
+  await acknowledgement.check();
+
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    assert(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      'CREATE page overflow',
+    );
+    await page
+      .getByRole('region', { name: 'Новое предложение поставщика' })
+      .screenshot({
+        path: resolve(screenshots, 'create-preview-' + width + '.png'),
+      });
+  }
+  await proceed.click();
+  const confirmation = page.getByRole('group', {
+    name: 'Подтверждение создания',
+  });
+  await confirmation.waitFor();
+  assert.equal(createRequests, 0);
+  await confirmation.screenshot({
+    path: resolve(screenshots, 'create-confirm-375.png'),
+  });
+  await confirmation
+    .getByRole('button', { name: 'Подтвердить CREATE', exact: true })
+    .click();
+  await page
+    .getByText('Предложение создано. Сохранена первая редакция.', {
+      exact: true,
+    })
+    .waitFor();
+  await page.getByText('Создано из staging', { exact: true }).waitFor();
+  assert.equal(createRequests, 1);
+  await page
+    .getByRole('region', { name: 'Проверка строки 1' })
+    .screenshot({ path: resolve(screenshots, 'create-result-375.png') });
 }

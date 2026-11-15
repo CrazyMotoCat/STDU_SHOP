@@ -525,7 +525,7 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
   );
   await afterFirst.end();
   if (
-    before.rowCount !== 7 ||
+    before.rowCount !== 8 ||
     before.rows.map((row) => row.migration_name).join('\0') !==
       [
         '20261022120000_staff_identity',
@@ -535,6 +535,7 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
         '20261026140000_inquiry_domain',
         '20261107120000_supplier_ingestion',
         '20261108090000_ingestion_manual_apply',
+        '20261115100000_ingestion_create_offer',
       ].join('\0') ||
     sentinel.rows[0]?.payload !== 'must-survive-migration' ||
     models.rows[0]?.count !== 11 ||
@@ -549,7 +550,7 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
   if (
     initial.rows[0]?.users !== 0 ||
     initial.rows[0]?.sessions !== 0 ||
-    initial.rows[0]?.permissions !== 42 ||
+    initial.rows[0]?.permissions !== 43 ||
     initial.rows[0]?.r1_002_permissions !== 12 ||
     initial.rows[0]?.r1_004_permissions !== 12 ||
     initial.rows[0]?.r1_007_permissions !== 5 ||

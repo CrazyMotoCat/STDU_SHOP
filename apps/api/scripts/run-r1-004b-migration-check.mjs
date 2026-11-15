@@ -50,14 +50,24 @@ const inquiryRbacContract = JSON.parse(
 const expectedInquiryPermissions = Object.keys(
   inquiryRbacContract.permissions,
 ).sort();
-const expectedIngestionPermissions = Object.keys(
-  JSON.parse(
-    await readFile(
-      resolve(repoRoot, 'docs/contracts/R1-008B-rbac.json'),
-      'utf8',
-    ),
-  ).permissions,
-).sort();
+const expectedIngestionPermissions = [
+  ...Object.keys(
+    JSON.parse(
+      await readFile(
+        resolve(repoRoot, 'docs/contracts/R1-008B-rbac.json'),
+        'utf8',
+      ),
+    ).permissions,
+  ),
+  ...Object.keys(
+    JSON.parse(
+      await readFile(
+        resolve(repoRoot, 'docs/contracts/R1-009B-create-rbac.json'),
+        'utf8',
+      ),
+    ).permissions,
+  ),
+].sort();
 const require = createRequire(resolve(apiRoot, 'package.json'));
 const prismaCli = require.resolve('prisma/build/index.js');
 const tsxCli = require.resolve('tsx/cli');
@@ -612,6 +622,7 @@ async function applyMigrationState(port, database, baseSql, populated) {
       ['20261026140000_inquiry_domain', true],
       ['20261107120000_supplier_ingestion', true],
       ['20261108090000_ingestion_manual_apply', true],
+      ['20261115100000_ingestion_create_offer', true],
     ],
   );
 

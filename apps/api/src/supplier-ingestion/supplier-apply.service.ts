@@ -21,6 +21,37 @@ import {
   type IngestionTx,
 } from './supplier-ingestion.service.js';
 
+const legacyApplicationFields = {
+  id: true,
+  sourceId: true,
+  runId: true,
+  rowId: true,
+  decisionId: true,
+  actorId: true,
+  offerId: true,
+  baseRevisionId: true,
+  revisionId: true,
+  sourceHash: true,
+  version: true,
+  createdAt: true,
+} as const;
+
+function legacyApplication(
+  application:
+    | (Record<keyof typeof legacyApplicationFields, unknown> & {
+        operation: string;
+      })
+    | null,
+) {
+  if (application?.operation !== 'UPDATE') return null;
+  return Object.fromEntries(
+    Object.keys(legacyApplicationFields).map((field) => [
+      field,
+      application[field as keyof typeof legacyApplicationFields],
+    ]),
+  );
+}
+
 const readPermissions = ['suppliers.read', 'suppliers.offers.read'];
 const applyPermissions = [
   ...readPermissions,
@@ -218,7 +249,7 @@ export class SupplierApplyService {
             fields: context.fields,
             eligible: context.blockedReason === null,
             blockedReason: context.blockedReason,
-            application: context.application,
+            application: legacyApplication(context.application),
             original,
             conflicts: conflicts.map(({ occurredAt, ...entry }) => ({
               ...entry,
@@ -243,7 +274,8 @@ export class SupplierApplyService {
         throw new StaffError('NOT_FOUND');
       return {
         data: await tx.ingestionApplication.findMany({
-          where: { rowId },
+          where: { rowId, operation: 'UPDATE' },
+          select: legacyApplicationFields,
           take: 1,
         }),
       };
@@ -347,7 +379,7 @@ export class SupplierApplyService {
             sourceHash: context.row.sourceHash,
           },
         });
-        return { status: 200, data: application };
+        return { status: 200, data: legacyApplication(application) };
       },
       applyPermissions,
     );
