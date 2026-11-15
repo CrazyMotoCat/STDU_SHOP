@@ -90,6 +90,19 @@ jobs:
         run: |
           node --test scripts/ci/*.node.mjs
           node scripts/ci/hygiene.mjs
+      - name: VIS-CAT synthetic offline proof
+        env:
+          CI_DIFF_BASE: ${{ needs.plan.outputs.base || github.event.before || github.sha }}
+        run: |
+          if git cat-file -e "$CI_DIFF_BASE^{commit}" &&
+             git diff --quiet "$CI_DIFF_BASE" HEAD -- experiments/vis-cat-media-proof experiments/vis-cat-02b experiments/vis-cat-02c; then
+            exit 0
+          fi
+          test -f experiments/vis-cat-media-proof/run_offline.py || exit 0
+          proof_python="$RUNNER_TEMP/vis-cat-proof/bin/python"
+          uv venv "$RUNNER_TEMP/vis-cat-proof" --python 3.14.3
+          uv pip install --python "$proof_python" --require-hashes --only-binary :all: -r experiments/vis-cat-02b/requirements.txt
+          "$proof_python" -B experiments/vis-cat-media-proof/run_offline.py
       - run: pnpm toolchain:check
       - run: pnpm db:validate
       - run: pnpm lint
