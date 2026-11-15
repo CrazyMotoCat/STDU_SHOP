@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import platform
 import random
-import resource
 import socket
 import struct
 import subprocess
@@ -14,7 +13,7 @@ import sys
 import time
 import warnings
 
-from PIL import Image, features
+from PIL import Image, ImageOps, features
 
 SOURCE_CAP = 8 * 1024 * 1024
 OUTPUT_CAP = 2 * 1024 * 1024
@@ -70,7 +69,7 @@ def fixtures():
     return cases
 
 
-def checked_image(data, formats):
+def checked_image(data, formats, *, normalize=False):
     with Image.open(io.BytesIO(data), formats=formats) as image:
         if image.width * image.height > PIXELS or getattr(image, "n_frames", 1) != 1:
             raise ValueError("image budget")
@@ -83,6 +82,10 @@ def checked_image(data, formats):
         image.verify()
     with Image.open(io.BytesIO(data), formats=formats) as image:
         image.load()
+        if normalize:
+            oriented = ImageOps.exif_transpose(image)
+            mode = "RGBA" if "A" in oriented.getbands() or "transparency" in oriented.info else "RGB"
+            return oriented.convert(mode)
         return image.convert("RGB")
 
 
@@ -154,6 +157,8 @@ def boundary():
 
 
 def stats(start):
+    import resource
+
     usage = resource.getrusage(resource.RUSAGE_SELF)
     return dict(wall_ms=round((time.monotonic()-start)*1000, 3),
                 user_cpu_s=usage.ru_utime, system_cpu_s=usage.ru_stime, peak_rss_kib=usage.ru_maxrss,
