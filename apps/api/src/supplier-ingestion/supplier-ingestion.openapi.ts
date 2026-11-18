@@ -109,7 +109,7 @@ export const ingestionErrorSchema: SchemaObject = {
   },
 };
 
-const application = object({
+const applicationFields = {
   id: uuid,
   sourceId: uuid,
   runId: uuid,
@@ -122,7 +122,8 @@ const application = object({
   sourceHash: hash,
   version: integer,
   createdAt: timestamp,
-});
+};
+const application = object(applicationFields);
 export const ingestionApplyResponses = {
   apply: object({ data: application }),
   applications: object({ data: array(application) }),
@@ -189,4 +190,50 @@ export const ingestionApplyResponses = {
       ),
     }),
   }),
+};
+
+const provenance = object({
+  ...applicationFields,
+  operation: enumeration('CREATE', 'UPDATE'),
+  baseRevisionId: nullable(uuid),
+});
+export const ingestionCreateResponses = {
+  inspection: object({
+    data: object({
+      row,
+      original: nullable({ type: 'object', additionalProperties: true }),
+      supplierId: uuid,
+      decisionEligible: { type: 'boolean' },
+      decisionId: nullable(uuid),
+      brands: array(object({ id: uuid, name: text })),
+    }),
+  }),
+  preview: object({
+    data: object({
+      eligible: { type: 'boolean' },
+      blockedReason: nullable(text),
+      previewToken: nullable(text),
+      supplierId: uuid,
+      identity: nullable(
+        object({
+          brandId: uuid,
+          brandName: text,
+          manufacturerName: text,
+          originalPartNumber: text,
+          modificationEvidence: enumeration('SPECIFIED', 'CONFIRMED_NONE'),
+          modification: nullable(text),
+        }),
+      ),
+      duplicates: array(
+        object({
+          offerId: uuid,
+          revisionId: uuid,
+          version: integer,
+          state: enumeration('ACTIVE', 'ARCHIVED'),
+        }),
+      ),
+    }),
+  }),
+  create: object({ data: provenance }),
+  provenance: object({ data: nullable(provenance) }),
 };

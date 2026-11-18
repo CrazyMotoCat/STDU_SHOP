@@ -33,6 +33,9 @@ const additivePermissionCodes = [
   ...Object.keys(
     (await readJson('docs/contracts/R1-008B-rbac.json')).permissions,
   ),
+  ...Object.keys(
+    (await readJson('docs/contracts/R1-009B-create-rbac.json')).permissions,
+  ),
 ];
 
 function visitPermissionEnums(value, visit) {

@@ -1,3 +1,4 @@
+import { SupplierCreateService } from './supplier-create.service.js';
 import { SuppliersModule } from '../suppliers/suppliers.module.js';
 import { SupplierApplyService } from './supplier-apply.service.js';
 import { Module } from '@nestjs/common';
@@ -15,6 +16,7 @@ import { SupplierIngestionWorker } from './supplier-ingestion.worker.js';
   controllers: [SupplierIngestionController],
   providers: [
     SupplierApplyService,
+    SupplierCreateService,
     SupplierExtractionClient,
     SupplierIngestionService,
     SupplierIngestionWorker,

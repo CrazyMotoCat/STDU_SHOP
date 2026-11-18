@@ -1,6 +1,8 @@
+import { SupplierCreateService } from './supplier-create.service.js';
 import { SupplierApplyService } from './supplier-apply.service.js';
 import {
   ingestionApplyResponses,
+  ingestionCreateResponses,
   ingestionResponses,
   ingestionErrorSchema,
 } from './supplier-ingestion.openapi.js';
@@ -49,6 +51,8 @@ import {
 } from './supplier-ingestion.service.js';
 import {
   IngestionPreviewQuery,
+  IngestionCreateInput,
+  IngestionCreatePreviewInput,
   IngestionApplyInput,
   IngestionSourceInput,
   IngestionSourcePatch,
@@ -144,6 +148,8 @@ export class SupplierIngestionController {
     private readonly service: SupplierIngestionService,
     @Inject(SupplierApplyService)
     private readonly applyService: SupplierApplyService,
+    @Inject(SupplierCreateService)
+    private readonly createService: SupplierCreateService,
   ) {}
   private async respond(
     response: Response,
@@ -464,5 +470,105 @@ export class SupplierIngestionController {
       response,
       this.applyService.apply(request, key, id, input),
     );
+  }
+
+  @Get('rows/:id/review-inspection')
+  @ApiOperation({ operationId: 'ingestion_inspectCreate' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Bounded candidate inspection',
+    schema: ingestionCreateResponses.inspection,
+  })
+  @StaffOperation({ permission: 'ingestion.read', csrf: 'NONE', audit: 'none' })
+  reviewInspection(
+    @Req() request: StaffRequest,
+    @Param('id', rowId) id: string,
+  ) {
+    return this.createService.inspection(request, id);
+  }
+
+  @Post('rows/:id/create-preview')
+  @ApiOperation({ operationId: 'ingestion_previewCreate' })
+  @ApiBody({ type: IngestionCreatePreviewInput })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'CREATE eligibility and preview token',
+    schema: ingestionCreateResponses.preview,
+  })
+  @StaffOperation({
+    permission: 'ingestion.createOffer',
+    csrf: 'STAFF_BOUND',
+    audit: 'none',
+  })
+  createPreview(
+    @Req() request: StaffRequest,
+    @Param('id', rowId) id: string,
+    @Body() input: IngestionCreatePreviewInput,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    response.status(200);
+    return this.createService.preview(request, id, input);
+  }
+
+  @Post('rows/:id/create')
+  @ApiOperation({ operationId: 'ingestion_createOffer' })
+  @ApiBody({ type: IngestionCreateInput })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Created offer provenance',
+    schema: ingestionCreateResponses.create,
+  })
+  @StaffOperation({
+    permission: 'ingestion.createOffer',
+    csrf: 'STAFF_BOUND',
+    audit: 'supplier_offer.created',
+  })
+  createOffer(
+    @Req() request: StaffRequest,
+    @Headers('idempotency-key') key: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+    @Param('id', rowId) id: string,
+    @Body() input: IngestionCreateInput,
+  ) {
+    return this.respond(
+      response,
+      this.createService.create(request, key, id, input),
+    );
+  }
+
+  @Get('rows/:id/application-provenance')
+  @ApiOperation({ operationId: 'ingestion_applicationProvenance' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Immutable application provenance',
+    schema: ingestionCreateResponses.provenance,
+  })
+  @StaffOperation({ permission: 'ingestion.read', csrf: 'NONE', audit: 'none' })
+  applicationProvenance(
+    @Req() request: StaffRequest,
+    @Param('id', rowId) id: string,
+  ) {
+    return this.createService.provenance(request, id);
   }
 }

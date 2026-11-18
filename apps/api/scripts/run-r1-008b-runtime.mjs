@@ -7,6 +7,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from 'pg';
+import { runCreateMigrationProof } from './r1-009b-migration-proof.mjs';
 import { withProcesses } from '../../../scripts/process-lifecycle.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
@@ -27,6 +28,7 @@ const project = `stdu-r1-008b-test-${process.pid}-${randomUUID().slice(0, 8)}`;
 const pgPassword = randomBytes(32).toString('base64url');
 const runtimePassword = randomBytes(32).toString('base64url');
 const redisPassword = randomBytes(32).toString('base64url');
+const create = process.argv.includes('--create');
 const review =
   process.argv.includes('--review') ||
   process.env.R1_009A_TEST_ENABLED === 'true';
@@ -193,9 +195,8 @@ async function main() {
   const pgPort = await reservePort();
   const redisPort = await reservePort();
   const pythonPort = await reservePort();
-  const webOrigin = review
-    ? 'https://127.0.0.1:' + (await reservePort())
-    : null;
+  const webOrigin =
+    review || create ? 'https://127.0.0.1:' + (await reservePort()) : null;
   const ingestionToken = randomBytes(32).toString('hex');
   Object.assign(portEnv, {
     R1_008B_TEST_PG_PORT: String(pgPort),
@@ -241,6 +242,23 @@ async function main() {
     env: migrationEnv,
   });
 
+  if (create) {
+    await runCreateMigrationProof({
+      ownerUrl,
+      migrationsRoot: resolve(apiRoot, 'prisma/migrations'),
+      prisma: (url, args) =>
+        run(process.execPath, [prismaCli, ...args], {
+          cwd: apiRoot,
+          env: { ...migrationEnv, MIGRATION_DATABASE_URL: url },
+        }),
+      execPostgres: (args) =>
+        compose(
+          ['exec', '-T', '--user', 'postgres', 'postgres', ...args],
+          composeEnv,
+        ),
+    });
+  }
+
   const python = resolve(
     repoRoot,
     'services/ingestion/.venv',
@@ -251,10 +269,10 @@ async function main() {
     MIGRATION_DATABASE_URL: ownerUrl,
     STAFF_DATABASE_URL: runtimeUrl,
     REDIS_URL: redisUrl,
-    APP_ENV: review ? 'production' : 'development',
+    APP_ENV: review || create ? 'production' : 'development',
     HOST: '127.0.0.1',
     PORT: '3001',
-    COOKIE_PROFILE: review ? 'https' : 'loopback',
+    COOKIE_PROFILE: review || create ? 'https' : 'loopback',
     STAFF_ORIGINS: webOrigin ?? 'http://127.0.0.1:3000',
     ...(webOrigin
       ? {
@@ -271,6 +289,8 @@ async function main() {
     SUPPLIER_INGESTION_WORKER_ENABLED: 'false',
     R1_008B_TEST_ENABLED: 'true',
     R1_009A_TEST_ENABLED: review ? 'true' : 'false',
+    SUPPLIER_INGESTION_CREATE_ENABLED: create ? 'true' : 'false',
+    R1_009B_CREATE_TEST_ENABLED: create ? 'true' : 'false',
     R1_008B_TEST_COMPOSE_PROJECT: project,
     R1_008B_TEST_COMPOSE_FILE: composeFile,
     ...portEnv,
@@ -321,9 +341,11 @@ async function main() {
             vitestCli,
             'run',
             '--silent=false',
-            review
-              ? 'apps/api/test/r1-009a.review.runtime.test.ts'
-              : 'apps/api/test/r1-008b.ingestion.runtime.test.ts',
+            create
+              ? 'apps/api/test/r1-009b.create.runtime.test.ts'
+              : review
+                ? 'apps/api/test/r1-009a.review.runtime.test.ts'
+                : 'apps/api/test/r1-008b.ingestion.runtime.test.ts',
           ],
           {
             cwd: repoRoot,
