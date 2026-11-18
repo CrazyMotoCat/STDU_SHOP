@@ -96,6 +96,7 @@ def validate_observation(sample, *, phase, now, previous, daemon, limits, runnin
             "ledger_verified",
             "containers",
             "processes",
+            "telemetry",
         },
         "E5A_SAMPLE_FIELDS",
     )
@@ -118,11 +119,64 @@ def validate_observation(sample, *, phase, now, previous, daemon, limits, runnin
         "E5A_DISK_FLOOR",
     )
     require(sample["ledger_verified"] is True, "E5A_LEDGER_UNVERIFIED")
+    telemetry = sample["telemetry"]
+    require(
+        telemetry.keys() == {"source", "storage", "infrastructure"}
+        and telemetry["source"] == "procfs+cgroupv2+statvfs"
+        and telemetry["storage"].keys() == {"pg_bytes", "media_bytes"}
+        and all(
+            value is None or (type(value) is int and value >= 0)
+            for value in telemetry["storage"].values()
+        ),
+        "E5A_TELEMETRY_FIELDS",
+    )
+    infrastructure = telemetry["infrastructure"]
+    require(
+        infrastructure.keys() == {"status", "processes"}
+        and infrastructure["status"] == "AVAILABLE"
+        and isinstance(infrastructure["processes"], list)
+        and 1 <= len(infrastructure["processes"]) <= 32,
+        "E5A_INFRASTRUCTURE_UNAVAILABLE",
+    )
+    for process in infrastructure["processes"]:
+        require(
+            process.keys()
+            == {
+                "role",
+                "pid",
+                "start_before",
+                "start_after",
+                "rss_bytes",
+                "cpu_user_ticks",
+                "cpu_system_ticks",
+            }
+            and process["role"] in {"docker", "containerd", "shim"}
+            and all(
+                type(value) is int and value >= 0
+                for key, value in process.items()
+                if key != "role"
+            )
+            and process["pid"] > 0
+            and process["start_before"] == process["start_after"] > 0,
+            "E5A_INFRASTRUCTURE_IDENTITY",
+        )
+    require(
+        any(process["role"] == "docker" for process in infrastructure["processes"]),
+        "E5A_DOCKER_PROCESS_UNAVAILABLE",
+    )
     require(
         running <= limits.keys() and sample["containers"].keys() == running,
         "E5A_CONTAINER_SET",
     )
     for role, counters in sample["containers"].items():
+        value = telemetry["storage"][
+            "pg_bytes" if role == "postgres" else "media_bytes"
+        ]
+        require(
+            type(value) is int
+            and value < (128 * 1024**2 if role == "postgres" else 1024**2 + 1),
+            "E5A_STORAGE_SAMPLE_MISSING_OR_LIMIT",
+        )
         require(
             counters.keys()
             == {
@@ -135,10 +189,30 @@ def validate_observation(sample, *, phase, now, previous, daemon, limits, runnin
                 "memory_peak",
                 "pids_current",
                 "attachments_verified",
+                "container_id",
             },
             "E5A_CONTAINER_SAMPLE_FIELDS",
         )
         require(counters["limits"] == limits[role], "E5A_ACTUAL_LIMITS")
+        require(
+            isinstance(counters["container_id"], str)
+            and len(counters["container_id"]) == 64
+            and all(char in "0123456789abcdef" for char in counters["container_id"]),
+            "E5A_SAMPLE_CONTAINER_ID",
+        )
+        require(
+            all(
+                type(counters[key]) is int
+                for key in (
+                    "oom",
+                    "oom_kill",
+                    "memory_current",
+                    "memory_peak",
+                    "pids_current",
+                )
+            ),
+            "E5A_COUNTER_TYPE",
+        )
         require(
             counters_valid(counters["cpu"], CPU_COUNTERS)
             and counters_valid(counters["io"], IO_COUNTERS),
@@ -179,6 +253,7 @@ def run_campaign(backend, *, clock=time.monotonic, sleep=time.sleep):
         "status": "E5A_BLOCKED",
         "reason": None,
         "cleanup": "NOT_RUN",
+        "watchdog": "NOT_STARTED",
         "phases": {},
         "samples": {},
     }
@@ -194,9 +269,18 @@ def run_campaign(backend, *, clock=time.monotonic, sleep=time.sleep):
         nonlocal sample_bytes
         rows = evidence["samples"].setdefault(phase, [])
         while clock() < end:
+            if until is None and rows and end - clock() <= INTERVAL:
+                sleep(max(0, end - clock()))
+                break
             next_sample = clock() + INTERVAL
             check(end)
             sample = backend.observe(phase, end)
+            if sample is None and until is None and rows:
+                require(
+                    end - rows[-1]["monotonic_ms"] / 1000 <= FRESHNESS,
+                    "E5A_FINAL_SAMPLE_STALE",
+                )
+                break
             check(end)
             require(sample is not None, "E5A_SAMPLE_MISSING")
             running = backend.attested_running_roles(end)
@@ -220,7 +304,7 @@ def run_campaign(backend, *, clock=time.monotonic, sleep=time.sleep):
                 "E5A_SAMPLE_BUDGET",
             )
             rows.append(sample)
-            if until is not None and until():
+            if until is not None and until() and len(rows) >= 2:
                 require(
                     running == PHASE_LIMITS[phase].keys(), "E5A_WORKLOAD_ROLES_MISSING"
                 )
@@ -234,6 +318,7 @@ def run_campaign(backend, *, clock=time.monotonic, sleep=time.sleep):
 
     try:
         backend.start_watchdog(deadline)
+        evidence["watchdog"] = "RUNNING"
         before = backend.inventory(min(deadline, clock() + 3))
         for phase, budget in PHASE_BUDGET_MS.items():
             phase_start = clock()
@@ -265,13 +350,26 @@ def run_campaign(backend, *, clock=time.monotonic, sleep=time.sleep):
                 (row["monotonic_ms"] - first, row["memory_available"], row["disk_free"])
                 for row in rows
             ]
-        evidence["host_margins"] = host_margins(streams)
+        try:
+            evidence["host_margins"] = host_margins(streams)
+        except ValueError as error:
+            known = {
+                "E5A_PHASES_INCOMPLETE",
+                "E5A_SAMPLE_COUNT",
+                "E5A_SAMPLE_TIME_OR_SHAPE",
+                "E5A_HOST_WATERMARK",
+                "E5A_IDLE_SAMPLE_WINDOW",
+            }
+            raise Blocked(
+                str(error) if str(error) in known else "E5A_HOST_SAMPLE_INVALID"
+            ) from error
         require(backend.inventory(deadline) == before, "E5A_FOREIGN_INVENTORY_CHANGED")
         evidence["foreign_inventory"] = "PRESERVED"
         require(clock() <= deadline, "E5A_DEADLINE")
         backend.stop_watchdog(deadline)
+        evidence["watchdog"] = "STOPPED"
         require(clock() <= deadline, "E5A_DEADLINE")
-        evidence["status"] = "E5A_OFFLINE_MODEL_PASS"
+        evidence["status"] = "E5A_CHECKS_PASS"
     except (*FAILURES, KeyboardInterrupt) as error:
         evidence["reason"] = (
             str(error) if isinstance(error, Blocked) else type(error).__name__
@@ -286,11 +384,12 @@ def run_campaign(backend, *, clock=time.monotonic, sleep=time.sleep):
                 evidence["cleanup"] = "CONFIRMED"
             except FAILURES:
                 evidence["cleanup"] = "CLEANUP_UNCONFIRMED"
-        if evidence["status"] != "E5A_OFFLINE_MODEL_PASS":
+        if evidence["status"] != "E5A_CHECKS_PASS":
             try:
                 backend.stop_watchdog(deadline)
+                evidence["watchdog"] = "STOPPED"
                 if before is not None and backend.inventory(deadline) == before:
                     evidence["foreign_inventory"] = "PRESERVED"
             except FAILURES:
-                pass
+                evidence["watchdog"] = "FAILED"
     return evidence

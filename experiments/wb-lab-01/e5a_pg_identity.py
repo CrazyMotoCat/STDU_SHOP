@@ -5,7 +5,7 @@ import stat
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-from e5a_engine import HEX, RUN, verify_directory
+from e5a_engine import CONFIG, HEX, RUN, verify_directory
 from preflight import LABEL, Blocked, require
 
 SOCKET_NAME = ".s.PGSQL.5432"
@@ -33,6 +33,12 @@ def verify_pg_container(item, *, run, container_id, image_id, socket_source, vol
         and config["User"] == "999:999"
         and host["Privileged"] is False
         and host["ReadonlyRootfs"] is True
+        and host.get("IpcMode") == "private"
+        and host.get("CgroupnsMode") == "private"
+        and host.get("CapDrop") == CONFIG["CapDrop"]
+        and host.get("SecurityOpt") == CONFIG["SecurityOpt"]
+        and not any(host.get(key) for key in ("CapAdd", "PidMode", "UTSMode"))
+        and item["NetworkSettings"]["Ports"] in ({}, None)
         and all(host.get(key) == value for key, value in PG_CAPS.items())
         and not any(
             host.get(key) for key in ("PortBindings", "Devices", "VolumesFrom", "Binds")

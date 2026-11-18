@@ -1,10 +1,13 @@
 """Offline campaign tests with a deterministic clock and fake operations."""
 
+import hashlib
+import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from e5_plan import DISK_FLOOR, MEMORY_FLOOR
+from e5a_evidence import publish
 from preflight import Blocked
 from runtime_e5a import (
     CPU_COUNTERS,
@@ -81,7 +84,22 @@ class Sandbox:
     def workload_result(self, deadline):
         if self.fault == "sql" and len(self.workloads) == 2:
             raise Blocked("SQL_FAILED")
-        return {}
+        return {
+            "fsync_us": [1, 2, 3],
+            "sql": {}
+            if len(self.workloads) == 1
+            else {
+                "transactions": [
+                    {
+                        "sequence": index,
+                        "outcome": "COMMITTED" if index < 3 else "COMMITTED_RECONCILED",
+                        "duration_us": 10,
+                    }
+                    for index in range(1, 4)
+                ],
+                "row_lock": {"lock_timeout": True, "duration_us": 1000000},
+            },
+        }
 
     def cleanup(self, deadline):
         if self.fault == "cleanup":
@@ -98,6 +116,27 @@ class Sandbox:
             "memory_available": MEMORY_FLOOR + 1,
             "disk_free": DISK_FLOOR + 1,
             "ledger_verified": True,
+            "telemetry": {
+                "source": "procfs+cgroupv2+statvfs",
+                "storage": {
+                    "pg_bytes": 1 if "postgres" in self.active_limits else None,
+                    "media_bytes": 1 if "controller" in self.active_limits else None,
+                },
+                "infrastructure": {
+                    "status": "AVAILABLE",
+                    "processes": [
+                        {
+                            "role": "docker",
+                            "pid": 90,
+                            "start_before": 1,
+                            "start_after": 1,
+                            "rss_bytes": 4096,
+                            "cpu_user_ticks": 0,
+                            "cpu_system_ticks": 0,
+                        }
+                    ],
+                },
+            },
             "processes": {
                 role: {
                     "pid": pid,
@@ -111,6 +150,14 @@ class Sandbox:
             },
             "containers": {
                 role: {
+                    "container_id": (
+                        "1"
+                        if phase == "controller"
+                        else "2"
+                        if role == "controller"
+                        else "3"
+                    )
+                    * 64,
                     "limits": dict(limits),
                     "oom": 0,
                     "oom_kill": 0,
@@ -171,13 +218,47 @@ class CampaignTests(unittest.TestCase):
 
     def test_complete(self):
         result, sandbox = self.run_case()
-        self.assertEqual(result["status"], "E5A_OFFLINE_MODEL_PASS")
+        self.assertEqual(result["status"], "E5A_CHECKS_PASS")
         self.assertEqual(result["foreign_inventory"], "PRESERVED")
         self.assertEqual(sandbox.cleaned, 2)
         self.assertFalse(sandbox.watchdog)
         rows = result["samples"]["controller"]
         self.assertFalse(rows[0]["containers"])
         self.assertIn("controller", rows[-1]["containers"])
+
+    @unittest.skipUnless(hasattr(os, "O_DIRECTORY"), "requires POSIX directory FD")
+    def test_complete_campaign_seals_and_rejects_missing_evidence(self):
+        result, sandbox = self.run_case()
+        envelope = {
+            "revision": "a" * 40,
+            "run_id": "b" * 32,
+            "daemon": sandbox.daemon,
+            "images": {
+                role: "sha256:" + "c" * 64 for role in ("controller", "postgres")
+            },
+            "resources": {
+                "controller": {"controller": "1" * 64},
+                "postgres_controller": {"controller": "2" * 64, "postgres": "3" * 64},
+            },
+            "campaign": result,
+        }
+        with TemporaryDirectory() as directory:
+            fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                recovery = result["samples"].pop("recovery")
+                with self.assertRaisesRegex(Blocked, "E5A_EVIDENCE_PASS_UNPROVEN"):
+                    publish(fd, envelope)
+                self.assertEqual(os.listdir(fd), [])
+                result["samples"]["recovery"] = recovery
+                digest = publish(fd, envelope)
+                self.assertEqual(
+                    digest,
+                    hashlib.sha256(
+                        (Path(directory) / "evidence.json").read_bytes()
+                    ).hexdigest(),
+                )
+            finally:
+                os.close(fd)
 
     def test_controller_failures_prevent_later_phases(self):
         for fault, reason in {

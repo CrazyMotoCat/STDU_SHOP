@@ -70,6 +70,7 @@ class FakeTransport:
                                 **body["HostConfig"],
                             },
                             "Mounts": [],
+                            "NetworkSettings": {"Ports": {}},
                             "State": {"Status": "created", "Running": False},
                         }
                     ),

@@ -12,6 +12,7 @@ from tempfile import TemporaryDirectory
 
 from e5a_engine import IMAGE as PYTHON_IMAGE
 from e5a_engine import Engine, Intent, watchdog
+from e5a_media import MediaController
 from e5a_pg_engine import IMAGE, PostgresEngine, PostgresIntent, write_record
 from e5a_pg_identity import SOCKET_NAME
 from e5a_pg_supervisor import PairedRecovery, monitor_sql
@@ -98,6 +99,7 @@ class FakeDocker:
                         "HostConfig": {"Privileged": False, **body["HostConfig"]},
                         "State": {"Running": False},
                         "Mounts": mounts,
+                        "NetworkSettings": {"Ports": {}},
                     }
                 )
             )
@@ -170,6 +172,8 @@ class RecoveryTests(unittest.TestCase):
         controller = Intent(pg.run, pg.daemon, "sha256:" + "c" * 64)
         pg_transport = FakeDocker(root, pg, active, fault)
         controller_file = root / "controller"
+        media_file = root / "media-volume"
+        media = MediaController(Engine(lambda *args: transport(*args)), controller)
 
         def transport(method, path, body, deadline):
             if path == f"/images/{PYTHON_IMAGE}/json":
@@ -182,6 +186,32 @@ class RecoveryTests(unittest.TestCase):
                         "Config": {},
                     }
                 ).encode()
+            if path == "/volumes/create" and body["Name"] == media.volume:
+                media_file.write_text(
+                    json.dumps(
+                        {
+                            "Name": media.volume,
+                            "Driver": "local",
+                            "Scope": "local",
+                            "Labels": body["Labels"],
+                            "Options": None,
+                            "CreatedAt": "synthetic",
+                            "Mountpoint": "/owned-media",
+                        }
+                    )
+                )
+                return 201, media_file.read_bytes()
+            if path == f"/volumes/{media.volume}":
+                if method == "DELETE":
+                    media_file.unlink()
+                    return 204, b""
+                return (
+                    (200, media_file.read_bytes())
+                    if media_file.exists()
+                    else (404, b"")
+                )
+            if path.startswith("/containers/json?") and media.volume in path:
+                return 200, b"[]"
             if path == f"/containers/create?name={controller.name}":
                 controller_file.write_text(
                     json.dumps(
@@ -191,7 +221,16 @@ class RecoveryTests(unittest.TestCase):
                             "Name": "/" + controller.name,
                             "Config": body,
                             "HostConfig": {"Privileged": False, **body["HostConfig"]},
-                            "Mounts": [],
+                            "NetworkSettings": {"Ports": {}},
+                            "Mounts": [
+                                {
+                                    "Type": "volume",
+                                    "Name": media.volume,
+                                    "Source": "/owned-media",
+                                    "Destination": "/media",
+                                    "RW": True,
+                                }
+                            ],
                             "State": {"Status": "created", "Running": False},
                         }
                     )
@@ -208,7 +247,16 @@ class RecoveryTests(unittest.TestCase):
                 )
             if path == f"/containers/{CONTROLLER}?v=false&force=false":
                 assert method == "DELETE"
+                assert not json.loads(controller_file.read_bytes())["State"]["Running"]
                 controller_file.unlink()
+                return 204, b""
+            if path in (
+                f"/containers/{CONTROLLER}/start",
+                f"/containers/{CONTROLLER}/stop?t=1",
+            ):
+                item = json.loads(controller_file.read_bytes())
+                item["State"]["Running"] = path.endswith("/start")
+                controller_file.write_text(json.dumps(item))
                 return 204, b""
             return pg_transport(method, path, body, deadline)
 
@@ -216,11 +264,11 @@ class RecoveryTests(unittest.TestCase):
         backend = PostgresEngine(
             engine, lambda *_: (data.stat().st_dev, data.stat().st_ino)
         )
-        paired = PairedRecovery(backend, pg, controller)
+        paired = PairedRecovery(backend, pg, controller, media=media)
         deadline = time.monotonic() + 10
 
         def run():
-            engine.create_controller(fd, controller, deadline)
+            media.create(fd, deadline, lambda _: None)
             backend.create(fd, pg, deadline)
             prepared.set()
             if proceed.wait(3):
@@ -265,6 +313,9 @@ class RecoveryTests(unittest.TestCase):
             self.assertEqual(ready.recv(), monitor.pid)
             proceed.set()
             self.assertTrue(active.wait(2))
+            self.assertTrue(
+                json.loads(controller_file.read_bytes())["State"]["Running"]
+            )
             if fault in {"sigkill", "watchdog_crash"}:
                 runner.kill()
             elif fault == "missing":
@@ -276,7 +327,7 @@ class RecoveryTests(unittest.TestCase):
                 monitor.join(2)
                 self.assertEqual(monitor.exitcode, 72)
                 self.assertFalse((root / "container").exists())
-                self.assertTrue(controller_file.exists())
+                self.assertFalse(controller_file.exists())
                 self.assertFalse((root / "paired-cleanup.json").exists())
                 monitor = ctx.Process(
                     target=monitor_sql,
@@ -303,7 +354,8 @@ class RecoveryTests(unittest.TestCase):
             self.assertEqual(actual, expected)
             self.assertFalse((root / "continued").exists())
             self.assertFalse((root / "container").exists())
-            self.assertEqual(controller_file.exists(), not confirmed)
+            self.assertFalse(controller_file.exists())
+            self.assertFalse(media_file.exists())
             self.assertEqual(endpoint.exists(), not confirmed)
             self.assertEqual(engine.inspect(FOREIGN, deadline), {"Id": FOREIGN})
             self.assertEqual(

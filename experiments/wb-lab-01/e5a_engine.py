@@ -17,6 +17,8 @@ RUN = re.compile(r"[a-f0-9]{32}")
 FILE = "controller-create.json"
 CONFIG = {
     "NetworkMode": "none",
+    "IpcMode": "private",
+    "CgroupnsMode": "private",
     "ReadonlyRootfs": True,
     "Memory": 64 * 1024**2,
     "MemorySwap": 64 * 1024**2,
@@ -146,7 +148,7 @@ class Engine:
         code, raw = self.transport(method, path, body, deadline)
         require(time.monotonic() < deadline, "E5A_ENGINE_DEADLINE")
         require(code in statuses and len(raw) <= 1024**2, "E5A_ENGINE_RESPONSE")
-        if code in (204, 404):
+        if code in (204, 304, 404):
             return None
         result = json.loads(raw)
         require(isinstance(result, shape), "E5A_ENGINE_OBJECT")

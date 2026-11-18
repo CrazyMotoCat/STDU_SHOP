@@ -6,6 +6,7 @@ import stat
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from urllib.parse import urlencode
+from uuid import uuid4
 
 from e5a_engine import CONFIG, HEX, Intent, verify_directory
 from e5a_libpq import Peer
@@ -65,18 +66,29 @@ def write_record(directory, key, value):
     verify_directory(directory)
     buffer = json.dumps(value, sort_keys=True).encode("ascii")
     require(len(buffer) <= 4096, "E5A_PG_LEDGER_SIZE")
+    temporary = f".{key}-{uuid4().hex}.tmp"
     fd = os.open(
-        key,
+        temporary,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
         0o600,
         dir_fd=directory,
     )
-    with os.fdopen(fd, "wb") as record:
-        os.fchmod(record.fileno(), 0o600)
-        record.write(buffer)
-        record.flush()
-        os.fsync(record.fileno())
-    os.fsync(directory)
+    try:
+        with os.fdopen(fd, "wb") as record:
+            os.fchmod(record.fileno(), 0o600)
+            record.write(buffer)
+            record.flush()
+            os.fsync(record.fileno())
+        os.link(
+            temporary,
+            key,
+            src_dir_fd=directory,
+            dst_dir_fd=directory,
+            follow_symlinks=False,
+        )
+    finally:
+        os.unlink(temporary, dir_fd=directory)
+        os.fsync(directory)
 
 
 def read_record(directory, key, *, optional=False):
@@ -272,11 +284,12 @@ class PostgresEngine:
                 and stat.S_IMODE(actual.st_mode) == 0o700,
                 "E5A_PG_SOCKET_DIRECTORY",
             )
-            write_record(
-                directory,
-                "pg-socket.json",
-                {"identity": [actual.st_dev, actual.st_ino]},
-            )
+            identity = {"identity": [actual.st_dev, actual.st_ino]}
+            existing = read_record(directory, "pg-socket.json", optional=True)
+            if existing is None:
+                write_record(directory, "pg-socket.json", identity)
+            else:
+                require(existing == identity, "E5A_PG_SOCKET_DIRECTORY")
         finally:
             os.close(socket_fd)
         engine = self.engine

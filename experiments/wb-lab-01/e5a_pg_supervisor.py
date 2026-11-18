@@ -17,7 +17,7 @@ FAILURES = (Blocked, OSError, ValueError, TypeError, LookupError, SubprocessErro
 
 
 class PairedRecovery:
-    def __init__(self, postgres, pg_intent, controller_intent):
+    def __init__(self, postgres, pg_intent, controller_intent, *, media=None):
         require(
             (pg_intent.run, pg_intent.daemon)
             == (controller_intent.run, controller_intent.daemon),
@@ -26,8 +26,15 @@ class PairedRecovery:
         self.postgres = postgres
         self.pg_intent = pg_intent
         self.controller_intent = controller_intent
+        require(media is None or media.intent == controller_intent, "E5A_PAIRED_INTENT")
+        self.media = media
 
     def recover(self, directory, deadline):
+        if self.media is not None:
+            self.media.recover(directory, deadline)
+            self.postgres.recover(directory, self.pg_intent, deadline)
+            self.remove_socket_directory(directory)
+            return
         engine, intent = self.postgres.engine, self.controller_intent
         verify_intent(directory, intent)
         engine.attest(intent, deadline)

@@ -58,14 +58,35 @@ class EvidenceTests(unittest.TestCase):
             directory = Path(temp)
             fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
             try:
-                digest = publish(fd, {"samples": {}, "status": "E5A_BLOCKED"})
+                evidence = {
+                    "revision": "a" * 40,
+                    "run_id": "b" * 32,
+                    "daemon": "test-daemon",
+                    "images": {
+                        role: "sha256:" + "c" * 64
+                        for role in ("controller", "postgres")
+                    },
+                    "resources": {},
+                    "campaign": {
+                        "samples": {},
+                        "status": "E5A_BLOCKED",
+                        "reason": "TEST_BLOCK",
+                        "cleanup": "NOT_RUN",
+                        "watchdog": "NOT_STARTED",
+                        "phases": {},
+                    },
+                }
+                with self.assertRaisesRegex(Blocked, "E5A_EVIDENCE_FIELDS"):
+                    publish(fd, {**evidence, "stderr": "forbidden"})
+                self.assertFalse(list(directory.iterdir()))
+                digest = publish(fd, evidence)
                 record = directory / "evidence.json"
                 self.assertEqual(
                     hashlib.sha256(record.read_bytes()).hexdigest(), digest
                 )
                 self.assertEqual(record.stat().st_mode & 0o777, 0o600)
                 with self.assertRaises(FileExistsError):
-                    publish(fd, {"samples": {}, "status": "CHANGED"})
+                    publish(fd, evidence)
                 self.assertEqual(
                     hashlib.sha256(record.read_bytes()).hexdigest(), digest
                 )
