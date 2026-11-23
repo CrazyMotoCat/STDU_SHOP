@@ -10868,7 +10868,40 @@
         },
         "responses": {
           "201": {
-            "description": "Explicit staff reconciled CREATE step"
+            "description": "Explicit staff reconciled CREATE step",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "digest": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "archivedDuplicateIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        }
+                      },
+                      "required": ["id", "digest", "archivedDuplicateIds"]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
           },
           "400": {
             "description": "Validation failed",
@@ -11151,7 +11184,7 @@
         ],
         "summary": "",
         "tags": ["Supplier ingestion"],
-        "x-audit": "none",
+        "x-audit": "ingestion.identity.submitted",
         "x-csrf": "STAFF_BOUND",
         "x-permission": "ingestion.reconcile.submit",
         "x-invariants": [
@@ -11231,7 +11264,37 @@
         },
         "responses": {
           "200": {
-            "description": "Explicit staff reconciled CREATE step"
+            "description": "Explicit staff reconciled CREATE step",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "digest": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "approved": {
+                          "type": "boolean",
+                          "enum": [true]
+                        }
+                      },
+                      "required": ["id", "digest", "approved"]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
           },
           "400": {
             "description": "Validation failed",
@@ -11514,7 +11577,7 @@
         ],
         "summary": "",
         "tags": ["Supplier ingestion"],
-        "x-audit": "none",
+        "x-audit": "ingestion.identity.confirmed",
         "x-csrf": "STAFF_BOUND",
         "x-permission": "ingestion.reconcile.approve",
         "x-invariants": [
@@ -11594,7 +11657,91 @@
         },
         "responses": {
           "201": {
-            "description": "Explicit staff reconciled CREATE step"
+            "description": "Explicit staff reconciled CREATE step",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "sourceId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "runId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "rowId": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "decisionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "actorId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "offerId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "baseRevisionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "nullable": true
+                        },
+                        "revisionId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "sourceHash": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "operation": {
+                          "type": "string",
+                          "enum": ["CREATE", "UPDATE"]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "sourceId",
+                        "runId",
+                        "rowId",
+                        "decisionId",
+                        "actorId",
+                        "offerId",
+                        "baseRevisionId",
+                        "revisionId",
+                        "sourceHash",
+                        "version",
+                        "createdAt",
+                        "operation"
+                      ]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
           },
           "400": {
             "description": "Validation failed",
@@ -11877,7 +12024,7 @@
         ],
         "summary": "",
         "tags": ["Supplier ingestion"],
-        "x-audit": "supplier_offer.created",
+        "x-audit": "supplier_offer.created; ingestion.identity.executed",
         "x-csrf": "STAFF_BOUND",
         "x-permission": "ingestion.reconcile.execute",
         "x-invariants": [

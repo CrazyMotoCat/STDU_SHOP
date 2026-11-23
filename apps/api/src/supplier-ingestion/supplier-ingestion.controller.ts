@@ -858,11 +858,12 @@ export class SupplierIngestionController {
   @ApiResponse({
     status: 201,
     description: 'Explicit staff reconciled CREATE step',
+    schema: ingestionIdentityResponses.submission,
   })
   @StaffOperation({
     permission: 'ingestion.reconcile.submit',
     csrf: 'STAFF_BOUND',
-    audit: 'none',
+    audit: 'ingestion.identity.submitted',
   })
   ingestion_submitCreateIdentity(
     @Req() request: StaffRequest,
@@ -896,11 +897,12 @@ export class SupplierIngestionController {
   @ApiResponse({
     status: 200,
     description: 'Explicit staff reconciled CREATE step',
+    schema: ingestionIdentityResponses.approval,
   })
   @StaffOperation({
     permission: 'ingestion.reconcile.approve',
     csrf: 'STAFF_BOUND',
-    audit: 'none',
+    audit: 'ingestion.identity.confirmed',
   })
   ingestion_approveCreateIdentity(
     @Req() request: StaffRequest,
@@ -935,11 +937,12 @@ export class SupplierIngestionController {
   @ApiResponse({
     status: 201,
     description: 'Explicit staff reconciled CREATE step',
+    schema: ingestionIdentityResponses.receipt,
   })
   @StaffOperation({
     permission: 'ingestion.reconcile.execute',
     csrf: 'STAFF_BOUND',
-    audit: 'supplier_offer.created',
+    audit: 'supplier_offer.created; ingestion.identity.executed',
   })
   ingestion_executeCreateIdentity(
     @Req() request: StaffRequest,
