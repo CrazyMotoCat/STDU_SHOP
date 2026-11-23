@@ -1415,14 +1415,58 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
     ]);
     const { reviewUiAcceptance } =
       await import('../../../scripts/r1-009a-ui-acceptance.mjs');
+    const browserSnapshot = [
+      { ...snapshot[0]!, source_vat_text: 'TEST browser applied evidence' },
+    ];
+    const browserRaw = Buffer.from(JSON.stringify(browserSnapshot));
+    const browserHash = createHash('sha256').update(browserRaw).digest('hex');
+    const browserRun = randomUUID();
+    const browserRow = createHash('sha256').update(browserRun).digest('hex');
+    await owner.ingestionRun.create({
+      data: {
+        id: browserRun,
+        sourceId: fixture.sourceId,
+        sourceVersion: baseline.sourceVersion,
+        sourceSnapshot: baseline.sourceSnapshot as object,
+        actorId: full.userId,
+        requestId: randomUUID(),
+        state: 'COMPLETE',
+        processed: 1,
+        candidateCount: 1,
+        attempts: 1,
+        rawSnapshot: browserRaw,
+        sourceHash: browserHash,
+        finishedAt: new Date(),
+        rows: {
+          create: {
+            id: browserRow,
+            rowNumber: 1,
+            sourceHash: browserHash,
+            normalized: browserSnapshot[0]!,
+            warnings: [],
+            modificationEvidence: 'UNKNOWN',
+            reviewState: 'PENDING',
+          },
+        },
+      },
+    });
     await reviewUiAcceptance({
       api,
       cookies: [...executor.cookies],
-      runId,
-      rowId,
+      runId: browserRun,
+      rowId: browserRow,
       offerId: String(dbOffer.id),
-      identity: String(data(applied).id),
+      identityJourney: {
+        evidenceId,
+        approverCookies: [...reviewer.cookies],
+        executorCookies: [...executor.cookies],
+      },
     });
+    expect(
+      await owner.ingestionApplication.findUnique({
+        where: { rowId: browserRow },
+      }),
+    ).toMatchObject({ operation: 'UPDATE', offerId: dbOffer.id });
     await expect(
       owner.$executeRaw`UPDATE public.ingestion_identity_submission SET reason='changed' WHERE id=${String(entry.id)}::uuid`,
     ).rejects.toThrow();
@@ -1438,7 +1482,7 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
     expect(
       (await executor.write('POST', application, executeInput, key)).status,
     ).toBe(403);
-  }, 60_000);
+  }, 120_000);
 
   it('lost reply after an actual COMMIT replays after restart, and revocation then denies replay', async () => {
     const fixture = await accepted();
