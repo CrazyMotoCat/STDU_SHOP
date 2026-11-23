@@ -74,6 +74,9 @@ export const REGISTERED_PERMISSION_CODES = [
   'ingestion.review',
   'ingestion.createOffer',
   'ingestion.applyEdits',
+  'ingestion.reconcile.submit',
+  'ingestion.reconcile.approve',
+  'ingestion.reconcile.execute',
 ] as const;
 
 export const FULL_ADMIN_PERMISSIONS = PERMISSION_CODES;

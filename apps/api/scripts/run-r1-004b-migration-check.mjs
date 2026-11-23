@@ -624,6 +624,7 @@ async function applyMigrationState(port, database, baseSql, populated) {
       ['20261108090000_ingestion_manual_apply', true],
       ['20261115100000_ingestion_create_offer', true],
       ['20261123100000_ingestion_apply_edits', true],
+      ['20261123110000_ingestion_identity_reconciliation', true],
     ],
   );
 

@@ -18,6 +18,8 @@ export async function reviewUiAcceptance({
   offerId,
   brandId,
   clear,
+  identity,
+  identityJourney,
 }) {
   const origin = process.env.R1_009A_WEB_ORIGIN;
   assert.match(origin ?? '', /^https:\/\/127\.0\.0\.1:\d+$/);
@@ -25,9 +27,11 @@ export async function reviewUiAcceptance({
     root,
     brandId
       ? '.local/r1-009b-create/screenshots'
-      : clear
-        ? '.local/r1-009b-clear/screenshots'
-        : '.local/r1-009a/screenshots',
+      : identity || identityJourney
+        ? '.local/r1-009b-reconcile-update/screenshots'
+        : clear
+          ? '.local/r1-009b-clear/screenshots'
+          : '.local/r1-009a/screenshots',
   );
   await mkdir(screenshots, { recursive: true });
   const reservation = netServer();
@@ -235,6 +239,48 @@ export async function reviewUiAcceptance({
             return;
           }
           await page.getByTestId('row-' + rowId).click();
+          if (identityJourney) {
+            await reconcileUpdateUiFlow({
+              page,
+              context,
+              origin,
+              runId,
+              rowId,
+              offerId,
+              journey: identityJourney,
+              screenshots,
+            });
+            assert.deepEqual(errors, []);
+            await context.close();
+            return;
+          }
+          if (identity) {
+            const panel = page
+              .locator('details')
+              .filter({ hasText: 'Ручная сверка идентичности · UPDATE' });
+            await panel.locator('summary').click();
+            await panel
+              .getByText('Квитанция · ' + identity, { exact: true })
+              .waitFor();
+            for (const width of [1440, 375]) {
+              await page.setViewportSize({ width, height: 1000 });
+              assert(
+                await page.evaluate(
+                  () => document.documentElement.scrollWidth <= innerWidth,
+                ),
+                'Identity page overflow',
+              );
+              await panel.screenshot({
+                path: resolve(
+                  screenshots,
+                  'reconciled-update-' + width + '.png',
+                ),
+              });
+            }
+            assert.deepEqual(errors, []);
+            await context.close();
+            return;
+          }
           await page.getByLabel('ID существующего предложения').fill(offerId);
           await page
             .getByRole('button', {
@@ -455,4 +501,131 @@ async function clearUiFlow({ page, offerId, screenshots }) {
     .waitFor();
   await page.getByText('История явных правок', { exact: true }).click();
   await page.getByText('Причина · TEST withdrawal', { exact: true }).waitFor();
+}
+
+async function reconcileUpdateUiFlow({
+  page,
+  context,
+  origin,
+  runId,
+  rowId,
+  offerId,
+  journey,
+  screenshots,
+}) {
+  const openPanel = async () => {
+    const panel = page
+      .locator('details')
+      .filter({ hasText: 'Ручная сверка идентичности · UPDATE' });
+    await panel.locator('summary').click();
+    return panel;
+  };
+  async function switchEmployee(cookies) {
+    await context.clearCookies();
+    await context.addCookies(
+      cookies.map(([name, value]) => ({
+        name,
+        value,
+        url: origin,
+        httpOnly: true,
+        sameSite: 'Lax',
+        secure: true,
+      })),
+    );
+    await page.reload();
+    const target = page.getByTestId('run-' + runId);
+    const runs = page.locator('[data-testid^="run-"]');
+    await runs.first().waitFor();
+    for (let index = 0; index < 4 && !(await target.isVisible()); index++) {
+      const next = page.getByRole('button', { name: 'Следующие запуски' });
+      if (!(await next.isEnabled())) break;
+      const previous = await runs.first().getAttribute('data-testid');
+      await next.click();
+      if (previous)
+        await page.getByTestId(previous).waitFor({ state: 'detached' });
+      await runs.first().waitFor();
+    }
+    await target.click();
+    await page.getByTestId('row-' + rowId).click();
+    return openPanel();
+  }
+
+  await page
+    .getByRole('button', { name: 'Проверить исходную идентичность для сверки' })
+    .click();
+  await page
+    .getByLabel('Причина решения')
+    .fill('TEST browser confirms the source row');
+  await page
+    .getByRole('button', { name: 'Одобрить строку (ACCEPT)', exact: true })
+    .click();
+  await page
+    .getByText('Строка одобрена. Применение выполняется отдельным действием.', {
+      exact: true,
+    })
+    .waitFor();
+  await page.getByLabel('ID существующего предложения').fill(offerId);
+  await page
+    .getByRole('button', { name: 'Сравнить с предложением', exact: true })
+    .click();
+
+  const requester = await openPanel();
+  await requester
+    .getByLabel('Идентификатор проверенного доказательства')
+    .fill(journey.evidenceId);
+  await requester
+    .getByLabel('Основание сверки')
+    .fill('TEST browser verified document');
+  await requester
+    .getByRole('button', { name: 'Передать на независимое подтверждение' })
+    .click();
+  await requester
+    .getByRole('heading', { name: 'UPDATE · Ожидает подтверждения' })
+    .waitFor();
+  assert.equal(
+    await requester
+      .getByRole('button', { name: 'Подтвердить сверку', exact: true })
+      .count(),
+    0,
+  );
+
+  const approver = await switchEmployee(journey.approverCookies);
+  await approver
+    .getByLabel('Подтверждение доказательства')
+    .fill('TEST independent browser reviewer confirms');
+  await approver
+    .getByRole('button', { name: 'Подтвердить сверку', exact: true })
+    .click();
+  await approver
+    .getByRole('heading', { name: 'UPDATE · Подтверждено' })
+    .waitFor();
+  assert.equal(
+    await approver
+      .getByRole('button', { name: 'Применить подтверждённую сверку' })
+      .count(),
+    0,
+  );
+
+  const executor = await switchEmployee(journey.executorCookies);
+  await executor
+    .getByRole('checkbox', {
+      name: 'Подтверждаю применение к показанной редакции',
+    })
+    .check();
+  await executor
+    .getByRole('button', { name: 'Применить подтверждённую сверку' })
+    .click();
+  await executor.getByText(/^Квитанция · /).waitFor();
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    assert(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      'Identity page overflow',
+    );
+    await executor.screenshot({
+      path: resolve(screenshots, 'reconciled-update-' + width + '.png'),
+    });
+  }
 }
