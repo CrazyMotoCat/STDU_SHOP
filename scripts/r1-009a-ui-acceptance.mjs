@@ -197,7 +197,25 @@ export async function reviewUiAcceptance({
           });
           await page.goto(origin + '/staff/suppliers/ingestion');
           try {
-            await page.getByTestId('run-' + runId).click();
+            const target = page.getByTestId('run-' + runId);
+            const runs = page.locator('[data-testid^="run-"]');
+            await runs.first().waitFor();
+            for (
+              let index = 0;
+              index < 4 && !(await target.isVisible());
+              index++
+            ) {
+              const next = page.getByRole('button', {
+                name: 'Следующие запуски',
+              });
+              if (!(await next.isEnabled())) break;
+              const previous = await runs.first().getAttribute('data-testid');
+              await next.click();
+              if (previous)
+                await page.getByTestId(previous).waitFor({ state: 'detached' });
+              await runs.first().waitFor();
+            }
+            await target.click();
           } catch (error) {
             await page.screenshot({
               path: resolve(screenshots, 'failure.png'),
