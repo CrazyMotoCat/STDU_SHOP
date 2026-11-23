@@ -93,6 +93,7 @@ export class SupplierIngestionService {
     input: unknown,
     work: (tx: IngestionTx) => Promise<{ status: number; data: unknown }>,
     additionalPermissions: readonly string[] = [],
+    isolationLevel?: Prisma.TransactionIsolationLevel,
   ) {
     const actor = this.principal(request, permission);
     for (const code of additionalPermissions) this.principal(request, code);
@@ -145,6 +146,9 @@ export class SupplierIngestionService {
               code: error.code,
               message: error.message,
               requestId: request.requestId,
+              ...(error.fields
+                ? { fields: jsonObject({ fields: error.fields }).fields }
+                : {}),
             },
           };
         }
@@ -160,7 +164,7 @@ export class SupplierIngestionService {
         });
         return receipt;
       },
-      { maxWait: 5000, timeout: 15000 },
+      { maxWait: 5000, timeout: 15000, isolationLevel },
     );
   }
 

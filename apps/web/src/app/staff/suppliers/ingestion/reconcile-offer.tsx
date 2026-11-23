@@ -33,6 +33,19 @@ type Item = {
   execution: { application_id: string } | null;
 };
 
+function reconciliationError(cause: unknown) {
+  if (cause instanceof StaffRequestError && cause.status === 409) {
+    if (cause.message.includes('duplicate · ACTIVE_DUPLICATE'))
+      return 'Найдено точное активное совпадение. Сверка заблокирована.';
+    if (cause.message.includes('duplicate · NEEDS_REVIEW'))
+      return 'Найдены неоднозначные совпадения. Требуются дополнительные доказательства.';
+    return 'Данные изменились или доказательство неприменимо. Проверьте актуальную редакцию.';
+  }
+  return cause instanceof Error
+    ? cause.message
+    : 'Не удалось выполнить действие.';
+}
+
 export function ReconcileOffer({
   rowId,
   mode = 'UPDATE',
@@ -107,13 +120,7 @@ export function ReconcileOffer({
         if (applied) onApplied();
       } catch (cause) {
         setConfirming('');
-        setError(
-          cause instanceof StaffRequestError && cause.status === 409
-            ? 'Данные изменились или доказательство неприменимо. Обновите историю и проверьте актуальную редакцию.'
-            : cause instanceof Error
-              ? cause.message
-              : 'Не удалось выполнить действие.',
-        );
+        setError(reconciliationError(cause));
       }
     });
   }

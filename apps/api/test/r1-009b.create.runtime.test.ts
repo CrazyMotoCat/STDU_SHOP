@@ -1272,6 +1272,7 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
     const submitted = await executor.write('POST', endpoint, body);
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(201);
     const entry = data(submitted);
+    expect((await executor.write('POST', endpoint, body)).status).toBe(409);
     const confirmation = endpoint + '/' + entry.id + '/confirm';
     const application = endpoint + '/' + entry.id + '/apply';
     const confirmedInput = {
@@ -1305,10 +1306,59 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
       ).status,
     ).toBe(403);
     const key = randomUUID();
+    const executeInput = {
+      digest: entry.digest,
+      confirmed: true,
+      acknowledgedDuplicateIds: [],
+    };
+    await owner.$executeRawUnsafe(`CREATE FUNCTION public.update_identity_fail_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW.action='ingestion.identity.executed' THEN RAISE EXCEPTION 'TEST UPDATE identity audit failure'; END IF; RETURN NEW; END; $$`);
+    await owner.$executeRawUnsafe(
+      'CREATE TRIGGER update_identity_fail_audit BEFORE INSERT ON public.audit_event FOR EACH ROW EXECUTE FUNCTION public.update_identity_fail_audit()',
+    );
+    try {
+      expect(
+        (await executor.write('POST', application, executeInput, key)).status,
+      ).toBe(500);
+      expect(
+        await owner.ingestionApplication.findUnique({ where: { rowId } }),
+      ).toBeNull();
+      expect(
+        await owner.ingestionCommand.count({
+          where: { actorId: executor.userId, key },
+        }),
+      ).toBe(0);
+    } finally {
+      await owner.$executeRawUnsafe(
+        'DROP TRIGGER update_identity_fail_audit ON public.audit_event',
+      );
+      await owner.$executeRawUnsafe(
+        'DROP FUNCTION public.update_identity_fail_audit()',
+      );
+    }
+
+    const transaction = database.$transaction.bind(database);
+    const lost = vi.spyOn(database, '$transaction').mockImplementation((async (
+      ...args: unknown[]
+    ) => {
+      const result = await Reflect.apply(transaction, database, args);
+      if (await owner.ingestionApplication.findUnique({ where: { rowId } }))
+        throw new Error('TEST lost UPDATE identity response after COMMIT');
+      return result;
+    }) as typeof database.$transaction);
+    try {
+      expect(
+        (await executor.write('POST', application, executeInput, key)).status,
+      ).toBe(500);
+    } finally {
+      lost.mockRestore();
+    }
+    await app.close();
+    await startApp();
     const applied = await executor.write(
       'POST',
       application,
-      { digest: entry.digest, confirmed: true, acknowledgedDuplicateIds: [] },
+      executeInput,
       key,
     );
     expect(applied.status, JSON.stringify(applied.body)).toBe(200);
@@ -1376,6 +1426,18 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
     await expect(
       owner.$executeRaw`UPDATE public.ingestion_identity_submission SET reason='changed' WHERE id=${String(entry.id)}::uuid`,
     ).rejects.toThrow();
+    const role = await owner.userRole.findFirstOrThrow({
+      where: { staffUserId: executor.userId },
+    });
+    const executionPermission = await owner.permission.findFirstOrThrow({
+      where: { code: 'ingestion.reconcile.execute' },
+    });
+    await owner.rolePermission.deleteMany({
+      where: { roleId: role.roleId, permissionId: executionPermission.id },
+    });
+    expect(
+      (await executor.write('POST', application, executeInput, key)).status,
+    ).toBe(403);
   }, 60_000);
 
   it('creates a reconciled identity only after separate approval and archived-match acknowledgement', async () => {

@@ -77,6 +77,12 @@ type Submission = {
 };
 type Confirmation = { approver_id: string; created_at: Date; reason: string };
 
+export function identityDuplicate(code: 'ACTIVE_DUPLICATE' | 'NEEDS_REVIEW') {
+  return new StaffError('INVALID_STATE_TRANSITION', [
+    { field: 'duplicate', code },
+  ]);
+}
+
 function exact(value: unknown) {
   return typeof value === 'string'
     ? value.normalize('NFC').replace(/^ +| +$/g, '')
@@ -211,6 +217,20 @@ export class SupplierReconciliationService {
       SELECT approver_id,created_at,reason FROM public.ingestion_identity_confirmation
       WHERE submission_id=${submissionId}::uuid
     `;
+  }
+
+  private async identicalSubmission(
+    tx: IngestionTx,
+    rowId: string,
+    requester: string,
+    operation: 'UPDATE' | 'CREATE',
+    digest: string,
+  ) {
+    const [existing] = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM public.ingestion_identity_submission WHERE row_id=${rowId}
+        AND requester_id=${requester}::uuid AND operation=${operation} AND digest=${digest}
+    `;
+    if (existing) throw new StaffError('VERSION_CONFLICT');
   }
 
   private async loadSubmission(
@@ -356,13 +376,12 @@ export class SupplierReconciliationService {
         take: duplicateLimit + 1,
       });
     const first = await lookup();
-    if (first.length > duplicateLimit)
-      throw new StaffError('INVALID_STATE_TRANSITION');
+    if (first.length > duplicateLimit) throw identityDuplicate('NEEDS_REVIEW');
     for (const item of first)
       await tx.$queryRaw`SELECT id FROM supplier_offer WHERE id=${item.id}::uuid FOR SHARE`;
     const candidates = await lookup();
     if (candidates.length > duplicateLimit)
-      throw new StaffError('INVALID_STATE_TRANSITION');
+      throw identityDuplicate('NEEDS_REVIEW');
     const archived = candidates
       .filter(
         (item) =>
@@ -386,8 +405,17 @@ export class SupplierReconciliationService {
         (candidate.modificationEvidence !== evidence.modification_evidence ||
           exact(candidate.modification) !== evidence.modification) &&
         (!sku || sku !== exact(candidate.supplierPartNumber));
-      if (state === 'ACTIVE' && !clearlyDifferentVariant)
-        throw new StaffError('INVALID_STATE_TRANSITION');
+      if (state === 'ACTIVE' && !clearlyDifferentVariant) {
+        const exactDuplicate =
+          candidate.brandId === evidence.brand_id &&
+          exact(candidate.manufacturerName) === manufacturer &&
+          exact(candidate.originalPartNumber) === part &&
+          candidate.modificationEvidence === evidence.modification_evidence &&
+          exact(candidate.modification) === evidence.modification;
+        throw identityDuplicate(
+          exactDuplicate ? 'ACTIVE_DUPLICATE' : 'NEEDS_REVIEW',
+        );
+      }
     }
     const revision = copyRevision(target, offer.version);
     const received =
@@ -542,6 +570,13 @@ export class SupplierReconciliationService {
       input,
       async (tx) => {
         const plan = await this.updatePlan(tx, rowId, input);
+        await this.identicalSubmission(
+          tx,
+          rowId,
+          request.staff!.id,
+          'UPDATE',
+          plan.planDigest,
+        );
         const id = randomUUID();
         await tx.$executeRaw`
         INSERT INTO public.ingestion_identity_submission
@@ -563,6 +598,7 @@ export class SupplierReconciliationService {
         };
       },
       reconciliationPermissions.submit,
+      'ReadCommitted',
     );
   }
 
@@ -610,6 +646,7 @@ export class SupplierReconciliationService {
         };
       },
       reconciliationPermissions.approve,
+      'ReadCommitted',
     );
   }
 
@@ -678,6 +715,7 @@ export class SupplierReconciliationService {
         return { status: 200, data: application };
       },
       reconciliationPermissions.execute,
+      'ReadCommitted',
     );
   }
   private assertCreateEnabled() {

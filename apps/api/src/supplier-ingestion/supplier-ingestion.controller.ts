@@ -613,6 +613,7 @@ export class SupplierIngestionController {
 
   @Post('rows/:id/edit-preview')
   @ApiOperation({ operationId: 'ingestion_previewEdits' })
+  @ApiBody({ type: IngestionEditsPreviewInput })
   @ApiParam({
     name: 'id',
     schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
@@ -639,6 +640,7 @@ export class SupplierIngestionController {
 
   @Post('rows/:id/apply-edits')
   @ApiOperation({ operationId: 'ingestion_applyEdits' })
+  @ApiBody({ type: IngestionApplyEditsInput })
   @ApiParam({
     name: 'id',
     schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
@@ -727,6 +729,7 @@ export class SupplierIngestionController {
 
   @Post('rows/:id/identity-reconciliations')
   @ApiOperation({ operationId: 'ingestion_submitIdentity' })
+  @ApiBody({ type: IngestionSubmitIdentityInput })
   @ApiParam({
     name: 'id',
     schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
@@ -760,6 +763,7 @@ export class SupplierIngestionController {
 
   @Post('rows/:id/identity-reconciliations/:submissionId/confirm')
   @ApiOperation({ operationId: 'ingestion_approveIdentity' })
+  @ApiBody({ type: IngestionIdentityConfirmationInput })
   @ApiParam({
     name: 'id',
     schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
@@ -798,6 +802,7 @@ export class SupplierIngestionController {
 
   @Post('rows/:id/identity-reconciliations/:submissionId/apply')
   @ApiOperation({ operationId: 'ingestion_applyIdentity' })
+  @ApiBody({ type: IngestionIdentityExecutionInput })
   @ApiParam({
     name: 'id',
     schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
