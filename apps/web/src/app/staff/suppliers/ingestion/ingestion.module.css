@@ -169,3 +169,15 @@
 .facts dd {
   margin: 0 0 8px;
 }
+
+.editPanel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.editPanel fieldset {
+  min-width: 0;
+  display: grid;
+  gap: 0.75rem;
+  margin-block: 0.75rem;
+}

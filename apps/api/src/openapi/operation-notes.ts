@@ -773,6 +773,48 @@ export const STAFF_OPERATION_CONTRACT_NOTES = {
       'CSRF_INVALID',
     ],
   },
+  ingestion_editHistory: {
+    invariants: [
+      'Current ingestion and supplier read authorization gates a bounded immutable revision comparison.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_inspectEdits: {
+    invariants: [
+      'Evidence-bound pending row can be inspected against an exact target by a currently authorized editor. Does not issue an execution token.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_previewEdits: {
+    invariants: [
+      'Current edit permissions and staff CSRF. Binds a source and exact accepted target to one explicit edit plan.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+      'CSRF_INVALID',
+    ],
+  },
+  ingestion_applyEdits: {
+    invariants: [
+      'Requires explicit preview confirmation and current permissions. Writes the revision, audit, immutable edit provenance and receipt in one transaction.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+      'CSRF_INVALID',
+    ],
+  },
   ingestion_applicationProvenance: {
     invariants: [
       'Current staff read permissions protect immutable CREATE and UPDATE provenance.',

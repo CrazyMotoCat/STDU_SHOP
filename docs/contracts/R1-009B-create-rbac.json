@@ -3,6 +3,10 @@
     "ingestion.createOffer": {
       "description": "Create one supplier offer from accepted staging",
       "defaultDeny": true
+    },
+    "ingestion.applyEdits": {
+      "description": "Apply explicit economic edits from one accepted staging row",
+      "defaultDeny": true
     }
   }
 }

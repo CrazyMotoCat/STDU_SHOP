@@ -17,6 +17,7 @@ export async function reviewUiAcceptance({
   rowId,
   offerId,
   brandId,
+  clear,
 }) {
   const origin = process.env.R1_009A_WEB_ORIGIN;
   assert.match(origin ?? '', /^https:\/\/127\.0\.0\.1:\d+$/);
@@ -24,7 +25,9 @@ export async function reviewUiAcceptance({
     root,
     brandId
       ? '.local/r1-009b-create/screenshots'
-      : '.local/r1-009a/screenshots',
+      : clear
+        ? '.local/r1-009b-clear/screenshots'
+        : '.local/r1-009a/screenshots',
   );
   await mkdir(screenshots, { recursive: true });
   const reservation = netServer();
@@ -208,9 +211,7 @@ export async function reviewUiAcceptance({
             await context.close();
             return;
           }
-          await page
-            .getByRole('button', { name: 'Строка 1', exact: true })
-            .click();
+          await page.getByTestId('row-' + rowId).click();
           await page.getByLabel('ID существующего предложения').fill(offerId);
           await page
             .getByRole('button', {
@@ -222,6 +223,12 @@ export async function reviewUiAcceptance({
             .getByRole('region', { name: 'Сравнение редакций' })
             .locator('table')
             .waitFor();
+          if (clear) {
+            await clearUiFlow({ page, offerId, screenshots });
+            assert.deepEqual(errors, []);
+            await context.close();
+            return;
+          }
           for (const width of [1440, 375]) {
             await page.setViewportSize({ width, height: 1000 });
             assert(
@@ -360,4 +367,69 @@ async function createUiFlow({ page, rowId, brandId, screenshots }) {
   await page
     .getByRole('region', { name: 'Проверка строки 1' })
     .screenshot({ path: resolve(screenshots, 'create-result-375.png') });
+}
+
+async function clearUiFlow({ page, offerId, screenshots }) {
+  await page
+    .getByLabel('Причина решения')
+    .fill('TEST source withdrew its quotation');
+  await page
+    .getByRole('button', { name: 'Одобрить строку (ACCEPT)', exact: true })
+    .click();
+  await page
+    .getByText('Строка одобрена. Применение выполняется отдельным действием.', {
+      exact: true,
+    })
+    .waitFor();
+  await page.getByLabel('ID существующего предложения').fill(offerId);
+  await page
+    .getByRole('button', { name: 'Сравнить с предложением', exact: true })
+    .click();
+  await page.getByText('Явные правки предложения', { exact: true }).click();
+  await page
+    .getByLabel('Закупочная цена', { exact: true })
+    .selectOption('CLEAR');
+  await page
+    .getByLabel('Причина · Закупочная цена', { exact: true })
+    .fill('TEST withdrawal');
+  await page.getByLabel('Валюта', { exact: true }).selectOption('CLEAR');
+  await page
+    .getByLabel('Причина · Валюта', { exact: true })
+    .fill('TEST withdrawn quote currency');
+  const preview = page.getByRole('button', {
+    name: 'Проверить явные правки',
+    exact: true,
+  });
+  await preview.click();
+  await page
+    .getByRole('button', { name: 'Подтвердить основание из снимка источника' })
+    .click();
+  await preview.click();
+  const confirmation = page.getByRole('checkbox', {
+    name: 'Подтверждаю показанные изменения и очистку перечисленных полей',
+  });
+  await confirmation.waitFor();
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    assert(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      'CLEAR page overflow',
+    );
+    await confirmation.locator('xpath=ancestor::details').screenshot({
+      path: resolve(screenshots, 'clear-preview-' + width + '.png'),
+    });
+  }
+  await confirmation.check();
+  await page
+    .getByRole('button', { name: 'Применить явные правки', exact: true })
+    .click();
+  await page
+    .getByText('Явные правки применены. Создана новая редакция.', {
+      exact: true,
+    })
+    .waitFor();
+  await page.getByText('История явных правок', { exact: true }).click();
+  await page.getByText('Причина · TEST withdrawal', { exact: true }).waitFor();
 }

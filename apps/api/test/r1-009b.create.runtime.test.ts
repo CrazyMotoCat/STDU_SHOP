@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PrismaClient } from '../src/generated/prisma/client.js';
@@ -758,6 +758,381 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
       (await full.write('POST', path(fixture.row.id), body, key)).status,
     ).toBe(201);
   });
+
+  it('applies explicit CLEAR once, preserves history and replays after restart', async () => {
+    const createdFrom = await accepted();
+    const created = await full.write(
+      'POST',
+      path(createdFrom.row.id),
+      await confirmed(createdFrom),
+    );
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const before = data(created);
+    const fixture = await stage('offers-v1', createdFrom.selectedSupplier);
+    const row = fixture.rows[0]!;
+    const decision = await decide(row.id);
+    const request = {
+      offerId: before.offerId,
+      expectedRowVersion: 2,
+      expectedOfferVersion: 1,
+      expectedOfferRevisionId: before.revisionId,
+      decisionId: decision.id,
+      edits: {
+        availabilityText: { op: 'CLEAR', reason: 'TEST explicit withdrawal' },
+      },
+    };
+    const editor = await actor(
+      [...permissions, 'ingestion.applyEdits'],
+      'clear-editor',
+    );
+    const previewPath = path(row.id, 'edit-preview');
+    const applyPath = path(row.id, 'apply-edits');
+    expect((await full.write('POST', previewPath, request)).status).toBe(403);
+    expect((await editor.request('POST', previewPath, request)).status).toBe(
+      403,
+    );
+    expect(
+      (
+        await editor.write('POST', previewPath, {
+          ...request,
+          edits: { availabilityText: null },
+        })
+      ).status,
+    ).toBe(400);
+    const cost = await editor.write('POST', previewPath, {
+      ...request,
+      edits: { purchaseCost: { op: 'CLEAR', reason: 'TEST cost only' } },
+    });
+    expect(data(cost).blockedReason).toBe('INCONSISTENT_PRICE_CURRENCY');
+    const preview = await editor.write('POST', previewPath, request);
+    expect(preview.status, JSON.stringify(preview.body)).toBe(200);
+    expect(data(preview).blockedReason).toBeNull();
+    const command = {
+      ...request,
+      previewToken: data(preview).previewToken,
+      confirmed: true,
+    };
+    const key = randomUUID();
+    const results = await Promise.all([
+      editor.write('POST', applyPath, command, key),
+      editor.write('POST', applyPath, command, key),
+    ]);
+    expect(results[0]).toEqual(results[1]);
+    expect(results[0]?.status).toBe(200);
+    expect((await editor.write('POST', applyPath, command)).status).toBe(409);
+    await app.close();
+    await startApp();
+    const replay = await editor.write('POST', applyPath, command, key);
+    expect(replay).toEqual(results[0]);
+    const revision = await owner.supplierOfferRevision.findUniqueOrThrow({
+      where: { id: String(data(replay).revisionId) },
+    });
+    expect(revision.availabilityText).toBeNull();
+    expect(revision.purchaseCost?.toString()).toBe('1250');
+    const previous = await owner.supplierOfferRevision.findUniqueOrThrow({
+      where: { id: String(before.revisionId) },
+    });
+    expect(previous.availabilityText).toBeTruthy();
+    const applicationId = String(data(replay).id);
+    const history = await owner.ingestionApplicationEdits.findUniqueOrThrow({
+      where: { applicationId },
+    });
+    expect(history.edits).toEqual(request.edits);
+    await expect(
+      owner.ingestionApplicationEdits.delete({ where: { applicationId } }),
+    ).rejects.toThrow();
+    const legacy = await full.request('GET', path(row.id, 'applications'));
+    expect(legacy.status).toBe(200);
+    expect(legacy.body.data).toEqual([
+      expect.objectContaining({
+        id: applicationId,
+        baseRevisionId: before.revisionId,
+      }),
+    ]);
+  });
+
+  it('requires verified dated source evidence and explicit paired CLEAR for money', async () => {
+    const initial = await accepted();
+    const created = await full.write(
+      'POST',
+      path(initial.row.id),
+      await confirmed(initial),
+    );
+    expect(created.status).toBe(201);
+    const original = data(created);
+    const editor = await actor(
+      [
+        ...permissions.filter((code) => code !== 'ingestion.createOffer'),
+        'ingestion.applyEdits',
+      ],
+      'money-clear',
+    );
+    const sourceRun = await owner.ingestionRun.findUniqueOrThrow({
+      where: { id: initial.runId },
+    });
+    const captured = JSON.parse(
+      Buffer.from(sourceRun.rawSnapshot!).toString('utf8'),
+    )[0] as Json;
+    async function capture(
+      observedAt: Date,
+      purchaseCost: string | null,
+      currency: string | null,
+    ) {
+      const observation = {
+        ...captured,
+        source_observed_at: observedAt.toISOString(),
+        purchase_cost: purchaseCost,
+        currency,
+      };
+      const bytes = Buffer.from(JSON.stringify([observation]));
+      const sourceHash = createHash('sha256').update(bytes).digest('hex');
+      const id = randomUUID();
+      const rowId = createHash('sha256').update(id).digest('hex');
+      await owner.ingestionRun.create({
+        data: {
+          id,
+          sourceId: initial.sourceId,
+          sourceVersion: sourceRun.sourceVersion,
+          sourceSnapshot: sourceRun.sourceSnapshot as object,
+          actorId: full.userId,
+          requestId: randomUUID(),
+          state: 'COMPLETE',
+          processed: 1,
+          candidateCount: 1,
+          attempts: 1,
+          rawSnapshot: bytes,
+          sourceHash,
+          finishedAt: new Date(),
+          rows: {
+            create: {
+              id: rowId,
+              rowNumber: 1,
+              sourceHash,
+              normalized: observation as Record<string, string | null>,
+              warnings: [],
+              modificationEvidence: 'SPECIFIED',
+              reviewState: 'PENDING',
+            },
+          },
+        },
+      });
+      return { rowId, sourceHash };
+    }
+    const moneyEdit = {
+      purchaseCost: { op: 'CLEAR', reason: 'TEST supplier withdrew quote' },
+      currency: { op: 'CLEAR', reason: 'TEST currency of withdrawn quote' },
+    };
+    const base = {
+      offerId: original.offerId,
+      expectedRowVersion: 2,
+      expectedOfferVersion: 1,
+      expectedOfferRevisionId: original.revisionId,
+    };
+    const today = new Date(Date.now() - 60000);
+    const usd = await capture(today, '25.00', 'USD');
+    const usdDecision = await decide(usd.rowId);
+    const currencyMismatch = await editor.write(
+      'POST',
+      path(usd.rowId, 'edit-preview'),
+      {
+        ...base,
+        decisionId: usdDecision.id,
+        edits: { purchaseCost: { op: 'SET', value: '25.00' } },
+      },
+    );
+    expect(data(currencyMismatch).blockedReason).toBe('CURRENCY_MISMATCH');
+    const stale = await capture(
+      new Date(Date.now() - 31 * 86400000),
+      null,
+      null,
+    );
+    const staleDecision = await decide(stale.rowId);
+    const stalePreview = await editor.write(
+      'POST',
+      path(stale.rowId, 'edit-preview'),
+      {
+        ...base,
+        decisionId: staleDecision.id,
+        edits: moneyEdit,
+        evidenceHash: stale.sourceHash,
+      },
+    );
+    expect(data(stalePreview).blockedReason).toBe(
+      'PRICE_CLEAR_EVIDENCE_REQUIRED',
+    );
+
+    const current = await capture(today, null, null);
+    const inspection = await editor.request(
+      'GET',
+      path(current.rowId, 'edit-inspection') + '?offerId=' + original.offerId,
+    );
+    expect(data(inspection)).toEqual({ rowVersion: 1, decisionEligible: true });
+    const decision = await decide(current.rowId);
+    const input = {
+      ...base,
+      decisionId: decision.id,
+      edits: moneyEdit,
+      evidenceHash: current.sourceHash,
+    };
+    const preview = await editor.write(
+      'POST',
+      path(current.rowId, 'edit-preview'),
+      input,
+    );
+    expect(preview.status, JSON.stringify(preview.body)).toBe(200);
+    expect(
+      data(preview).blockedReason,
+      JSON.stringify(preview.body),
+    ).toBeNull();
+    const body = {
+      ...input,
+      previewToken: data(preview).previewToken,
+      confirmed: true,
+    };
+    const applyPath = path(current.rowId, 'apply-edits');
+    const key = randomUUID();
+    await owner.$executeRawUnsafe(`CREATE FUNCTION pg_temp_unused_clear_test() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW.action='supplier_offer.revised' THEN RAISE EXCEPTION 'TEST CLEAR audit unavailable'; END IF; RETURN NEW; END; $$`);
+    await owner.$executeRawUnsafe(
+      'CREATE TRIGGER clear_test_fail_audit BEFORE INSERT ON public.audit_event FOR EACH ROW EXECUTE FUNCTION pg_temp_unused_clear_test()',
+    );
+    try {
+      expect((await editor.write('POST', applyPath, body, key)).status).toBe(
+        500,
+      );
+      expect(
+        await owner.ingestionApplication.findUnique({
+          where: { rowId: current.rowId },
+        }),
+      ).toBeNull();
+      expect(
+        await owner.ingestionCommand.count({
+          where: { actorId: editor.userId, key },
+        }),
+      ).toBe(0);
+      expect(
+        (
+          await owner.supplierOffer.findUniqueOrThrow({
+            where: { id: String(original.offerId) },
+          })
+        ).currentRevisionId,
+      ).toBe(original.revisionId);
+    } finally {
+      await owner.$executeRawUnsafe(
+        'DROP TRIGGER clear_test_fail_audit ON public.audit_event',
+      );
+      await owner.$executeRawUnsafe(
+        'DROP FUNCTION pg_temp_unused_clear_test()',
+      );
+    }
+    const commit = database.$transaction.bind(database);
+    const afterCommit = async (...args: unknown[]) => {
+      const result: unknown = await Reflect.apply(commit, database, args);
+      if (
+        await owner.ingestionApplication.findUnique({
+          where: { rowId: current.rowId },
+        })
+      )
+        throw new Error('TEST lost response after committed CLEAR');
+      return result;
+    };
+    const spy = vi
+      .spyOn(database, '$transaction')
+      .mockImplementation(afterCommit as typeof database.$transaction);
+    try {
+      expect((await editor.write('POST', applyPath, body, key)).status).toBe(
+        500,
+      );
+    } finally {
+      spy.mockRestore();
+    }
+    await app.close();
+    await startApp();
+    const replay = await editor.write('POST', applyPath, body, key);
+    expect(replay.status, JSON.stringify(replay.body)).toBe(200);
+    const revision = await owner.supplierOfferRevision.findUniqueOrThrow({
+      where: { id: String(data(replay).revisionId) },
+    });
+    expect(revision.purchaseCost).toBeNull();
+    expect(revision.currency).toBeNull();
+    const history = await editor.request(
+      'GET',
+      path(current.rowId, 'edit-history'),
+    );
+    expect(data(history)).toMatchObject({
+      edits: moneyEdit,
+      evidence: { priceEvidence: { sourceHash: current.sourceHash } },
+    });
+    const different = await editor.write(
+      'POST',
+      applyPath,
+      {
+        ...body,
+        edits: {
+          ...moneyEdit,
+          currency: { op: 'CLEAR', reason: 'TEST changed payload' },
+        },
+      },
+      key,
+    );
+    expect(different.body.code).toBe('IDEMPOTENCY_KEY_REUSED');
+    const browserOffer = await full.write('POST', '/v1/staff/supplier-offers', {
+      supplierId: initial.selectedSupplier,
+      brandId,
+      supplierPartNumber: 'TEST-0001',
+      sourceBrandText: 'TEST Instruments',
+      manufacturerName: 'TEST Instruments',
+      originalPartNumber: 'TEST-CTRL-001',
+      modificationEvidence: 'SPECIFIED',
+      modification: 'A',
+      purchaseCost: '321',
+      currency: 'RUB',
+    });
+    expect(browserOffer.status, JSON.stringify(browserOffer.body)).toBe(201);
+    const browserRow = await capture(today, null, null);
+    const browserRun = await owner.ingestionRow.findUniqueOrThrow({
+      where: { id: browserRow.rowId },
+    });
+    const { reviewUiAcceptance } =
+      await import('../../../scripts/r1-009a-ui-acceptance.mjs');
+    await reviewUiAcceptance({
+      api,
+      cookies: [...editor.cookies],
+      runId: browserRun.runId,
+      rowId: browserRow.rowId,
+      offerId: String(data(browserOffer).id),
+      clear: true,
+    });
+
+    const previousClear = process.env.SUPPLIER_INGESTION_CLEAR_ENABLED;
+    process.env.SUPPLIER_INGESTION_CLEAR_ENABLED = 'false';
+    await app.close();
+    await startApp();
+    try {
+      expect((await editor.write('POST', applyPath, body, key)).status).toBe(
+        404,
+      );
+      expect(
+        (await editor.request('GET', path(current.rowId, 'edit-history')))
+          .status,
+      ).toBe(200);
+    } finally {
+      process.env.SUPPLIER_INGESTION_CLEAR_ENABLED = previousClear;
+      await app.close();
+      await startApp();
+    }
+
+    const userRole = await owner.userRole.findFirstOrThrow({
+      where: { staffUserId: editor.userId },
+    });
+    const permission = await owner.permission.findUniqueOrThrow({
+      where: { code: 'ingestion.applyEdits' },
+    });
+    await owner.rolePermission.deleteMany({
+      where: { roleId: userRole.roleId, permissionId: permission.id },
+    });
+    expect((await editor.write('POST', applyPath, body, key)).status).toBe(403);
+  }, 60_000);
 
   it('lost reply after an actual COMMIT replays after restart, and revocation then denies replay', async () => {
     const fixture = await accepted();

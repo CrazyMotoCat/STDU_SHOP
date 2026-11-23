@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { EditHistory, EditOffer } from './edit-offer';
 import {
   useCallback,
   useEffect,
@@ -81,7 +82,11 @@ function usePage<T>(
   return { result: page?.path === path ? page.result : null, loading, error };
 }
 
-export default function IngestionWorkspace() {
+export default function IngestionWorkspace({
+  editsEnabled,
+}: {
+  editsEnabled: boolean;
+}) {
   const [session, setSession] = useState<Session | null>(null);
   const [checking, setChecking] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -100,6 +105,11 @@ export default function IngestionWorkspace() {
   const [reason, setReason] = useState('');
   const [offerId, setOfferId] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [editDecision, setEditDecision] = useState<{
+    rowId: string;
+    rowVersion: number;
+    offerId: string;
+  } | null>(null);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [confirming, setConfirming] = useState(false);
@@ -325,7 +335,7 @@ export default function IngestionWorkspace() {
   async function compare() {
     if (!row || !uuid(offerId) || !canPreview) return;
     const epoch = ++detailEpoch.current;
-    setPreview(null);
+    setEditDecision(null);
     setConfirming(false);
     setPreviewLoading(true);
     setError('');
@@ -344,6 +354,27 @@ export default function IngestionWorkspace() {
         setDecisions(history.data);
         setApplications(applied.data);
       }
+      if (
+        editsEnabled &&
+        canApply &&
+        has('ingestion.applyEdits') &&
+        result.data.row.reviewState === 'PENDING'
+      ) {
+        const inspectionResult = await request<{
+          data: { rowVersion: number; decisionEligible: boolean };
+        }>(
+          `${base}/rows/${row.id}/edit-inspection?offerId=${encodeURIComponent(offerId)}`,
+        );
+        if (
+          epoch === detailEpoch.current &&
+          inspectionResult.data.decisionEligible
+        )
+          setEditDecision({
+            rowId: row.id,
+            rowVersion: inspectionResult.data.rowVersion,
+            offerId,
+          });
+      }
     } catch (caught) {
       if (epoch === detailEpoch.current) failed(caught);
     } finally {
@@ -356,7 +387,14 @@ export default function IngestionWorkspace() {
     (canCreate &&
       row?.id === inspection?.row.id &&
       row?.version === inspection?.row.version &&
-      inspection?.decisionEligible),
+      inspection?.decisionEligible) ||
+    (editsEnabled &&
+      canApply &&
+      has('ingestion.applyEdits') &&
+      editDecision &&
+      editDecision.rowId === row?.id &&
+      editDecision.rowVersion === row.version &&
+      editDecision.offerId === offerId),
   );
   function decide(decision: 'ACCEPT' | 'REJECT') {
     if (
@@ -1244,6 +1282,36 @@ export default function IngestionWorkspace() {
                         </button>
                       </div>
                     )}
+                  {editsEnabled &&
+                    canApply &&
+                    has('ingestion.applyEdits') &&
+                    preview &&
+                    row?.reviewState === 'ACCEPTED' &&
+                    !provenance &&
+                    !preview.application &&
+                    decisions.some(
+                      (decision) => decision.decision === 'ACCEPT',
+                    ) && (
+                      <EditOffer
+                        key={row.id + '/' + preview.offer.id}
+                        preview={preview}
+                        decisionId={
+                          decisions.find(
+                            (decision) => decision.decision === 'ACCEPT',
+                          )!.id
+                        }
+                        disabled={busy || previewLoading}
+                        runExclusive={execute}
+                        onApplied={(receipt) => {
+                          setApplications([receipt]);
+                          setPreview(null);
+                          setNotice(
+                            'Явные правки применены. Создана новая редакция.',
+                          );
+                          setRefresh((value) => value + 1);
+                        }}
+                      />
+                    )}
                   {confirming && preview && (
                     <div
                       className={layout.confirm}
@@ -1279,6 +1347,9 @@ export default function IngestionWorkspace() {
                   <h3>История решения</h3>
                   {!detailLoading && decisions.length === 0 && (
                     <p>Решение ещё не принято.</p>
+                  )}
+                  {canPreview && applications.length > 0 && (
+                    <EditHistory key={row.id} rowId={row.id} />
                   )}
                   <ol className={layout.history}>
                     {decisions.map((item) => (
