@@ -27,11 +27,13 @@ export async function reviewUiAcceptance({
     root,
     brandId
       ? '.local/r1-009b-create/screenshots'
-      : identity || identityJourney
-        ? '.local/r1-009b-reconcile-update/screenshots'
-        : clear
-          ? '.local/r1-009b-clear/screenshots'
-          : '.local/r1-009a/screenshots',
+      : identityJourney?.operation === 'CREATE'
+        ? '.local/r1-009b-reconcile-create/screenshots'
+        : identity || identityJourney
+          ? '.local/r1-009b-reconcile-update/screenshots'
+          : clear
+            ? '.local/r1-009b-clear/screenshots'
+            : '.local/r1-009a/screenshots',
   );
   await mkdir(screenshots, { recursive: true });
   const reservation = netServer();
@@ -513,10 +515,12 @@ async function reconcileUpdateUiFlow({
   journey,
   screenshots,
 }) {
+  const kind = journey.operation ?? 'UPDATE';
+  const creating = kind === 'CREATE';
   const openPanel = async () => {
     const panel = page
       .locator('details')
-      .filter({ hasText: 'Ручная сверка идентичности · UPDATE' });
+      .filter({ hasText: 'Ручная сверка идентичности · ' + kind });
     await panel.locator('summary').click();
     return panel;
   };
@@ -564,10 +568,12 @@ async function reconcileUpdateUiFlow({
       exact: true,
     })
     .waitFor();
-  await page.getByLabel('ID существующего предложения').fill(offerId);
-  await page
-    .getByRole('button', { name: 'Сравнить с предложением', exact: true })
-    .click();
+  if (!creating) {
+    await page.getByLabel('ID существующего предложения').fill(offerId);
+    await page
+      .getByRole('button', { name: 'Сравнить с предложением', exact: true })
+      .click();
+  }
 
   const requester = await openPanel();
   await requester
@@ -580,7 +586,7 @@ async function reconcileUpdateUiFlow({
     .getByRole('button', { name: 'Передать на независимое подтверждение' })
     .click();
   await requester
-    .getByRole('heading', { name: 'UPDATE · Ожидает подтверждения' })
+    .getByRole('heading', { name: kind + ' · Ожидает подтверждения' })
     .waitFor();
   assert.equal(
     await requester
@@ -590,6 +596,10 @@ async function reconcileUpdateUiFlow({
   );
 
   const approver = await switchEmployee(journey.approverCookies);
+  const ack = approver.getByRole('checkbox', {
+    name: 'Архивные совпадения проверены',
+  });
+  if (await ack.isVisible()) await ack.check();
   await approver
     .getByLabel('Подтверждение доказательства')
     .fill('TEST independent browser reviewer confirms');
@@ -597,23 +607,37 @@ async function reconcileUpdateUiFlow({
     .getByRole('button', { name: 'Подтвердить сверку', exact: true })
     .click();
   await approver
-    .getByRole('heading', { name: 'UPDATE · Подтверждено' })
+    .getByRole('heading', { name: kind + ' · Подтверждено' })
     .waitFor();
   assert.equal(
     await approver
-      .getByRole('button', { name: 'Применить подтверждённую сверку' })
+      .getByRole('button', {
+        name: creating
+          ? 'Создать предложение'
+          : 'Применить подтверждённую сверку',
+      })
       .count(),
     0,
   );
 
   const executor = await switchEmployee(journey.executorCookies);
+  const executorAck = executor.getByRole('checkbox', {
+    name: 'Архивные совпадения проверены',
+  });
+  if (await executorAck.isVisible()) await executorAck.check();
   await executor
     .getByRole('checkbox', {
-      name: 'Подтверждаю применение к показанной редакции',
+      name: creating
+        ? 'Подтверждаю создание по показанной идентичности'
+        : 'Подтверждаю применение к показанной редакции',
     })
     .check();
   await executor
-    .getByRole('button', { name: 'Применить подтверждённую сверку' })
+    .getByRole('button', {
+      name: creating
+        ? 'Создать предложение'
+        : 'Применить подтверждённую сверку',
+    })
     .click();
   await executor.getByText(/^Квитанция · /).waitFor();
   for (const width of [1440, 375]) {
@@ -625,7 +649,10 @@ async function reconcileUpdateUiFlow({
       'Identity page overflow',
     );
     await executor.screenshot({
-      path: resolve(screenshots, 'reconciled-update-' + width + '.png'),
+      path: resolve(
+        screenshots,
+        'reconciled-' + kind.toLowerCase() + '-' + width + '.png',
+      ),
     });
   }
 }

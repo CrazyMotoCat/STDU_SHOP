@@ -7,6 +7,7 @@ export function reviewUiAcceptance(
     identity?: string;
     identityJourney?: {
       evidenceId: string;
+      operation?: 'UPDATE' | 'CREATE';
       approverCookies: Array<[string, string]>;
       executorCookies: Array<[string, string]>;
     };

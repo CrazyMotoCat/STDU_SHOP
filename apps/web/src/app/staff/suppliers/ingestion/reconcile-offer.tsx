@@ -48,6 +48,8 @@ function reconciliationError(cause: unknown) {
 
 export function ReconcileOffer({
   rowId,
+  mode = 'UPDATE',
+  rowVersion,
   preview,
   decisionId,
   consumed,
@@ -60,6 +62,8 @@ export function ReconcileOffer({
   onApplied,
 }: {
   rowId: string;
+  mode?: 'UPDATE' | 'CREATE';
+  rowVersion: number;
   preview: Preview | null;
   decisionId: string | null;
   consumed: boolean;
@@ -92,7 +96,7 @@ export function ReconcileOffer({
     })
       .then(({ data, actorId }) => {
         if (!controller.signal.aborted) {
-          setItems(data);
+          setItems(data.filter((item) => item.submission.operation === mode));
           setActorId(actorId);
         }
       })
@@ -101,7 +105,10 @@ export function ReconcileOffer({
           setError('Не удалось загрузить историю сверки.');
       });
     return () => controller.abort();
-  }, [open, path, refresh]);
+  }, [open, path, refresh, mode]);
+
+  const creating = mode === 'CREATE';
+  const submitPath = creating ? path + '/create' : path;
 
   function run(action: () => Promise<unknown>, applied = false) {
     void runExclusive(async () => {
@@ -123,14 +130,20 @@ export function ReconcileOffer({
       className={layout.editPanel}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary>Ручная сверка идентичности · UPDATE</summary>
+      <summary>Ручная сверка идентичности · {mode}</summary>
       {error && <p role="alert">{error}</p>}
-      {canSubmit && !consumed && preview && decisionId && (
+      {canSubmit && !consumed && (creating || preview) && decisionId && (
         <fieldset disabled={busy}>
-          <legend>Связать подтверждённый документ с редакцией</legend>
-          <p>
-            {preview.offer.id} · {preview.offer.currentRevision.id}
-          </p>
+          <legend>
+            {creating
+              ? 'Подтвердить идентичность для нового предложения'
+              : 'Связать подтверждённый документ с редакцией'}
+          </legend>
+          {preview && !creating && (
+            <p>
+              {preview.offer.id} · {preview.offer.currentRevision.id}
+            </p>
+          )}{' '}
           <label>
             Идентификатор проверенного доказательства
             <input
@@ -152,11 +165,16 @@ export function ReconcileOffer({
             disabled={!uuid(evidenceId) || !reason.trim()}
             onClick={() =>
               run(() =>
-                command(path, {
-                  offerId: preview.offer.id,
-                  expectedOfferVersion: preview.offer.version,
-                  expectedOfferRevisionId: preview.offer.currentRevision.id,
-                  expectedRowVersion: preview.row.version,
+                command(submitPath, {
+                  ...(!creating && preview
+                    ? {
+                        offerId: preview.offer.id,
+                        expectedOfferVersion: preview.offer.version,
+                        expectedOfferRevisionId:
+                          preview.offer.currentRevision.id,
+                      }
+                    : {}),
+                  expectedRowVersion: rowVersion,
                   decisionId,
                   evidenceId,
                   reason,
@@ -248,12 +266,18 @@ export function ReconcileOffer({
                     }
                     onClick={() =>
                       run(() =>
-                        command(path + '/' + submission.id + '/confirm', {
-                          digest: submission.digest,
-                          reason: approval[submission.id],
-                          acknowledgedDuplicateIds:
-                            submission.archived_duplicate_ids,
-                        }),
+                        command(
+                          path +
+                            '/' +
+                            submission.id +
+                            (creating ? '/confirm-create' : '/confirm'),
+                          {
+                            digest: submission.digest,
+                            reason: approval[submission.id],
+                            acknowledgedDuplicateIds:
+                              submission.archived_duplicate_ids,
+                          },
+                        ),
                       )
                     }
                   >
@@ -277,7 +301,9 @@ export function ReconcileOffer({
                         setConfirming(event.target.checked ? submission.id : '')
                       }
                     />
-                    Подтверждаю применение к показанной редакции
+                    {creating
+                      ? 'Подтверждаю создание по показанной идентичности'
+                      : 'Подтверждаю применение к показанной редакции'}
                   </label>
                   <button
                     type="button"
@@ -290,17 +316,25 @@ export function ReconcileOffer({
                     onClick={() =>
                       run(
                         () =>
-                          command(path + '/' + submission.id + '/apply', {
-                            digest: submission.digest,
-                            confirmed: true,
-                            acknowledgedDuplicateIds:
-                              submission.archived_duplicate_ids,
-                          }),
+                          command(
+                            path +
+                              '/' +
+                              submission.id +
+                              (creating ? '/create-offer' : '/apply'),
+                            {
+                              digest: submission.digest,
+                              confirmed: true,
+                              acknowledgedDuplicateIds:
+                                submission.archived_duplicate_ids,
+                            },
+                          ),
                         true,
                       )
                     }
                   >
-                    Применить подтверждённую сверку
+                    {creating
+                      ? 'Создать предложение'
+                      : 'Применить подтверждённую сверку'}
                   </button>
                 </fieldset>
               )}

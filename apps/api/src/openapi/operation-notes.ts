@@ -773,6 +773,39 @@ export const STAFF_OPERATION_CONTRACT_NOTES = {
       'CSRF_INVALID',
     ],
   },
+  ingestion_submitCreateIdentity: {
+    invariants: [
+      'Binds verified missing brand or modification to one accepted row and its duplicate set.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+      'CSRF_INVALID',
+    ],
+  },
+  ingestion_approveCreateIdentity: {
+    invariants: [
+      'A different eligible employee independently approves the bound CREATE identity and archived matches.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+      'CSRF_INVALID',
+    ],
+  },
+  ingestion_executeCreateIdentity: {
+    invariants: [
+      'Separate authorized CREATE with refreshed evidence and duplicate set; revision, audit, provenance and receipt commit together.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+      'CSRF_INVALID',
+    ],
+  },
   ingestion_inspectIdentity: {
     invariants: [
       'Reviews a pending row without changing an offer or granting execution.',

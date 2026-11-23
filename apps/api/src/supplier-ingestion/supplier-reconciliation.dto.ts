@@ -3,6 +3,8 @@ import {
   Equals,
   ArrayMaxSize,
   ArrayUnique,
+  IsInt,
+  Min,
   IsString,
   IsUUID,
   Matches,
@@ -67,4 +69,26 @@ export class IngestionIdentityExecutionInput {
   @ApiProperty({ type: Boolean, enum: [true] })
   @Equals(true)
   confirmed!: true;
+}
+
+export class IngestionSubmitCreateIdentityInput {
+  @ApiProperty({ type: String, format: 'uuid' })
+  @IsUUID('4')
+  decisionId!: string;
+
+  @ApiProperty({ type: Number, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  expectedRowVersion!: number;
+
+  @ApiProperty({ type: String, format: 'uuid' })
+  @IsUUID('4')
+  evidenceId!: string;
+
+  @ApiProperty({ type: String, minLength: 1, maxLength: 500 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  @Matches(/\S/u)
+  reason!: string;
 }

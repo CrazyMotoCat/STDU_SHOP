@@ -1484,6 +1484,239 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
     ).toBe(403);
   }, 120_000);
 
+  it('creates a reconciled identity only after separate approval and archived-match acknowledgement', async () => {
+    const fixture = await accepted('offers-v1', 1);
+    const rowId = fixture.row.id;
+    const pathTo = path(rowId, 'identity-reconciliations');
+    const evidence = randomUUID();
+    const hash = createHash('sha256')
+      .update('TEST verified manufacturer document')
+      .digest('hex');
+    await owner.$executeRaw`
+      INSERT INTO public.ingestion_identity_evidence
+        (id,source_id,source_version,kind,reference,artifact_version,artifact_digest,attested_at,brand_id,
+         manufacturer_name,part_number,modification_evidence,modification)
+      VALUES (${evidence}::uuid,${fixture.sourceId}::uuid,1,'MANUFACTURER_DOCUMENT','TEST approved document','TEST 1',
+        ${hash},clock_timestamp(),${brandId}::uuid,'TEST Instruments','TEST-IF-002','CONFIRMED_NONE',NULL)
+    `;
+    const old = await full.write('POST', '/v1/staff/supplier-offers', {
+      supplierId: fixture.selectedSupplier,
+      brandId,
+      supplierPartNumber: 'TEST-0002',
+      manufacturerName: 'TEST Instruments',
+      originalPartNumber: 'TEST-IF-002',
+      modificationEvidence: 'CONFIRMED_NONE',
+      modification: null,
+    });
+    expect(old.status, JSON.stringify(old.body)).toBe(201);
+    const oldId = String(data(old).id);
+    const requester = await actor(
+      [
+        ...permissions,
+        'ingestion.reconcile.submit',
+        'ingestion.reconcile.execute',
+      ],
+      'reconcile-create-requester',
+    );
+    const approver = await actor(
+      [
+        ...permissions,
+        'ingestion.reconcile.approve',
+        'ingestion.reconcile.execute',
+      ],
+      'reconcile-create-approver',
+    );
+    const createInput = {
+      expectedRowVersion: 2,
+      decisionId: fixture.previewInput.decisionId,
+      evidenceId: evidence,
+      reason:
+        'TEST verified manufacturer evidence and archived offer replacement',
+    };
+    expect(
+      (await requester.write('POST', pathTo + '/create', createInput)).status,
+    ).toBe(409);
+    const archive = await full.write(
+      'POST',
+      '/v1/staff/supplier-offers/' + oldId + '/archive',
+      {
+        expectedVersion: 1,
+        reasonCode: 'TEST_ARCHIVE',
+      },
+    );
+    expect(archive.status, JSON.stringify(archive.body)).toBe(200);
+    const submitted = await requester.write(
+      'POST',
+      pathTo + '/create',
+      createInput,
+    );
+    expect(submitted.status, JSON.stringify(submitted.body)).toBe(201);
+    const entry = data(submitted);
+    expect(entry.archivedDuplicateIds).toEqual([oldId]);
+    const approval = pathTo + '/' + entry.id + '/confirm-create';
+    const execute = pathTo + '/' + entry.id + '/create-offer';
+    const command = {
+      digest: entry.digest,
+      confirmed: true,
+      acknowledgedDuplicateIds: [oldId],
+    };
+    expect((await requester.write('POST', execute, command)).status).toBe(409);
+    expect(
+      (
+        await approver.write('POST', approval, {
+          digest: entry.digest,
+          reason: 'TEST independently checked archive',
+          acknowledgedDuplicateIds: [],
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await approver.write('POST', approval, {
+          digest: entry.digest,
+          reason: 'TEST independently checked archive',
+          acknowledgedDuplicateIds: [oldId],
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      await owner.ingestionApplication.findUnique({ where: { rowId } }),
+    ).toBeNull();
+    expect((await approver.write('POST', execute, command)).status).toBe(403);
+    const other = await stage('offers-v1', fixture.selectedSupplier);
+    const otherRow = other.rows[1]!;
+    const otherDecision = await decide(otherRow.id);
+    const otherEvidence = randomUUID();
+    await owner.$executeRaw`
+      INSERT INTO public.ingestion_identity_evidence
+        (id,source_id,source_version,kind,reference,artifact_version,artifact_digest,attested_at,brand_id,
+         manufacturer_name,part_number,modification_evidence,modification)
+      SELECT ${otherEvidence}::uuid,${other.sourceId}::uuid,source_version,kind,reference,artifact_version,artifact_digest,attested_at,
+        brand_id,manufacturer_name,part_number,modification_evidence,modification
+      FROM public.ingestion_identity_evidence WHERE id=${evidence}::uuid
+    `;
+    const otherPath = path(otherRow.id, 'identity-reconciliations');
+    const otherSubmission = await requester.write(
+      'POST',
+      otherPath + '/create',
+      {
+        ...createInput,
+        evidenceId: otherEvidence,
+        decisionId: otherDecision.id,
+      },
+    );
+    expect(otherSubmission.status, JSON.stringify(otherSubmission.body)).toBe(
+      201,
+    );
+    const competing = data(otherSubmission);
+    expect(
+      (
+        await approver.write(
+          'POST',
+          otherPath + '/' + competing.id + '/confirm-create',
+          {
+            digest: competing.digest,
+            reason: 'TEST independent archived duplicate review',
+            acknowledgedDuplicateIds: [oldId],
+          },
+        )
+      ).status,
+    ).toBe(200);
+
+    const key = randomUUID();
+    const otherKey = randomUUID();
+    const otherExecute = otherPath + '/' + competing.id + '/create-offer';
+    const otherCommand = { ...command, digest: competing.digest };
+    const [first, second] = await Promise.all([
+      requester.write('POST', execute, command, key),
+      requester.write('POST', otherExecute, otherCommand, otherKey),
+    ]);
+    expect([first.status, second.status].sort()).toEqual([201, 409]);
+    const firstWon = first.status === 201;
+    const done = firstWon ? first : second;
+    const winnerRow = firstWon ? rowId : otherRow.id;
+    const winnerPath = firstWon ? pathTo : otherPath;
+    const loser = firstWon ? second : first;
+    expect(loser.body.fields).toEqual([
+      { field: 'duplicate', code: 'ACTIVE_DUPLICATE' },
+    ]);
+    const saved = data(done);
+    expect(saved).toMatchObject({
+      operation: 'CREATE',
+      baseRevisionId: null,
+      version: 1,
+    });
+    await app.close();
+    await startApp();
+    expect(
+      (
+        await requester.write(
+          'POST',
+          firstWon ? execute : otherExecute,
+          firstWon ? command : otherCommand,
+          firstWon ? key : otherKey,
+        )
+      ).body,
+    ).toEqual(done.body);
+    const revision = await owner.supplierOfferRevision.findUniqueOrThrow({
+      where: { id: String(saved.revisionId) },
+    });
+    expect(revision).toMatchObject({
+      revisionNo: 1,
+      brandId,
+      modificationEvidence: 'CONFIRMED_NONE',
+      modification: null,
+      originalPartNumber: 'TEST-IF-002',
+    });
+    const history = await requester.request('GET', winnerPath);
+    expect(history.status).toBe(200);
+    expect(history.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          execution: { application_id: saved.id },
+        }),
+      ]),
+    );
+    expect(
+      (await requester.request('GET', path(winnerRow, 'applications'))).body
+        .data,
+    ).toEqual([]);
+    const browserFixture = await staged('offers-v1', 1);
+    const browserEvidence = randomUUID();
+    await owner.$executeRaw`
+      INSERT INTO public.ingestion_identity_evidence
+       (id,source_id,source_version,kind,reference,artifact_version,artifact_digest,attested_at,brand_id,
+        manufacturer_name,part_number,modification_evidence,modification)
+      SELECT ${browserEvidence}::uuid,${browserFixture.sourceId}::uuid,source_version,
+        kind,reference,artifact_version,artifact_digest,attested_at,brand_id,manufacturer_name,part_number,modification_evidence,modification
+      FROM public.ingestion_identity_evidence WHERE id=${evidence}::uuid
+    `;
+    const { reviewUiAcceptance } =
+      await import('../../../scripts/r1-009a-ui-acceptance.mjs');
+    await reviewUiAcceptance({
+      api,
+      cookies: [...requester.cookies],
+      runId: browserFixture.runId,
+      rowId: browserFixture.row.id,
+      offerId: '',
+      identityJourney: {
+        operation: 'CREATE',
+        evidenceId: browserEvidence,
+        approverCookies: [...approver.cookies],
+        executorCookies: [...requester.cookies],
+      },
+    });
+    expect(
+      await owner.ingestionApplication.findUnique({
+        where: { rowId: browserFixture.row.id },
+      }),
+    ).toMatchObject({
+      operation: 'CREATE',
+      baseRevisionId: null,
+      version: 1,
+    });
+  }, 120_000);
+
   it('lost reply after an actual COMMIT replays after restart, and revocation then denies replay', async () => {
     const fixture = await accepted();
     const input = await confirmed(fixture);
