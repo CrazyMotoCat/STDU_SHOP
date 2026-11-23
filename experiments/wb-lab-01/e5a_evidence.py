@@ -78,8 +78,8 @@ def validate_campaign(evidence):
             and result["watchdog"] == "FAILED"
             and isinstance(watchdog_reason, str)
             and re.fullmatch(
-                r"E5A_ENGINE_TIMEOUT_(DAEMON|IMAGE|CONTAINER|VOLUME|OTHER)_"
-                r"(GET|POST|DELETE|CREATE|START|STOP|KILL|OTHER)",
+                r"E5A_ENGINE_TIMEOUT_(DAEMON|IMAGE|CONTAINER|VOLUME|NETWORK|OTHER)_"
+                r"(GET|POST|DELETE|CREATE|START|STOP|KILL|INSPECT|STATS|LIST|OTHER)",
                 watchdog_reason,
             ),
             "E5A_EVIDENCE_WATCHDOG_REASON",

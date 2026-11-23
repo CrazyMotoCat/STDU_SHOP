@@ -1,9 +1,11 @@
 """E5A controller create-intent recovery over the local Docker Engine socket."""
 
+import http.client
 import json
 import os
 import re
 import select
+import socket
 import stat
 import subprocess
 import time
@@ -100,43 +102,82 @@ def verify_intent(directory, expected):
         require(record.read(1025) == payload(expected), "E5A_INTENT_CHANGED")
 
 
+class DeadlineSocket(socket.socket):
+    """Reapply the same absolute deadline on each buffered HTTP read."""
+
+    def __init__(self, deadline):
+        super().__init__(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.deadline = deadline
+
+    def arm(self):
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError
+        self.settimeout(remaining)
+
+    def recv_into(self, buffer, nbytes=0, flags=0):
+        self.arm()
+        return super().recv_into(buffer, nbytes, flags)
+
+    def sendall(self, data, flags=0):
+        self.arm()
+        return super().sendall(data, flags)
+
+
+class LocalEngineConnection(http.client.HTTPConnection):
+    def __init__(self, deadline):
+        super().__init__("localhost")
+        self.deadline = deadline
+        self.stage = "CONNECT"
+
+    def connect(self):
+        self.sock = DeadlineSocket(self.deadline)
+        self.sock.arm()
+        self.sock.connect(str(SOCKET))
+        self.stage = "WRITE"
+
+
+class EngineTimeout(Blocked):
+    def __init__(self, reason, stage, elapsed_ms, budget_ms):
+        super().__init__(reason)
+        self.details = {
+            "stage": stage,
+            "elapsed_ms": elapsed_ms,
+            "budget_ms": budget_ms,
+        }
+
+
+class ExchangeTimeout(TimeoutError):
+    def __init__(self, stage):
+        self.stage = stage
+
+
 def unix_request(method, path, body, deadline):
-    """Direct Engine API. curl enforces a total transfer deadline and response cap."""
-    remaining = min(5, deadline - time.monotonic())
-    require(remaining >= 0.001, "E5A_ENGINE_DEADLINE")
-    args = [
-        "/usr/bin/curl",
-        "-q",
-        "--silent",
-        "--noproxy",
-        "*",
-        "--unix-socket",
-        str(SOCKET),
-        "--max-time",
-        f"{remaining:.3f}",
-        "--max-filesize",
-        "1048576",
-        "--request",
-        method,
-        "--write-out",
-        "\\n%{http_code}",
-    ]
-    if body is not None:
-        args += ["--header", "Content-Type: application/json", "--data-binary", "@-"]
-    result = subprocess.run(
-        [*args, "http://localhost" + path],
-        input=json.dumps(body).encode() if body is not None else b"",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        timeout=remaining,
-        check=False,
-        env={"LANG": "C"},
-    )
-    if result.returncode == 28:
-        raise subprocess.TimeoutExpired("Docker Engine", remaining)
-    require(result.returncode == 0, "E5A_ENGINE_TRANSPORT")
-    raw, _, status = result.stdout.rpartition(b"\n")
-    return int(status), raw
+    """Only the local Unix socket, with no retry, process, redirect or idle timeout."""
+    connection = LocalEngineConnection(deadline)
+    try:
+        headers = {"Connection": "close", "Accept": "application/json"}
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+            body = json.dumps(body).encode()
+        connection.request(method, path, body=body, headers=headers)
+        connection.stage = "HEADERS"
+        with connection.getresponse() as response:
+            connection.stage = "BODY"
+            length = response.length
+            require(length is None or 0 <= length <= 1024**2, "E5A_ENGINE_RESPONSE")
+            raw = response.read(1024**2 + 1)
+            require(
+                len(raw) <= 1024**2 and (length is None or len(raw) == length),
+                "E5A_ENGINE_RESPONSE",
+            )
+            return response.status, raw
+    except TimeoutError:
+        raise ExchangeTimeout(connection.stage) from None
+    except (http.client.HTTPException, OSError):
+        raise Blocked("E5A_ENGINE_TRANSPORT") from None
+    finally:
+        connection.close()
 
 
 class Engine:
@@ -146,26 +187,43 @@ class Engine:
     def request(
         self, method, path, deadline, *, statuses=(200,), body=None, shape=dict
     ):
-        require(time.monotonic() < deadline, "E5A_ENGINE_DEADLINE")
+        started = time.monotonic()
+        end = min(deadline, started + 5)
+        require(started < end, "E5A_ENGINE_DEADLINE")
         try:
-            code, raw = self.transport(method, path, body, deadline)
-        except subprocess.TimeoutExpired:
+            code, raw = self.transport(method, path, body, end)
+            if time.monotonic() >= end:
+                raise ExchangeTimeout("RESPONSE")
+        except (TimeoutError, subprocess.TimeoutExpired) as error:
             parts = path.partition("?")[0].strip("/").split("/")
             resource = {
                 "info": "DAEMON",
                 "images": "IMAGE",
                 "containers": "CONTAINER",
                 "volumes": "VOLUME",
+                "networks": "NETWORK",
             }.get(parts[0], "OTHER")
             action = (
                 parts[-1].upper()
-                if parts[-1] in {"create", "start", "stop", "kill"}
+                if parts[-1] in {"create", "start", "stop", "kill", "stats"}
+                else "INSPECT"
+                if (
+                    len(parts) == 3 and parts[0] == "containers" and parts[-1] == "json"
+                )
+                or (len(parts) == 2 and parts[0] == "volumes" and method == "GET")
+                else "LIST"
+                if method == "GET"
+                and parts in (["containers", "json"], ["volumes"], ["networks"])
                 else method
                 if method in {"GET", "POST", "DELETE"}
                 else "OTHER"
             )
-            raise Blocked(f"E5A_ENGINE_TIMEOUT_{resource}_{action}") from None
-        require(time.monotonic() < deadline, "E5A_ENGINE_DEADLINE")
+            raise EngineTimeout(
+                f"E5A_ENGINE_TIMEOUT_{resource}_{action}",
+                error.stage if isinstance(error, ExchangeTimeout) else "TRANSPORT",
+                round((time.monotonic() - started) * 1000),
+                round((end - started) * 1000),
+            ) from None
         require(code in statuses and len(raw) <= 1024**2, "E5A_ENGINE_RESPONSE")
         if code in (204, 304, 404):
             return None
