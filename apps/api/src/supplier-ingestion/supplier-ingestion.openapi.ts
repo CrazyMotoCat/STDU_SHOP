@@ -237,3 +237,17 @@ export const ingestionCreateResponses = {
   create: object({ data: provenance }),
   provenance: object({ data: nullable(provenance) }),
 };
+
+export const ingestionIdentityResponses = {
+  submission: object({
+    data: object({ id: uuid, digest: hash, archivedDuplicateIds: array(uuid) }),
+  }),
+  approval: object({
+    data: object({
+      id: uuid,
+      digest: hash,
+      approved: { type: 'boolean', enum: [true] },
+    }),
+  }),
+  receipt: object({ data: provenance }),
+};

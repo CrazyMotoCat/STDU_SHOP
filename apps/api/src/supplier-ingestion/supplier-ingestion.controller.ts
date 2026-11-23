@@ -13,6 +13,7 @@ import { SupplierApplyService } from './supplier-apply.service.js';
 import {
   ingestionApplyResponses,
   ingestionCreateResponses,
+  ingestionIdentityResponses,
   ingestionResponses,
   ingestionErrorSchema,
 } from './supplier-ingestion.openapi.js';
@@ -741,11 +742,12 @@ export class SupplierIngestionController {
   @ApiResponse({
     status: 201,
     description: 'Append-only target-bound identity submission',
+    schema: ingestionIdentityResponses.submission,
   })
   @StaffOperation({
     permission: 'ingestion.reconcile.submit',
     csrf: 'STAFF_BOUND',
-    audit: 'none',
+    audit: 'ingestion.identity.submitted',
   })
   ingestion_submitIdentity(
     @Req() request: StaffRequest,
@@ -779,11 +781,12 @@ export class SupplierIngestionController {
   @ApiResponse({
     status: 200,
     description: 'Independent immutable identity confirmation',
+    schema: ingestionIdentityResponses.approval,
   })
   @StaffOperation({
     permission: 'ingestion.reconcile.approve',
     csrf: 'STAFF_BOUND',
-    audit: 'none',
+    audit: 'ingestion.identity.confirmed',
   })
   ingestion_approveIdentity(
     @Req() request: StaffRequest,
@@ -818,11 +821,12 @@ export class SupplierIngestionController {
   @ApiResponse({
     status: 200,
     description: 'Explicit reconciled supplier update',
+    schema: ingestionIdentityResponses.receipt,
   })
   @StaffOperation({
     permission: 'ingestion.reconcile.execute',
     csrf: 'STAFF_BOUND',
-    audit: 'supplier_offer.revised',
+    audit: 'supplier_offer.revised; ingestion.identity.executed',
   })
   ingestion_applyIdentity(
     @Req() request: StaffRequest,
