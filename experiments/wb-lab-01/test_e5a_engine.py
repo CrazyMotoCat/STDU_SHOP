@@ -4,16 +4,29 @@ import json
 import multiprocessing
 import os
 import signal
+import subprocess
 import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from e5a_engine import FILE, IMAGE, Engine, Intent, watchdog
+from preflight import Blocked
 
 OWN = "1" * 64
 FOREIGN = "2" * 64
 INTENT = Intent("a" * 32, "lab-daemon", "sha256:" + "b" * 64)
+
+
+class TransportDeadlineTests(unittest.TestCase):
+    def test_engine_timeout_uses_only_a_fixed_operation_code(self):
+        def expired(method, path, body, deadline):
+            raise subprocess.TimeoutExpired("private arguments", 0.1)
+
+        with (
+            self.assertRaisesRegex(Blocked, "^E5A_ENGINE_TIMEOUT_CONTAINER_INSPECT$"),
+        ):
+            Engine(expired).inspect(OWN, time.monotonic() + 1)
 
 
 class FakeTransport:

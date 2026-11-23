@@ -12,7 +12,7 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
-from e5a_engine import Engine, Intent
+from e5a_engine import Engine, EngineTimeout, Intent
 from e5a_infrastructure import Infrastructure
 from e5a_media import MediaController
 from e5a_observation import container_reading
@@ -39,11 +39,12 @@ class HostBackend:
         self.engine = Engine() if engine is None else engine
         self.images = images
         self.ctx = multiprocessing.get_context("fork")
-        self.phase = self.ctx.Value("i", 0)
-        self.phase_end = self.ctx.Value("d", 0)
-        self.heartbeat = self.ctx.Value("d", time.monotonic())
-        self.abort = self.ctx.Event()
-        self.stopped = self.ctx.Event()
+        # Scalar state has no semaphore that a killed peer can leave locked.
+        self.phase = self.ctx.RawValue("i", 0)
+        self.phase_end = self.ctx.RawValue("d", 0)
+        self.heartbeat = self.ctx.RawValue("d", time.monotonic())
+        self.abort = self.ctx.RawValue("b", False)
+        self.stopped = self.ctx.RawValue("b", False)
         self.last = None
         self.latest = self.ctx.Array("B", 16384)
         self.latest_size = self.ctx.RawValue("i", 0)
@@ -91,7 +92,11 @@ class HostBackend:
 
     def inventory(self, deadline):
         self.verify_root()
-        return snapshot(deadline)
+        intent = Intent(self.run, self.daemon, self.images["controller"])
+        self.engine.attest(intent, deadline)
+        inventory = snapshot(deadline)
+        self.engine.attest(intent, deadline)
+        return inventory
 
     def start_watchdog(self, deadline):
         self.global_end = deadline
@@ -116,12 +121,10 @@ class HostBackend:
 
     def check_watchdog(self):
         self.heartbeat.value = time.monotonic()
-        if self.abort.is_set():
+        if self.abort.value:
             raise Blocked(self.failure_reason("E5A_WORKLOAD_ABORT"))
         require(
-            self.watch is not None
-            and self.watch.is_alive()
-            and not self.abort.is_set(),
+            self.watch is not None and self.watch.is_alive() and not self.abort.value,
             "E5A_WATCHDOG_FAILED",
         )
 
@@ -143,11 +146,11 @@ class HostBackend:
 
     def begin_workload(self, phase, deadline):
         self.check_watchdog()
-        self.phase.value = PHASES.index(phase)
         self.phase_end.value = deadline
+        self.phase.value = PHASES.index(phase)
         self.pending_result = None
         self.answer, outgoing = self.ctx.Pipe(duplex=False)
-        released = self.ctx.Event()
+        released = self.ctx.RawValue("b", False)
         self.worker = self.ctx.Process(
             target=self.provision, args=(phase, deadline, outgoing, released)
         )
@@ -161,14 +164,23 @@ class HostBackend:
                 "start": process_start(Path("/proc") / str(pid), pid),
             },
         )
-        released.set()
+        released.value = True
         outgoing.close()
 
     def provision(self, phase, deadline, outgoing, released):
         try:
+            while not released.value:
+                require(
+                    os.getppid() == self.owner
+                    and time.monotonic() < deadline
+                    and not self.abort.value,
+                    "E5A_WORKER_GATE",
+                )
+                time.sleep(0.005)
             require(
-                released.wait(max(0, deadline - time.monotonic()))
-                and not self.abort.is_set(),
+                os.getppid() == self.owner
+                and time.monotonic() < deadline
+                and not self.abort.value,
                 "E5A_WORKER_GATE",
             )
             fd = self.children[phase]
@@ -191,7 +203,7 @@ class HostBackend:
                 pg.create(fd, pg_intent, deadline)
                 while True:
                     require(
-                        time.monotonic() < deadline and not self.abort.is_set(),
+                        time.monotonic() < deadline and not self.abort.value,
                         "E5A_PG_READY_TIMEOUT",
                     )
                     # Wait for the actual socket; every connected query still attests peer and marker.
@@ -204,7 +216,7 @@ class HostBackend:
                 )
             while True:
                 require(
-                    time.monotonic() < deadline and not self.abort.is_set(),
+                    time.monotonic() < deadline and not self.abort.value,
                     "E5A_MEDIA_TIMEOUT",
                 )
                 fsync = media.measurement(fd, deadline)
@@ -215,11 +227,15 @@ class HostBackend:
             outgoing.send({"ok": True})
         except FAILURES as error:
             reason = str(error) if isinstance(error, Blocked) else type(error).__name__
-            write_record(
-                self.children[phase], "workload-error.json", {"reason": reason}
-            )
-            self.abort.set()
-            outgoing.send({"error": reason})
+            report = {"reason": reason}
+            if isinstance(error, EngineTimeout):
+                report["engine_timeout"] = error.details
+            write_record(self.children[phase], "workload-error.json", report)
+            self.abort.value = True
+            try:
+                outgoing.send({"error": reason})
+            except BrokenPipeError:
+                pass
         finally:
             outgoing.close()
 
@@ -234,6 +250,8 @@ class HostBackend:
             self.phase_end.value = deadline
         end = min(deadline, time.monotonic() + 0.45)
         while time.monotonic() < end:
+            if self.abort.value:
+                self.check_watchdog()
             result = self.latest_sample()
             if result is not None:
                 require("sample" in result, "E5A_WATCHDOG_FAILED")
@@ -256,6 +274,7 @@ class HostBackend:
             time.sleep(0.005)
         if phase in ("baseline", "recovery"):
             return None
+        self.check_watchdog()
         raise Blocked("E5A_SAMPLE_MISSING")
 
     def attested_running_roles(self, deadline):
@@ -266,7 +285,8 @@ class HostBackend:
         if self.pending_result is None and self.answer.poll():
             self.pending_result = self.answer.recv()
         if self.pending_result is not None:
-            require(self.pending_result == {"ok": True}, "E5A_WORKLOAD_FAILED")
+            if self.pending_result != {"ok": True}:
+                raise Blocked(self.failure_reason("E5A_WORKLOAD_FAILED"))
             return True
         require(self.worker.is_alive(), "E5A_WORKER_CRASH")
         return False
@@ -339,8 +359,8 @@ class HostBackend:
             PairedRecovery.remove_socket_directory(fd)
 
     def cleanup(self, deadline):
-        self.phase.value = 4
         self.phase_end.value = deadline
+        self.phase.value = 4
         if self.worker is not None and self.worker.is_alive():
             self.worker.kill()
             self.worker.join(max(0, min(1, deadline - time.monotonic())))
@@ -352,18 +372,33 @@ class HostBackend:
     def stop_watchdog(self, deadline):
         if self.watch is None:
             return
-        self.stopped.set()
+        self.stopped.value = True
         self.watch.join(max(0, deadline - time.monotonic()))
         require(
             not self.watch.is_alive() and self.watch.exitcode == 0, "E5A_WATCHDOG_STOP"
         )
         if (
-            self.abort.is_set()
+            self.abort.value
             or read_record(self.directory, "watchdog-abort.json", optional=True)
             is not None
         ):
             raise Blocked(self.failure_reason("E5A_WATCHDOG_ABORTED"))
         self.watch = None
+
+    def watchdog_cleanup_confirmed(self):
+        if self.watch is None or self.watch.exitcode != 0:
+            return False
+        self.verify_root()
+        first = read_record(self.directory, "watchdog-abort.json", optional=True)
+        result = read_record(self.directory, "watchdog-cleanup.json", optional=True)
+        return (
+            first is not None
+            and first.keys()
+            in ({"reason", "cleanup"}, {"reason", "cleanup", "engine_timeout"})
+            and first["reason"] == self.failure_reason("E5A_WATCHDOG_ABORTED")
+            and first["cleanup"] == "CLEANUP_UNCONFIRMED"
+            and result == {**first, "cleanup": "CONFIRMED"}
+        )
 
     def read_sample(self, phase, deadline):
         self.verify_root()
@@ -398,10 +433,8 @@ class HostBackend:
                 self.container_anchors[key] = cid
                 if role == "controller":
                     volume = read_record(fd, "media-volume.json")
-                    require(
-                        media.identity(deadline) == volume, "E5A_MEDIA_VOLUME_IDENTITY"
-                    )
                     media.verify(item, cid, volume)
+                    # usage rechecks the live volume and the recorded directory inode.
                     storage["media_bytes"] = media.usage(fd, deadline)
                 else:
                     pg = PostgresEngine.for_preflight(self.engine, self.host)
@@ -454,15 +487,17 @@ class HostBackend:
         poll.register(ownerfd, select.POLLIN)
         try:
             previous, last_phase = None, None
-            while not self.stopped.is_set():
+            while True:
                 started = time.monotonic()
                 require(started < deadline, "E5A_DEADLINE")
                 require(not poll.poll(0), "E5A_RUNNER_EXITED")
+                if self.abort.value:
+                    raise Blocked(self.failure_reason("E5A_WORKLOAD_ABORT"))
+                if self.stopped.value:
+                    break
                 require(started - self.heartbeat.value <= 3, "E5A_RUNNER_HEARTBEAT")
                 index = self.phase.value
                 require(started <= self.phase_end.value + 0.5, "E5A_PHASE_DEADLINE")
-                if self.abort.is_set():
-                    raise Blocked(self.failure_reason("E5A_WORKLOAD_ABORT"))
                 if index == 4:
                     # Main process owns cleanup while alive. Keep host/daemon checks active.
                     sample, resources = self.read_sample(
@@ -507,18 +542,21 @@ class HostBackend:
                     previous, last_phase = sample["monotonic_ms"], phase
                 time.sleep(max(0, started + 0.25 - time.monotonic()))
         except FAILURES as error:
-            self.abort.set()
+            self.abort.value = True
             report = {
                 "reason": str(error)
                 if isinstance(error, Blocked)
                 else type(error).__name__,
                 "cleanup": "CLEANUP_UNCONFIRMED",
             }
+            if isinstance(error, EngineTimeout):
+                report["engine_timeout"] = error.details
             try:
                 write_record(self.directory, "watchdog-abort.json", report)
                 end = min(deadline, time.monotonic() + 10)
                 for phase in self.children:
                     self.recover_phase(phase, end)
+                require(time.monotonic() < end, "E5A_CLEANUP_DEADLINE")
                 report["cleanup"] = "CONFIRMED"
             except FAILURES:
                 pass

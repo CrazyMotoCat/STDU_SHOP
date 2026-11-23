@@ -2,8 +2,12 @@
 
 import hashlib
 import json
+import multiprocessing
 import os
+import select
+import signal
 import socket
+import subprocess
 import time
 import unittest
 from pathlib import Path
@@ -11,8 +15,10 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from e5a_engine import IMAGE as PY_IMAGE
+from e5a_engine import Engine, Intent
 from e5a_evidence import publish
 from e5a_host import HostBackend
+from e5a_media import MediaController
 from e5a_pg_engine import IMAGE as PG_IMAGE
 from e5a_pg_engine import write_record
 from preflight import Blocked, mount
@@ -181,11 +187,148 @@ class Transport:
     "requires isolated Linux root fixtures",
 )
 class HostCampaignTests(unittest.TestCase):
+    def test_runner_sigkill_with_lost_create_and_partial_cleanup(self):
+        for partial in (False, True):
+            with self.subTest(partial=partial):
+                self.check_crashed_runner(partial)
+
+    def check_crashed_runner(self, partial):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            daemon = root / "docker"
+            daemon.mkdir()
+            transport = Transport(daemon)
+            run = root / "run"
+            run.mkdir(mode=0o700)
+            foreign = daemon / "containers" / "foreign"
+            foreign.write_text(json.dumps({"Id": "f" * 64, "Mounts": []}))
+            foreign_volume = daemon / "volumes" / "foreign"
+            foreign_volume.mkdir()
+            sentinel = foreign_volume / "untouched"
+            sentinel.write_bytes(b"foreign bytes")
+            marker = root / "create-called"
+            fail_delete = root / "fail-delete"
+            if partial:
+                fail_delete.touch()
+            host = {
+                "daemon_id": "fake-daemon",
+                "docker_root": str(daemon),
+                "mounts": {"root": mount(root)},
+                "nonce": "d" * 64,
+            }
+            images = {
+                "controller": "sha256:" + "a" * 64,
+                "postgres": "sha256:" + "b" * 64,
+            }
+
+            def injected(method, path, body, deadline):
+                if (
+                    method == "DELETE"
+                    and path.startswith("/volumes/")
+                    and fail_delete.exists()
+                ):
+                    raise subprocess.TimeoutExpired("fake engine volume delete", 0.1)
+                result = transport(method, path, body, deadline)
+                if method == "POST" and path.startswith("/containers/create?"):
+                    staging = marker.with_suffix(".tmp")
+                    staging.write_text(str(os.getpid()))
+                    staging.rename(marker)
+                    time.sleep(15)
+                return result
+
+            def runner():
+                fd = os.open(run, os.O_RDONLY | os.O_DIRECTORY)
+                backend = HostBackend(
+                    fd, "c" * 32, host, images, engine=Engine(injected)
+                )
+                deadline = time.monotonic() + 9
+                with (
+                    patch(
+                        "runtime_e0b.mount",
+                        return_value={**host["mounts"]["root"], "fstype": "ext4"},
+                    ),
+                    patch("e5a_host.ROOT", root),
+                    patch("e5a_host.mem_available", return_value=1024**3),
+                    patch(
+                        "e5a_host.Infrastructure.sample",
+                        return_value={
+                            "status": "AVAILABLE",
+                            "processes": [
+                                {
+                                    "role": "docker",
+                                    "pid": 42,
+                                    "start_before": 1,
+                                    "start_after": 1,
+                                    "rss_bytes": 1,
+                                    "cpu_user_ticks": 0,
+                                    "cpu_system_ticks": 0,
+                                }
+                            ],
+                        },
+                    ),
+                ):
+                    backend.start_watchdog(deadline)
+                    backend.begin_workload("controller", deadline - 2)
+                    while time.monotonic() < deadline:
+                        backend.check_watchdog()
+                        time.sleep(0.02)
+
+            process = multiprocessing.get_context("fork").Process(target=runner)
+            process.start()
+            try:
+                until = time.monotonic() + 5
+                while (
+                    not marker.exists()
+                    and process.is_alive()
+                    and time.monotonic() < until
+                ):
+                    time.sleep(0.01)
+                worker = json.loads((run / "controller" / "worker.json").read_bytes())
+                self.assertEqual(int(marker.read_text()), worker["pid"])
+                self.assertFalse((run / "controller" / "media-container.json").exists())
+                worker_fd = os.pidfd_open(worker["pid"])
+                try:
+                    poll = select.poll()
+                    poll.register(worker_fd, select.POLLIN)
+                    process.kill()
+                    process.join(2)
+                    self.assertEqual(process.exitcode, -signal.SIGKILL)
+                    self.assertTrue(poll.poll(3000), "blocked worker was not stopped")
+                finally:
+                    os.close(worker_fd)
+                completed = run / "watchdog-cleanup.json"
+                until = time.monotonic() + 5
+                while not completed.exists() and time.monotonic() < until:
+                    time.sleep(0.01)
+                report = json.loads(completed.read_bytes())
+                self.assertEqual(report["reason"], "E5A_RUNNER_EXITED")
+                self.assertEqual(
+                    report["cleanup"], "CLEANUP_UNCONFIRMED" if partial else "CONFIRMED"
+                )
+                self.assertEqual(transport.inventory(0)["container"], {"f" * 64})
+                if partial:
+                    self.assertEqual(len(transport.inventory(0)["volume"]), 2)
+                    fail_delete.unlink()
+                    phase = run / "controller"
+                    data = json.loads((phase / "media-intent.json").read_bytes())
+                    fd = os.open(phase, os.O_RDONLY | os.O_DIRECTORY)
+                    try:
+                        media = MediaController(Engine(injected), Intent(**data))
+                        media.recover(fd, time.monotonic() + 3)
+                        media.recover(fd, time.monotonic() + 3)
+                    finally:
+                        os.close(fd)
+                self.assertEqual(transport.inventory(0)["volume"], {"foreign"})
+                self.assertEqual(sentinel.read_bytes(), b"foreign bytes")
+                self.assertTrue(foreign.is_file())
+            finally:
+                if process.is_alive():
+                    process.kill()
+                    process.join(2)
+
     def test_watchdog_survives_a_runner_that_stops_reading_and_rejects_final_abort(
         self,
     ):
-        from e5a_engine import Engine
-
         with TemporaryDirectory() as directory:
             root = Path(directory)
             daemon = root / "docker"
@@ -230,7 +373,7 @@ class HostCampaignTests(unittest.TestCase):
                     backend.start_watchdog(time.monotonic() + 7)
                     backend.watch.join(4)
                     self.assertFalse(backend.watch.is_alive())
-                    self.assertTrue(backend.abort.is_set())
+                    self.assertTrue(backend.abort.value)
                     report = json.loads((run / "watchdog-abort.json").read_bytes())
                     self.assertEqual(report["reason"], "E5A_RUNNER_HEARTBEAT")
                     self.assertEqual(
@@ -241,6 +384,15 @@ class HostCampaignTests(unittest.TestCase):
                     )
                     with self.assertRaisesRegex(Blocked, "E5A_RUNNER_HEARTBEAT"):
                         backend.stop_watchdog(time.monotonic() + 1)
+                    self.assertTrue(backend.watchdog_cleanup_confirmed())
+                    (run / "watchdog-cleanup.json").unlink()
+                    self.assertFalse(backend.watchdog_cleanup_confirmed())
+                    write_record(
+                        fd,
+                        "watchdog-cleanup.json",
+                        {"cleanup": "CONFIRMED", "reason": "OTHER_ERROR"},
+                    )
+                    self.assertFalse(backend.watchdog_cleanup_confirmed())
                     self.assertEqual(transport.inventory(0)["container"], set())
             finally:
                 if backend.watch is not None and backend.watch.is_alive():
@@ -250,8 +402,6 @@ class HostCampaignTests(unittest.TestCase):
                 os.close(fd)
 
     def test_concrete_backend_campaign_and_process_supervision(self):
-        from e5a_engine import Engine
-
         with TemporaryDirectory() as directory:
             root = Path(directory)
             daemon = root / "docker"
@@ -396,7 +546,7 @@ class HostCampaignTests(unittest.TestCase):
                     backend.worker.kill()
                     backend.worker.join(2)
                 if backend.watch is not None and backend.watch.is_alive():
-                    backend.stopped.set()
+                    backend.stopped.value = True
                     backend.watch.join(2)
                     if backend.watch.is_alive():
                         backend.watch.kill()

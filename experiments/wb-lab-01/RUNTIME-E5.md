@@ -1,6 +1,23 @@
 # WB-LAB-01 E5 measurement plan
 
-E5 = NOT_RUN. VDS_EQUIVALENCE = NOT_PROVEN. PHYSICAL_POWER_LOSS_DURABILITY = NOT_PROVEN.
+E5A physical acceptance is BLOCKED. VDS_EQUIVALENCE = NOT_PROVEN. PHYSICAL_POWER_LOSS_DURABILITY = NOT_PROVEN.
+
+## First physical campaign
+
+On 2026-11-23, WB-LAB-01 ran the single approved campaign at `dfa12619d915b017e22bec8301b88e7b5af9c4c2`. Preflight verified the local ARM64 pins and all eight retained evidence records. Baseline completed. The controller was created and started, but its workload was not accepted. PostgreSQL and recovery observation did not run.
+
+The sealed result reported `E5A_SAMPLE_MISSING`. The watchdog journal recorded `TimeoutExpired`. The exact Docker request that timed out cannot be recovered from that revision's evidence. The 19 baseline observations were 246–255 ms apart. The two controller observations were 245 ms apart and preceded accepted container telemetry. The lowest observed host memory and disk availability were 1,405,071,360 bytes and 25,176,772,608 bytes. Workload cgroup counters and PostgreSQL outcomes remain NOT_PROVEN.
+
+The sealed result retained `CLEANUP_UNCONFIRMED`. The watchdog completion journal, exact Docker removal events and fresh matching inventory independently confirmed removal of the campaign container and volume. Docker, SSH, nginx and Mosquitto remained active with the same processes. The original evidence SHA-256 is `77f02923fc687e6891879bb8fa5a037f2401bb6234d8bd07ab25c47c0e2ed5ab`.
+
+See the [failure investigation](E5A-FAILURE-INVESTIGATION.md) for the two historical timelines, evidence boundaries and offline remediation. The sampling, resource and cleanup budgets remain those below.
+
+## Gate for one future retry
+
+1. Require separate owner authorization for one physical campaign on the exact reviewed SHA. Verify a clean checkout, successful FAST and FULL checks, and independent Quality on that SHA.
+2. Preserve the blocked run and its journals before reusing the lab root. Verify the original evidence SHA-256, exact run and ledger, same daemon, terminal watchdog result, absence of the known container and volume, and the fresh Docker inventory. Use a separately reviewed and approved same-device archival procedure with no replacement, then fsync the affected directories and reverify the archive and original SHA-256. The default preflight still requires an exact set of approved historical directory entries.
+3. Confirm the dedicated WB, ARM64 Linux, Docker 29.9.2, Compose 5.6.1, cgroup v2 and unchanged daemon identity on the local Unix socket. Confirm the lab root and Docker storage identities on ext4, verified prior evidence, no active lab resources, and both pinned local images with their expected volume declarations. Verify Python, pidfd and loadable libpq on the host. Record service identities and Docker inventory, require 768 MiB available RAM and 4 GiB available disk, and provision no new images.
+4. On a clean preflight, invoke `python3 -B experiments/wb-lab-01/e5a_run.py OWNER_E5A_RUNTIME_APPROVED` exactly once. Preserve raw sealed evidence, bounded watchdog records and a separate before/after inventory and service comparison. Abort on any mandatory mismatch, missing sample or ambiguous ownership. Leave uncertain resources in place and preserve the original failure evidence. The new native transport latency and controller/PostgreSQL resource behavior on WB remain `NOT_PROVEN` until this campaign completes.
 
 E0a–E4a established the individual laboratory properties listed in [the results table](README.md). They provide a starting profile and known workloads. The E4a run took 9.663 s and reported cgroup peak memory 14,303,232 bytes, but it did not measure idle-to-load headroom or the independent cost of the watchdog. E5 estimates headroom for the measured WB 8.5 profile only.
 

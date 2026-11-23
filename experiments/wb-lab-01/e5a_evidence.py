@@ -50,7 +50,9 @@ def validate_campaign(evidence):
     result = evidence["campaign"]
     required = {"status", "reason", "cleanup", "watchdog", "phases", "samples"}
     require(
-        required <= result.keys() <= required | {"foreign_inventory", "host_margins"},
+        required
+        <= result.keys()
+        <= required | {"foreign_inventory", "host_margins", "watchdog_reason"},
         "E5A_EVIDENCE_RESULT",
     )
     status, reason = result["status"], result["reason"]
@@ -69,6 +71,19 @@ def validate_campaign(evidence):
         and result.get("foreign_inventory") in {None, "PRESERVED"},
         "E5A_EVIDENCE_CLEANUP",
     )
+    if "watchdog_reason" in result:
+        watchdog_reason = result["watchdog_reason"]
+        require(
+            status == "E5A_BLOCKED"
+            and result["watchdog"] == "FAILED"
+            and isinstance(watchdog_reason, str)
+            and re.fullmatch(
+                r"E5A_ENGINE_TIMEOUT_(DAEMON|IMAGE|CONTAINER|VOLUME|NETWORK|OTHER)_"
+                r"(GET|POST|DELETE|CREATE|START|STOP|KILL|INSPECT|STATS|LIST|OTHER)",
+                watchdog_reason,
+            ),
+            "E5A_EVIDENCE_WATCHDOG_REASON",
+        )
     phases = result["phases"]
     require(
         phases.keys() <= PHASE_LIMITS.keys(),
