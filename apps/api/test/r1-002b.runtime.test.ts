@@ -668,10 +668,30 @@ describe.skipIf(
     expect(models.rows[0]?.count).toBe(11);
     expect(catalogModels.rows[0]?.count).toBe(9);
     expect(supplierModels.rows[0]?.count).toBe(6);
+    const ingestionPermissionSets = await Promise.all(
+      ['R1-008B-rbac.json', 'R1-009B-create-rbac.json'].map(async (file) =>
+        Object.keys(
+          (
+            JSON.parse(
+              await readFile(
+                new URL('../../../docs/contracts/' + file, import.meta.url),
+                'utf8',
+              ),
+            ) as { permissions: Record<string, unknown> }
+          ).permissions,
+        ),
+      ),
+    );
     expect(counts.rows[0]).toEqual({
       users: 0,
       sessions: 0,
-      permissions: 43,
+      permissions: new Set([
+        ...allPermissions,
+        ...catalogPermissions,
+        ...supplierPermissions,
+        ...inquiryPermissions,
+        ...ingestionPermissionSets.flat(),
+      ]).size,
       r1_002_permissions: 12,
       r1_004_permissions: 12,
       r1_007_permissions: 5,
