@@ -516,6 +516,15 @@ export class SupplierApplyService {
         result: revision[field] ?? null,
         currentFreshness,
         sourceFreshness,
+        resultFreshness: limit
+          ? freshness(
+              revision[field] ?? null,
+              revision.sourceObservedAt ?? null,
+              limit,
+              now,
+              revision.expiresAt,
+            )
+          : null,
       };
     });
 

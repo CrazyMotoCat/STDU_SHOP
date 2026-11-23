@@ -177,11 +177,17 @@ export async function reviewUiAcceptance({
           );
           page.on('requestfailed', (req) => {
             const failure = req.failure()?.errorText;
-            // React Strict Mode cancels the first session probe during effect replay.
+            // React Strict Mode aborts the initial effect probes. These GETs
+            // are independently required to render the workspace/history below.
+            const url = new URL(req.url());
             if (
               failure === 'net::ERR_ABORTED' &&
               req.method() === 'GET' &&
-              req.url() === origin + '/v1/staff/auth/me/permissions'
+              url.origin === origin &&
+              (url.pathname === '/v1/staff/auth/me/permissions' ||
+                (clear &&
+                  url.pathname ===
+                    '/v1/staff/ingestion/rows/' + rowId + '/edit-history'))
             )
               return;
             errors.push(req.url() + ' ' + failure);

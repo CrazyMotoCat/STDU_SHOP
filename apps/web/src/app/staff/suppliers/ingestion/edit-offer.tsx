@@ -35,6 +35,7 @@ type EditResult = {
     result: string | null;
     sourceFreshness: string | null;
     currentFreshness: string | null;
+    resultFreshness: string | null;
   }[];
   evidence: { sourceHash: string; capturedAt: string } | null;
   blockedReason: string | null;
@@ -271,6 +272,8 @@ export function EditOffer({
                     ' · текущее: ' + field.currentFreshness}
                   {field.sourceFreshness &&
                     ' · источник: ' + field.sourceFreshness}
+                  {field.resultFreshness &&
+                    ' · результат: ' + field.resultFreshness}
                 </li>
               ))}
             </ul>
