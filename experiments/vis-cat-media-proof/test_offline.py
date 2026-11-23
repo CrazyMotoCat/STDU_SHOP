@@ -72,6 +72,16 @@ class PipelineTests(unittest.TestCase):
                     # Synthetic contrast and orientation check, not human legibility evidence.
                     self.assertLess(min(output.convert("L").crop((24, 36, 330, 85)).getextrema()), 60)
 
+    def test_exact_attempt_repeats_identical_manifest_and_renditions(self):
+        for fmt in ("JPEG", "PNG", "WEBP"):
+            with self.subTest(fmt=fmt):
+                raw = fixture(fmt)
+                expected = attempt(raw, fmt)
+                first, first_bytes = run_attempt(raw, expected)
+                second, second_bytes = run_attempt(raw, expected)
+                self.assertEqual(canonical(first), canonical(second))
+                self.assertEqual(first_bytes, second_bytes)
+
     def test_rotated_jpeg_has_normalized_dimensions(self):
         encoded = io.BytesIO()
         image = Image.new("RGB", (90, 40), "black")
@@ -265,6 +275,37 @@ class StoreTests(unittest.TestCase):
         with self.assertRaisesRegex(StorageRefused, "OBJECT_OWNERSHIP"):
             self.store.cleanup("job", self.gen, writer_stopped=True)
         self.assertTrue(stage.exists())
+        self.assertEqual(final.read_bytes(), self.data)
+
+    def test_truncated_stage_is_never_published(self):
+        self.store.stage("job", self.gen, self.data)
+        stage, final = self.store.paths("job", self.gen)
+        fragment = self.data[:5]
+        stage.write_bytes(fragment)
+        restarted = Store(self.store.root)
+        for _ in range(2):
+            self.assertEqual(restarted.reconcile("job", self.gen), "NOT_COMMITTED")
+            with self.assertRaisesRegex(StorageRefused, "ARTIFACT_INTEGRITY"):
+                restarted.finish("job", self.gen)
+            self.assertFalse(final.exists())
+            self.assertEqual(stage.read_bytes(), fragment)
+        generation = restarted.takeover("job", self.gen)
+        restarted.stage("job", generation, self.data)
+        restarted.finish("job", generation)
+        self.assertEqual(restarted.read("job", generation), self.data)
+
+    def test_corrupt_ledger_preserves_artifacts_and_refuses_recovery(self):
+        self.store.stage("job", self.gen, self.data)
+        self.store.finish("job", self.gen)
+        stage, final = self.store.paths("job", self.gen)
+        corrupt = b"not a SQLite ledger"
+        self.store.database.write_bytes(corrupt)
+        restarted = Store(self.store.root)
+        self.assertEqual(restarted.reconcile("job", self.gen), "UNKNOWN")
+        with self.assertRaisesRegex(StorageRefused, "STORAGE_UNAVAILABLE"):
+            restarted.cleanup("job", self.gen, writer_stopped=True)
+        self.assertEqual(restarted.database.read_bytes(), corrupt)
+        self.assertEqual(stage.read_bytes(), self.data)
         self.assertEqual(final.read_bytes(), self.data)
 
     def test_database_and_storage_failure(self):
