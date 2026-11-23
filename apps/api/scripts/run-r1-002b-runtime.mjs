@@ -525,7 +525,6 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
   );
   await afterFirst.end();
   if (
-    before.rowCount !== 8 ||
     before.rows.map((row) => row.migration_name).join('\0') !==
       [
         '20261022120000_staff_identity',
@@ -536,6 +535,7 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
         '20261107120000_supplier_ingestion',
         '20261108090000_ingestion_manual_apply',
         '20261115100000_ingestion_create_offer',
+        '20261123100000_ingestion_apply_edits',
       ].join('\0') ||
     sentinel.rows[0]?.payload !== 'must-survive-migration' ||
     models.rows[0]?.count !== 11 ||
@@ -547,10 +547,28 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
     throw new Error(
       'Fresh migration did not preserve sentinel or create the frozen R1-002/R1-004 and additive R1-006/R1-007 entities.',
     );
+  const ingestionPermissionCount = (
+    await Promise.all(
+      ['R1-008B-rbac.json', 'R1-009B-create-rbac.json'].map(
+        async (file) =>
+          Object.keys(
+            JSON.parse(
+              await readFile(resolve(repoRoot, 'docs/contracts', file), 'utf8'),
+            ).permissions,
+          ).length,
+      ),
+    )
+  ).reduce((total, count) => total + count, 0);
+  const permissionCount =
+    r1_002Permissions.length +
+    r1_004Permissions.length +
+    r1_007Permissions.length +
+    r1_010Permissions.length +
+    ingestionPermissionCount;
   if (
     initial.rows[0]?.users !== 0 ||
     initial.rows[0]?.sessions !== 0 ||
-    initial.rows[0]?.permissions !== 43 ||
+    initial.rows[0]?.permissions !== permissionCount ||
     initial.rows[0]?.r1_002_permissions !== 12 ||
     initial.rows[0]?.r1_004_permissions !== 12 ||
     initial.rows[0]?.r1_007_permissions !== 5 ||

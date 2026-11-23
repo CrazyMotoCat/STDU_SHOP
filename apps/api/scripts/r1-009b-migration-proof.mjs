@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { Client } from 'pg';
 
 const migration = '20261115100000_ingestion_create_offer';
+const editsMigration = '20261123100000_ingestion_apply_edits';
 const populated = 'stdu_r1_009b_populated';
 const restored = 'stdu_r1_009b_restored';
 
@@ -141,6 +142,12 @@ async function appliedFixture(client, fixture, index, operation, options = {}) {
         values,
       );
     }
+    if (options.edits) {
+      await client.query(
+        'INSERT INTO ingestion_application_edits(application_id,edits,evidence) VALUES ($1,$2,$3)',
+        [id, options.edits, { sourceVersion: 1, rowNumber: index }],
+      );
+    }
   });
   return { id, revision };
 }
@@ -184,6 +191,19 @@ export async function runCreateMigrationProof({
   });
   for (const name of names)
     await prisma(url.href, ['migrate', 'resolve', '--applied', name]);
+  const beforeExpansion = await connected(url.href, history);
+  await connected(url.href, async (client) => {
+    await client.query(
+      await readFile(
+        resolve(migrationsRoot, migration, 'migration.sql'),
+        'utf8',
+      ),
+    );
+    assert.deepEqual(await history(client), beforeExpansion);
+    await appliedFixture(client, fixture, 2, 'CREATE');
+    await appliedFixture(client, fixture, 3, 'UPDATE');
+  });
+  await prisma(url.href, ['migrate', 'resolve', '--applied', migration]);
   const baseline = await connected(url.href, history);
   await prisma(url.href, ['migrate', 'deploy']);
   await prisma(url.href, ['migrate', 'deploy']);
@@ -209,11 +229,38 @@ export async function runCreateMigrationProof({
       ).rows[0]?.count,
       1,
     );
-    await appliedFixture(client, fixture, 2, 'CREATE');
-    await appliedFixture(client, fixture, 3, 'UPDATE');
     await assert.rejects(
       appliedFixture(client, fixture, 4, 'UPDATE', { wrongBase: old.revision }),
     );
+    assert.equal(
+      (
+        await client.query(
+          'SELECT count(*)::int AS count FROM _prisma_migrations WHERE migration_name=$1 AND finished_at IS NOT NULL AND rolled_back_at IS NULL',
+          [editsMigration],
+        )
+      ).rows[0]?.count,
+      1,
+    );
+    await assert.rejects(
+      client.query(
+        "INSERT INTO ingestion_application_edits(application_id,edits,evidence) VALUES ($1,'{}','{}')",
+        [old.id],
+      ),
+      /same transaction/,
+    );
+    const edited = await appliedFixture(client, fixture, 4, 'UPDATE', {
+      edits: {
+        availabilityText: { op: 'CLEAR', reason: 'TEST retained edit' },
+      },
+    });
+    await assert.rejects(
+      client.query(
+        'DELETE FROM ingestion_application_edits WHERE application_id=$1',
+        [edited.id],
+      ),
+      /immutable history/i,
+    );
+
     assert.equal(
       (
         await client.query(
@@ -282,11 +329,21 @@ export async function runCreateMigrationProof({
     );
     assert.deepEqual(
       rows.rows.map((row) => row.operation),
-      ['UPDATE', 'CREATE', 'UPDATE'],
+      ['UPDATE', 'CREATE', 'UPDATE', 'UPDATE'],
     );
+    const details = await client.query(
+      'SELECT edits FROM ingestion_application_edits',
+    );
+    assert.deepEqual(details.rows, [
+      {
+        edits: {
+          availabilityText: { op: 'CLEAR', reason: 'TEST retained edit' },
+        },
+      },
+    ]);
     await appliedFixture(client, fixture, 5, 'CREATE');
   });
   console.log(
-    'PASS CREATE-01 populated upgrade, repeated deploy, legacy ledger writes, composite integrity, guarded rollback and pg_dump/restore.',
+    'PASS CREATE-01 and CLEAR populated upgrades, repeated deploy, legacy ledger writes, composite integrity, guarded rollback and pg_dump/restore.',
   );
 }

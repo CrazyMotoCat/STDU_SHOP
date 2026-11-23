@@ -973,6 +973,7 @@ model IngestionOutbox {
 
 
 model IngestionApplication {
+  edits IngestionApplicationEdits?
   id String @id @db.Uuid
   sourceId String @map("source_id") @db.Uuid
   runId String @map("run_id") @db.Uuid
@@ -996,4 +997,13 @@ model IngestionApplication {
   revision SupplierOfferRevision @relation("IngestionAppliedRevision", fields: [revisionId, offerId], references: [id, offerId], onDelete: Restrict, onUpdate: Restrict, map: "ingestion_application_result_offer_fk")
 
   @@map("ingestion_application")
+}
+
+model IngestionApplicationEdits {
+  applicationId String @id @map("application_id") @db.Uuid
+  edits Json
+  evidence Json
+  application IngestionApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("ingestion_application_edits")
 }

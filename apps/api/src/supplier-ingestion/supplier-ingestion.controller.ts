@@ -1,3 +1,7 @@
+import {
+  IngestionEditsPreviewInput,
+  IngestionApplyEditsInput,
+} from './supplier-edits.dto.js';
 import { SupplierCreateService } from './supplier-create.service.js';
 import { SupplierApplyService } from './supplier-apply.service.js';
 import {
@@ -550,6 +554,110 @@ export class SupplierIngestionController {
     return this.respond(
       response,
       this.createService.create(request, key, id, input),
+    );
+  }
+
+  @Get('rows/:id/edit-history')
+  @ApiOperation({ operationId: 'ingestion_editHistory' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Immutable explicit edit details and bounded before/after values',
+  })
+  @StaffOperation({ permission: 'ingestion.read', csrf: 'NONE', audit: 'none' })
+  editHistory(@Req() request: StaffRequest, @Param('id', rowId) id: string) {
+    return this.applyService.editHistory(request, id);
+  }
+
+  @Get('rows/:id/edit-inspection')
+  @ApiOperation({ operationId: 'ingestion_inspectEdits' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiQuery({
+    name: 'offerId',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Decision eligibility for a pending row with an exact existing offer',
+  })
+  @StaffOperation({
+    permission: 'ingestion.applyEdits',
+    csrf: 'NONE',
+    audit: 'none',
+  })
+  editInspection(
+    @Req() request: StaffRequest,
+    @Param('id', rowId) id: string,
+    @Query() query: IngestionPreviewQuery,
+  ) {
+    return this.applyService.editInspection(request, id, query.offerId);
+  }
+
+  @Post('rows/:id/edit-preview')
+  @ApiOperation({ operationId: 'ingestion_previewEdits' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Explicit edit preview with source freshness and signed intent',
+  })
+  @StaffOperation({
+    permission: 'ingestion.applyEdits',
+    csrf: 'STAFF_BOUND',
+    audit: 'none',
+  })
+  editPreview(
+    @Req() request: StaffRequest,
+    @Param('id', rowId) id: string,
+    @Body() input: IngestionEditsPreviewInput,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    response.status(200);
+    return this.applyService.editPreview(request, id, input);
+  }
+
+  @Post('rows/:id/apply-edits')
+  @ApiOperation({ operationId: 'ingestion_applyEdits' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Committed economic edit and immutable application receipt',
+  })
+  @StaffOperation({
+    permission: 'ingestion.applyEdits',
+    csrf: 'STAFF_BOUND',
+    audit: 'supplier_offer.revised',
+  })
+  applyEdits(
+    @Req() request: StaffRequest,
+    @Headers('idempotency-key') key: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+    @Param('id', rowId) id: string,
+    @Body() input: IngestionApplyEditsInput,
+  ) {
+    return this.respond(
+      response,
+      this.applyService.applyEdits(request, key, id, input),
     );
   }
 

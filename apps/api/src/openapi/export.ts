@@ -386,7 +386,7 @@ export async function createIngestionOpenApi() {
   document.info.title = 'STDU Supplier Ingestion and Manual Review';
   for (const path of Object.keys(document.paths))
     if (!path.startsWith('/v1/staff/ingestion/')) delete document.paths[path];
-  inventoryRoutes(document, [SupplierIngestionController], 17);
+  inventoryRoutes(document, [SupplierIngestionController], 21);
   const schemas = document.components?.schemas;
   if (schemas)
     for (const name of Object.keys(schemas))

@@ -17,6 +17,7 @@ export async function reviewUiAcceptance({
   rowId,
   offerId,
   brandId,
+  clear,
 }) {
   const origin = process.env.R1_009A_WEB_ORIGIN;
   assert.match(origin ?? '', /^https:\/\/127\.0\.0\.1:\d+$/);
@@ -24,7 +25,9 @@ export async function reviewUiAcceptance({
     root,
     brandId
       ? '.local/r1-009b-create/screenshots'
-      : '.local/r1-009a/screenshots',
+      : clear
+        ? '.local/r1-009b-clear/screenshots'
+        : '.local/r1-009a/screenshots',
   );
   await mkdir(screenshots, { recursive: true });
   const reservation = netServer();
@@ -174,11 +177,16 @@ export async function reviewUiAcceptance({
           );
           page.on('requestfailed', (req) => {
             const failure = req.failure()?.errorText;
-            // React Strict Mode cancels the first session probe during effect replay.
+            // React Strict Mode aborts the initial effect probes. These GETs
+            // are independently required to render the workspace/history below.
+            const url = new URL(req.url());
             if (
               failure === 'net::ERR_ABORTED' &&
               req.method() === 'GET' &&
-              req.url() === origin + '/v1/staff/auth/me/permissions'
+              url.origin === origin &&
+              (url.pathname === '/v1/staff/auth/me/permissions' ||
+                url.pathname ===
+                  '/v1/staff/ingestion/rows/' + rowId + '/edit-history')
             )
               return;
             errors.push(req.url() + ' ' + failure);
@@ -188,7 +196,25 @@ export async function reviewUiAcceptance({
           });
           await page.goto(origin + '/staff/suppliers/ingestion');
           try {
-            await page.getByTestId('run-' + runId).click();
+            const target = page.getByTestId('run-' + runId);
+            const runs = page.locator('[data-testid^="run-"]');
+            await runs.first().waitFor();
+            for (
+              let index = 0;
+              index < 4 && !(await target.isVisible());
+              index++
+            ) {
+              const next = page.getByRole('button', {
+                name: 'Следующие запуски',
+              });
+              if (!(await next.isEnabled())) break;
+              const previous = await runs.first().getAttribute('data-testid');
+              await next.click();
+              if (previous)
+                await page.getByTestId(previous).waitFor({ state: 'detached' });
+              await runs.first().waitFor();
+            }
+            await target.click();
           } catch (error) {
             await page.screenshot({
               path: resolve(screenshots, 'failure.png'),
@@ -208,9 +234,7 @@ export async function reviewUiAcceptance({
             await context.close();
             return;
           }
-          await page
-            .getByRole('button', { name: 'Строка 1', exact: true })
-            .click();
+          await page.getByTestId('row-' + rowId).click();
           await page.getByLabel('ID существующего предложения').fill(offerId);
           await page
             .getByRole('button', {
@@ -222,6 +246,12 @@ export async function reviewUiAcceptance({
             .getByRole('region', { name: 'Сравнение редакций' })
             .locator('table')
             .waitFor();
+          if (clear) {
+            await clearUiFlow({ page, offerId, screenshots });
+            assert.deepEqual(errors, []);
+            await context.close();
+            return;
+          }
           for (const width of [1440, 375]) {
             await page.setViewportSize({ width, height: 1000 });
             assert(
@@ -360,4 +390,69 @@ async function createUiFlow({ page, rowId, brandId, screenshots }) {
   await page
     .getByRole('region', { name: 'Проверка строки 1' })
     .screenshot({ path: resolve(screenshots, 'create-result-375.png') });
+}
+
+async function clearUiFlow({ page, offerId, screenshots }) {
+  await page
+    .getByLabel('Причина решения')
+    .fill('TEST source withdrew its quotation');
+  await page
+    .getByRole('button', { name: 'Одобрить строку (ACCEPT)', exact: true })
+    .click();
+  await page
+    .getByText('Строка одобрена. Применение выполняется отдельным действием.', {
+      exact: true,
+    })
+    .waitFor();
+  await page.getByLabel('ID существующего предложения').fill(offerId);
+  await page
+    .getByRole('button', { name: 'Сравнить с предложением', exact: true })
+    .click();
+  await page.getByText('Явные правки предложения', { exact: true }).click();
+  await page
+    .getByLabel('Закупочная цена', { exact: true })
+    .selectOption('CLEAR');
+  await page
+    .getByLabel('Причина · Закупочная цена', { exact: true })
+    .fill('TEST withdrawal');
+  await page.getByLabel('Валюта', { exact: true }).selectOption('CLEAR');
+  await page
+    .getByLabel('Причина · Валюта', { exact: true })
+    .fill('TEST withdrawn quote currency');
+  const preview = page.getByRole('button', {
+    name: 'Проверить явные правки',
+    exact: true,
+  });
+  await preview.click();
+  await page
+    .getByRole('button', { name: 'Подтвердить основание из снимка источника' })
+    .click();
+  await preview.click();
+  const confirmation = page.getByRole('checkbox', {
+    name: 'Подтверждаю показанные изменения и очистку перечисленных полей',
+  });
+  await confirmation.waitFor();
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    assert(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      'CLEAR page overflow',
+    );
+    await confirmation.locator('xpath=ancestor::details').screenshot({
+      path: resolve(screenshots, 'clear-preview-' + width + '.png'),
+    });
+  }
+  await confirmation.check();
+  await page
+    .getByRole('button', { name: 'Применить явные правки', exact: true })
+    .click();
+  await page
+    .getByText('Явные правки применены. Создана новая редакция.', {
+      exact: true,
+    })
+    .waitFor();
+  await page.getByText('История явных правок', { exact: true }).click();
+  await page.getByText('Причина · TEST withdrawal', { exact: true }).waitFor();
 }
