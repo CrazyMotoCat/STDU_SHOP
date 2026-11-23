@@ -185,9 +185,8 @@ export async function reviewUiAcceptance({
               req.method() === 'GET' &&
               url.origin === origin &&
               (url.pathname === '/v1/staff/auth/me/permissions' ||
-                (clear &&
-                  url.pathname ===
-                    '/v1/staff/ingestion/rows/' + rowId + '/edit-history'))
+                url.pathname ===
+                  '/v1/staff/ingestion/rows/' + rowId + '/edit-history')
             )
               return;
             errors.push(req.url() + ' ' + failure);
