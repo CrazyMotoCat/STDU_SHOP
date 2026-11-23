@@ -147,3 +147,25 @@
     transition: none;
   }
 }
+
+.panel .acknowledge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel .acknowledge input {
+  flex: 0 0 auto;
+  width: 20px;
+  min-height: 20px;
+}
+.facts {
+  display: grid;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.facts dt {
+  font-weight: 600;
+}
+.facts dd {
+  margin: 0 0 8px;
+}

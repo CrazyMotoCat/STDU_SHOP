@@ -4,7 +4,7 @@
 
 ## Границы доказательств WB-LAB-01
 
-Исторический roadmap #37 содержит более раннюю блокировку. После неё физический `E4A_RUNTIME_PASS` получен на `17976ff576661756d8a3354873dbd7cfc8db6854`, run `da496b6c17c1458d86e9d4c299526c95`, 8/8 canaries, cleanup CONFIRMED. Evidence SHA-256 `70c755b6e2e83d8bdecb69f0e1541e17b0f4b2bf8d77289f18ce868c1f23cc13`. Результат относится к эффективной политике отдельного `network=none` профиля на испытательном WB. PR #54 остаётся Draft, E5 NOT_RUN, VDS equivalence NOT_PROVEN. Для целевых worker/verifier, storage recovery, connected topology и production capacity нужны собственные доказательства. [Принятое E4a evidence](https://github.com/CrazyMotoCat/STDU_SHOP/blob/e1f92c6744258c026c142e434b3c0e4072744fe1/experiments/wb-lab-01/RUNTIME-E4A.md).
+Исторический roadmap #37 содержит более раннюю блокировку. После неё физический `E4A_RUNTIME_PASS` получен на `17976ff576661756d8a3354873dbd7cfc8db6854`, run `da496b6c17c1458d86e9d4c299526c95`, 8/8 canaries, cleanup CONFIRMED. Evidence SHA-256 `70c755b6e2e83d8bdecb69f0e1541e17b0f4b2bf8d77289f18ce868c1f23cc13`. Результат относится к эффективной политике отдельного `network=none` профиля на испытательном WB. PR #54 объединён в main коммитом f565982. E5A runner и его offline-проверки вошли в main. Физический E5A остаётся NOT_RUN, VDS equivalence и physical power-loss durability — NOT_PROVEN. См. [план E5A](../../experiments/wb-lab-01/RUNTIME-E5.md). Для целевых worker/verifier, storage recovery, connected topology и production capacity нужны собственные доказательства. [Принятое E4a evidence](https://github.com/CrazyMotoCat/STDU_SHOP/blob/e1f92c6744258c026c142e434b3c0e4072744fe1/experiments/wb-lab-01/RUNTIME-E4A.md).
 
 ## Подготовка и исполнение
 

@@ -980,7 +980,8 @@ model IngestionApplication {
   decisionId String @unique(map: "ingestion_application_decision_key") @map("decision_id") @db.Uuid
   actorId String @map("actor_id") @db.Uuid
   offerId String @map("offer_id") @db.Uuid
-  baseRevisionId String @map("base_revision_id") @db.Uuid
+  operation String @default("UPDATE")
+  baseRevisionId String? @map("base_revision_id") @db.Uuid
   revisionId String @unique(map: "ingestion_application_revision_key") @map("revision_id") @db.Uuid
   sourceHash String @map("source_hash") @db.VarChar(64)
   version Int
@@ -991,8 +992,8 @@ model IngestionApplication {
   decision IngestionDecision @relation(fields: [decisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   actor StaffUser @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   offer SupplierOffer @relation(fields: [offerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  baseRevision SupplierOfferRevision @relation("IngestionBaseRevision", fields: [baseRevisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  revision SupplierOfferRevision @relation("IngestionAppliedRevision", fields: [revisionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  baseRevision SupplierOfferRevision? @relation("IngestionBaseRevision", fields: [baseRevisionId, offerId], references: [id, offerId], onDelete: Restrict, onUpdate: Restrict, map: "ingestion_application_base_offer_fk")
+  revision SupplierOfferRevision @relation("IngestionAppliedRevision", fields: [revisionId, offerId], references: [id, offerId], onDelete: Restrict, onUpdate: Restrict, map: "ingestion_application_result_offer_fk")
 
   @@map("ingestion_application")
 }

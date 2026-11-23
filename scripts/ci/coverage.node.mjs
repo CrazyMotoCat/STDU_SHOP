@@ -23,6 +23,12 @@ const reviewAcceptance = [
   '',
 ].join('\n');
 
+const createAcceptance = [
+  '      - name: R1-009B isolated staff CREATE and migration acceptance',
+  '        run: pnpm test:r1-009b:create',
+  '',
+].join('\n');
+
 test('the redundant legacy workflow is retired', () => {
   assert.equal(
     existsSync(new URL('../../.github/workflows/ci.yml', import.meta.url)),
@@ -45,7 +51,8 @@ test('FULL retains every original step in order, including commands, env, cleanu
       '',
     )
     .replace(ingestionAcceptance, '')
-    .replace(reviewAcceptance, '');
+    .replace(reviewAcceptance, '')
+    .replace(createAcceptance, '');
   assert.equal(normalized.trimEnd(), originalSteps.trimEnd());
 });
 test('FULL runs the R1-008B contract and isolated recovery suite', () => {
@@ -53,6 +60,10 @@ test('FULL runs the R1-008B contract and isolated recovery suite', () => {
 });
 test('FULL runs the isolated R1-009A individual apply suite', () => {
   assert.equal(full.split(reviewAcceptance).length, 2);
+});
+
+test('FULL runs the isolated R1-009B CREATE acceptance suite', () => {
+  assert.equal(full.split(createAcceptance).length, 2);
 });
 
 test('gate always runs, explicit required success and main groups are unique', () => {

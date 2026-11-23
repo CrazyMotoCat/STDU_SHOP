@@ -1,0 +1,6 @@
+FROM docker.io/library/python@sha256:591aae3636984765cba4e358b8e514c5ce7ed8093230592f3d2cccc590af71b8
+ENV PYTHONDONTWRITEBYTECODE=1
+COPY experiments/wb-lab-01/requirements.txt /bench/requirements.txt
+RUN --mount=type=bind,from=wheels,target=/wheels python -m pip install --no-index --find-links=/wheels --no-cache-dir --disable-pip-version-check --only-binary=:all: --require-hashes -r /bench/requirements.txt
+COPY experiments/vis-cat-02b/codec.py /bench/codec.py
+USER 65534:65534

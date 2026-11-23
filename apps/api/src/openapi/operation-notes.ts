@@ -740,4 +740,47 @@ export const STAFF_OPERATION_CONTRACT_NOTES = {
       'CSRF_INVALID',
     ],
   },
+
+  ingestion_inspectCreate: {
+    invariants: [
+      'Bounded source row and exact brand options require current ingestion and supplier read permissions.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_previewCreate: {
+    invariants: [
+      'Staff-bound CSRF and all CREATE entitlements; accepts only the captured accepted row, active supplier and exact identity. Preview never consumes the row.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+      'CSRF_INVALID',
+    ],
+  },
+  ingestion_createOffer: {
+    invariants: [
+      'Explicit single CREATE, with a session-bound preview and supplier-lock duplicate recheck. Application, immutable revision, supplier audit and durable receipt commit together. Replay checks current permissions.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+      'CSRF_INVALID',
+    ],
+  },
+  ingestion_applicationProvenance: {
+    invariants: [
+      'Current staff read permissions protect immutable CREATE and UPDATE provenance.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
 } as const;

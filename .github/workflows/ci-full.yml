@@ -157,6 +157,8 @@ jobs:
           pnpm test:r1-008b
       - name: R1-009A isolated individual supplier review and apply
         run: pnpm test:r1-009a
+      - name: R1-009B isolated staff CREATE and migration acceptance
+        run: pnpm test:r1-009b:create
       - name: R1-010B disposable PostgreSQL, Redis and inquiry HTTP acceptance
         run: pnpm test:r1-010b
       - name: R1-010C isolated Chromium, Next.js, NestJS, PostgreSQL and private-storage E2E

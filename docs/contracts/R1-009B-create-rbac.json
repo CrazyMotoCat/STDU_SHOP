@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "ingestion.createOffer": {
+      "description": "Create one supplier offer from accepted staging",
+      "defaultDeny": true
+    }
+  }
+}

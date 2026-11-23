@@ -127,3 +127,63 @@ export function commandAttempt(
     ? previous
     : { signature, key: create() };
 }
+
+export type CreateInspection = {
+  row: Row;
+  original: Value | null;
+  supplierId: string;
+  decisionEligible: boolean;
+  decisionId: string | null;
+  brands: { id: string; name: string }[];
+};
+export type CreateInput = {
+  supplierId: string;
+  brandId: string;
+  decisionId: string;
+  expectedRowVersion: number;
+};
+export type CreatePreview = {
+  eligible: boolean;
+  blockedReason: string | null;
+  previewToken: string | null;
+  supplierId: string;
+  identity: {
+    brandId: string;
+    brandName: string;
+    manufacturerName: string;
+    originalPartNumber: string;
+    modificationEvidence: string;
+    modification: string | null;
+  } | null;
+  duplicates: {
+    offerId: string;
+    version: number;
+    revisionId: string;
+    state: string;
+  }[];
+};
+export type Provenance = Application & {
+  operation: 'CREATE' | 'UPDATE';
+  rowId: string;
+  runId: string;
+  sourceId: string;
+  sourceHash: string;
+  decisionId: string;
+  actorId: string;
+  version: number;
+  baseRevisionId: string | null;
+};
+
+export const createBlockedLabels: Record<string, string> = {
+  ACTIVE_DUPLICATE:
+    'у поставщика уже есть активное предложение с этой идентичностью.',
+  NEEDS_REVIEW: 'возможное совпадение требует ручной проверки.',
+  INCOMPLETE_IDENTITY: 'исходных данных недостаточно для точной идентификации.',
+  SOURCE_DISABLED: 'источник отключён.',
+  SOURCE_CHANGED: 'версия источника изменилась.',
+  SUPPLIER_INACTIVE: 'поставщик неактивен.',
+  SUPPLIER_MISMATCH: 'строка относится к другому поставщику.',
+  NOT_ACCEPTED: 'строка ещё не принята.',
+  INVALID_CANDIDATE: 'состояние строки или запуска не допускает создание.',
+  ALREADY_APPLIED: 'строка уже применена.',
+};
