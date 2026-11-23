@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
   IsIn,
   IsInt,
   IsOptional,
@@ -139,4 +141,40 @@ export class IngestionApplyInput {
   @ApiProperty({ type: String, format: 'uuid' })
   @IsUUID('4')
   decisionId!: string;
+}
+
+export class IngestionCreatePreviewInput {
+  @ApiProperty({ type: String, format: 'uuid' })
+  @IsUUID('4')
+  supplierId!: string;
+  @ApiProperty({ type: String, format: 'uuid' }) @IsUUID('4') brandId!: string;
+  @ApiProperty({ type: String, format: 'uuid' })
+  @IsUUID('4')
+  decisionId!: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  expectedRowVersion!: number;
+}
+
+export class IngestionCreateInput extends IngestionCreatePreviewInput {
+  @ApiProperty({ type: String, maxLength: 150 })
+  @IsString()
+  @MaxLength(150)
+  @Matches(/^\d{13}\.[a-f0-9]{64}$/)
+  previewToken!: string;
+
+  @ApiProperty({ type: Boolean, enum: [true] })
+  @IsIn([true])
+  identityConfirmed!: true;
+
+  @ApiProperty({
+    type: 'array',
+    items: { type: 'string', format: 'uuid' },
+    maxItems: 20,
+  })
+  @ArrayMaxSize(20)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  acknowledgedDuplicateIds!: string[];
 }

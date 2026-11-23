@@ -1352,7 +1352,8 @@ export class SuppliersService {
     key: string | undefined,
     input: CreateSupplierOfferDto,
   ) {
-    const normalized = offerInput(input);
+    // Preserve validation order for the frozen endpoint.
+    offerInput(input);
     return this.mutate(
       request,
       key,
@@ -1360,61 +1361,70 @@ export class SuppliersService {
       'POST',
       '/v1/staff/supplier-offers',
       input,
-      async (tx, actorId) => {
-        await this.lock(tx, 'supplier', input.supplierId);
-        const supplier = await tx.supplier.findUnique({
-          where: { id: input.supplierId },
-        });
-        if (!supplier || supplier.state !== 'ACTIVE')
-          throw new StaffError('NOT_FOUND');
-        await this.assertBrandActive(tx, normalized.brandId);
-        const offerId = randomUUID();
-        const revisionId = randomUUID();
-        await tx.supplierOffer.create({
-          data: {
-            id: offerId,
-            supplierId: input.supplierId,
-            state: 'ACTIVE',
-            currentRevisionId: revisionId,
-            version: 1,
-            createdByStaffUserId: actorId,
-            updatedByStaffUserId: actorId,
-          },
-        });
-        await tx.supplierOfferRevision.create({
-          data: {
-            id: revisionId,
-            offerId,
-            revisionNo: 1,
-            ...normalized,
-            recordedByStaffUserId: actorId,
-          },
-        });
-        await this.audit(
-          tx,
-          request,
-          actorId,
-          'supplier_offer.created',
-          'SupplierOffer',
-          offerId,
-          null,
-          {
-            supplierId: input.supplierId,
-            offerId,
-            revisionId,
-            actorId,
-            version: 1,
-          },
-        );
-        return {
-          status: 201,
-          data: resultEnvelope(
-            { id: offerId, version: 1, revisionId },
-            request.requestId,
-          ),
-        };
+      (tx, actorId) =>
+        this.createSupplierOfferInTransaction(tx, request, actorId, input),
+    );
+  }
+
+  async createSupplierOfferInTransaction(
+    tx: Tx,
+    request: StaffRequest,
+    actorId: string,
+    input: CreateSupplierOfferDto,
+  ) {
+    const normalized = offerInput(input);
+    await this.lock(tx, 'supplier', input.supplierId);
+    const supplier = await tx.supplier.findUnique({
+      where: { id: input.supplierId },
+    });
+    if (!supplier || supplier.state !== 'ACTIVE')
+      throw new StaffError('NOT_FOUND');
+    await this.assertBrandActive(tx, normalized.brandId);
+    const offerId = randomUUID();
+    const revisionId = randomUUID();
+    await tx.supplierOffer.create({
+      data: {
+        id: offerId,
+        supplierId: input.supplierId,
+        state: 'ACTIVE',
+        currentRevisionId: revisionId,
+        version: 1,
+        createdByStaffUserId: actorId,
+        updatedByStaffUserId: actorId,
+      },
+    });
+    await tx.supplierOfferRevision.create({
+      data: {
+        id: revisionId,
+        offerId,
+        revisionNo: 1,
+        ...normalized,
+        recordedByStaffUserId: actorId,
+      },
+    });
+    await this.audit(
+      tx,
+      request,
+      actorId,
+      'supplier_offer.created',
+      'SupplierOffer',
+      offerId,
+      null,
+      {
+        supplierId: input.supplierId,
+        offerId,
+        revisionId,
+        actorId,
+        version: 1,
       },
     );
+    return {
+      status: 201,
+      data: resultEnvelope(
+        { id: offerId, version: 1, revisionId },
+        request.requestId,
+      ),
+    };
   }
 
   async reviseSupplierOffer(

@@ -18,6 +18,7 @@ import styles from '../workspace.module.css';
 import layout from './ingestion.module.css';
 import {
   commandAttempt,
+  createBlockedLabels,
   display,
   fieldLabels,
   freshnessLabels,
@@ -25,7 +26,11 @@ import {
   uuid,
   type Application,
   type Attempt,
+  type CreateInput,
+  type CreateInspection,
+  type CreatePreview,
   type Decision,
+  type Provenance,
   type Preview,
   type Row,
   type Run,
@@ -98,6 +103,18 @@ export default function IngestionWorkspace() {
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [confirming, setConfirming] = useState(false);
+  const [inspection, setInspection] = useState<CreateInspection | null>(null);
+  const [createBrand, setCreateBrand] = useState('');
+  const [createPlan, setCreatePlan] = useState<{
+    input: CreateInput;
+    result: CreatePreview;
+  } | null>(null);
+  const archivedDuplicates =
+    createPlan?.result.duplicates.filter((item) => item.state === 'ARCHIVED') ??
+    [];
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [confirmCreate, setConfirmCreate] = useState(false);
+  const [provenance, setProvenance] = useState<Provenance | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const has = (permission: string) =>
@@ -108,10 +125,16 @@ export default function IngestionWorkspace() {
   const canReview = has('ingestion.review');
   const canApply = canPreview && canReview && has('suppliers.offers.write');
 
+  const canCreate = canApply && has('ingestion.createOffer');
+
   const failed = useCallback((caught: unknown) => {
     if (caught instanceof StaffRequestError && caught.status === 401) {
       detailEpoch.current++;
       setSession(null);
+      attempt.current = null;
+      setInspection(null);
+      setCreatePlan(null);
+      setProvenance(null);
       setSource(null);
       setRun(null);
       setRow(null);
@@ -187,7 +210,17 @@ export default function IngestionWorkspace() {
       )
     );
   }
+  function clearCreate() {
+    setInspection(null);
+    setCreateBrand('');
+    setCreatePlan(null);
+    setAcknowledged(false);
+    setConfirmCreate(false);
+    setProvenance(null);
+  }
+
   function resetDetail() {
+    clearCreate();
     detailEpoch.current++;
     setRow(null);
     setPreview(null);
@@ -252,6 +285,7 @@ export default function IngestionWorkspace() {
     });
   }
   async function loadDetail(selected: Row) {
+    clearCreate();
     const epoch = ++detailEpoch.current;
     setRow(selected);
     setPreview(null);
@@ -260,15 +294,21 @@ export default function IngestionWorkspace() {
     setApplications([]);
     setDetailLoading(true);
     try {
-      const [history, applied] = await Promise.all([
+      const [history, applied, receipt] = await Promise.all([
         request<{ data: Decision[] }>(`${base}/rows/${selected.id}/decisions`),
         request<{ data: Application[] }>(
           `${base}/rows/${selected.id}/applications`,
         ),
+        canPreview
+          ? request<{ data: Provenance | null }>(
+              `${base}/rows/${selected.id}/application-provenance`,
+            )
+          : null,
       ]);
       if (epoch !== detailEpoch.current) return;
       setDecisions(history.data);
       setApplications(applied.data);
+      setProvenance(receipt?.data ?? null);
     } catch (caught) {
       if (epoch === detailEpoch.current) failed(caught);
     } finally {
@@ -311,7 +351,12 @@ export default function IngestionWorkspace() {
     }
   }
   const reviewable = Boolean(
-    preview && (preview.eligible || preview.blockedReason === 'NOT_ACCEPTED'),
+    (preview &&
+      (preview.eligible || preview.blockedReason === 'NOT_ACCEPTED')) ||
+    (canCreate &&
+      row?.id === inspection?.row.id &&
+      row?.version === inspection?.row.version &&
+      inspection?.decisionEligible),
   );
   function decide(decision: 'ACCEPT' | 'REJECT') {
     if (
@@ -343,9 +388,114 @@ export default function IngestionWorkspace() {
       setRefresh((value) => value + 1);
     });
   }
+  function inspectCreate() {
+    if (!row || !canCreate || row.errorCode) return;
+    const selected = row;
+    const epoch = ++detailEpoch.current;
+    setPreviewLoading(false);
+    setInspection(null);
+    setCreatePlan(null);
+    setConfirmCreate(false);
+    void execute(async () => {
+      const { data } = await request<{ data: CreateInspection }>(
+        `${base}/rows/${selected.id}/review-inspection`,
+      );
+      if (epoch !== detailEpoch.current) return;
+      if (selected.version !== data.row.version) {
+        await loadDetail(data.row);
+      }
+      setInspection(data);
+    });
+  }
+
+  function previewCreate() {
+    if (
+      !row ||
+      !canCreate ||
+      !inspection ||
+      !inspection.decisionId ||
+      inspection.row.version !== row.version ||
+      row.reviewState !== 'ACCEPTED' ||
+      !createBrand ||
+      provenance
+    )
+      return;
+    const input: CreateInput = {
+      supplierId: inspection.supplierId,
+      brandId: createBrand,
+      decisionId: inspection.decisionId,
+      expectedRowVersion: row.version,
+    };
+    const rowId = row.id;
+    setCreatePlan(null);
+    setAcknowledged(false);
+    setConfirmCreate(false);
+    void execute(async () => {
+      const { data } = await mutate<CreatePreview>(
+        `${base}/rows/${rowId}/create-preview`,
+        'POST',
+        input,
+      );
+      setCreatePlan({ input, result: data });
+    });
+  }
+
+  function createOffer() {
+    if (
+      !row ||
+      !canCreate ||
+      !createPlan ||
+      !createPlan.result.eligible ||
+      !createPlan.result.previewToken ||
+      !confirmCreate ||
+      provenance ||
+      (archivedDuplicates.length > 0 && !acknowledged)
+    )
+      return;
+    const selected = row;
+    const body = {
+      ...createPlan.input,
+      previewToken: createPlan.result.previewToken,
+      identityConfirmed: true,
+      acknowledgedDuplicateIds: archivedDuplicates
+        .map((entry) => entry.offerId)
+        .sort(),
+    };
+    void execute(async () => {
+      try {
+        const receipt = await command<Provenance>(
+          `${base}/rows/${selected.id}/create`,
+          body,
+        );
+        clearCreate();
+        setPreview(null);
+        setConfirming(false);
+        setProvenance(receipt);
+        setNotice('Предложение создано. Сохранена первая редакция.');
+        setRefresh((value) => value + 1);
+      } catch (caught) {
+        if (caught instanceof StaffRequestError && caught.status === 409) {
+          setCreatePlan(null);
+          setConfirmCreate(false);
+          setNotice(
+            'Обновите проверку исходных данных и сформируйте новый предпросмотр.',
+          );
+        }
+        throw caught;
+      }
+    });
+  }
+
   function apply() {
     const decision = decisions.find((item) => item.decision === 'ACCEPT');
-    if (!row || !preview?.eligible || !decision || !canApply || !confirming)
+    if (
+      !row ||
+      !preview?.eligible ||
+      !decision ||
+      !canApply ||
+      !confirming ||
+      provenance
+    )
       return;
     const selected = row;
     const current = preview;
@@ -391,6 +541,7 @@ export default function IngestionWorkspace() {
               void execute(async () => {
                 await mutate(auth + '/logout', 'POST', {});
                 resetDetail();
+                attempt.current = null;
                 setSession(null);
                 setSource(null);
                 setRun(null);
@@ -745,6 +896,198 @@ export default function IngestionWorkspace() {
                   <pre className={layout.code}>
                     {JSON.stringify(row.normalized, null, 2)}
                   </pre>
+                  {canCreate &&
+                    !row.errorCode &&
+                    (row.reviewState === 'PENDING' ||
+                      row.reviewState === 'ACCEPTED') &&
+                    !provenance &&
+                    applications.length === 0 && (
+                      <section aria-labelledby="create-heading">
+                        <h3 id="create-heading">
+                          Новое предложение поставщика
+                        </h3>
+                        <button
+                          className={styles.secondary}
+                          type="button"
+                          disabled={busy || detailLoading}
+                          onClick={inspectCreate}
+                        >
+                          Проверить исходные данные для создания
+                        </button>
+                        {inspection && (
+                          <>
+                            <h4>Исходные данные</h4>
+                            <pre className={layout.code}>
+                              {JSON.stringify(inspection.original, null, 2)}
+                            </pre>
+                            {row.reviewState === 'PENDING' && (
+                              <p>
+                                {inspection.decisionEligible
+                                  ? 'После проверки источника одобрите строку отдельно.'
+                                  : 'Эта строка недоступна для одобрения по сценарию создания.'}
+                              </p>
+                            )}
+                            {row.reviewState === 'ACCEPTED' && (
+                              <>
+                                <label>
+                                  Подтверждённый бренд
+                                  <select
+                                    value={createBrand}
+                                    disabled={busy || confirmCreate}
+                                    onChange={(event) => {
+                                      setCreateBrand(event.target.value);
+                                      setCreatePlan(null);
+                                      setAcknowledged(false);
+                                    }}
+                                  >
+                                    <option value="">Выберите бренд</option>
+                                    {inspection.brands.map((brand) => (
+                                      <option key={brand.id} value={brand.id}>
+                                        {brand.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                {inspection.brands.length === 0 && (
+                                  <p>
+                                    Нет подтверждённого активного бренда для
+                                    точной идентификации.
+                                  </p>
+                                )}
+                                <button
+                                  type="button"
+                                  className={styles.secondary}
+                                  disabled={
+                                    busy ||
+                                    !createBrand ||
+                                    !inspection.decisionId ||
+                                    confirmCreate
+                                  }
+                                  onClick={previewCreate}
+                                >
+                                  Предпросмотр создания
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
+                        {createPlan && (
+                          <>
+                            <h4>Идентичность оборудования</h4>
+                            {createPlan.result.identity && (
+                              <dl className={layout.facts}>
+                                <dt>Бренд</dt>
+                                <dd>{createPlan.result.identity.brandName}</dd>
+                                <dt>Производитель</dt>
+                                <dd>
+                                  {createPlan.result.identity.manufacturerName}
+                                </dd>
+                                <dt>Оригинальный артикул</dt>
+                                <dd>
+                                  {
+                                    createPlan.result.identity
+                                      .originalPartNumber
+                                  }
+                                </dd>
+                                <dt>Модификация</dt>
+                                <dd>
+                                  {createPlan.result.identity.modification ??
+                                    (createPlan.result.identity
+                                      .modificationEvidence === 'CONFIRMED_NONE'
+                                      ? 'Подтверждено отсутствие'
+                                      : 'Не указано')}
+                                </dd>
+                              </dl>
+                            )}
+                            {createPlan.result.blockedReason && (
+                              <p role="status">
+                                Создание недоступно:{' '}
+                                {createBlockedLabels[
+                                  createPlan.result.blockedReason
+                                ] ?? createPlan.result.blockedReason}
+                              </p>
+                            )}
+                            {createPlan.result.duplicates.length > 0 && (
+                              <>
+                                <h4>Совпадающие предложения</h4>
+                                <ul className={layout.history}>
+                                  {createPlan.result.duplicates.map((entry) => (
+                                    <li key={entry.offerId}>
+                                      {entry.state === 'ARCHIVED'
+                                        ? 'Архивное'
+                                        : entry.state}{' '}
+                                      · {entry.offerId} · версия {entry.version}
+                                    </li>
+                                  ))}
+                                </ul>
+                                {createPlan.result.eligible &&
+                                  archivedDuplicates.length > 0 && (
+                                    <label className={layout.acknowledge}>
+                                      <input
+                                        type="checkbox"
+                                        checked={acknowledged}
+                                        disabled={busy || confirmCreate}
+                                        onChange={(event) =>
+                                          setAcknowledged(event.target.checked)
+                                        }
+                                      />
+                                      Архивные совпадения проверены
+                                    </label>
+                                  )}
+                              </>
+                            )}
+                            {createPlan.result.eligible && (
+                              <button
+                                className={styles.primary}
+                                type="button"
+                                disabled={
+                                  busy ||
+                                  confirmCreate ||
+                                  (archivedDuplicates.length > 0 &&
+                                    !acknowledged)
+                                }
+                                onClick={() => setConfirmCreate(true)}
+                              >
+                                Подтвердить точную идентичность и перейти к
+                                созданию
+                              </button>
+                            )}
+                            {confirmCreate && (
+                              <div
+                                className={layout.confirm}
+                                role="group"
+                                aria-label="Подтверждение создания"
+                              >
+                                <h4>Создать предложение и первую редакцию?</h4>
+                                <p>
+                                  Поставщик {createPlan.result.supplierId}.
+                                  Операция использует эту принятую строку один
+                                  раз.
+                                </p>
+                                <div className={styles.actions}>
+                                  <button
+                                    type="button"
+                                    className={styles.primary}
+                                    disabled={busy}
+                                    onClick={createOffer}
+                                  >
+                                    Подтвердить CREATE
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={styles.secondary}
+                                    disabled={busy}
+                                    onClick={() => setConfirmCreate(false)}
+                                  >
+                                    Отмена
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </section>
+                    )}
                   {canPreview ? (
                     <>
                       <label>
@@ -878,8 +1221,9 @@ export default function IngestionWorkspace() {
                         </div>
                         {!reviewable && (
                           <p>
-                            Для одобрения сначала сравните строку с совместимым
-                            существующим предложением.
+                            Для одобрения сначала проверьте исходные данные для
+                            создания или сравните строку с существующим
+                            предложением.
                           </p>
                         )}
                       </>
@@ -962,8 +1306,28 @@ export default function IngestionWorkspace() {
                     </>
                   )}
                   <h3>История применения</h3>
-                  {!detailLoading && applications.length === 0 && (
-                    <p>Строка не применена.</p>
+                  {!detailLoading &&
+                    applications.length === 0 &&
+                    !provenance && <p>Строка не применена.</p>}
+                  {provenance?.operation === 'CREATE' && (
+                    <dl className={layout.facts}>
+                      <dt>Создано из staging</dt>
+                      <dd>{provenance.createdAt}</dd>
+                      <dt>Предложение</dt>
+                      <dd>{provenance.offerId}</dd>
+                      <dt>Редакция №{provenance.version}</dt>
+                      <dd>{provenance.revisionId}</dd>
+                      <dt>Источник / запуск</dt>
+                      <dd>
+                        {provenance.sourceId} / {provenance.runId}
+                      </dd>
+                      <dt>Решение / сотрудник</dt>
+                      <dd>
+                        {provenance.decisionId} / {provenance.actorId}
+                      </dd>
+                      <dt>Запись применения</dt>
+                      <dd>{provenance.id}</dd>
+                    </dl>
                   )}
                   <ol className={layout.history}>
                     {applications.map((item) => (
