@@ -132,6 +132,8 @@ def unix_request(method, path, body, deadline):
         check=False,
         env={"LANG": "C"},
     )
+    if result.returncode == 28:
+        raise subprocess.TimeoutExpired("Docker Engine", remaining)
     require(result.returncode == 0, "E5A_ENGINE_TRANSPORT")
     raw, _, status = result.stdout.rpartition(b"\n")
     return int(status), raw
@@ -145,7 +147,24 @@ class Engine:
         self, method, path, deadline, *, statuses=(200,), body=None, shape=dict
     ):
         require(time.monotonic() < deadline, "E5A_ENGINE_DEADLINE")
-        code, raw = self.transport(method, path, body, deadline)
+        try:
+            code, raw = self.transport(method, path, body, deadline)
+        except subprocess.TimeoutExpired:
+            parts = path.partition("?")[0].strip("/").split("/")
+            resource = {
+                "info": "DAEMON",
+                "images": "IMAGE",
+                "containers": "CONTAINER",
+                "volumes": "VOLUME",
+            }.get(parts[0], "OTHER")
+            action = (
+                parts[-1].upper()
+                if parts[-1] in {"create", "start", "stop", "kill"}
+                else method
+                if method in {"GET", "POST", "DELETE"}
+                else "OTHER"
+            )
+            raise Blocked(f"E5A_ENGINE_TIMEOUT_{resource}_{action}") from None
         require(time.monotonic() < deadline, "E5A_ENGINE_DEADLINE")
         require(code in statuses and len(raw) <= 1024**2, "E5A_ENGINE_RESPONSE")
         if code in (204, 304, 404):

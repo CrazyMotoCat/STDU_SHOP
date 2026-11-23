@@ -1,6 +1,16 @@
 # WB-LAB-01 E5 measurement plan
 
-E5 = NOT_RUN. VDS_EQUIVALENCE = NOT_PROVEN. PHYSICAL_POWER_LOSS_DURABILITY = NOT_PROVEN.
+E5A physical acceptance is BLOCKED. VDS_EQUIVALENCE = NOT_PROVEN. PHYSICAL_POWER_LOSS_DURABILITY = NOT_PROVEN.
+
+## First physical campaign
+
+On 2026-11-23, WB-LAB-01 ran the single approved campaign at `dfa12619d915b017e22bec8301b88e7b5af9c4c2`. Preflight verified the local ARM64 pins and all eight retained evidence records. Baseline completed. The controller was created and started, but its workload was not accepted. PostgreSQL and recovery observation did not run.
+
+The sealed result reported `E5A_SAMPLE_MISSING`. The watchdog journal recorded `TimeoutExpired`. The exact Docker request that timed out cannot be recovered from that revision's evidence. The 19 baseline observations were 246–255 ms apart. The two controller observations were 245 ms apart and preceded accepted container telemetry. The lowest observed host memory and disk availability were 1,405,071,360 bytes and 25,176,772,608 bytes. Workload cgroup counters and PostgreSQL outcomes remain NOT_PROVEN.
+
+The sealed result retained `CLEANUP_UNCONFIRMED`. The watchdog completion journal, exact Docker removal events and fresh matching inventory independently confirmed removal of the campaign container and volume. Docker, SSH, nginx and Mosquitto remained active with the same processes. The original evidence SHA-256 is `77f02923fc687e6891879bb8fa5a037f2401bb6234d8bd07ab25c47c0e2ed5ab`.
+
+Offline remediation tags Engine timeouts with bounded operation codes, records the watchdog cause separately from the campaign's first failure, and reconciles cleanup only when a validated watchdog completion record agrees with a fresh matching inventory. Sample collection avoids a duplicate volume inspection while retaining live volume and inode validation. The sampling, resource and cleanup budgets remain those below. Any future campaign requires separate authorization for a reviewed revision and verified preservation of the retained failure evidence.
 
 E0a–E4a established the individual laboratory properties listed in [the results table](README.md). They provide a starting profile and known workloads. The E4a run took 9.663 s and reported cgroup peak memory 14,303,232 bytes, but it did not measure idle-to-load headroom or the independent cost of the watchdog. E5 estimates headroom for the measured WB 8.5 profile only.
 

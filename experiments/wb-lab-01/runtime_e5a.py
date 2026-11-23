@@ -388,8 +388,21 @@ def run_campaign(backend, *, clock=time.monotonic, sleep=time.sleep):
             try:
                 backend.stop_watchdog(deadline)
                 evidence["watchdog"] = "STOPPED"
+            except FAILURES as error:
+                evidence["watchdog"] = "FAILED"
+                if isinstance(error, Blocked) and str(error).startswith(
+                    "E5A_ENGINE_TIMEOUT_"
+                ):
+                    evidence["watchdog_reason"] = str(error)
+            try:
                 if before is not None and backend.inventory(deadline) == before:
                     evidence["foreign_inventory"] = "PRESERVED"
+                    if (
+                        evidence["watchdog"] == "FAILED"
+                        and evidence["cleanup"] == "CLEANUP_UNCONFIRMED"
+                        and backend.watchdog_cleanup_confirmed()
+                    ):
+                        evidence["cleanup"] = "CONFIRMED"
             except FAILURES:
-                evidence["watchdog"] = "FAILED"
+                pass
     return evidence

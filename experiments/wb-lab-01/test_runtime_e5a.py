@@ -299,3 +299,55 @@ class CampaignTests(unittest.TestCase):
         self.assertEqual(result["status"], "E5A_BLOCKED")
         self.assertEqual(result["cleanup"], "CLEANUP_UNCONFIRMED")
         self.assertEqual(sandbox.workloads, ["controller"])
+
+    def test_watchdog_recovery_preserves_first_timeout_and_requires_fresh_inventory(
+        self,
+    ):
+        class ContendedCleanup(Sandbox):
+            def __init__(self, proof, inventory):
+                super().__init__("missing")
+                self.proof, self.final_inventory = proof, inventory
+
+            def stop_watchdog(self, deadline):
+                self.watchdog = False
+                raise Blocked("E5A_ENGINE_TIMEOUT_VOLUME_GET")
+
+            def inventory(self, deadline):
+                if self.watchdog:
+                    return {"container": {"unrelated"}}
+                if self.final_inventory is None:
+                    raise Blocked("ENGINE_UNREACHABLE")
+                return {"container": self.final_inventory}
+
+            def cleanup(self, deadline):
+                raise BlockingIOError("watchdog holds the phase cleanup lock")
+
+            def watchdog_cleanup_confirmed(self):
+                return self.proof
+
+        for proof, inventory in (
+            (True, {"unrelated"}),
+            (True, {"unrelated", "leftover"}),
+            (False, {"unrelated"}),
+            (True, None),
+        ):
+            with self.subTest(proof=proof, inventory=inventory):
+                sandbox = ContendedCleanup(proof, inventory)
+
+                def clock(sandbox=sandbox):
+                    return sandbox.now
+
+                result = run_campaign(sandbox, clock=clock, sleep=sandbox.sleep)
+                self.assertEqual(result["status"], "E5A_BLOCKED")
+                self.assertEqual(result["watchdog"], "FAILED")
+                self.assertEqual(result["reason"], "E5A_SAMPLE_MISSING")
+                self.assertEqual(
+                    result["watchdog_reason"], "E5A_ENGINE_TIMEOUT_VOLUME_GET"
+                )
+                self.assertEqual(sandbox.workloads, ["controller"])
+                self.assertEqual(
+                    result["cleanup"],
+                    "CONFIRMED"
+                    if proof and inventory == {"unrelated"}
+                    else "CLEANUP_UNCONFIRMED",
+                )

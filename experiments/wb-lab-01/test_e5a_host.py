@@ -241,6 +241,15 @@ class HostCampaignTests(unittest.TestCase):
                     )
                     with self.assertRaisesRegex(Blocked, "E5A_RUNNER_HEARTBEAT"):
                         backend.stop_watchdog(time.monotonic() + 1)
+                    self.assertTrue(backend.watchdog_cleanup_confirmed())
+                    (run / "watchdog-cleanup.json").unlink()
+                    self.assertFalse(backend.watchdog_cleanup_confirmed())
+                    write_record(
+                        fd,
+                        "watchdog-cleanup.json",
+                        {"cleanup": "CONFIRMED", "reason": "OTHER_ERROR"},
+                    )
+                    self.assertFalse(backend.watchdog_cleanup_confirmed())
                     self.assertEqual(transport.inventory(0)["container"], set())
             finally:
                 if backend.watch is not None and backend.watch.is_alive():

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from e5a_evidence import publish
+from e5a_evidence import publish, validate_campaign
 from e5a_observation import counters, io_totals
 from e5a_sql import insert_and_verify
 from preflight import Blocked
@@ -78,6 +78,25 @@ class EvidenceTests(unittest.TestCase):
                 }
                 with self.assertRaisesRegex(Blocked, "E5A_EVIDENCE_FIELDS"):
                     publish(fd, {**evidence, "stderr": "forbidden"})
+                failed = {
+                    **evidence["campaign"],
+                    "watchdog": "FAILED",
+                    "watchdog_reason": "E5A_ENGINE_TIMEOUT_VOLUME_GET",
+                }
+                validate_campaign({**evidence, "campaign": failed})
+                for reason in (
+                    "E5A_ENGINE_TIMEOUT_VOLUME_/private",
+                    "E5A_ENGINE_TIMEOUT_VOLUME_CUSTOM",
+                ):
+                    with self.assertRaisesRegex(
+                        Blocked, "E5A_EVIDENCE_WATCHDOG_REASON"
+                    ):
+                        validate_campaign(
+                            {
+                                **evidence,
+                                "campaign": {**failed, "watchdog_reason": reason},
+                            }
+                        )
                 self.assertFalse(list(directory.iterdir()))
                 digest = publish(fd, evidence)
                 record = directory / "evidence.json"

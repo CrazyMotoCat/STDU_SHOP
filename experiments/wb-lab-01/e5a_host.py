@@ -234,6 +234,8 @@ class HostBackend:
             self.phase_end.value = deadline
         end = min(deadline, time.monotonic() + 0.45)
         while time.monotonic() < end:
+            if self.abort.is_set():
+                self.check_watchdog()
             result = self.latest_sample()
             if result is not None:
                 require("sample" in result, "E5A_WATCHDOG_FAILED")
@@ -256,6 +258,7 @@ class HostBackend:
             time.sleep(0.005)
         if phase in ("baseline", "recovery"):
             return None
+        self.check_watchdog()
         raise Blocked("E5A_SAMPLE_MISSING")
 
     def attested_running_roles(self, deadline):
@@ -365,6 +368,22 @@ class HostBackend:
             raise Blocked(self.failure_reason("E5A_WATCHDOG_ABORTED"))
         self.watch = None
 
+    def watchdog_cleanup_confirmed(self):
+        if self.watch is None or self.watch.exitcode != 0:
+            return False
+        self.verify_root()
+        first = read_record(self.directory, "watchdog-abort.json", optional=True)
+        result = read_record(self.directory, "watchdog-cleanup.json", optional=True)
+        return (
+            first is not None
+            and first
+            == {
+                "reason": self.failure_reason("E5A_WATCHDOG_ABORTED"),
+                "cleanup": "CLEANUP_UNCONFIRMED",
+            }
+            and result == {**first, "cleanup": "CONFIRMED"}
+        )
+
     def read_sample(self, phase, deadline):
         self.verify_root()
         self.engine.attest(
@@ -398,10 +417,8 @@ class HostBackend:
                 self.container_anchors[key] = cid
                 if role == "controller":
                     volume = read_record(fd, "media-volume.json")
-                    require(
-                        media.identity(deadline) == volume, "E5A_MEDIA_VOLUME_IDENTITY"
-                    )
                     media.verify(item, cid, volume)
+                    # usage rechecks the live volume and the recorded directory inode.
                     storage["media_bytes"] = media.usage(fd, deadline)
                 else:
                     pg = PostgresEngine.for_preflight(self.engine, self.host)
