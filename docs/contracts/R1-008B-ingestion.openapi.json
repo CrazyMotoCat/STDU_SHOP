@@ -7902,6 +7902,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestionEditsPreviewInput"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Explicit edit preview with source freshness and signed intent"
@@ -8246,6 +8256,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestionApplyEditsInput"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Committed economic edit and immutable application receipt"
@@ -9609,6 +9629,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestionSubmitIdentityInput"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Append-only target-bound identity submission"
@@ -9962,6 +9992,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestionIdentityConfirmationInput"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Independent immutable identity confirmation"
@@ -10315,6 +10355,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestionIdentityExecutionInput"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Explicit reconciled supplier update"
@@ -10852,6 +10902,282 @@
           "identityConfirmed",
           "acknowledgedDuplicateIds"
         ]
+      },
+      "IngestionEditsPreviewInput": {
+        "type": "object",
+        "properties": {
+          "offerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedRowVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "expectedOfferVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "expectedOfferRevisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "edits": {
+            "type": "object",
+            "description": "Field-specific KEEP, SET (with value) or CLEAR (with reason) operations. Omission is KEEP.",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["op"],
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": ["KEEP"]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": ["op", "value"],
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": ["SET"]
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2048
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": ["op", "reason"],
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": ["CLEAR"]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "evidenceHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Digest of the captured source snapshot used as evidence for clearing price or currency."
+          }
+        },
+        "required": [
+          "offerId",
+          "expectedRowVersion",
+          "expectedOfferVersion",
+          "expectedOfferRevisionId",
+          "decisionId",
+          "edits"
+        ]
+      },
+      "IngestionApplyEditsInput": {
+        "type": "object",
+        "properties": {
+          "offerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedRowVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "expectedOfferVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "expectedOfferRevisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "edits": {
+            "type": "object",
+            "description": "Field-specific KEEP, SET (with value) or CLEAR (with reason) operations. Omission is KEEP.",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["op"],
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": ["KEEP"]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": ["op", "value"],
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": ["SET"]
+                    },
+                    "value": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2048
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": ["op", "reason"],
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": ["CLEAR"]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "evidenceHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Digest of the captured source snapshot used as evidence for clearing price or currency."
+          },
+          "previewToken": {
+            "type": "string",
+            "pattern": "^\\d{13}\\.[a-f0-9]{64}$"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "enum": [true]
+          }
+        },
+        "required": [
+          "offerId",
+          "expectedRowVersion",
+          "expectedOfferVersion",
+          "expectedOfferRevisionId",
+          "decisionId",
+          "edits",
+          "previewToken",
+          "confirmed"
+        ]
+      },
+      "IngestionSubmitIdentityInput": {
+        "type": "object",
+        "properties": {
+          "offerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedRowVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "expectedOfferVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "expectedOfferRevisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "evidenceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "offerId",
+          "expectedRowVersion",
+          "expectedOfferVersion",
+          "expectedOfferRevisionId",
+          "decisionId",
+          "evidenceId",
+          "reason"
+        ]
+      },
+      "IngestionIdentityConfirmationInput": {
+        "type": "object",
+        "properties": {
+          "acknowledgedDuplicateIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 20
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["acknowledgedDuplicateIds", "digest", "reason"]
+      },
+      "IngestionIdentityExecutionInput": {
+        "type": "object",
+        "properties": {
+          "acknowledgedDuplicateIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 20
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "enum": [true]
+          }
+        },
+        "required": ["acknowledgedDuplicateIds", "digest", "confirmed"]
       }
     }
   },

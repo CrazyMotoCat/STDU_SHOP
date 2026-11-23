@@ -61,7 +61,8 @@ CREATE TABLE public.ingestion_identity_submission (
  ),
  FOREIGN KEY (target_revision_id,offer_id) REFERENCES public.supplier_offer_revision(id,offer_id),
  FOREIGN KEY (evidence_id,source_id,source_version) REFERENCES public.ingestion_identity_evidence(id,source_id,source_version),
- UNIQUE (id,digest,row_id,operation,requester_id)
+ UNIQUE (id,digest,row_id,operation,requester_id),
+ UNIQUE (row_id,operation,requester_id,digest)
 );
 CREATE INDEX ingestion_identity_submission_row_idx ON public.ingestion_identity_submission(row_id,created_at DESC,id DESC);
 CREATE TABLE public.ingestion_identity_confirmation (
