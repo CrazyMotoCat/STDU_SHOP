@@ -536,6 +536,7 @@ async function verifyFreshAndRepeatedMigration(ownerUrl) {
         '20261107120000_supplier_ingestion',
         '20261108090000_ingestion_manual_apply',
         '20261115100000_ingestion_create_offer',
+        '20261123100000_ingestion_apply_edits',
       ].join('\0') ||
     sentinel.rows[0]?.payload !== 'must-survive-migration' ||
     models.rows[0]?.count !== 11 ||
