@@ -1240,6 +1240,35 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
         })
       ).status,
     ).toBe(409);
+    const revokedEvidence = randomUUID();
+    await owner.$executeRaw`
+      INSERT INTO public.ingestion_identity_evidence
+       (id,source_id,source_version,kind,reference,artifact_version,artifact_digest,attested_at,brand_id,manufacturer_name,part_number,modification_evidence,modification)
+      SELECT ${revokedEvidence}::uuid,source_id,source_version,kind,reference,artifact_version,artifact_digest,
+       attested_at,brand_id,manufacturer_name,part_number,modification_evidence,modification
+      FROM public.ingestion_identity_evidence WHERE id=${evidenceId}::uuid
+    `;
+    const revoked = await executor.write('POST', endpoint, {
+      ...body,
+      evidenceId: revokedEvidence,
+    });
+    expect(revoked.status).toBe(201);
+    await owner.$executeRaw`INSERT INTO public.ingestion_identity_evidence_revocation(evidence_id,reference)
+      VALUES (${revokedEvidence}::uuid,'TEST issuer withdrawal')`;
+    const revokedData = data(revoked);
+    expect(
+      (
+        await reviewer.write(
+          'POST',
+          endpoint + '/' + revokedData.id + '/confirm',
+          {
+            digest: revokedData.digest,
+            reason: 'TEST revoke',
+            acknowledgedDuplicateIds: [],
+          },
+        )
+      ).status,
+    ).toBe(409);
     const submitted = await executor.write('POST', endpoint, body);
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(201);
     const entry = data(submitted);
@@ -1248,6 +1277,7 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
     const confirmedInput = {
       digest: entry.digest,
       reason: 'TEST compare exact reference and target',
+      acknowledgedDuplicateIds: [],
     };
     expect(
       (await executor.write('POST', confirmation, confirmedInput)).status,
@@ -1270,6 +1300,7 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
         await reviewer.write('POST', application, {
           digest: entry.digest,
           confirmed: true,
+          acknowledgedDuplicateIds: [],
         })
       ).status,
     ).toBe(403);
@@ -1277,7 +1308,7 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
     const applied = await executor.write(
       'POST',
       application,
-      { digest: entry.digest, confirmed: true },
+      { digest: entry.digest, confirmed: true, acknowledgedDuplicateIds: [] },
       key,
     );
     expect(applied.status, JSON.stringify(applied.body)).toBe(200);
@@ -1286,7 +1317,11 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
         await executor.write(
           'POST',
           application,
-          { digest: entry.digest, confirmed: true },
+          {
+            digest: entry.digest,
+            confirmed: true,
+            acknowledgedDuplicateIds: [],
+          },
           key,
         )
       ).body,
@@ -1296,6 +1331,7 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
         await executor.write('POST', application, {
           digest: entry.digest,
           confirmed: true,
+          acknowledgedDuplicateIds: [],
         })
       ).status,
     ).toBe(409);
@@ -1314,6 +1350,18 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
         id: data(applied).id,
         baseRevisionId: dbOffer.revisionId,
       }),
+    ]);
+    const relatedAudit = await owner.auditEvent.findMany({
+      where: {
+        changes: { path: ['submissionId'], equals: String(entry.id) },
+      },
+      select: { action: true },
+      orderBy: { occurredAt: 'asc' },
+    });
+    expect(relatedAudit.map((item) => item.action)).toEqual([
+      'ingestion.identity.submitted',
+      'ingestion.identity.confirmed',
+      'ingestion.identity.executed',
     ]);
     const { reviewUiAcceptance } =
       await import('../../../scripts/r1-009a-ui-acceptance.mjs');

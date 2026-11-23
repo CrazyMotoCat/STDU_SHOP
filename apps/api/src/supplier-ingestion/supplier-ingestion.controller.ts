@@ -2,8 +2,6 @@ import { SupplierReconciliationService } from './supplier-reconciliation.service
 import {
   IngestionSubmitIdentityInput,
   IngestionSubmitCreateIdentityInput,
-  IngestionCreateIdentityConfirmationInput,
-  IngestionCreateIdentityExecutionInput,
   IngestionIdentityConfirmationInput,
   IngestionIdentityExecutionInput,
 } from './supplier-reconciliation.dto.js';
@@ -899,7 +897,7 @@ export class SupplierIngestionController {
     @Headers('idempotency-key') key: string | undefined,
     @Res({ passthrough: true }) response: Response,
     @Param('submissionId', uuid) submissionId: string,
-    @Body() body: IngestionCreateIdentityConfirmationInput,
+    @Body() body: IngestionIdentityConfirmationInput,
   ) {
     return this.respond(
       response,
@@ -937,7 +935,7 @@ export class SupplierIngestionController {
     @Headers('idempotency-key') key: string | undefined,
     @Res({ passthrough: true }) response: Response,
     @Param('submissionId', uuid) submissionId: string,
-    @Body() body: IngestionCreateIdentityExecutionInput,
+    @Body() body: IngestionIdentityExecutionInput,
   ) {
     return this.respond(
       response,

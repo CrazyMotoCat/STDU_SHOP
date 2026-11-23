@@ -1,3 +1,4 @@
+import { createAuditEvent } from '../audit/audit.service.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { StaffError } from '../identity/errors.js';
@@ -8,10 +9,12 @@ import {
 } from '../permissions/policy.js';
 import { ModificationEvidence } from '../suppliers/suppliers.dto.js';
 import { SuppliersService } from '../suppliers/suppliers.service.js';
-import { copyRevision } from './supplier-apply.service.js';
+import {
+  copyRevision,
+  existingDecimal,
+  readFreshnessOverrides,
+} from './supplier-apply.service.js';
 import type {
-  IngestionCreateIdentityConfirmationInput,
-  IngestionCreateIdentityExecutionInput,
   IngestionSubmitCreateIdentityInput,
   IngestionIdentityConfirmationInput,
   IngestionIdentityExecutionInput,
@@ -96,6 +99,37 @@ export class SupplierReconciliationService {
     private readonly ingestion: SupplierIngestionService,
     @Inject(SuppliersService) private readonly suppliers: SuppliersService,
   ) {}
+
+  private readonly freshnessOverrides =
+    this.updateEnabled || this.createEnabled
+      ? readFreshnessOverrides(
+          process.env.SUPPLIER_INGESTION_EDIT_FRESHNESS_DAYS,
+        )
+      : {};
+
+  private async auditIdentity(
+    tx: IngestionTx,
+    request: StaffRequest,
+    event: 'submitted' | 'confirmed' | 'executed',
+    operation: 'UPDATE' | 'CREATE',
+    rowId: string,
+    submissionId: string,
+  ) {
+    await createAuditEvent(tx, {
+      actorKind: 'STAFF',
+      actorUserId: request.staff!.id,
+      action: 'ingestion.identity.' + event,
+      outcome: 'SUCCESS',
+      reasonCode: 'RECONCILIATION',
+      requestId: request.requestId,
+      changes: { submissionId, rowId, operation },
+    });
+  }
+
+  private assertAcknowledged(expected: string[], actual: string[]) {
+    if (JSON.stringify(expected) !== JSON.stringify([...actual].sort()))
+      throw new StaffError('VERSION_CONFLICT');
+  }
 
   private enabled() {
     if (!this.updateEnabled) throw new StaffError('NOT_FOUND');
@@ -329,6 +363,18 @@ export class SupplierReconciliationService {
     const candidates = await lookup();
     if (candidates.length > duplicateLimit)
       throw new StaffError('INVALID_STATE_TRANSITION');
+    const archived = candidates
+      .filter(
+        (item) =>
+          item.state === 'ARCHIVED' &&
+          item.currentRevision.brandId === evidence.brand_id &&
+          exact(item.currentRevision.manufacturerName) === manufacturer &&
+          exact(item.currentRevision.originalPartNumber) === part &&
+          item.currentRevision.modificationEvidence ===
+            evidence.modification_evidence &&
+          exact(item.currentRevision.modification) === evidence.modification,
+      )
+      .map(({ id }) => id);
     for (const { state, currentRevision: candidate } of candidates) {
       const clearlyDifferentVariant =
         candidate.brandId === evidence.brand_id &&
@@ -352,17 +398,30 @@ export class SupplierReconciliationService {
     const configuredPriceDays = Number(
       process.env.SUPPLIER_OFFER_FRESHNESS_DAYS,
     );
-    const priceDays =
+    const scoped = (
+      field: 'purchaseCost' | 'availabilityText' | 'leadTimeText',
+      fallback: number,
+    ) =>
+      Math.min(
+        fallback,
+        this.freshnessOverrides[source.id]?.[field] ?? Infinity,
+        this.freshnessOverrides[supplierId]?.[field] ?? Infinity,
+      );
+    const priceDays = scoped(
+      'purchaseCost',
       Number.isInteger(configuredPriceDays) && configuredPriceDays > 0
         ? Math.min(30, configuredPriceDays)
-        : 30;
+        : 30,
+    );
     const datedFact = (days: number) =>
       Number.isFinite(received) &&
       received <= now &&
       now - received < days * day;
     if (
       typeof n.purchase_cost === 'string' &&
-      n.purchase_cost !== revision.purchaseCost
+      (revision.purchaseCost == null ||
+        existingDecimal(n.purchase_cost) !==
+          existingDecimal(revision.purchaseCost))
     ) {
       if (
         !datedFact(priceDays) ||
@@ -388,13 +447,23 @@ export class SupplierReconciliationService {
       const value = nonMonetary[field];
       if (typeof value !== 'string' || value === revision[field]) continue;
       if (
-        (field === 'availabilityText' && !datedFact(7)) ||
-        (field === 'leadTimeText' && !datedFact(30))
+        (field === 'availabilityText' &&
+          !datedFact(scoped('availabilityText', 7))) ||
+        (field === 'leadTimeText' && !datedFact(scoped('leadTimeText', 30)))
       )
         throw new StaffError('INVALID_STATE_TRANSITION');
       changed = true;
       revision[field] = value;
     }
+    if (
+      revision.purchaseCost !== null &&
+      !revision.sourceObservedAt &&
+      !revision.expiresAt &&
+      Number.isInteger(configuredPriceDays) &&
+      configuredPriceDays > 0 &&
+      now - target.recordedAt.getTime() >= configuredPriceDays * day
+    )
+      throw new StaffError('INVALID_STATE_TRANSITION');
     if (!changed) throw new StaffError('INVALID_STATE_TRANSITION');
     const duplicateDigest = digest(
       candidates.map((candidate) => [
@@ -418,6 +487,7 @@ export class SupplierReconciliationService {
       offer.version,
       offer.currentRevisionId,
       duplicateDigest,
+      archived,
       input.reason,
       evidence.id,
       evidence.kind,
@@ -431,7 +501,15 @@ export class SupplierReconciliationService {
       evidence.modification_evidence,
       evidence.modification,
     ]);
-    return { row, source, offer, revision, duplicateDigest, planDigest };
+    return {
+      row,
+      source,
+      offer,
+      revision,
+      archived,
+      duplicateDigest,
+      planDigest,
+    };
   }
 
   private approvedInput(entry: Submission): IngestionSubmitIdentityInput {
@@ -468,13 +546,21 @@ export class SupplierReconciliationService {
         await tx.$executeRaw`
         INSERT INTO public.ingestion_identity_submission
           (id,digest,row_id,operation,source_id,source_version,evidence_id,decision_id,requester_id,
-          supplier_id,offer_id,target_revision_id,row_version,offer_version,source_hash,duplicate_digest,reason)
+          supplier_id,offer_id,target_revision_id,row_version,offer_version,source_hash,duplicate_digest,reason,archived_duplicate_ids)
         VALUES (${id}::uuid,${plan.planDigest},${rowId},'UPDATE',${plan.source.id}::uuid,${plan.source.version},
           ${input.evidenceId}::uuid,${input.decisionId}::uuid,${request.staff!.id}::uuid,${plan.offer.supplierId}::uuid,
           ${plan.offer.id}::uuid,${plan.offer.currentRevisionId}::uuid,${plan.row.version},${plan.offer.version},
-          ${plan.row.sourceHash},${plan.duplicateDigest},${input.reason})
+          ${plan.row.sourceHash},${plan.duplicateDigest},${input.reason},${plan.archived}::uuid[])
       `;
-        return { status: 201, data: { id, digest: plan.planDigest } };
+        await this.auditIdentity(tx, request, 'submitted', 'UPDATE', rowId, id);
+        return {
+          status: 201,
+          data: {
+            id,
+            digest: plan.planDigest,
+            archivedDuplicateIds: plan.archived,
+          },
+        };
       },
       reconciliationPermissions.submit,
     );
@@ -508,6 +594,7 @@ export class SupplierReconciliationService {
         );
         if (plan.planDigest !== entry.digest)
           throw new StaffError('VERSION_CONFLICT');
+        this.assertAcknowledged(plan.archived, input.acknowledgedDuplicateIds);
         if ((await this.confirmations(tx, id)).length)
           throw new StaffError('VERSION_CONFLICT');
         await tx.$executeRaw`
@@ -516,6 +603,7 @@ export class SupplierReconciliationService {
         VALUES (${id}::uuid,${entry.digest},${rowId},'UPDATE',${entry.requester_id}::uuid,
           ${request.staff!.id}::uuid,${input.reason})
       `;
+        await this.auditIdentity(tx, request, 'confirmed', 'UPDATE', rowId, id);
         return {
           status: 200,
           data: { id, digest: entry.digest, approved: true },
@@ -549,6 +637,7 @@ export class SupplierReconciliationService {
         );
         if (plan.planDigest !== entry.digest)
           throw new StaffError('VERSION_CONFLICT');
+        this.assertAcknowledged(plan.archived, input.acknowledgedDuplicateIds);
         const [confirmation] = await this.confirmations(tx, id);
         if (!confirmation) throw new StaffError('INVALID_STATE_TRANSITION');
         if (confirmation.approver_id === request.staff!.id)
@@ -585,6 +674,7 @@ export class SupplierReconciliationService {
         VALUES (${application.id}::uuid,${entry.id}::uuid,${rowId},'UPDATE',
           ${request.staff!.id}::uuid,${confirmation.approver_id}::uuid)
       `;
+        await this.auditIdentity(tx, request, 'executed', 'UPDATE', rowId, id);
         return { status: 200, data: application };
       },
       reconciliationPermissions.execute,
@@ -818,6 +908,7 @@ export class SupplierReconciliationService {
           ${input.evidenceId}::uuid,${input.decisionId}::uuid,${request.staff!.id}::uuid,${plan.supplierId}::uuid,
           ${plan.row.version},${plan.row.sourceHash},${plan.duplicateDigest},${input.reason},${plan.archived}::uuid[])
       `;
+        await this.auditIdentity(tx, request, 'submitted', 'CREATE', rowId, id);
         return {
           status: 201,
           data: {
@@ -836,7 +927,7 @@ export class SupplierReconciliationService {
     key: string | undefined,
     rowId: string,
     id: string,
-    input: IngestionCreateIdentityConfirmationInput,
+    input: IngestionIdentityConfirmationInput,
   ) {
     this.assertCreateEnabled();
     if (!input.reason.trim() || input.reason.includes(String.fromCharCode(0)))
@@ -875,6 +966,7 @@ export class SupplierReconciliationService {
         VALUES (${id}::uuid,${entry.digest},${rowId},'CREATE',${entry.requester_id}::uuid,
           ${request.staff!.id}::uuid,${input.reason})
       `;
+        await this.auditIdentity(tx, request, 'confirmed', 'CREATE', rowId, id);
         return {
           status: 200,
           data: { id, digest: entry.digest, approved: true },
@@ -889,7 +981,7 @@ export class SupplierReconciliationService {
     key: string | undefined,
     rowId: string,
     id: string,
-    input: IngestionCreateIdentityExecutionInput,
+    input: IngestionIdentityExecutionInput,
   ) {
     this.assertCreateEnabled();
     return this.ingestion.command(
@@ -996,6 +1088,7 @@ export class SupplierReconciliationService {
         VALUES (${application.id}::uuid,${entry.id}::uuid,${rowId},'CREATE',
           ${request.staff!.id}::uuid,${confirmation.approver_id}::uuid)
       `;
+        await this.auditIdentity(tx, request, 'executed', 'CREATE', rowId, id);
         return { status: 201, data: application };
       },
       [...reconciliationPermissions.execute, 'ingestion.createOffer'],

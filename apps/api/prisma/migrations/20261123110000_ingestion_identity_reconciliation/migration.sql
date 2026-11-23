@@ -51,6 +51,7 @@ CREATE TABLE public.ingestion_identity_submission (
  row_version integer NOT NULL CHECK (row_version>0),
  offer_version integer CHECK (offer_version>0),
  source_hash varchar(64) NOT NULL CHECK (source_hash ~ '^[a-f0-9]{64}$'),
+ archived_duplicate_ids uuid[] NOT NULL DEFAULT '{}'::uuid[] CHECK (cardinality(archived_duplicate_ids) <= 20),
  duplicate_digest text NOT NULL CHECK (duplicate_digest ~ '^[a-f0-9]{64}$'),
  reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 1 AND 500),
  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
@@ -150,6 +151,31 @@ $identity_append_only$;
 
 GRANT SELECT ON public.ingestion_identity_evidence, public.ingestion_identity_evidence_revocation TO stdu_runtime;
 GRANT SELECT, INSERT ON public.ingestion_identity_submission, public.ingestion_identity_confirmation, public.ingestion_identity_execution TO stdu_runtime;
+
+
+ALTER FUNCTION public.audit_event_valid(text,text,text,jsonb) RENAME TO audit_event_valid_pre_identity_reconciliation;
+CREATE FUNCTION public.audit_event_valid(p_action text,p_outcome text,p_reason text,p_changes jsonb)
+RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
+BEGIN
+ IF p_action IN ('ingestion.identity.submitted','ingestion.identity.confirmed','ingestion.identity.executed') THEN
+  RETURN p_outcome='SUCCESS' AND COALESCE(p_reason='RECONCILIATION',false)
+   AND COALESCE(CASE WHEN jsonb_typeof(p_changes)='object' THEN (SELECT count(*) FROM jsonb_object_keys(p_changes))=3
+   AND (p_changes->>'submissionId') ~ '^[a-f0-9-]{36}$'
+   AND (p_changes->>'rowId') ~ '^[a-f0-9]{64}$'
+   AND (p_changes->>'operation') IN ('UPDATE','CREATE') ELSE false END,false);
+ END IF;
+ RETURN public.audit_event_valid_pre_identity_reconciliation(p_action,p_outcome,p_reason,p_changes);
+END;
+$$;
+ALTER TABLE public.audit_event DROP CONSTRAINT audit_event_registry_check;
+ALTER TABLE public.audit_event ADD CONSTRAINT audit_event_registry_check CHECK(audit_event_valid(action,outcome,reason_code,changes));
+ALTER TABLE public.audit_event DROP CONSTRAINT ingestion_audit_actor;
+ALTER TABLE public.audit_event ADD CONSTRAINT ingestion_audit_actor CHECK(action NOT LIKE 'ingestion.%' OR
+ (action IN ('ingestion.run.started','ingestion.run.snapshot','ingestion.run.completed','ingestion.run.retry','ingestion.run.failed')
+ AND actor_kind='OPERATOR' AND operator_label='supplier-ingestion-worker')
+ OR (action IN ('ingestion.source.created','ingestion.source.changed','ingestion.run.requested','ingestion.row.decided',
+ 'ingestion.identity.submitted','ingestion.identity.confirmed','ingestion.identity.executed') AND actor_kind='STAFF')
+ OR action='ingestion.command.denied');
 
 INSERT INTO public.permission(id,code,description) VALUES
  ('a009b003-0000-4000-8000-000000000001','ingestion.reconcile.submit','Submit supplier identity evidence'),

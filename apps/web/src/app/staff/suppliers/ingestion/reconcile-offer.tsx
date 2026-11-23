@@ -14,6 +14,7 @@ type Item = {
     offer_id: string | null;
     target_revision_id: string | null;
     requester_id: string;
+    archived_duplicate_ids: string[];
     reason: string;
   };
   evidence: {
@@ -67,6 +68,7 @@ export function ReconcileOffer({
   const [evidenceId, setEvidenceId] = useState('');
   const [reason, setReason] = useState('');
   const [approval, setApproval] = useState<Record<string, string>>({});
+  const [acknowledged, setAcknowledged] = useState<Record<string, boolean>>({});
   const [confirming, setConfirming] = useState('');
   const [refresh, setRefresh] = useState(0);
   const [error, setError] = useState('');
@@ -206,6 +208,27 @@ export function ReconcileOffer({
               <p>Решение проверяющего · {confirmation.reason}</p>
             )}
             {execution && <p>Квитанция · {execution.application_id}</p>}
+            {submission.archived_duplicate_ids.length > 0 && (
+              <>
+                <p>
+                  Архивные совпадения ·{' '}
+                  {submission.archived_duplicate_ids.join(', ')}
+                </p>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={acknowledged[submission.id] ?? false}
+                    onChange={(event) =>
+                      setAcknowledged((prev) => ({
+                        ...prev,
+                        [submission.id]: event.target.checked,
+                      }))
+                    }
+                  />
+                  Архивные совпадения проверены
+                </label>
+              </>
+            )}
             {!consumed &&
               !confirmation &&
               canApprove &&
@@ -229,7 +252,11 @@ export function ReconcileOffer({
                   <button
                     type="button"
                     className={styles.primary}
-                    disabled={!approval[submission.id]?.trim()}
+                    disabled={
+                      !approval[submission.id]?.trim() ||
+                      (submission.archived_duplicate_ids.length > 0 &&
+                        !acknowledged[submission.id])
+                    }
                     onClick={() =>
                       run(() =>
                         command(
@@ -240,6 +267,8 @@ export function ReconcileOffer({
                           {
                             digest: submission.digest,
                             reason: approval[submission.id],
+                            acknowledgedDuplicateIds:
+                              submission.archived_duplicate_ids,
                           },
                         ),
                       )
@@ -270,7 +299,11 @@ export function ReconcileOffer({
                   <button
                     type="button"
                     className={styles.primary}
-                    disabled={confirming !== submission.id}
+                    disabled={
+                      confirming !== submission.id ||
+                      (submission.archived_duplicate_ids.length > 0 &&
+                        !acknowledged[submission.id])
+                    }
                     onClick={() =>
                       run(
                         () =>
@@ -282,6 +315,8 @@ export function ReconcileOffer({
                             {
                               digest: submission.digest,
                               confirmed: true,
+                              acknowledgedDuplicateIds:
+                                submission.archived_duplicate_ids,
                             },
                           ),
                         true,

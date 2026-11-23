@@ -27,6 +27,16 @@ export class IngestionSubmitIdentityInput extends IngestionApplyInput {
 }
 
 export class IngestionIdentityConfirmationInput {
+  @ApiProperty({
+    type: 'array',
+    items: { type: 'string', format: 'uuid' },
+    maxItems: 20,
+  })
+  @ArrayMaxSize(20)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  acknowledgedDuplicateIds!: string[];
+
   @ApiProperty({ type: String, pattern: '^[a-f0-9]{64}$' })
   @IsString()
   @Matches(/^[a-f0-9]{64}$/)
@@ -41,6 +51,16 @@ export class IngestionIdentityConfirmationInput {
 }
 
 export class IngestionIdentityExecutionInput {
+  @ApiProperty({
+    type: 'array',
+    items: { type: 'string', format: 'uuid' },
+    maxItems: 20,
+  })
+  @ArrayMaxSize(20)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  acknowledgedDuplicateIds!: string[];
+
   @ApiProperty({ type: String, pattern: '^[a-f0-9]{64}$' })
   @IsString()
   @Matches(/^[a-f0-9]{64}$/)
@@ -71,28 +91,4 @@ export class IngestionSubmitCreateIdentityInput {
   @MaxLength(500)
   @Matches(/\S/u)
   reason!: string;
-}
-
-export class IngestionCreateIdentityConfirmationInput extends IngestionIdentityConfirmationInput {
-  @ApiProperty({
-    type: 'array',
-    items: { type: 'string', format: 'uuid' },
-    maxItems: 20,
-  })
-  @ArrayMaxSize(20)
-  @ArrayUnique()
-  @IsUUID('4', { each: true })
-  acknowledgedDuplicateIds!: string[];
-}
-
-export class IngestionCreateIdentityExecutionInput extends IngestionIdentityExecutionInput {
-  @ApiProperty({
-    type: 'array',
-    items: { type: 'string', format: 'uuid' },
-    maxItems: 20,
-  })
-  @ArrayMaxSize(20)
-  @ArrayUnique()
-  @IsUUID('4', { each: true })
-  acknowledgedDuplicateIds!: string[];
 }
