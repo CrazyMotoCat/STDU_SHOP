@@ -165,7 +165,7 @@ export function copyRevision(
   };
 }
 
-function existingDecimal(value: string) {
+export function existingDecimal(value: string) {
   const [integer, fraction = ''] = value.split('.');
   return integer + '.' + fraction.replace(/0+$/, '');
 }
@@ -178,7 +178,9 @@ const freshnessDefaults = {
 type DatedField = keyof typeof freshnessDefaults;
 type FreshnessOverrides = Record<string, Partial<Record<DatedField, number>>>;
 
-function readFreshnessOverrides(raw: string | undefined): FreshnessOverrides {
+export function readFreshnessOverrides(
+  raw: string | undefined,
+): FreshnessOverrides {
   if (!raw) return {};
   const value: unknown = JSON.parse(raw);
   const policy = facts(value);
