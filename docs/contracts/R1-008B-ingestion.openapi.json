@@ -10709,6 +10709,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestionSubmitCreateIdentityInput"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Explicit staff reconciled CREATE step"
@@ -11062,6 +11072,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestionIdentityConfirmationInput"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Explicit staff reconciled CREATE step"
@@ -11415,6 +11435,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestionIdentityExecutionInput"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Explicit staff reconciled CREATE step"
@@ -12228,6 +12258,29 @@
           }
         },
         "required": ["acknowledgedDuplicateIds", "digest", "confirmed"]
+      },
+      "IngestionSubmitCreateIdentityInput": {
+        "type": "object",
+        "properties": {
+          "decisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedRowVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "evidenceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": ["decisionId", "expectedRowVersion", "evidenceId", "reason"]
       }
     }
   },

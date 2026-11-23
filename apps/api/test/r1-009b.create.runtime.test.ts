@@ -1497,7 +1497,7 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
       '/v1/staff/supplier-offers/' + oldId + '/archive',
       {
         expectedVersion: 1,
-        reason: 'TEST supplier record archived',
+        reasonCode: 'TEST_ARCHIVE',
       },
     );
     expect(archive.status, JSON.stringify(archive.body)).toBe(200);
@@ -1539,9 +1539,63 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
       await owner.ingestionApplication.findUnique({ where: { rowId } }),
     ).toBeNull();
     expect((await approver.write('POST', execute, command)).status).toBe(403);
+    const other = await stage('offers-v1', fixture.selectedSupplier);
+    const otherRow = other.rows[1]!;
+    const otherDecision = await decide(otherRow.id);
+    const otherEvidence = randomUUID();
+    await owner.$executeRaw`
+      INSERT INTO public.ingestion_identity_evidence
+        (id,source_id,source_version,kind,reference,artifact_version,artifact_digest,attested_at,brand_id,
+         manufacturer_name,part_number,modification_evidence,modification)
+      SELECT ${otherEvidence}::uuid,${other.sourceId}::uuid,source_version,kind,reference,artifact_version,artifact_digest,attested_at,
+        brand_id,manufacturer_name,part_number,modification_evidence,modification
+      FROM public.ingestion_identity_evidence WHERE id=${evidence}::uuid
+    `;
+    const otherPath = path(otherRow.id, 'identity-reconciliations');
+    const otherSubmission = await requester.write(
+      'POST',
+      otherPath + '/create',
+      {
+        ...createInput,
+        evidenceId: otherEvidence,
+        decisionId: otherDecision.id,
+      },
+    );
+    expect(otherSubmission.status, JSON.stringify(otherSubmission.body)).toBe(
+      201,
+    );
+    const competing = data(otherSubmission);
+    expect(
+      (
+        await approver.write(
+          'POST',
+          otherPath + '/' + competing.id + '/confirm-create',
+          {
+            digest: competing.digest,
+            reason: 'TEST independent archived duplicate review',
+            acknowledgedDuplicateIds: [oldId],
+          },
+        )
+      ).status,
+    ).toBe(200);
+
     const key = randomUUID();
-    const done = await requester.write('POST', execute, command, key);
-    expect(done.status, JSON.stringify(done.body)).toBe(201);
+    const otherKey = randomUUID();
+    const otherExecute = otherPath + '/' + competing.id + '/create-offer';
+    const otherCommand = { ...command, digest: competing.digest };
+    const [first, second] = await Promise.all([
+      requester.write('POST', execute, command, key),
+      requester.write('POST', otherExecute, otherCommand, otherKey),
+    ]);
+    expect([first.status, second.status].sort()).toEqual([201, 409]);
+    const firstWon = first.status === 201;
+    const done = firstWon ? first : second;
+    const winnerRow = firstWon ? rowId : otherRow.id;
+    const winnerPath = firstWon ? pathTo : otherPath;
+    const loser = firstWon ? second : first;
+    expect(loser.body.fields).toEqual([
+      { field: 'duplicate', code: 'ACTIVE_DUPLICATE' },
+    ]);
     const saved = data(done);
     expect(saved).toMatchObject({
       operation: 'CREATE',
@@ -1550,9 +1604,16 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
     });
     await app.close();
     await startApp();
-    expect((await requester.write('POST', execute, command, key)).body).toEqual(
-      done.body,
-    );
+    expect(
+      (
+        await requester.write(
+          'POST',
+          firstWon ? execute : otherExecute,
+          firstWon ? command : otherCommand,
+          firstWon ? key : otherKey,
+        )
+      ).body,
+    ).toEqual(done.body);
     const revision = await owner.supplierOfferRevision.findUniqueOrThrow({
       where: { id: String(saved.revisionId) },
     });
@@ -1563,7 +1624,7 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
       modification: null,
       originalPartNumber: 'TEST-IF-002',
     });
-    const history = await requester.request('GET', pathTo);
+    const history = await requester.request('GET', winnerPath);
     expect(history.status).toBe(200);
     expect(history.body.data).toEqual(
       expect.arrayContaining([
@@ -1573,7 +1634,8 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
       ]),
     );
     expect(
-      (await requester.request('GET', path(rowId, 'applications'))).body.data,
+      (await requester.request('GET', path(winnerRow, 'applications'))).body
+        .data,
     ).toEqual([]);
   });
 

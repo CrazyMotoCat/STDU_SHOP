@@ -301,7 +301,9 @@ export function ReconcileOffer({
                         setConfirming(event.target.checked ? submission.id : '')
                       }
                     />
-                    Подтверждаю применение к показанной редакции
+                    {creating
+                      ? 'Подтверждаю создание по показанной идентичности'
+                      : 'Подтверждаю применение к показанной редакции'}
                   </label>
                   <button
                     type="button"

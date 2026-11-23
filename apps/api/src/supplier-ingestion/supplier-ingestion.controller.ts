@@ -841,6 +841,7 @@ export class SupplierIngestionController {
 
   @Post('rows/:id/identity-reconciliations/create')
   @ApiOperation({ operationId: 'ingestion_submitCreateIdentity' })
+  @ApiBody({ type: IngestionSubmitCreateIdentityInput })
   @ApiParam({
     name: 'id',
     schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
@@ -874,6 +875,7 @@ export class SupplierIngestionController {
 
   @Post('rows/:id/identity-reconciliations/:submissionId/confirm-create')
   @ApiOperation({ operationId: 'ingestion_approveCreateIdentity' })
+  @ApiBody({ type: IngestionIdentityConfirmationInput })
   @ApiParam({
     name: 'id',
     schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
@@ -912,6 +914,7 @@ export class SupplierIngestionController {
 
   @Post('rows/:id/identity-reconciliations/:submissionId/create-offer')
   @ApiOperation({ operationId: 'ingestion_executeCreateIdentity' })
+  @ApiBody({ type: IngestionIdentityExecutionInput })
   @ApiParam({
     name: 'id',
     schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },

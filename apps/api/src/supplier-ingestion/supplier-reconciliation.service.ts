@@ -815,13 +815,12 @@ export class SupplierReconciliationService {
         orderBy: { id: 'asc' },
       });
     const first = await lookup();
-    if (first.length > duplicateLimit)
-      throw new StaffError('INVALID_STATE_TRANSITION');
+    if (first.length > duplicateLimit) throw identityDuplicate('NEEDS_REVIEW');
     for (const item of first)
       await tx.$queryRaw`SELECT id FROM supplier_offer WHERE id=${item.id}::uuid FOR SHARE`;
     const candidates = await lookup();
     if (candidates.length > duplicateLimit)
-      throw new StaffError('INVALID_STATE_TRANSITION');
+      throw identityDuplicate('NEEDS_REVIEW');
     const archived: string[] = [];
     for (const item of candidates) {
       const revision = item.currentRevision;
@@ -834,7 +833,7 @@ export class SupplierReconciliationService {
         exact(revision.modification) === evidence.modification;
       if (samePart && sameBrand && sameVariant) {
         if (item.state === 'ACTIVE')
-          throw new StaffError('INVALID_STATE_TRANSITION');
+          throw identityDuplicate('ACTIVE_DUPLICATE');
         archived.push(item.id);
       } else if (
         item.state === 'ACTIVE' &&
@@ -848,7 +847,7 @@ export class SupplierReconciliationService {
           (!sku || sku !== exact(revision.supplierPartNumber))
         )
       ) {
-        throw new StaffError('INVALID_STATE_TRANSITION');
+        throw identityDuplicate('NEEDS_REVIEW');
       }
     }
     const duplicateDigest = digest(
@@ -937,6 +936,13 @@ export class SupplierReconciliationService {
       input,
       async (tx) => {
         const plan = await this.createPlan(tx, rowId, input);
+        await this.identicalSubmission(
+          tx,
+          rowId,
+          request.staff!.id,
+          'CREATE',
+          plan.planDigest,
+        );
         const id = randomUUID();
         await tx.$executeRaw`
         INSERT INTO public.ingestion_identity_submission
@@ -957,6 +963,7 @@ export class SupplierReconciliationService {
         };
       },
       reconciliationPermissions.submit,
+      'ReadCommitted',
     );
   }
 
@@ -1011,6 +1018,7 @@ export class SupplierReconciliationService {
         };
       },
       reconciliationPermissions.approve,
+      'ReadCommitted',
     );
   }
 
@@ -1064,14 +1072,26 @@ export class SupplierReconciliationService {
         const configuredDays = Number(
           process.env.SUPPLIER_OFFER_FRESHNESS_DAYS,
         );
-        const costDays =
+        const scoped = (
+          field: 'purchaseCost' | 'availabilityText' | 'leadTimeText',
+          fallback: number,
+        ) =>
+          Math.min(
+            fallback,
+            this.freshnessOverrides[plan.source.id]?.[field] ?? Infinity,
+            this.freshnessOverrides[plan.supplierId]?.[field] ?? Infinity,
+          );
+        const costDays = scoped(
+          'purchaseCost',
           Number.isInteger(configuredDays) && configuredDays > 0
             ? Math.min(30, configuredDays)
-            : 30;
+            : 30,
+        );
         if (
           (cost && (!currency || !valid(costDays))) ||
-          (fact('availability_text') && !valid(7)) ||
-          (fact('lead_time_text') && !valid(30))
+          (fact('availability_text') &&
+            !valid(scoped('availabilityText', 7))) ||
+          (fact('lead_time_text') && !valid(scoped('leadTimeText', 30)))
         )
           throw new StaffError('INVALID_STATE_TRANSITION');
         const result = await this.suppliers.createSupplierOfferInTransaction(
@@ -1130,6 +1150,7 @@ export class SupplierReconciliationService {
         return { status: 201, data: application };
       },
       [...reconciliationPermissions.execute, 'ingestion.createOffer'],
+      'ReadCommitted',
     );
   }
 }
