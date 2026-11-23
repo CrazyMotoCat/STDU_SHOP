@@ -292,6 +292,7 @@ async function main() {
     SUPPLIER_INGESTION_CREATE_ENABLED: create ? 'true' : 'false',
     SUPPLIER_INGESTION_CLEAR_ENABLED: create ? 'true' : 'false',
     SUPPLIER_INGESTION_RECONCILE_UPDATE_ENABLED: create ? 'true' : 'false',
+    SUPPLIER_INGESTION_RECONCILE_CREATE_ENABLED: create ? 'true' : 'false',
     R1_009B_CREATE_TEST_ENABLED: create ? 'true' : 'false',
     R1_008B_TEST_COMPOSE_PROJECT: project,
     R1_008B_TEST_COMPOSE_FILE: composeFile,

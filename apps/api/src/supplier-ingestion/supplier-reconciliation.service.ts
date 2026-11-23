@@ -6,9 +6,13 @@ import {
   assertCurrentActor,
   assertHasPermission,
 } from '../permissions/policy.js';
+import { ModificationEvidence } from '../suppliers/suppliers.dto.js';
 import { SuppliersService } from '../suppliers/suppliers.service.js';
 import { copyRevision } from './supplier-apply.service.js';
 import type {
+  IngestionCreateIdentityConfirmationInput,
+  IngestionCreateIdentityExecutionInput,
+  IngestionSubmitCreateIdentityInput,
   IngestionIdentityConfirmationInput,
   IngestionIdentityExecutionInput,
   IngestionSubmitIdentityInput,
@@ -64,6 +68,7 @@ type Submission = {
   offer_version: number | null;
   target_revision_id: string | null;
   duplicate_digest: string;
+  archived_duplicate_ids: string[];
   reason: string;
   created_at: Date;
 };
@@ -81,6 +86,8 @@ function digest(parts: unknown[]) {
 
 @Injectable()
 export class SupplierReconciliationService {
+  private readonly createEnabled =
+    process.env.SUPPLIER_INGESTION_RECONCILE_CREATE_ENABLED === 'true';
   private readonly updateEnabled =
     process.env.SUPPLIER_INGESTION_RECONCILE_UPDATE_ENABLED === 'true';
 
@@ -102,7 +109,8 @@ export class SupplierReconciliationService {
   }
 
   async inspect(request: StaffRequest, rowId: string) {
-    this.enabled();
+    if (!this.updateEnabled && !this.createEnabled)
+      throw new StaffError('NOT_FOUND');
     return this.ingestion.db.$transaction(async (tx) => {
       await this.authorizeRead(tx, request);
       const row = await tx.ingestionRow.findUnique({
@@ -176,9 +184,10 @@ export class SupplierReconciliationService {
     rowId: string,
     id: string,
     expectedDigest: string,
+    operation: 'UPDATE' | 'CREATE' = 'UPDATE',
   ) {
     const [entry] = await tx.$queryRaw<Submission[]>`
-      SELECT * FROM public.ingestion_identity_submission WHERE id=${id}::uuid AND row_id=${rowId} AND operation='UPDATE'
+      SELECT * FROM public.ingestion_identity_submission WHERE id=${id}::uuid AND row_id=${rowId} AND operation=${operation}
     `;
     if (!entry) throw new StaffError('NOT_FOUND');
     if (entry.digest !== expectedDigest)
@@ -579,6 +588,417 @@ export class SupplierReconciliationService {
         return { status: 200, data: application };
       },
       reconciliationPermissions.execute,
+    );
+  }
+  private assertCreateEnabled() {
+    if (!this.createEnabled) throw new StaffError('NOT_FOUND');
+  }
+
+  private async createPlan(
+    tx: IngestionTx,
+    rowId: string,
+    input: IngestionSubmitCreateIdentityInput,
+  ) {
+    const ref = await tx.ingestionRow.findUnique({
+      where: { id: rowId },
+      select: {
+        run: {
+          select: { sourceId: true, source: { select: { supplierId: true } } },
+        },
+      },
+    });
+    if (!ref) throw new StaffError('NOT_FOUND');
+    const supplierId = ref.run.source.supplierId;
+    await tx.$queryRaw`SELECT id FROM ingestion_source WHERE id=${ref.run.sourceId}::uuid FOR SHARE`;
+    await tx.$queryRaw`SELECT id FROM supplier WHERE id=${supplierId}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM ingestion_row WHERE id=${rowId} FOR UPDATE`;
+    const row = await tx.ingestionRow.findUniqueOrThrow({
+      where: { id: rowId },
+      include: {
+        decisions: true,
+        application: true,
+        run: { include: { source: { include: { supplier: true } } } },
+      },
+    });
+    const source = row.run.source;
+    if (
+      row.version !== input.expectedRowVersion ||
+      row.decisions[0]?.id !== input.decisionId
+    )
+      throw new StaffError('VERSION_CONFLICT');
+    if (
+      row.application ||
+      row.reviewState !== 'ACCEPTED' ||
+      row.decisions[0]?.decision !== 'ACCEPT' ||
+      row.errorCode ||
+      !row.normalized ||
+      !['COMPLETE', 'PARTIAL'].includes(row.run.state) ||
+      row.sourceHash !== row.run.sourceHash ||
+      source.version !== row.run.sourceVersion ||
+      source.state !== 'ENABLED' ||
+      source.supplier.state !== 'ACTIVE'
+    )
+      throw new StaffError('INVALID_STATE_TRANSITION');
+
+    const evidence = await this.readEvidence(
+      tx,
+      input.evidenceId,
+      source.id,
+      source.version,
+    );
+    await tx.$queryRaw`SELECT id FROM brand WHERE id=${evidence.brand_id}::uuid FOR UPDATE`;
+    const brand = await tx.brand.findUnique({
+      where: { id: evidence.brand_id },
+      select: { name: true, state: true },
+    });
+    const n = row.normalized as Record<string, unknown>;
+    const brandHint = exact(n.source_brand_text);
+    const stagedModification = exact(n.modification);
+    const part = exact(n.original_part_number);
+    const maker = exact(n.manufacturer_name);
+    const sku = exact(n.supplier_part_number);
+    if (
+      brand?.state !== 'ACTIVE' ||
+      !maker ||
+      !part ||
+      maker !== evidence.manufacturer_name ||
+      part !== evidence.part_number ||
+      (brandHint && brandHint !== exact(brand.name)) ||
+      (row.modificationEvidence === 'SPECIFIED' &&
+        (evidence.modification_evidence !== 'SPECIFIED' ||
+          stagedModification !== evidence.modification)) ||
+      (brandHint && row.modificationEvidence === 'SPECIFIED')
+    )
+      throw new StaffError('INVALID_STATE_TRANSITION');
+
+    const lookup = () =>
+      tx.supplierOffer.findMany({
+        where: {
+          supplierId,
+          currentRevision: {
+            OR: [
+              { manufacturerName: maker, originalPartNumber: part },
+              ...(sku ? [{ supplierPartNumber: sku }] : []),
+            ],
+          },
+        },
+        include: { currentRevision: true },
+        take: duplicateLimit + 1,
+        orderBy: { id: 'asc' },
+      });
+    const first = await lookup();
+    if (first.length > duplicateLimit)
+      throw new StaffError('INVALID_STATE_TRANSITION');
+    for (const item of first)
+      await tx.$queryRaw`SELECT id FROM supplier_offer WHERE id=${item.id}::uuid FOR SHARE`;
+    const candidates = await lookup();
+    if (candidates.length > duplicateLimit)
+      throw new StaffError('INVALID_STATE_TRANSITION');
+    const archived: string[] = [];
+    for (const item of candidates) {
+      const revision = item.currentRevision;
+      const samePart =
+        exact(revision.manufacturerName) === maker &&
+        exact(revision.originalPartNumber) === part;
+      const sameBrand = revision.brandId === evidence.brand_id;
+      const sameVariant =
+        revision.modificationEvidence === evidence.modification_evidence &&
+        exact(revision.modification) === evidence.modification;
+      if (samePart && sameBrand && sameVariant) {
+        if (item.state === 'ACTIVE')
+          throw new StaffError('INVALID_STATE_TRANSITION');
+        archived.push(item.id);
+      } else if (
+        item.state === 'ACTIVE' &&
+        !(
+          samePart &&
+          sameBrand &&
+          ['SPECIFIED', 'CONFIRMED_NONE'].includes(
+            revision.modificationEvidence,
+          ) &&
+          !sameVariant &&
+          (!sku || sku !== exact(revision.supplierPartNumber))
+        )
+      ) {
+        throw new StaffError('INVALID_STATE_TRANSITION');
+      }
+    }
+    const duplicateDigest = digest(
+      candidates.map(({ id, version, state, currentRevisionId }) => [
+        id,
+        version,
+        state,
+        currentRevisionId,
+      ]),
+    );
+    const planDigest = digest([
+      'supplier-identity-reconciliation/create/v1',
+      rowId,
+      row.version,
+      row.sourceHash,
+      row.runId,
+      source.id,
+      source.version,
+      supplierId,
+      input.decisionId,
+      duplicateDigest,
+      archived,
+      input.reason,
+      evidence.id,
+      evidence.kind,
+      evidence.reference,
+      evidence.artifact_version,
+      evidence.artifact_digest,
+      evidence.attested_at.toISOString(),
+      evidence.brand_id,
+      evidence.manufacturer_name,
+      evidence.part_number,
+      evidence.modification_evidence,
+      evidence.modification,
+    ]);
+    return {
+      row,
+      source,
+      supplierId,
+      evidence,
+      n,
+      sku,
+      archived,
+      duplicateDigest,
+      planDigest,
+    };
+  }
+
+  private createInput(entry: Submission): IngestionSubmitCreateIdentityInput {
+    return {
+      expectedRowVersion: entry.row_version,
+      decisionId: entry.decision_id,
+      evidenceId: entry.evidence_id,
+      reason: entry.reason,
+    };
+  }
+
+  private validateCreateAcknowledgement(
+    entry: Submission,
+    expected: string[],
+    acknowledged: string[],
+  ) {
+    if (
+      JSON.stringify(entry.archived_duplicate_ids) !==
+        JSON.stringify(expected) ||
+      JSON.stringify(expected) !== JSON.stringify([...acknowledged].sort())
+    )
+      throw new StaffError('VERSION_CONFLICT');
+  }
+
+  submitCreate(
+    request: StaffRequest,
+    key: string | undefined,
+    rowId: string,
+    input: IngestionSubmitCreateIdentityInput,
+  ) {
+    this.assertCreateEnabled();
+    if (!input.reason.trim() || input.reason.includes(String.fromCharCode(0)))
+      throw new StaffError('VALIDATION_ERROR');
+    return this.ingestion.command(
+      request,
+      key,
+      'submitCreateIdentity',
+      'ingestion.read',
+      rowId,
+      input,
+      async (tx) => {
+        const plan = await this.createPlan(tx, rowId, input);
+        const id = randomUUID();
+        await tx.$executeRaw`
+        INSERT INTO public.ingestion_identity_submission
+         (id,digest,row_id,operation,source_id,source_version,evidence_id,decision_id,requester_id,
+          supplier_id,row_version,source_hash,duplicate_digest,reason,archived_duplicate_ids)
+        VALUES (${id}::uuid,${plan.planDigest},${rowId},'CREATE',${plan.source.id}::uuid,${plan.source.version},
+          ${input.evidenceId}::uuid,${input.decisionId}::uuid,${request.staff!.id}::uuid,${plan.supplierId}::uuid,
+          ${plan.row.version},${plan.row.sourceHash},${plan.duplicateDigest},${input.reason},${plan.archived}::uuid[])
+      `;
+        return {
+          status: 201,
+          data: {
+            id,
+            digest: plan.planDigest,
+            archivedDuplicateIds: plan.archived,
+          },
+        };
+      },
+      reconciliationPermissions.submit,
+    );
+  }
+
+  approveCreate(
+    request: StaffRequest,
+    key: string | undefined,
+    rowId: string,
+    id: string,
+    input: IngestionCreateIdentityConfirmationInput,
+  ) {
+    this.assertCreateEnabled();
+    if (!input.reason.trim() || input.reason.includes(String.fromCharCode(0)))
+      throw new StaffError('VALIDATION_ERROR');
+    return this.ingestion.command(
+      request,
+      key,
+      'approveCreateIdentity',
+      'ingestion.read',
+      rowId,
+      { id, ...input },
+      async (tx) => {
+        const entry = await this.loadSubmission(
+          tx,
+          rowId,
+          id,
+          input.digest,
+          'CREATE',
+        );
+        if (entry.requester_id === request.staff!.id)
+          throw new StaffError('FORBIDDEN');
+        const plan = await this.createPlan(tx, rowId, this.createInput(entry));
+        if (
+          plan.planDigest !== entry.digest ||
+          (await this.confirmations(tx, id)).length
+        )
+          throw new StaffError('VERSION_CONFLICT');
+        this.validateCreateAcknowledgement(
+          entry,
+          plan.archived,
+          input.acknowledgedDuplicateIds,
+        );
+        await tx.$executeRaw`
+        INSERT INTO public.ingestion_identity_confirmation
+          (submission_id,digest,row_id,operation,requester_id,approver_id,reason)
+        VALUES (${id}::uuid,${entry.digest},${rowId},'CREATE',${entry.requester_id}::uuid,
+          ${request.staff!.id}::uuid,${input.reason})
+      `;
+        return {
+          status: 200,
+          data: { id, digest: entry.digest, approved: true },
+        };
+      },
+      reconciliationPermissions.approve,
+    );
+  }
+
+  executeCreate(
+    request: StaffRequest,
+    key: string | undefined,
+    rowId: string,
+    id: string,
+    input: IngestionCreateIdentityExecutionInput,
+  ) {
+    this.assertCreateEnabled();
+    return this.ingestion.command(
+      request,
+      key,
+      'executeCreateIdentity',
+      'ingestion.read',
+      rowId,
+      { id, ...input },
+      async (tx) => {
+        const entry = await this.loadSubmission(
+          tx,
+          rowId,
+          id,
+          input.digest,
+          'CREATE',
+        );
+        const plan = await this.createPlan(tx, rowId, this.createInput(entry));
+        if (plan.planDigest !== entry.digest)
+          throw new StaffError('VERSION_CONFLICT');
+        this.validateCreateAcknowledgement(
+          entry,
+          plan.archived,
+          input.acknowledgedDuplicateIds,
+        );
+        const [confirmation] = await this.confirmations(tx, id);
+        if (!confirmation) throw new StaffError('INVALID_STATE_TRANSITION');
+        if (confirmation.approver_id === request.staff!.id)
+          throw new StaffError('FORBIDDEN');
+        const { evidence, n } = plan;
+        const fact = (key: string) =>
+          typeof n[key] === 'string' && n[key].length ? n[key] : null;
+        const cost = fact('purchase_cost');
+        const currency = fact('currency');
+        const observedAt = fact('source_observed_at');
+        const observed = observedAt ? Date.parse(observedAt) : NaN;
+        const now = Date.now();
+        const valid = (days: number) =>
+          Number.isFinite(observed) &&
+          observed <= now &&
+          now - observed < days * day;
+        const configuredDays = Number(
+          process.env.SUPPLIER_OFFER_FRESHNESS_DAYS,
+        );
+        const costDays =
+          Number.isInteger(configuredDays) && configuredDays > 0
+            ? Math.min(30, configuredDays)
+            : 30;
+        if (
+          (cost && (!currency || !valid(costDays))) ||
+          (fact('availability_text') && !valid(7)) ||
+          (fact('lead_time_text') && !valid(30))
+        )
+          throw new StaffError('INVALID_STATE_TRANSITION');
+        const result = await this.suppliers.createSupplierOfferInTransaction(
+          tx,
+          request,
+          request.staff!.id,
+          {
+            supplierId: plan.supplierId,
+            brandId: evidence.brand_id,
+            supplierPartNumber: plan.sku,
+            sourceBrandText: fact('source_brand_text'),
+            offerName: fact('offer_name'),
+            manufacturerName: evidence.manufacturer_name,
+            originalPartNumber: evidence.part_number,
+            modification: evidence.modification,
+            modificationEvidence:
+              evidence.modification_evidence as ModificationEvidence,
+            purchaseCost: cost,
+            currency,
+            sourceVatText: fact('source_vat_text'),
+            availabilityText: fact('availability_text'),
+            leadTimeText: fact('lead_time_text'),
+            sourceObservedAt: observedAt,
+            sourceUrl: fact('source_url'),
+            expiresAt: null,
+          },
+        );
+        const offer = result.data.data as {
+          id: string;
+          revisionId: string;
+          version: number;
+        };
+        const application = await tx.ingestionApplication.create({
+          data: {
+            id: randomUUID(),
+            operation: 'CREATE',
+            rowId,
+            sourceId: plan.source.id,
+            runId: plan.row.runId,
+            decisionId: entry.decision_id,
+            actorId: request.staff!.id,
+            offerId: offer.id,
+            baseRevisionId: null,
+            revisionId: offer.revisionId,
+            sourceHash: plan.row.sourceHash,
+            version: offer.version,
+          },
+        });
+        await tx.$executeRaw`
+        INSERT INTO public.ingestion_identity_execution
+          (application_id,submission_id,row_id,operation,executor_id,approver_id)
+        VALUES (${application.id}::uuid,${entry.id}::uuid,${rowId},'CREATE',
+          ${request.staff!.id}::uuid,${confirmation.approver_id}::uuid)
+      `;
+        return { status: 201, data: application };
+      },
+      [...reconciliationPermissions.execute, 'ingestion.createOffer'],
     );
   }
 }

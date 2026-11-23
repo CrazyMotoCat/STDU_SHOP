@@ -86,9 +86,11 @@ function usePage<T>(
 export default function IngestionWorkspace({
   editsEnabled,
   reconcileUpdateEnabled,
+  reconcileCreateEnabled,
 }: {
   editsEnabled: boolean;
   reconcileUpdateEnabled: boolean;
+  reconcileCreateEnabled: boolean;
 }) {
   const [session, setSession] = useState<Session | null>(null);
   const [reconciliationDecision, setReconciliationDecision] = useState<{
@@ -389,7 +391,13 @@ export default function IngestionWorkspace({
     }
   }
   function inspectIdentity() {
-    if (!row || !reconcileUpdateEnabled || !canPreview || !canReview || busy)
+    if (
+      !row ||
+      (!reconcileUpdateEnabled && !reconcileCreateEnabled) ||
+      !canPreview ||
+      !canReview ||
+      busy
+    )
       return;
     const selected = row;
     void execute(async () => {
@@ -420,7 +428,7 @@ export default function IngestionWorkspace({
       editDecision.rowId === row?.id &&
       editDecision.rowVersion === row.version &&
       editDecision.offerId === offerId) ||
-    (reconcileUpdateEnabled &&
+    ((reconcileUpdateEnabled || reconcileCreateEnabled) &&
       row &&
       reconciliationDecision?.rowId === row.id &&
       reconciliationDecision.version === row.version),
@@ -1258,16 +1266,17 @@ export default function IngestionWorkspace({
                     row.reviewState === 'PENDING' &&
                     !row.errorCode && (
                       <>
-                        {reconcileUpdateEnabled && canPreview && (
-                          <button
-                            type="button"
-                            className={styles.secondary}
-                            onClick={inspectIdentity}
-                            disabled={busy}
-                          >
-                            Проверить исходную идентичность для сверки
-                          </button>
-                        )}
+                        {(reconcileUpdateEnabled || reconcileCreateEnabled) &&
+                          canPreview && (
+                            <button
+                              type="button"
+                              className={styles.secondary}
+                              onClick={inspectIdentity}
+                              disabled={busy}
+                            >
+                              Проверить исходную идентичность для сверки
+                            </button>
+                          )}
                         <label>
                           Причина решения
                           <textarea
@@ -1357,6 +1366,7 @@ export default function IngestionWorkspace({
                       <ReconcileOffer
                         key={'identity-' + row.id}
                         rowId={row.id}
+                        rowVersion={row.version}
                         preview={preview}
                         decisionId={
                           decisions.find((item) => item.decision === 'ACCEPT')
@@ -1374,6 +1384,40 @@ export default function IngestionWorkspace({
                         }
                         canExecute={
                           canApply && has('ingestion.reconcile.execute')
+                        }
+                        runExclusive={execute}
+                        command={command}
+                        onApplied={() => {
+                          void loadDetail(row);
+                          setRefresh((value) => value + 1);
+                        }}
+                      />
+                    )}
+                  {reconcileCreateEnabled &&
+                    canPreview &&
+                    row.reviewState === 'ACCEPTED' && (
+                      <ReconcileOffer
+                        key={'create-identity-' + row.id}
+                        rowId={row.id}
+                        rowVersion={row.version}
+                        mode="CREATE"
+                        preview={null}
+                        decisionId={
+                          decisions.find((item) => item.decision === 'ACCEPT')
+                            ?.id ?? null
+                        }
+                        consumed={
+                          applications.length > 0 || Boolean(provenance)
+                        }
+                        busy={busy || previewLoading}
+                        canSubmit={
+                          canReview && has('ingestion.reconcile.submit')
+                        }
+                        canApprove={
+                          canReview && has('ingestion.reconcile.approve')
+                        }
+                        canExecute={
+                          canCreate && has('ingestion.reconcile.execute')
                         }
                         runExclusive={execute}
                         command={command}
