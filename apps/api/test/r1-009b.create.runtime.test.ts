@@ -1681,7 +1681,41 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
       (await requester.request('GET', path(winnerRow, 'applications'))).body
         .data,
     ).toEqual([]);
-  });
+    const browserFixture = await staged('offers-v1', 1);
+    const browserEvidence = randomUUID();
+    await owner.$executeRaw`
+      INSERT INTO public.ingestion_identity_evidence
+       (id,source_id,source_version,kind,reference,artifact_version,artifact_digest,attested_at,brand_id,
+        manufacturer_name,part_number,modification_evidence,modification)
+      SELECT ${browserEvidence}::uuid,${browserFixture.sourceId}::uuid,source_version,
+        kind,reference,artifact_version,artifact_digest,attested_at,brand_id,manufacturer_name,part_number,modification_evidence,modification
+      FROM public.ingestion_identity_evidence WHERE id=${evidence}::uuid
+    `;
+    const { reviewUiAcceptance } =
+      await import('../../../scripts/r1-009a-ui-acceptance.mjs');
+    await reviewUiAcceptance({
+      api,
+      cookies: [...requester.cookies],
+      runId: browserFixture.runId,
+      rowId: browserFixture.row.id,
+      offerId: '',
+      identityJourney: {
+        operation: 'CREATE',
+        evidenceId: browserEvidence,
+        approverCookies: [...approver.cookies],
+        executorCookies: [...requester.cookies],
+      },
+    });
+    expect(
+      await owner.ingestionApplication.findUnique({
+        where: { rowId: browserFixture.row.id },
+      }),
+    ).toMatchObject({
+      operation: 'CREATE',
+      baseRevisionId: null,
+      version: 1,
+    });
+  }, 120_000);
 
   it('lost reply after an actual COMMIT replays after restart, and revocation then denies replay', async () => {
     const fixture = await accepted();
