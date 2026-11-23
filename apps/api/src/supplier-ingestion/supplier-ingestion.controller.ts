@@ -1,3 +1,9 @@
+import { SupplierReconciliationService } from './supplier-reconciliation.service.js';
+import {
+  IngestionSubmitIdentityInput,
+  IngestionIdentityConfirmationInput,
+  IngestionIdentityExecutionInput,
+} from './supplier-reconciliation.dto.js';
 import {
   IngestionEditsPreviewInput,
   IngestionApplyEditsInput,
@@ -150,6 +156,8 @@ export class SupplierIngestionController {
   constructor(
     @Inject(SupplierIngestionService)
     private readonly service: SupplierIngestionService,
+    @Inject(SupplierReconciliationService)
+    private readonly reconciliation: SupplierReconciliationService,
     @Inject(SupplierApplyService)
     private readonly applyService: SupplierApplyService,
     @Inject(SupplierCreateService)
@@ -678,5 +686,150 @@ export class SupplierIngestionController {
     @Param('id', rowId) id: string,
   ) {
     return this.createService.provenance(request, id);
+  }
+
+  @Get('rows/:id/identity-inspection')
+  @ApiOperation({ operationId: 'ingestion_inspectIdentity' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pending row review eligibility without granting execution',
+  })
+  @StaffOperation({ permission: 'ingestion.read', csrf: 'NONE', audit: 'none' })
+  ingestion_inspectIdentity(
+    @Req() request: StaffRequest,
+    @Param('id', rowId) id: string,
+  ) {
+    return this.reconciliation.inspect(request, id);
+  }
+
+  @Get('rows/:id/identity-reconciliations')
+  @ApiOperation({ operationId: 'ingestion_identityHistory' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Bounded protected identity reconciliation history',
+  })
+  @StaffOperation({ permission: 'ingestion.read', csrf: 'NONE', audit: 'none' })
+  ingestion_identityHistory(
+    @Req() request: StaffRequest,
+    @Param('id', rowId) id: string,
+  ) {
+    return this.reconciliation.history(request, id);
+  }
+
+  @Post('rows/:id/identity-reconciliations')
+  @ApiOperation({ operationId: 'ingestion_submitIdentity' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Append-only target-bound identity submission',
+  })
+  @StaffOperation({
+    permission: 'ingestion.reconcile.submit',
+    csrf: 'STAFF_BOUND',
+    audit: 'none',
+  })
+  ingestion_submitIdentity(
+    @Req() request: StaffRequest,
+    @Param('id', rowId) id: string,
+    @Headers('idempotency-key') key: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+    @Body() body: IngestionSubmitIdentityInput,
+  ) {
+    return this.respond(
+      response,
+      this.reconciliation.submit(request, key, id, body),
+    );
+  }
+
+  @Post('rows/:id/identity-reconciliations/:submissionId/confirm')
+  @ApiOperation({ operationId: 'ingestion_approveIdentity' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiParam({
+    name: 'submissionId',
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Independent immutable identity confirmation',
+  })
+  @StaffOperation({
+    permission: 'ingestion.reconcile.approve',
+    csrf: 'STAFF_BOUND',
+    audit: 'none',
+  })
+  ingestion_approveIdentity(
+    @Req() request: StaffRequest,
+    @Param('id', rowId) id: string,
+    @Headers('idempotency-key') key: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+    @Param('submissionId', uuid) submissionId: string,
+    @Body() body: IngestionIdentityConfirmationInput,
+  ) {
+    return this.respond(
+      response,
+      this.reconciliation.approve(request, key, id, submissionId, body),
+    );
+  }
+
+  @Post('rows/:id/identity-reconciliations/:submissionId/apply')
+  @ApiOperation({ operationId: 'ingestion_applyIdentity' })
+  @ApiParam({
+    name: 'id',
+    schema: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+  })
+  @ApiParam({
+    name: 'submissionId',
+    schema: { type: 'string', format: 'uuid' },
+  })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: true,
+    schema: { type: 'string', minLength: 8, maxLength: 128 },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Explicit reconciled supplier update',
+  })
+  @StaffOperation({
+    permission: 'ingestion.reconcile.execute',
+    csrf: 'STAFF_BOUND',
+    audit: 'supplier_offer.revised',
+  })
+  ingestion_applyIdentity(
+    @Req() request: StaffRequest,
+    @Param('id', rowId) id: string,
+    @Headers('idempotency-key') key: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+    @Param('submissionId', uuid) submissionId: string,
+    @Body() body: IngestionIdentityExecutionInput,
+  ) {
+    return this.respond(
+      response,
+      this.reconciliation.executeUpdate(request, key, id, submissionId, body),
+    );
   }
 }

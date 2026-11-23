@@ -7,6 +7,18 @@
     "ingestion.applyEdits": {
       "description": "Apply explicit economic edits from one accepted staging row",
       "defaultDeny": true
+    },
+    "ingestion.reconcile.submit": {
+      "description": "Submit supplier identity evidence",
+      "defaultDeny": true
+    },
+    "ingestion.reconcile.approve": {
+      "description": "Independently approve supplier identity evidence",
+      "defaultDeny": true
+    },
+    "ingestion.reconcile.execute": {
+      "description": "Execute an approved supplier identity reconciliation",
+      "defaultDeny": true
     }
   }
 }

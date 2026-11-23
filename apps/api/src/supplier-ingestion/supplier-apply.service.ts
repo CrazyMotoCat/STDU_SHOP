@@ -140,7 +140,7 @@ function identityMatches(row: IngestionRow, current: SupplierOfferRevision) {
   );
 }
 
-function copyRevision(
+export function copyRevision(
   current: SupplierOfferRevision,
   expectedVersion: number,
 ): ReviseSupplierOfferDto {

@@ -773,6 +773,59 @@ export const STAFF_OPERATION_CONTRACT_NOTES = {
       'CSRF_INVALID',
     ],
   },
+  ingestion_inspectIdentity: {
+    invariants: [
+      'Reviews a pending row without changing an offer or granting execution.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_identityHistory: {
+    invariants: [
+      'Bounded Staff-only evidence, decision and execution history.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+    ],
+  },
+  ingestion_submitIdentity: {
+    invariants: [
+      'An authorized employee binds verified evidence and the exact current target to an immutable digest.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+      'CSRF_INVALID',
+    ],
+  },
+  ingestion_approveIdentity: {
+    invariants: [
+      'A different employee confirms the exact bound digest after revalidation.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+      'CSRF_INVALID',
+    ],
+  },
+  ingestion_applyIdentity: {
+    invariants: [
+      'An explicit grant, separate executor, refreshed evidence, OCC and one transaction protect SupplierOffer revision and history.',
+    ],
+    errorsBeforeObjectLookup: [
+      'AUTH_REQUIRED',
+      'PASSWORD_CHANGE_REQUIRED',
+      'FORBIDDEN',
+      'CSRF_INVALID',
+    ],
+  },
   ingestion_editHistory: {
     invariants: [
       'Current ingestion and supplier read authorization gates a bounded immutable revision comparison.',

@@ -18,6 +18,7 @@ export async function reviewUiAcceptance({
   offerId,
   brandId,
   clear,
+  identity,
 }) {
   const origin = process.env.R1_009A_WEB_ORIGIN;
   assert.match(origin ?? '', /^https:\/\/127\.0\.0\.1:\d+$/);
@@ -25,9 +26,11 @@ export async function reviewUiAcceptance({
     root,
     brandId
       ? '.local/r1-009b-create/screenshots'
-      : clear
-        ? '.local/r1-009b-clear/screenshots'
-        : '.local/r1-009a/screenshots',
+      : identity
+        ? '.local/r1-009b-reconcile-update/screenshots'
+        : clear
+          ? '.local/r1-009b-clear/screenshots'
+          : '.local/r1-009a/screenshots',
   );
   await mkdir(screenshots, { recursive: true });
   const reservation = netServer();
@@ -197,7 +200,29 @@ export async function reviewUiAcceptance({
           });
           await page.goto(origin + '/staff/suppliers/ingestion');
           try {
-            await page.getByTestId('run-' + runId).click();
+            const target = page.getByTestId('run-' + runId);
+            if (identity) {
+              for (
+                let pageIndex = 0;
+                pageIndex < 4 && !(await target.isVisible());
+                pageIndex++
+              ) {
+                const next = page.getByRole('button', {
+                  name: 'Следующие запуски',
+                });
+                const runs = page.locator('[data-testid^="run-"]');
+                await runs.first().waitFor();
+                if ((await target.isVisible()) || !(await next.isEnabled()))
+                  break;
+                const previous = await runs.first().getAttribute('data-testid');
+                await next.click();
+                if (previous)
+                  await page
+                    .getByTestId(previous)
+                    .waitFor({ state: 'detached' });
+              }
+            }
+            await target.click();
           } catch (error) {
             await page.screenshot({
               path: resolve(screenshots, 'failure.png'),
@@ -218,6 +243,33 @@ export async function reviewUiAcceptance({
             return;
           }
           await page.getByTestId('row-' + rowId).click();
+          if (identity) {
+            const panel = page
+              .locator('details')
+              .filter({ hasText: 'Ручная сверка идентичности · UPDATE' });
+            await panel.locator('summary').click();
+            await panel
+              .getByText('Квитанция · ' + identity, { exact: true })
+              .waitFor();
+            for (const width of [1440, 375]) {
+              await page.setViewportSize({ width, height: 1000 });
+              assert(
+                await page.evaluate(
+                  () => document.documentElement.scrollWidth <= innerWidth,
+                ),
+                'Identity page overflow',
+              );
+              await panel.screenshot({
+                path: resolve(
+                  screenshots,
+                  'reconciled-update-' + width + '.png',
+                ),
+              });
+            }
+            assert.deepEqual(errors, []);
+            await context.close();
+            return;
+          }
           await page.getByLabel('ID существующего предложения').fill(offerId);
           await page
             .getByRole('button', {

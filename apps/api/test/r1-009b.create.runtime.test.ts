@@ -1134,6 +1134,202 @@ describe.skipIf(!enabled)('CREATE-01 PostgreSQL staff service', () => {
     expect((await editor.write('POST', applyPath, body, key)).status).toBe(403);
   }, 60_000);
 
+  it('binds reconciled UPDATE to independently confirmed evidence and current target', async () => {
+    const fixture = await staged('offers-v1');
+    const baseline = await owner.ingestionRun.findUniqueOrThrow({
+      where: { id: fixture.runId },
+    });
+    const snapshot = [
+      {
+        manufacturer_name: 'TEST Instruments',
+        original_part_number: 'TEST-CTRL-001',
+        supplier_part_number: 'TEST-0001',
+        source_vat_text: 'TEST verified new VAT text',
+      },
+    ];
+    const raw = Buffer.from(JSON.stringify(snapshot));
+    const sourceHash = createHash('sha256').update(raw).digest('hex');
+    const runId = randomUUID();
+    const rowId = createHash('sha256').update(runId).digest('hex');
+    await owner.ingestionRun.create({
+      data: {
+        id: runId,
+        sourceId: fixture.sourceId,
+        sourceVersion: baseline.sourceVersion,
+        sourceSnapshot: baseline.sourceSnapshot as object,
+        actorId: full.userId,
+        requestId: randomUUID(),
+        state: 'COMPLETE',
+        processed: 1,
+        candidateCount: 1,
+        attempts: 1,
+        rawSnapshot: raw,
+        sourceHash,
+        finishedAt: new Date(),
+        rows: {
+          create: {
+            id: rowId,
+            rowNumber: 1,
+            sourceHash,
+            normalized: snapshot[0]!,
+            warnings: [],
+            modificationEvidence: 'UNKNOWN',
+            reviewState: 'PENDING',
+          },
+        },
+      },
+    });
+    const target = await full.write('POST', '/v1/staff/supplier-offers', {
+      supplierId: fixture.selectedSupplier,
+      brandId,
+      supplierPartNumber: 'TEST-0001',
+      manufacturerName: 'TEST Instruments',
+      originalPartNumber: 'TEST-CTRL-001',
+      modificationEvidence: 'SPECIFIED',
+      modification: 'A',
+      sourceVatText: 'TEST older value',
+    });
+    expect(target.status, JSON.stringify(target.body)).toBe(201);
+    const decision = await decide(rowId);
+    const evidenceId = randomUUID();
+    const oldEvidenceId = randomUUID();
+    const testDigest = createHash('sha256')
+      .update('TEST independently verified data')
+      .digest('hex');
+    for (const [id, date] of [
+      [evidenceId, new Date(Date.now() - 60_000)],
+      [oldEvidenceId, new Date(Date.now() - 366 * 86400000)],
+    ] as const) {
+      await owner.$executeRaw`
+        INSERT INTO public.ingestion_identity_evidence
+          (id,source_id,source_version,kind,reference,artifact_version,artifact_digest,attested_at,brand_id,manufacturer_name,part_number,modification_evidence,modification)
+        VALUES (${id}::uuid,${fixture.sourceId}::uuid,1,'MANUFACTURER_DOCUMENT','TEST controlled manufacturer document','TEST 1',
+          ${testDigest},${date},${brandId}::uuid,'TEST Instruments','TEST-CTRL-001','SPECIFIED','A')
+      `;
+    }
+    const reviewer = await actor(
+      [...permissions, 'ingestion.reconcile.approve'],
+      'reconcile-reviewer',
+    );
+    const executor = await actor(
+      [
+        ...permissions,
+        'ingestion.reconcile.submit',
+        'ingestion.reconcile.approve',
+        'ingestion.reconcile.execute',
+      ],
+      'reconcile-executor',
+    );
+    const endpoint = path(rowId, 'identity-reconciliations');
+    const dbOffer = data(target);
+    const body = {
+      offerId: dbOffer.id,
+      expectedOfferVersion: dbOffer.version,
+      expectedOfferRevisionId: dbOffer.revisionId,
+      expectedRowVersion: 2,
+      decisionId: decision.id,
+      reason: 'TEST reconcile known part with documented variant',
+      evidenceId,
+    };
+    expect((await full.write('POST', endpoint, body)).status).toBe(403);
+    expect(
+      (
+        await executor.write('POST', endpoint, {
+          ...body,
+          evidenceId: oldEvidenceId,
+        })
+      ).status,
+    ).toBe(409);
+    const submitted = await executor.write('POST', endpoint, body);
+    expect(submitted.status, JSON.stringify(submitted.body)).toBe(201);
+    const entry = data(submitted);
+    const confirmation = endpoint + '/' + entry.id + '/confirm';
+    const application = endpoint + '/' + entry.id + '/apply';
+    const confirmedInput = {
+      digest: entry.digest,
+      reason: 'TEST compare exact reference and target',
+    };
+    expect(
+      (await executor.write('POST', confirmation, confirmedInput)).status,
+    ).toBe(403);
+    expect(
+      (
+        await reviewer.write('POST', confirmation, {
+          ...confirmedInput,
+          digest: 'f'.repeat(64),
+        })
+      ).status,
+    ).toBe(409);
+    const approved = await Promise.all([
+      reviewer.write('POST', confirmation, confirmedInput),
+      reviewer.write('POST', confirmation, confirmedInput),
+    ]);
+    expect(approved.map((value) => value.status).sort()).toEqual([200, 409]);
+    expect(
+      (
+        await reviewer.write('POST', application, {
+          digest: entry.digest,
+          confirmed: true,
+        })
+      ).status,
+    ).toBe(403);
+    const key = randomUUID();
+    const applied = await executor.write(
+      'POST',
+      application,
+      { digest: entry.digest, confirmed: true },
+      key,
+    );
+    expect(applied.status, JSON.stringify(applied.body)).toBe(200);
+    expect(
+      (
+        await executor.write(
+          'POST',
+          application,
+          { digest: entry.digest, confirmed: true },
+          key,
+        )
+      ).body,
+    ).toEqual(applied.body);
+    expect(
+      (
+        await executor.write('POST', application, {
+          digest: entry.digest,
+          confirmed: true,
+        })
+      ).status,
+    ).toBe(409);
+    const revised = await owner.supplierOfferRevision.findUniqueOrThrow({
+      where: { id: String(data(applied).revisionId) },
+    });
+    expect(revised).toMatchObject({
+      sourceVatText: snapshot[0]!.source_vat_text,
+      brandId,
+      originalPartNumber: 'TEST-CTRL-001',
+      modification: 'A',
+    });
+    const legacy = await full.request('GET', path(rowId, 'applications'));
+    expect(legacy.body.data).toEqual([
+      expect.objectContaining({
+        id: data(applied).id,
+        baseRevisionId: dbOffer.revisionId,
+      }),
+    ]);
+    const { reviewUiAcceptance } =
+      await import('../../../scripts/r1-009a-ui-acceptance.mjs');
+    await reviewUiAcceptance({
+      api,
+      cookies: [...executor.cookies],
+      runId,
+      rowId,
+      offerId: String(dbOffer.id),
+      identity: String(data(applied).id),
+    });
+    await expect(
+      owner.$executeRaw`UPDATE public.ingestion_identity_submission SET reason='changed' WHERE id=${String(entry.id)}::uuid`,
+    ).rejects.toThrow();
+  }, 60_000);
+
   it('lost reply after an actual COMMIT replays after restart, and revocation then denies replay', async () => {
     const fixture = await accepted();
     const input = await confirmed(fixture);

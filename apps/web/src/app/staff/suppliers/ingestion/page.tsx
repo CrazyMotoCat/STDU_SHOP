@@ -11,6 +11,9 @@ export default async function SupplierIngestionPage() {
   await connection();
   return (
     <IngestionWorkspace
+      reconcileUpdateEnabled={
+        process.env.SUPPLIER_INGESTION_RECONCILE_UPDATE_ENABLED === 'true'
+      }
       editsEnabled={process.env.SUPPLIER_INGESTION_CLEAR_ENABLED === 'true'}
     />
   );

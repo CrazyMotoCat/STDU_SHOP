@@ -1,3 +1,4 @@
+import { SupplierReconciliationService } from './supplier-reconciliation.service.js';
 import { SupplierCreateService } from './supplier-create.service.js';
 import { SuppliersModule } from '../suppliers/suppliers.module.js';
 import { SupplierApplyService } from './supplier-apply.service.js';
@@ -16,6 +17,7 @@ import { SupplierIngestionWorker } from './supplier-ingestion.worker.js';
   controllers: [SupplierIngestionController],
   providers: [
     SupplierApplyService,
+    SupplierReconciliationService,
     SupplierCreateService,
     SupplierExtractionClient,
     SupplierIngestionService,

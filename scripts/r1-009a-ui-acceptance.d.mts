@@ -4,6 +4,7 @@ export function reviewUiAcceptance(
     cookies: Array<[string, string]>;
     runId: string;
     rowId: string;
+    identity?: string;
   } & (
     | { offerId: string; brandId?: never; clear?: boolean }
     | { brandId: string; offerId?: never; clear?: never }

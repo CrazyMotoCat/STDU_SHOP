@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ReconcileOffer } from './reconcile-offer';
 import { EditHistory, EditOffer } from './edit-offer';
 import {
   useCallback,
@@ -84,10 +85,16 @@ function usePage<T>(
 
 export default function IngestionWorkspace({
   editsEnabled,
+  reconcileUpdateEnabled,
 }: {
   editsEnabled: boolean;
+  reconcileUpdateEnabled: boolean;
 }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [reconciliationDecision, setReconciliationDecision] = useState<{
+    rowId: string;
+    version: number;
+  } | null>(null);
   const [checking, setChecking] = useState(true);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -381,6 +388,24 @@ export default function IngestionWorkspace({
       if (epoch === detailEpoch.current) setPreviewLoading(false);
     }
   }
+  function inspectIdentity() {
+    if (!row || !reconcileUpdateEnabled || !canPreview || !canReview || busy)
+      return;
+    const selected = row;
+    void execute(async () => {
+      const { data } = await request<{
+        data: { rowVersion: number; decisionEligible: boolean };
+      }>(base + '/rows/' + selected.id + '/identity-inspection');
+      setReconciliationDecision(
+        data.decisionEligible
+          ? { rowId: selected.id, version: data.rowVersion }
+          : null,
+      );
+      if (!data.decisionEligible)
+        setNotice('Исходная строка пока не готова к сверке.');
+    });
+  }
+
   const reviewable = Boolean(
     (preview &&
       (preview.eligible || preview.blockedReason === 'NOT_ACCEPTED')) ||
@@ -394,7 +419,11 @@ export default function IngestionWorkspace({
       editDecision &&
       editDecision.rowId === row?.id &&
       editDecision.rowVersion === row.version &&
-      editDecision.offerId === offerId),
+      editDecision.offerId === offerId) ||
+    (reconcileUpdateEnabled &&
+      row &&
+      reconciliationDecision?.rowId === row.id &&
+      reconciliationDecision.version === row.version),
   );
   function decide(decision: 'ACCEPT' | 'REJECT') {
     if (
@@ -1229,6 +1258,16 @@ export default function IngestionWorkspace({
                     row.reviewState === 'PENDING' &&
                     !row.errorCode && (
                       <>
+                        {reconcileUpdateEnabled && canPreview && (
+                          <button
+                            type="button"
+                            className={styles.secondary}
+                            onClick={inspectIdentity}
+                            disabled={busy}
+                          >
+                            Проверить исходную идентичность для сверки
+                          </button>
+                        )}
                         <label>
                           Причина решения
                           <textarea
@@ -1308,6 +1347,38 @@ export default function IngestionWorkspace({
                           setNotice(
                             'Явные правки применены. Создана новая редакция.',
                           );
+                          setRefresh((value) => value + 1);
+                        }}
+                      />
+                    )}
+                  {reconcileUpdateEnabled &&
+                    canPreview &&
+                    row.reviewState === 'ACCEPTED' && (
+                      <ReconcileOffer
+                        key={'identity-' + row.id}
+                        rowId={row.id}
+                        preview={preview}
+                        decisionId={
+                          decisions.find((item) => item.decision === 'ACCEPT')
+                            ?.id ?? null
+                        }
+                        consumed={
+                          applications.length > 0 || Boolean(provenance)
+                        }
+                        busy={busy || previewLoading}
+                        canSubmit={
+                          canReview && has('ingestion.reconcile.submit')
+                        }
+                        canApprove={
+                          canReview && has('ingestion.reconcile.approve')
+                        }
+                        canExecute={
+                          canApply && has('ingestion.reconcile.execute')
+                        }
+                        runExclusive={execute}
+                        command={command}
+                        onApplied={() => {
+                          void loadDetail(row);
                           setRefresh((value) => value + 1);
                         }}
                       />
