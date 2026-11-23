@@ -201,26 +201,22 @@ export async function reviewUiAcceptance({
           await page.goto(origin + '/staff/suppliers/ingestion');
           try {
             const target = page.getByTestId('run-' + runId);
-            if (identity) {
-              for (
-                let pageIndex = 0;
-                pageIndex < 4 && !(await target.isVisible());
-                pageIndex++
-              ) {
-                const next = page.getByRole('button', {
-                  name: 'Следующие запуски',
-                });
-                const runs = page.locator('[data-testid^="run-"]');
-                await runs.first().waitFor();
-                if ((await target.isVisible()) || !(await next.isEnabled()))
-                  break;
-                const previous = await runs.first().getAttribute('data-testid');
-                await next.click();
-                if (previous)
-                  await page
-                    .getByTestId(previous)
-                    .waitFor({ state: 'detached' });
-              }
+            const runs = page.locator('[data-testid^="run-"]');
+            await runs.first().waitFor();
+            for (
+              let index = 0;
+              index < 4 && !(await target.isVisible());
+              index++
+            ) {
+              const next = page.getByRole('button', {
+                name: 'Следующие запуски',
+              });
+              if (!(await next.isEnabled())) break;
+              const previous = await runs.first().getAttribute('data-testid');
+              await next.click();
+              if (previous)
+                await page.getByTestId(previous).waitFor({ state: 'detached' });
+              await runs.first().waitFor();
             }
             await target.click();
           } catch (error) {
